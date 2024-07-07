@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link rel="apple-touch-icon" sizes="76x76" href="../assets/img/apple-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <title>
+    EmeraldNetwork | Profile
+  </title>
+  <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,600,700" rel="stylesheet" />
+  <script src="https://kit.fontawesome.com/42d5adcbca.js" crossorigin="anonymous"></script>
+  <link id="pagestyle" href="../assets/css/ice-maincore.css?v=1.0.7" rel="stylesheet" />
+  <script>
+    if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+        window.location.href = "blocked.html";
+    }
+  </script>
+  <style>
+    img {
+      pointer-events: none;
+    }
+  </style>
+</head>
+  <!-- THIS WEBSITE IS CREATED BY ICEEMERALD -->
+
+  <style>
+    .tag {
+      opacity: 0;
+      transform: translateY(10vh); 
+      transition: opacity 1s, transform 1s; 
+    }
+
+    .tag.visible {
+      opacity: 1; 
+      transform: translateY(0);
+    }
+
+    .custom-green-color {
+      color: #00B000; 
+    }
+    
+  </style>
+
+  <div class="preloader">
+    <div class="lds-ellipsis"><div></div><div></div><div></div><div></div></div>
+  </div>
+
+  <style>
+    .lds-ellipsis,
+    .lds-ellipsis div {
+      box-sizing: border-box;
+    }
+    .lds-ellipsis {
+      display: inline-block;
+      position: relative;
+      width: 80px;
+      height: 80px;
+    }
+    .lds-ellipsis div {
+      position: absolute;
+      top: 33.33333px;
+      width: 13.33333px;
+      height: 13.33333px;
+      border-radius: 50%;
+      background: darkgreen;
+      animation-timing-function: cubic-bezier(0, 1, 1, 0);
+    }
+    .lds-ellipsis div:nth-child(1) {
+      left: 8px;
+      animation: lds-ellipsis1 0.6s infinite;
+    }
+    .lds-ellipsis div:nth-child(2) {
+      left: 8px;
+      animation: lds-ellipsis2 0.6s infinite;
+    }
+    .lds-ellipsis div:nth-child(3) {
+      left: 32px;
+      animation: lds-ellipsis2 0.6s infinite;
+    }
+    .lds-ellipsis div:nth-child(4) {
+      left: 56px;
+      animation: lds-ellipsis3 0.6s infinite;
+    }
+    @keyframes lds-ellipsis1 {
+      0% {
+        transform: scale(0);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+    @keyframes lds-ellipsis3 {
+      0% {
+        transform: scale(1);
+      }
+      100% {
+        transform: scale(0);
+      }
+    }
+    @keyframes lds-ellipsis2 {
+      0% {
+        transform: translate(0, 0);
+      }
+      100% {
+        transform: translate(24px, 0);
+      }
+    }
+
+    .preloader {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+  </style>
+
+
+  <script>
+    window.addEventListener('load', function () {
+      const preloader = document.querySelector('.preloader');
+      const content = document.querySelector('.content');
+
+      function hidePreloader() {
+        preloader.style.opacity = '0';
+        setTimeout(function () {
+          preloader.style.display = 'none';
+          content.style.display = 'block';
+          content.style.opacity = '1';
+        }, 500);
+      }
+
+      if (document.readyState === 'complete') {
+        hidePreloader();
+      } else {
+        window.addEventListener('load', hidePreloader);
+      }
+    });
+
+  </script>
+  
+
+<body class="content">
+  <div class="container position-sticky z-index-sticky top-0">
+    <div class="row">
+      <div class="col-12">
+        <nav class="navbar navbar-expand-lg blur blur-rounded top-0 z-index-3 shadow position-absolute my-3 py-2 start-0 end-0 mx-4">
+          <div class="container-fluid pe-0">
+            <a class="navbar-brand font-weight-bolder ms-lg-0 ms-3 " href="index.html">
+              ㅤㅤㅤㅤㅤㅤEmeraldNetwork | Profile
+            </a>
+            <button class="navbar-toggler shadow-none ms-2" type="button" data-bs-toggle="collapse" data-bs-target="#navigation" aria-controls="navigation" aria-expanded="false" aria-label="Toggle navigation">
+              <span class="navbar-toggler-icon mt-2">
+                <span class="navbar-toggler-bar bar1"></span>
+                <span class="navbar-toggler-bar bar2"></span>
+                <span class="navbar-toggler-bar bar3"></span>
+              </span>
+            </button>
+            <div class="collapse navbar-collapse" id="navigation">
+              <ul class="navbar-nav mx-auto ms-xl-auto me-xl-7">
+                <li class="nav-item">
+                    <a class="nav-link d-flex align-items-center me-2 active" aria-current="page" href="index.html">
+                      <i class="fa fa-home opacity-6  me-1"></i>
+                      Home
+                    </a>
+                  </li>
+                <li class="nav-item">
+                  <a class="nav-link d-flex align-items-center me-2 active custom-green-color" aria-current="page" href="profile.html">
+                    <i class="fa fa-user opacity-6 me-1 custom-green-color"></i>
+                    Profile
+                  </a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link me-2" href="gallery.html">
+                    <i class="fa fa-image opacity-6  me-1"></i>
+                    Gallery
+                  </a>
+                </li>
+                </ul>
+              </ul>
+            </div>
+          </div>
+        </nav>
+
+        <style>
+          .unselectable {
+              user-select: none;
+          }
+
+          .selectable {
+              user-select: auto; 
+              cursor: text;
+          }
+
+        </style>
+      </div>
+    </div>
+  </div>
+  <main class="main-content  mt-0  unselectable">
+    <section class="tag">
+            <div class="container">
+                <div class="row">
+                    <div class="col-sm-12">
+                        <div class="title-box text-center">
+                          <h1 class="text-white mb-2 mt-5">ㅤ</h1>
+                          <h1 class="text-white mb-2 mt-5">ㅤ</h1>
+                            <h3 class="text-lead text-black"><b>IceEmerald | EmeraldNetwork</b></h3>
+                          <p class="text-lead text-black">About IceEmerald, Frequently Asked Questions, Story & more. Scroll to continue...</p>
+                        </div>
+                                      </div>
+                                  </div>
+                              </div>
+                          </div>
+                      </section>
+    <section id="about">
+      <div class="container tag">
+        <div class="row align-items-center">
+          <div class="col-md-6 mb-6 mb-md-0"><img src="/assets/img/ice.png" /></div>
+          <div class="col-md-6 text-center text-md-start mb-6 px-4">
+            <h5 class="text-white mb-2 mt-5">ㅤ</h5>
+            <h3 class="text-lead text-black">About IceEmerald</h3>
+            <h5 class="text-white mb-2 mt-5"> </h5>
+            <p class="text-lead text-black">IceEmerald is someone who has a hobby of making applications such as discord bots, websites, Minecraft servers, Minecraft plugins. creating content on YouTube and Instagram, creating images and stories.</p>
+            <h5 class="text-white mb-2 mt-5"> </h5>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section id="about">
+      <div class="container tag">
+        <div class="row align-items-center">
+          <div class="title-box text-center">
+          <h3 class="text-lead text-black">Why is my name IceEmerald?</h3>
+            <h5 class="text-white mb-2 mt-5"> </h5>
+            <p class="text-lead text-black">My name is taken from the word Ice which has a cold temperature, which means I like cold things, and emerald is a rare object that is very valuable, I hope I can create something valuable and useful for everyone.</p>
+            <h5 class="text-white mb-2 mt-5"> </h5>
+            <h1 class="text-white mb-2 mt-5">ㅤ</h1>
+            <h1 class="text-white mb-2 mt-5">ㅤ</h1>
+          </div>
+        </div>
+      </div>
+    </section>
+    <style>
+      table {
+          width: 100%;
+          border-collapse: collapse;
+          border: none
+      }
+
+      th, td {
+          padding: 10px;
+          text-align: center;
+      }
+
+      th.right-box, td.right-box {
+      width: 50%;
+
+    </style>
+    <section id="about">
+      <div class="container tag">
+        <div class="row align-items-center">
+          <div class="title-box text-center">
+          <div class="col-md-6 mb-6 mb-md-0"></div>
+            <h5 class="text-white mb-2 mt-5">ㅤ</h5>
+            <h3 class="text-lead text-black">Character Meaning</h3>
+            <h5 class="text-white mb-2 mt-5"> </h5>
+          </div>
+          <h5 class="text-black mb-2 mt-5"> </h5>
+          <h5 class="text-black mb-2 mt-5">1. Name</h5>
+            <p class="text-lead text-black">The name IceEmerald reflects a unique blend of traits. ‘Ice’ signifies a preference for the cool and serene, much like the tranquil stillness of a winter landscape. It suggests a character who is calm under pressure, clear-minded, and possesses an inner strength that is both refreshing and invigorating. The ‘Emerald’ part of the name denotes rarity and value, akin to the precious gemstone known for its vibrant green hue. It implies that IceEmerald has a rare talent or ability that is highly prized and sought after. This character aims to create things of lasting worth and significance, much like an emerald endures through time as a symbol of beauty and durability.</p>
+            <h5 class="text-white mb-2 mt-5"> </h5>
+          <h5 class="text-black mb-2 mt-5">2. Appearance</h5>
+          <p class="text-lead text-black">Cat Ears: IceEmerald’s cat ears, tinted with the golden radiance of blonde, symbolize a cheerful and sunny disposition. They represent an alertness and intelligence, as well as a playful and sociable nature.</p>
+          <p class="text-lead text-black">Fluffy Cat Tail: The white tail stands out as a symbol of clarity and purity. It’s a sign of IceEmerald’s calm and composed demeanor, reflecting a peaceful presence that brings comfort to those around him.</p>
+          <h5 class="text-white mb-2 mt-5"> </h5>
+          <h5 class="text-black mb-2 mt-5">3. Color</h5>
+          <p class="text-lead text-black">Blonde and White: The colors themselves carry their own meanings. Blonde, as a color, is often associated with light-heartedness and joy, while white represents simplicity and elegance. Together, they convey a character who is both approachable and refined.</p>
+            <h1 class="text-white mb-2 mt-5"> </h1>
+            <h1 class="text-white mb-2 mt-5">ㅤ</h1>
+            <h1 class="text-white mb-2 mt-5">ㅤ</h1>
+        </div>
+      </div>
+    </section>
+    <section id="about">
+      <div class="container tag">
+        <div class="row align-items-center">
+          <div class="title-box text-center">
+          <div class="col-md-6 mb-6 mb-md-0"></div>
+            <h5 class="text-white mb-2 mt-5">ㅤ</h5>
+            <h3 class="text-lead text-black">Character Assets Example</h3>
+            <h5 class="text-white mb-2 mt-5"> </h5>
+            <p class="text-lead text-black">A rough idea of my character: White Cat Ears, White Fluffy Tail, Black Overalls.</p>
+            <h1 class="text-white mb-2 mt-5"> </h1>
+            <img src="/assets/img/assetimg.png" style="display: block; margin: 0 auto; max-width: 100%;"/>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section id="about">
+      <div class="container tag">
+        <div class="row align-items-center">
+          <div class="title-box text-center">
+          <div class="col-md-6 mb-6 mb-md-0"></div>
+            <div class="button-group tag">
+              <h5 class="text-white mb-2 mt-5">ㅤ</h5><h5 class="text-white mb-2 mt-5">ㅤ</h5><h5 class="text-white mb-2 mt-5">ㅤ</h5>
+              <a href="index.html" style="text-decoration:none" class="btn btn-primary">ㅤBack to homeㅤ</a>
+              <span class="button-gap">ㅤ</span>
+              <a href="#" style="text-decoration:none" class="btn btn-primary">ㅤBack to topㅤ</a>
+              <h5 class="text-white mb-2 mt-5">ㅤ</h5><h5 class="text-white mb-2 mt-5">ㅤ</h5><h5 class="text-white mb-2 mt-5">ㅤ</h5>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+      <footer class="text-center text-black" style="background: linear-gradient(to bottom, #EEFFEE, white);">
+        <div class="container">
+          <section class="mt-5">
+            <h1 class="text-white mb-2 mt-5">ㅤ</h1>
+            <div class="row text-center d-flex justify-content-center pt-5">
+              <div class="col-md-2">
+                <h6 class="text-uppercase font-weight-bold">
+                  <a href="https://www.youtube.com/iceemerald" class="text-black">Youtube</a>
+                </h6>
+              </div>
+              <div class="col-md-2">
+                <h6 class="text-uppercase font-weight-bold">
+                  <a href="https://www.instagram.com/iceemerald23" class="text-black">Instagram</a>
+                </h6>
+              </div>
+              <div class="col-md-2">
+                <h6 class="text-uppercase font-weight-bold">
+                  <a href="https://discord.gg/CQqZ34T8Jn" class="text-black">Discord</a>
+                </h6>
+              </div>
+                </h6>
+              </div>
+            </div>
+          </section>
+
+          <hr class="my-5" />
+          <section class="mb-5">
+            <div class="row d-flex justify-content-center">
+              <div class="col-lg-8">
+                <p class="mb-0 text-secondary">
+                  Copyright © <script>
+                    document.write(new Date().getFullYear())
+                  </script> EmeraldNetwork | No Right Reserved
+                </p>
+              </div>
+            </div>
+          </section>
+        </div>
+      </footer>
+  <script>
+    var win = navigator.platform.indexOf('Win') > -1;
+    if (win && document.querySelector('#sidenav-scrollbar')) {
+      var options = {
+        damping: '0.5'
+      }
+      Scrollbar.init(document.querySelector('#sidenav-scrollbar'), options);
+    }
+  </script>
+  <script async defer src="https://buttons.github.io/buttons.js"></script>
+                                  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script>
+      $(window).on('load', function() {
+        animateVisibleTags();
+        $(document).on("scroll", function() {
+          animateVisibleTags();
+        });
+
+        function animateVisibleTags() {
+          $(".tag").each(function() {
+            var pageTop = $(document).scrollTop();
+            var pageBottom = pageTop + $(window).height();
+            var tag = $(this);
+            if (tag.position().top < pageBottom) {
+              setTimeout(function() {
+                tag.addClass("visible");
+              }, 250);
+            } else {
+              tag.removeClass("visible");
+            }
+          });
+        }
+
+        const preloader = document.querySelector('.preloader');
+        const content = document.querySelector('.content');
+
+        function hidePreloader() {
+          preloader.style.opacity = '0';
+          setTimeout(function() {
+            preloader.style.display = 'none';
+            content.style.display = 'block';
+            content.style.opacity = '1';
+          }, 500);
+        }
+
+        hidePreloader();
+      });
+    </script>
+    <script>
+    window.onload = function() {
+      window.scrollTo(0, 0);
+    }
+    </script>
+    <script>
+      function handleVisibilityChange() {
+        document.title = document.hidden ? "[ - ] EmeraldNetwork | Profile" : "EmeraldNetwork | Profile";
+      }
+
+      document.addEventListener("visibilitychange", handleVisibilityChange, false);
+    </script>
+
+    <script>
+      function Nanobar() {
+          var nanobarContainer = document.createElement('div'),
+              nanobarBackground = 'green',
+              nanobarWidth = 0,
+              nanobarTarget = 0,
+              nanobarOn = 0;
+
+          function move() {
+              var nanobarDistanceToGo = nanobarWidth - nanobarTarget;
+
+              if (nanobarDistanceToGo < 0.1 && nanobarDistanceToGo > -0.1) {
+                  nanobarWidth = nanobarTarget;
+                  nanobarContainer.style.width = nanobarWidth + '%';
+                  nanobarOn = 0;
+                  if (nanobarWidth >= 100) {
+                      nanobarContainer.style.height = 0;
+                      setTimeout(function () {
+                          nanobarContainer.remove();
+                      }, 300);
+                  }
+              } else {
+                  nanobarWidth = nanobarWidth - nanobarDistanceToGo / 4;
+                  nanobarContainer.style.width = nanobarWidth + '%';
+                  setTimeout(move, 16);
+              }
+          }
+
+          function go(e) {
+              if (e >= 0) {
+                  nanobarTarget = e;
+                  if (!nanobarOn) {
+                      nanobarOn = 1;
+                      move();
+                  }
+              } else if (nanobarOn) {
+                  move();
+              }
+          }
+
+          nanobarContainer.id = 'nanobar';
+
+          if (document.body.hasAttribute('data-nanobar')) {
+              nanobarBackground = document.body.dataset.nanobar;
+          }
+
+          nanobarContainer.style.cssText = 'width:0;height:4px;position:fixed;top:0;left:0;z-index:9999;transition:height .3s;pointer-events:none;background:' + nanobarBackground;
+
+          document.body.appendChild(nanobarContainer);
+
+          window.addEventListener('load', function () {
+              go(100);
+          });
+
+          go(30);
+          go(76);
+      }
+
+      new Nanobar();
+
+      </script>
+ 
+</body>
+
+</html>
