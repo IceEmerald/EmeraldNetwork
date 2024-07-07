@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link rel="apple-touch-icon" sizes="76x76" href="../assets/img/apple-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <title>
+    EmeraldNetwork | Gallery
+  </title>
+  <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,600,700" rel="stylesheet" />
+  <script src="https://kit.fontawesome.com/42d5adcbca.js" crossorigin="anonymous"></script>
+  <link id="pagestyle" href="../assets/css/ice-maincore.css?v=1.0.7" rel="stylesheet" />
+  <script>
+    if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+        window.location.href = "blocked.html";
+    }
+  </script>
+  <style>
+    img {
+      pointer-events: none;
+    }
+  </style>
+</head>
+  <!-- THIS WEBSITE IS CREATED BY ICEEMERALD -->
+
+  <style>
+    .tag {
+      opacity: 0;
+      transform: translateY(10vh);
+      transition: opacity 1s, transform 1s;
+    }
+
+    .tag.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+  <style>
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    .tag {
+      opacity: 0;
+      transform: translateY(10vh);
+      transition: opacity 1s, transform 1s;
+    }
+
+    .tag.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .custom-green-color {
+      color: #00B000;
+    }
+
+  </style>
+
+
+<body class="content unselectable">
+  <div class="container position-sticky z-index-sticky top-0">
+    <div class="row">
+      <div class="col-12">
+        <nav class="navbar navbar-expand-lg blur blur-rounded top-0 z-index-3 shadow position-absolute my-3 py-2 start-0 end-0 mx-4">
+          <div class="container-fluid pe-0">
+            <a class="navbar-brand font-weight-bolder ms-lg-0 ms-3 " href="index.html">
+              ㅤㅤㅤㅤㅤㅤEmeraldNetwork | Gallery
+            </a>
+            <button class="navbar-toggler shadow-none ms-2" type="button" data-bs-toggle="collapse" data-bs-target="#navigation" aria-controls="navigation" aria-expanded="false" aria-label="Toggle navigation">
+              <span class="navbar-toggler-icon mt-2">
+                <span class="navbar-toggler-bar bar1"></span>
+                <span class="navbar-toggler-bar bar2"></span>
+                <span class="navbar-toggler-bar bar3"></span>
+              </span>
+            </button>
+            <div class="collapse navbar-collapse" id="navigation">
+              <ul class="navbar-nav mx-auto ms-xl-auto me-xl-7">
+                <li class="nav-item">
+                  <li class="nav-item">
+                    <a class="nav-link me-2" href="index.html">
+                      <i class="fa fa-home opacity-6  me-1"></i>
+                      Home
+                    </a>
+                  </li>
+                <li class="nav-item">
+                  <a class="nav-link d-flex align-items-center me-2 active custom-green-color" aria-current="page" href="gallery.html">
+                    <i class="fa fa-image opacity-6 me-1 custom-green-color"></i>
+                    Gallery
+                  </a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link me-2" href="profile.html">
+                    <i class="fa fa-user opacity-6  me-1"></i>
+                    Profile
+                  </a>
+                </li>
+                </ul>
+              </ul>
+            </div>
+          </div>
+        </nav>
+      </div>
+    </div>
+  </div>
+
+  <div class="preloader">
+    <div class="lds-ellipsis"><div></div><div></div><div></div><div></div></div>
+  </div>
+
+  <style>
+    .lds-ellipsis,
+    .lds-ellipsis div {
+      box-sizing: border-box;
+    }
+    .lds-ellipsis {
+      display: inline-block;
+      position: relative;
+      width: 80px;
+      height: 80px;
+    }
+    .lds-ellipsis div {
+      position: absolute;
+      top: 33.33333px;
+      width: 13.33333px;
+      height: 13.33333px;
+      border-radius: 50%;
+      background: darkgreen;
+      animation-timing-function: cubic-bezier(0, 1, 1, 0);
+    }
+    .lds-ellipsis div:nth-child(1) {
+      left: 8px;
+      animation: lds-ellipsis1 0.6s infinite;
+    }
+    .lds-ellipsis div:nth-child(2) {
+      left: 8px;
+      animation: lds-ellipsis2 0.6s infinite;
+    }
+    .lds-ellipsis div:nth-child(3) {
+      left: 32px;
+      animation: lds-ellipsis2 0.6s infinite;
+    }
+    .lds-ellipsis div:nth-child(4) {
+      left: 56px;
+      animation: lds-ellipsis3 0.6s infinite;
+    }
+    @keyframes lds-ellipsis1 {
+      0% {
+        transform: scale(0);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+    @keyframes lds-ellipsis3 {
+      0% {
+        transform: scale(1);
+      }
+      100% {
+        transform: scale(0);
+      }
+    }
+    @keyframes lds-ellipsis2 {
+      0% {
+        transform: translate(0, 0);
+      }
+      100% {
+        transform: translate(24px, 0);
+      }
+    }
+
+    .preloader {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+  </style>
+
+
+  <script>
+    window.addEventListener('load', function () {
+      const preloader = document.querySelector('.preloader');
+      const content = document.querySelector('.content');
+
+      function hidePreloader() {
+        preloader.style.opacity = '0';
+        setTimeout(function () {
+          preloader.style.display = 'none';
+          content.style.display = 'block';
+          content.style.opacity = '1';
+        }, 500);
+      }
+
+      if (document.readyState === 'complete') {
+        hidePreloader();
+      } else {
+        window.addEventListener('load', hidePreloader);
+      }
+    });
+
+  </script>
+  
+  <main class="main-content  mt-0">
+    <section class="tag">
+            <div class="container">
+                <div class="row">
+                    <div class="col-sm-12">
+                        <div class="title-box text-center unselectable">
+                          <h1 class="text-white mb-2 mt-5">ㅤ</h1>
+                          <h1 class="text-white mb-2 mt-5">ㅤ</h1>
+                            <h3 class="text-lead text-black"><b>Gallery</b></h3>
+                          <h1 class="text-white mb-2 mt-5"> </h1>
+                          <p class="text-lead text-black">Images and renderings created by IceEmerald</p>
+                          <h1 class="text-white mb-2 mt-5">ㅤ</h1>
+                          <h5 class="text-white mb-2 mt-5">ㅤ</h5>
+                        </div>
+                                      </div>
+                                  </div>
+                              </div>
+                          </div>
+                      </section>
+    <style>
+        .unselectable {
+            user-select: none;
+        }
+
+        .selectable {
+            user-select: auto;
+            cursor: text;
+        }
+
+    
+      .work-box {
+        margin-bottom: 3rem;
+        -webkit-backface-visibility: hidden;
+        backface-visibility: hidden;
+        background-color: #fff;
+      }
+
+      .work-box:hover img {
+        transform: scale(1.3);
+      }
+
+      .work-img {
+        display: block;
+        overflow: hidden;
+      }
+
+      .work-img img {
+        transition: all 1s;
+      }
+
+      .work-content {
+        padding: 2rem 3% 1rem 4%;
+      }
+
+      .work-content .w-more {
+        color: #4e4e4e;
+        font-size: 0.8rem;
+      }
+
+      .work-content .w-more .w-ctegory {
+        color: #0C9F00;
+      }
+
+      .work-content .w-like {
+        font-size: 2.5rem;
+        color: #0C9F00;
+        float: right;
+      }
+
+      .work-content .w-like a {
+        color: #0C9F00;
+      }
+
+      .work-content .w-like .num-like {
+        font-size: 0.7rem;
+      }
+
+      .w-title {
+        font-size: 1.2rem;
+      }
+
+      .portfolio-details {
+        padding-top: 40px;
+      }
+
+      .portfolio-details .portfolio-details-slider img {
+        width: 100%;
+      }
+
+      .portfolio-details .portfolio-details-slider .swiper-pagination {
+        margin-top: 20px;
+        position: relative;
+      }
+
+      .portfolio-details .portfolio-details-slider .swiper-pagination .swiper-pagination-bullet {
+        width: 12px;
+        height: 12px;
+        background-color: #fff;
+        opacity: 1;
+        border: 1px solid #12EA00;
+      }
+
+      .portfolio-details .portfolio-details-slider .swiper-pagination .swiper-pagination-bullet-active {
+        background-color: #12EA00;
+      }
+
+      .portfolio-details .portfolio-info {
+        padding: 30px;
+        box-shadow: 0px 0 30px rgba(78, 78, 78, 0.08);
+      }
+
+      .portfolio-details .portfolio-info h3 {
+        font-size: 22px;
+        font-weight: 700;
+        margin-bottom: 20px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #eee;
+      }
+
+      .portfolio-details .portfolio-info ul {
+        list-style: none;
+        padding: 0;
+        font-size: 15px;
+      }
+
+      .portfolio-details .portfolio-info ul li+li {
+        margin-top: 10px;
+      }
+
+      .portfolio-details .portfolio-description {
+        padding-top: 30px;
+      }
+
+      .portfolio-details .portfolio-description h2 {
+        font-size: 26px;
+        font-weight: 700;
+        margin-bottom: 20px;
+      }
+
+      .portfolio-details .portfolio-description p {
+        padding: 0;
+      }
+
+    </style>
+
+    <section id="img" class="unselectable">
+      <div class="container">
+        <div class="row">
+          <div class="col-md-4 tag">
+            <div class="work-box">
+              <div class="work-img">
+                <img src="assets/img/Maiden.png" alt="" class="img-fluid">
+              </div>
+              <div class="work-content">
+                <div class="row">
+                  <div class="col-sm-8">
+                    <h2 class="w-title">IceEmerald Maiden</h2>
+                    <div class="w-more">
+                      <span class="w-ctegory">Maiden.png</span> / <span class="w-date">15 October 2023</span>
+                    </div>
+                  </div>
+                  <div class="col-sm-4">
+                    <div class="w-like">
+                      <a target="_blank" href="assets/img/Maiden.png"> <span class="fa fa-folder-open"></span></a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4 tag">
+            <div class="work-box">
+              <div class="work-img">
+                <img src="assets/img/DarkSky.png" alt="" class="img-fluid">
+              </div>
+              <div class="work-content">
+                <div class="row">
+                  <div class="col-sm-8">
+                    <h2 class="w-title">IceEmerald At Night</h2>
+                    <div class="w-more">
+                      <span class="w-ctegory">DarkSky.png</span> / <span class="w-date">15 December 2023</span>
+                    </div>
+                  </div>
+                  <div class="col-sm-4">
+                    <div class="w-like">
+                      <a target="_blank" href="assets/img/DarkSky.png"> <span class="fa fa-folder-open"></span></a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4 tag">
+            <div class="work-box">
+              <div class="work-img">
+                <img src="assets/img/Shocked.png" alt="" class="img-fluid">
+              </div>
+              <div class="work-content">
+                <div class="row">
+                  <div class="col-sm-8">
+                    <h2 class="w-title">IceEmerald Shocked</h2>
+                    <div class="w-more">
+                      <span class="w-ctegory">Shocked.png</span> / <span class="w-date">09 October 2023</span>
+                    </div>
+                  </div>
+                  <div class="col-sm-4">
+                    <div class="w-like">
+                      <a target="_blank" href="assets/img/Shocked.png"> <span class="fa fa-folder-open"></span></a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4 tag">
+            <div class="work-box">
+              <div class="work-img">
+                <img src="assets/img/Leashed.png" alt="" class="img-fluid">
+              </div>
+              <div class="work-content">
+                <div class="row">
+                  <div class="col-sm-8">
+                    <h2 class="w-title">IceEmerald Leashed</h2>
+                    <div class="w-more">
+                      <span class="w-ctegory">Leashed.png</span> / <span class="w-date">16 November 2023</span>
+                    </div>
+                  </div>
+                  <div class="col-sm-4">
+                    <div class="w-like">
+                      <a target="_blank" href="assets/img/Leashed.png"> <span class="fa fa-folder-open"></span></a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4 tag">
+            <div class="work-box">
+              <div class="work-img">
+                <img src="assets/img/Tied.png" alt="" class="img-fluid">
+              </div>
+              <div class="work-content">
+                <div class="row">
+                  <div class="col-sm-8">
+                    <h2 class="w-title">IceEmerald Tied</h2>
+                    <div class="w-more">
+                      <span class="w-ctegory">Leashed.png</span> / <span class="w-date">17 December 2023</span>
+                    </div>
+                  </div>
+                  <div class="col-sm-4">
+                    <div class="w-like">
+                      <a target="_blank" href="assets/img/Tied.png"> <span class="fa fa-folder-open"></span></a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4 tag">
+            <div class="work-box">
+              <div class="work-img">
+                <img src="assets/img/Tree.png" alt="" class="img-fluid">
+              </div>
+              <div class="work-content">
+                <div class="row">
+                  <div class="col-sm-8">
+                    <h2 class="w-title">IceEmerald In Tree House</h2>
+                    <div class="w-more">
+                      <span class="w-ctegory">Tree.png</span> / <span class="w-date">23 December 2023</span>
+                    </div>
+                  </div>
+                  <div class="col-sm-4">
+                    <div class="w-like">
+                      <a target="_blank" href="assets/img/Tree.png"> <span class="fa fa-folder-open"></span></a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4 tag">
+            <div class="work-box">
+              <div class="work-img">
+                <img src="assets/img/Year.png" alt="" class="img-fluid">
+              </div>
+              <div class="work-content">
+                <div class="row">
+                  <div class="col-sm-8">
+                    <h2 class="w-title">IceEmerald On New Year</h2>
+                    <div class="w-more">
+                      <span class="w-ctegory">Year.png</span> / <span class="w-date">31 December 2023</span>
+                    </div>
+                  </div>
+                  <div class="col-sm-4">
+                    <div class="w-like">
+                      <a target="_blank" href="assets/img/Year.png"> <span class="fa fa-folder-open"></span></a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4 tag">
+            <div class="work-box">
+              <div class="work-img">
+                <img src="assets/img/MaidMount.png" alt="" class="img-fluid">
+              </div>
+              <div class="work-content">
+                <div class="row">
+                  <div class="col-sm-8">
+                    <h2 class="w-title">IceEmerald Maid Mount</h2>
+                    <div class="w-more">
+                      <span class="w-ctegory">MaidMount.png</span> / <span class="w-date">09 March 2024</span>
+                    </div>
+                  </div>
+                  <div class="col-sm-4">
+                    <div class="w-like">
+                      <a target="_blank" href="assets/img/MaidMount.png"> <span class="fa fa-folder-open"></span></a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4 tag">
+            <div class="work-box">
+              <div class="work-img">
+                <img src="assets/img/Mount.png" alt="" class="img-fluid">
+              </div>
+              <div class="work-content">
+                <div class="row">
+                  <div class="col-sm-8">
+                    <h2 class="w-title">IceEmerald On Mountain</h2>
+                    <div class="w-more">
+                      <span class="w-ctegory">Mount.png</span> / <span class="w-date">21 March 2024</span>
+                    </div>
+                  </div>
+                  <div class="col-sm-4">
+                    <div class="w-like">
+                      <a target="_blank" href="assets/img/Mount.png"> <span class="fa fa-folder-open"></span></a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section id="about">
+      <div class="container tag">
+        <div class="row align-items-center">
+          <div class="title-box text-center">
+          <div class="col-md-6 mb-6 mb-md-0"></div>
+            <div class="button-group tag">
+              <h5 class="text-white mb-2 mt-5">ㅤ</h5><h5 class="text-white mb-2 mt-5">ㅤ</h5><h5 class="text-white mb-2 mt-5">ㅤ</h5>
+              <a href="index.html" style="text-decoration:none" class="btn btn-primary">ㅤBack to homeㅤ</a>
+              <span class="button-gap">ㅤ</span>
+              <a href="#" style="text-decoration:none" class="btn btn-primary">ㅤBack to topㅤ</a>
+              <h5 class="text-white mb-2 mt-5">ㅤ</h5><h5 class="text-white mb-2 mt-5">ㅤ</h5><h5 class="text-white mb-2 mt-5">ㅤ</h5>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+  </main>
+    <footer class="text-center text-black" style="background: linear-gradient(to bottom, #EEFFEE, white);">
+      <div class="container">
+        <section class="mt-5">
+          <h1 class="text-white mb-2 mt-5">ㅤ</h1>
+          <div class="row text-center d-flex justify-content-center pt-5">
+            <div class="col-md-2">
+              <h6 class="text-uppercase font-weight-bold">
+                <a href="https://www.youtube.com/iceemerald" class="text-black">Youtube</a>
+              </h6>
+            </div>
+            <div class="col-md-2">
+              <h6 class="text-uppercase font-weight-bold">
+                <a href="https://www.instagram.com/iceemerald23" class="text-black">Instagram</a>
+              </h6>
+            </div>
+            <div class="col-md-2">
+              <h6 class="text-uppercase font-weight-bold">
+                <a href="https://discord.gg/CQqZ34T8Jn" class="text-black">Discord</a>
+              </h6>
+            </div>
+              </h6>
+            </div>
+          </div>
+        </section>
+
+        <hr class="my-5" />
+        <section class="mb-5">
+          <div class="row d-flex justify-content-center">
+            <div class="col-lg-8">
+              <p class="mb-0 text-secondary">
+                Copyright © <script>
+                  document.write(new Date().getFullYear())
+                </script> EmeraldNetwork | No Right Reserved
+              </p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </footer>
+  <script>
+    var win = navigator.platform.indexOf('Win') > -1;
+    if (win && document.querySelector('#sidenav-scrollbar')) {
+      var options = {
+        damping: '0.5'
+      }
+      Scrollbar.init(document.querySelector('#sidenav-scrollbar'), options);
+    }
+  </script>
+  <script async defer src="https://buttons.github.io/buttons.js"></script>
+  <script>
+    $(document).ready(function() {
+      $('.open-modal').click(function(e) {
+        e.preventDefault();
+        $('#myModal').css('display', 'block');
+      });
+    });
+
+  </script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script>
+    $(window).on('load', function() {
+      animateVisibleTags();
+      $(document).on("scroll", function() {
+        animateVisibleTags();
+      });
+      function animateVisibleTags() {
+        $(".tag").each(function() {
+          var pageTop = $(document).scrollTop();
+          var pageBottom = pageTop + $(window).height();
+          var tag = $(this);
+          if (tag.position().top < pageBottom) {
+            setTimeout(function() {
+              tag.addClass("visible");
+            }, 250);
+          } else {
+            tag.removeClass("visible");
+          }
+        });
+      }
+
+      const preloader = document.querySelector('.preloader');
+      const content = document.querySelector('.content');
+
+      function hidePreloader() {
+        preloader.style.opacity = '0';
+        setTimeout(function() {
+          preloader.style.display = 'none';
+          content.style.display = 'block';
+          content.style.opacity = '1';
+        }, 500);
+      }
+
+      hidePreloader();
+    });
+  </script>
+  <script>
+  window.onload = function() {
+    window.scrollTo(0, 0);
+  }
+  </script>
+  <script>
+    function handleVisibilityChange() {
+      document.title = document.hidden ? "[ - ] EmeraldNetwork | Gallery" : "EmeraldNetwork | Gallery";
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange, false);
+  </script>
+  <script>
+    function Nanobar() {
+        var nanobarContainer = document.createElement('div'),
+            nanobarBackground = 'green',
+            nanobarWidth = 0,
+            nanobarTarget = 0,
+            nanobarOn = 0;
+
+        function move() {
+            var nanobarDistanceToGo = nanobarWidth - nanobarTarget;
+
+            if (nanobarDistanceToGo < 0.1 && nanobarDistanceToGo > -0.1) {
+                nanobarWidth = nanobarTarget;
+                nanobarContainer.style.width = nanobarWidth + '%';
+                nanobarOn = 0;
+                if (nanobarWidth >= 100) {
+                    nanobarContainer.style.height = 0;
+                    setTimeout(function () {
+                        nanobarContainer.remove();
+                    }, 300);
+                }
+            } else {
+                nanobarWidth = nanobarWidth - nanobarDistanceToGo / 4;
+                nanobarContainer.style.width = nanobarWidth + '%';
+                setTimeout(move, 16);
+            }
+        }
+
+        function go(e) {
+            if (e >= 0) {
+                nanobarTarget = e;
+                if (!nanobarOn) {
+                    nanobarOn = 1;
+                    move();
+                }
+            } else if (nanobarOn) {
+                move();
+            }
+        }
+
+        nanobarContainer.id = 'nanobar';
+
+        if (document.body.hasAttribute('data-nanobar')) {
+            nanobarBackground = document.body.dataset.nanobar;
+        }
+
+        nanobarContainer.style.cssText = 'width:0;height:4px;position:fixed;top:0;left:0;z-index:9999;transition:height .3s;pointer-events:none;background:' + nanobarBackground;
+
+        document.body.appendChild(nanobarContainer);
+
+        window.addEventListener('load', function () {
+            go(100);
+        });
+
+        go(30);
+        go(76);
+    }
+
+    new Nanobar();
+
+    </script>
+</body>
+
+</html>
