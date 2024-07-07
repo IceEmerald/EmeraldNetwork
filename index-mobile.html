@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link rel="apple-touch-icon" sizes="76x76" href="../assets/img/apple-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <title>
+    EmeraldNetwork | Home
+  </title>
+  <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,600,700" rel="stylesheet" />
+  <script src="https://kit.fontawesome.com/42d5adcbca.js" crossorigin="anonymous"></script>
+  <link id="pagestyle" href="../assets/css/ice-maincore.css?v=1.0.7" rel="stylesheet" />
+
+  <script>
+    if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+    } else {
+        window.location.href = "index.html";
+    }
+  </script>
+  <style>
+    img {
+      pointer-events: none;
+    }
+  </style>
+
+</head>
+  <!-- THIS WEBSITE IS CREATED BY ICEEMERALD -->
+
+    <body class="content" style="text-align: center;">
+        <div class="container top-0">
+            <div class="row">
+                <div class="col-12">
+                    <nav class="navbar navbar-expand-lg blur blur-rounded top-0 z-index-3 shadow position-absolute my-3 py-2 start-0 end-0 mx-auto">
+                        <div class="container-fluid pe-0">
+                            <a class="navbar-brand font-weight-bolder text-center w-100" href="index.html">
+                              EmeraldNetwork
+                            </a>
+                        </div>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </body>
+
+  <style>
+    .navbar {
+      position: fixed;
+      top: 0;
+      width: 80%;
+      z-index: 1000;
+    }
+
+    body {
+      -webkit-user-select: none;
+      -moz-user-select: none; 
+      -ms-user-select: none; 
+      user-select: none;
+    }
+
+  </style>
+
+  <style>
+    .box {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(255, 255, 255, 0.2);
+      z-index: 9999;
+    }
+
+    .overlay {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0, 0, 0, 0.7);
+      transition: opacity 0.5s;
+      visibility: hidden;
+      opacity: 0;
+      z-index: 9999;
+    }
+
+    .overlay:target {
+      visibility: visible;
+      opacity: 1;
+    }
+
+    .popup {
+      position: relative;
+      padding: 20px;
+      background: #fff;
+      border-radius: 5px;
+      width: 80%;
+      max-width: 600px; 
+      margin: 0 auto;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+
+    .popup h2 {
+      margin: 10px;
+      margin-top: 0;
+      color: #333;
+      font-family: Tahoma, Arial, sans-serif;
+      font-size: 16px;
+    }
+
+    .popup .close {
+      position: absolute;
+      top: 10px;
+      right: 10px; 
+      transition: all 200ms;
+      font-size: 30px;
+      font-weight: bold;
+      text-decoration: none;
+      color: #333;
+      z-index: 10001;
+    }
+
+    .popup .close:hover {
+      color: #06d85f;
+    }
+
+    .popup .content {
+      max-height: 30%;
+      overflow: auto;
+    }
+
+    @media screen and (max-width: 700px) {
+      .popup {
+        width: 90%;
+      }
+    }
+
+    html {
+      scroll-behavior: smooth;
+      zoom: 80%;
+    }
+
+    .tag {
+      opacity: 0;
+      transform: translateY(10vh); 
+      transition: opacity 1s, transform 1s;
+    }
+
+    .tag.visible {
+      opacity: 1;
+      transform: translateY(0); 
+    }
+
+    body {
+        overflow-x: hidden;
+    }
+
+    .custom-green-color {
+      color: #00B000;
+    }
+
+  </style>
+
+    <div class="preloader">
+      <div class="lds-ellipsis"><div></div><div></div><div></div><div></div></div>
+    </div>
+
+    <style>
+      .lds-ellipsis,
+      .lds-ellipsis div {
+        box-sizing: border-box;
+      }
+      .lds-ellipsis {
+        display: inline-block;
+        position: relative;
+        width: 80px;
+        height: 80px;
+      }
+      .lds-ellipsis div {
+        position: absolute;
+        top: 33.33333px;
+        width: 13.33333px;
+        height: 13.33333px;
+        border-radius: 50%;
+        background: darkgreen;
+        animation-timing-function: cubic-bezier(0, 1, 1, 0);
+      }
+      .lds-ellipsis div:nth-child(1) {
+        left: 8px;
+        animation: lds-ellipsis1 0.6s infinite;
+      }
+      .lds-ellipsis div:nth-child(2) {
+        left: 8px;
+        animation: lds-ellipsis2 0.6s infinite;
+      }
+      .lds-ellipsis div:nth-child(3) {
+        left: 32px;
+        animation: lds-ellipsis2 0.6s infinite;
+      }
+      .lds-ellipsis div:nth-child(4) {
+        left: 56px;
+        animation: lds-ellipsis3 0.6s infinite;
+      }
+      @keyframes lds-ellipsis1 {
+        0% {
+          transform: scale(0);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+      @keyframes lds-ellipsis3 {
+        0% {
+          transform: scale(1);
+        }
+        100% {
+          transform: scale(0);
+        }
+      }
+      @keyframes lds-ellipsis2 {
+        0% {
+          transform: translate(0, 0);
+        }
+        100% {
+          transform: translate(24px, 0);
+        }
+      }
+
+      .preloader {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+
+      body {
+        overflow-x: hidden;
+        touch-action: pan-y;
+      }
+    </style>
+
+
+    <script>
+      window.addEventListener('load', function () {
+        const preloader = document.querySelector('.preloader');
+        const content = document.querySelector('.content');
+
+        function hidePreloader() {
+          preloader.style.opacity = '0';
+          setTimeout(function () {
+            preloader.style.display = 'none';
+            content.style.display = 'block';
+            content.style.opacity = '1';
+          }, 500);
+        }
+
+        if (document.readyState === 'complete') {
+          hidePreloader();
+        } else {
+          window.addEventListener('load', hidePreloader);
+        }
+      });
+
+    </script>
+  
+    <section class="header tag" style="background: linear-gradient(to bottom, #EEFFEE, white);">
+        <div class="container tag">
+            <div class="row align-items-center">
+              <div class="title-box text-center">
+              <h1 class="text-white mb-2 mt-5">ㅤ</h1>
+                <h5 class="text-white mb-2 mt-5">ㅤ</h5>
+              <h2 class="text-black mb-2 mt-5">EmeraldNetwork</h2>
+              <p class="text-lead text-black">Welcome to the EmeraldNetwork website, home to applications or files created by IceEmerald and developed with love.</p>
+              <h1 class="text-white mb-2 mt-5"> </h1>
+              <div class="button-group tag">
+               
+
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+
+      <section id="about">
+          <div class="container tag">
+            <div class="row align-items-center">
+              <div class="col-md-6 text-center text-md-start mb-6 px-4">
+                 <h1 class="text-white mb-2 mt-5">ㅤ</h1><h1 class="text-white mb-2 mt-5">ㅤ</h1><h1 class="text-white mb-2 mt-5">ㅤ</h1>
+                <h3 class="text-lead text-black">About IceEmerald</h3>
+                <h5 class="text-white mb-2 mt-5"> </h5>
+                <p class="text-lead text-black">IceEmerald is someone who has a hobby of making applications such as discord bots, websites, Minecraft servers, Minecraft plugins. creating content on YouTube and Instagram, creating images and stories. IceEmerald is taken from Ice because I like cold and Emerald is a very valuable and rare object, it is hoped that I can create something new and change the perception of the world for the better.</p>
+                <h5 class="text-white mb-2 mt-5"> </h5>
+                <a href="profile.html" style="text-decoration:none" class="btn btn-primary">ㅤLearn More!ㅤ</a>
+                 <h1 class="text-white mb-2 mt-5">ㅤ</h1><h1 class="text-white mb-2 mt-5">ㅤ</h1>
+              </div>
+            </div>
+          </div>
+        </section>
+
+    <section id="about" style="background-color: #EEFFEE;">
+      <h1 class="text-white mb-2 mt-5">ㅤ</h1>
+      <img src="/assets/img/emeraldontop.png" style="display: block; margin: 0 auto; max-width: 70%; max-height: 50%;" class="tag"/>
+      <h5 class="text-white mb-2 mt-5"> </h5>
+      <div class="container tag">
+        <div class="row align-items-center">
+          <div class="title-box text-center">
+          <h3 class="text-lead text-black">About EmeraldNetwork</h3>
+            <h5 class="text-white mb-2 mt-5"> </h5>
+            <p class="text-lead text-black">EmeraldNetwork is a system containing Discord servers, Minecraft servers, websites and other internet related things created by IceEmerald, EmeraldNetwork has several different parts, such as EmeraldEssentials, EmeraldCore which come together to form one complementary integration.</p>
+            <h5 class="text-white mb-2 mt-5"> </h5>
+            <h1 class="text-white mb-2 mt-5">ㅤ</h1>
+            
+          </div>
+        </div>
+      </div>
+    </section>
+    <section id="about" style="background-color: #EEFFEE;">
+      <div class="container tag">
+        <div class="row align-items-center">
+          <div class="title-box text-center">
+          <h3 class="text-lead text-black">Why i created EmeraldNetwork?</h3>
+            <h5 class="text-white mb-2 mt-5"> </h5>
+            <p class="text-lead text-black">My goal in establishing emeraldnetwork is to reach people who have an interest in the world of networking or just want to play or channel what they want through my service.</p>
+            <h5 class="text-white mb-2 mt-5"> </h5>
+            <h1 class="text-white mb-2 mt-5">ㅤ</h1>
+            <h1 class="text-white mb-2 mt-5">ㅤ</h1>
+
+            <h1 class="text-white mb-2 mt-5">ㅤ</h1>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    
+        <section id="products">
+
+
+            <div class="container tag">
+                <div class="row">
+                    <div class="col-sm-12">
+                        <div class="title-box text-center">
+                          <h1 class="text-white mb-2 mt-5">ㅤ</h1>
+                          <h1 class="text-white mb-2 mt-5">ㅤ</h1>
+                            <h3 class="text-lead text-black"><b>Products</b></h3>
+                          <h1 class="text-white mb-2 mt-5">ㅤ</h1>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="service-box">
+                            <div class="service-content">
+                                <h4 class="text-lead text-black"><b>Bot Discord</b></h4>
+                                <p class="text-lead text-black">EmeraldBot is a discord bot created to help discord server admins make their work easier with many automated commands.</p>
+                              <a href="https://discord.com/oauth2/authorize?client_id=1197553424724660254&permissions=8&scope=bot" style="text-decoration:none" class="btn btn-primary" target="_blank">ㅤInvite Botㅤ</a>
+                            </div>
+                        </div>
+                    </div>
+                  <h1 class="text-white mb-2 mt-5"> </h1>
+                    <div class="col-md-4">
+                        <div class="service-box">
+                            <div class="service-content">
+                                <h4 class="text-lead text-black"><b>Roblox Game</b></h4>
+                                <p class="text-lead text-black">IceEmerald makes several games on roblox that are made for hobbies and made for roblox players who might want to try a new adventure.</p>
+                              <a href="https://www.roblox.com/users/2527161349/profile" style="text-decoration:none" class="btn btn-primary" target="_blank">ㅤOpen Profileㅤ</a>
+                            </div>
+                        </div>
+                    </div>
+                  <h1 class="text-white mb-2 mt-5"> </h1>
+                  <div class="col-md-4">
+                      <div class="service-box">
+                          <div class="service-content">
+                              <h4 class="text-lead text-black"><b>Gallery</b></h4>
+                              <p class="text-lead text-black">Gallery is the place where IceEmerald stores the images and renderings that have been created.</p>
+                            <a href="gallery.html" style="text-decoration:none" class="btn btn-primary">ㅤOpen Galleryㅤ</a>
+                          </div>
+                      </div>
+                  </div>
+                  <h1 class="text-white mb-2 mt-5"> </h1>
+                  <div class="col-md-4">
+                      <div class="service-box">
+                          <div class="service-content">
+                              <h4 class="text-lead text-black"><b>Discord Server</b></h4>
+                              <p class="text-lead text-black">EmeraldNetwork discord server is a server created for chatting or getting information.</p>
+                            <a href="https://discord.gg/CQqZ34T8Jn" style="text-decoration:none" class="btn btn-primary" target="_blank">ㅤJoin Serverㅤ</a>
+                          </div>
+                      </div>
+                  </div>
+                   <h1 class="text-white mb-2 mt-5">ㅤ</h1>
+                   <h1 class="text-white mb-2 mt-5">ㅤ</h1>
+                  <h1 class="text-white mb-2 mt-5"> </h1>
+                          </div>
+                      </div>
+                  </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="about">
+      <div class="container tag">
+        <div class="row align-items-center">
+          <div class="title-box text-center">
+            <h5 class="text-lead text-black">Using the services of people who are experienced in various fields. What are you waiting for?</h5>
+            <h5 class="text-white mb-2 mt-5"> </h5>
+            <h1 class="text-white mb-2 mt-5">ㅤ</h1>
+            <h1 class="text-white mb-2 mt-5">ㅤ</h1>
+            <a href="#" style="text-decoration:none" class="btn btn-primary">ㅤBack to topㅤ</a>
+            <h1 class="text-white mb-2 mt-5">ㅤ</h1>
+          </div>
+        </div>
+      </div>
+    </section>
+                                                    
+    
+
+    
+          <footer class="text-center text-black" style="background: linear-gradient(to bottom, #EEFFEE, white);">
+            <div class="container">
+              <section class="mt-5">
+                <h1 class="text-white mb-2 mt-5">ㅤ</h1>
+                <div class="row text-center d-flex justify-content-center pt-5">
+                  <div class="col-md-2">
+                    <h6 class="text-uppercase font-weight-bold">
+                      <a href="https://www.youtube.com/iceemerald" class="text-black">Youtube</a>
+                    </h6>
+                  </div>
+                  <div class="col-md-2">
+                    <h6 class="text-uppercase font-weight-bold">
+                      <a href="https://www.instagram.com/iceemerald23" class="text-black">Instagram</a>
+                    </h6>
+                  </div>
+                  <div class="col-md-2">
+                    <h6 class="text-uppercase font-weight-bold">
+                      <a href="https://discord.gg/CQqZ34T8Jn" class="text-black">Discord</a>
+                    </h6>
+                  </div>
+                    </h6>
+                  </div>
+                </div>
+              </section>
+
+              <hr class="my-5" />
+              <section class="mb-5">
+                <div class="row d-flex justify-content-center">
+                  <div class="col-lg-8">
+                    <p class="mb-0 text-secondary">
+                      Copyright © <script>
+                        document.write(new Date().getFullYear())
+                      </script> EmeraldNetwork
+                    </p>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </footer>
+  </main>
+  <script>
+    var win = navigator.platform.indexOf('Win') > -1;
+    if (win && document.querySelector('#sidenav-scrollbar')) {
+      var options = {
+        damping: '0.5'
+      }
+      Scrollbar.init(document.querySelector('#sidenav-scrollbar'), options);
+    }
+  </script>
+  <script async defer src="https://buttons.github.io/buttons.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script>
+      $(window).on('load', function() {
+        animateVisibleTags();
+        $(document).on("scroll", function() {
+          animateVisibleTags();
+        });
+
+        function animateVisibleTags() {
+          $(".tag").each(function() {
+            var pageTop = $(document).scrollTop();
+            var pageBottom = pageTop + $(window).height();
+            var tag = $(this);
+            if (tag.position().top < pageBottom) {
+              setTimeout(function() {
+                tag.addClass("visible");
+              }, 250);
+            } else {
+              tag.removeClass("visible");
+            }
+          });
+        }
+
+        const preloader = document.querySelector('.preloader');
+        const content = document.querySelector('.content');
+
+        function hidePreloader() {
+          preloader.style.opacity = '0';
+          setTimeout(function() {
+            preloader.style.display = 'none';
+            content.style.display = 'block';
+            content.style.opacity = '1';
+          }, 500); 
+        }
+
+        hidePreloader();
+      });
+    </script>
+    <script>
+    window.onload = function() {
+      window.scrollTo(0, 0);
+    }
+    </script>
+
+  <script>
+    function handleVisibilityChange() {
+      document.title = document.hidden ? "[ - ] EmeraldNetwork | Home Mobile" : "EmeraldNetwork | Home Mobile";
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange, false);
+  </script>
+
+</body>
+
+</html>
