@@ -10483,36 +10483,77 @@ function buildRibbon() {
         t.setAttribute('aria-selected', on);
       });
       positionRibbonIndicator();
-      buildRibbonBody();
-      const rb = $('#ribbon-body');
-      if (rb && !SmoothScroll.reduced) { rb.classList.remove('rb-swap'); void rb.offsetWidth; rb.classList.add('rb-swap'); }
+      swapRibbonBody();
     });
     tabsBar.appendChild(btn);
   }
   const act = el('<div class="ribbon-tabs-right"><button class="ribbon-tab-action" title="Export the active sheet as CSV" type="button">' + icon('csv') + '<span>Export</span></button></div>');
   act.querySelector('.ribbon-tab-action').addEventListener('click', () => exportCsv());
   tabsBar.appendChild(act);
-  buildRibbonBody();
+  buildRibbonPanels();
   updateRibbonState();
   updateUndoRedoUI();
   positionRibbonIndicator();
 }
-function buildRibbonBody() {
+function buildRibbonPanels() {
   const body = $('#ribbon-body');
   if (!body) return;
   body.innerHTML = '';
   const cfg = ribbonConfig();
-  const groups = cfg[activeRibbonTab] || [];
-  for (const g of groups) {
-    const gEl = el('<div class="ribbon-group"><div class="group-label">' + esc(g.label) + '</div><div class="ribbon-controls"></div></div>');
-    const ctr = gEl.querySelector('.ribbon-controls');
-    for (const item of g.items) {
-      ctr.appendChild(buildRibbonItem(item));
+  for (const tabName in cfg) {
+    const panel = el('<div class="ribbon-panel" data-panel="' + tabName.toLowerCase() + '" aria-hidden="true"></div>');
+    const groups = cfg[tabName] || [];
+    for (const g of groups) {
+      const gEl = el('<div class="ribbon-group"><div class="group-label">' + esc(g.label) + '</div><div class="ribbon-controls"></div></div>');
+      const ctr = gEl.querySelector('.ribbon-controls');
+      for (const item of g.items) {
+        ctr.appendChild(buildRibbonItem(item));
+      }
+      panel.appendChild(gEl);
     }
-    body.appendChild(gEl);
+    body.appendChild(panel);
+  }
+  const active = body.querySelector('.ribbon-panel[data-panel="' + activeRibbonTab.toLowerCase() + '"]');
+  if (active) {
+    active.classList.add('active');
+    active.setAttribute('aria-hidden', 'false');
   }
   updateRibbonState();
   updateUndoRedoUI();
+}
+function swapRibbonBody() {
+  const body = $('#ribbon-body');
+  if (!body) return;
+  const target = body.querySelector('.ribbon-panel[data-panel="' + activeRibbonTab.toLowerCase() + '"]');
+  if (!target) return;
+  const current = body.querySelector('.ribbon-panel.active');
+  if (target === current) { updateRibbonState(); return; }
+  const finishSwitch = () => {
+    body.querySelectorAll('.ribbon-panel').forEach(p => {
+      p.classList.remove('active', 'blur-out');
+      p.setAttribute('aria-hidden', 'true');
+    });
+    target.classList.add('active');
+    target.setAttribute('aria-hidden', 'false');
+    updateRibbonState();
+  };
+  if (SmoothScroll.reduced || !current) { finishSwitch(); return; }
+  current.classList.add('blur-out');
+  current.classList.remove('active');
+  const onBlurred = (e) => {
+    if (e.propertyName !== 'opacity') return;
+    current.removeEventListener('transitionend', onBlurred);
+    current.classList.remove('blur-out');
+    finishSwitch();
+  };
+  current.addEventListener('transitionend', onBlurred);
+  setTimeout(() => {
+    if (current.classList.contains('blur-out')) {
+      current.removeEventListener('transitionend', onBlurred);
+      current.classList.remove('blur-out');
+      finishSwitch();
+    }
+  }, 220);
 }
 function positionRibbonIndicator() {
   const ind = $('#ribbon-tabs .ribbon-tab-indicator');

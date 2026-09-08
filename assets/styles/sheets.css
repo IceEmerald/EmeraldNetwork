@@ -1552,8 +1552,7 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 @keyframes appIn { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
 
 /* ---- Ribbon tab switch: body content glides in ---- */
-#ribbon-body.rb-swap { animation: rbSwap 170ms cubic-bezier(.2, .8, .3, 1); }
-@keyframes rbSwap { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
 
 /* ---- Modal / popup EXIT animations (entrances already existed) ---- */
 .modal-overlay.closing { animation: overlayOut 140ms ease-in forwards; pointer-events: none; }
@@ -1628,10 +1627,11 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 
 /* ---- Reduced motion: silence every new animation ---- */
 @media (prefers-reduced-motion: reduce) {
-  #app, #ribbon-body.rb-swap, .modal-overlay.closing, .modal-overlay.closing .modal,
+  #app, .ribbon-panel, .modal-overlay.closing, .modal-overlay.closing .modal,
   .popup.closing, .chart-frame.ch-enter, .chart-frame.ch-enter .chart-canvas-wrap,
   #sb-zoom-pct.pulse, .toast, .toast .t-bar, .toast .t-msg, .filter-chip, .dv-chip,
   .sheet-tab.tab-enter, #find-panel, #name-box.addr-flash { animation: none !important; }
+  #ribbon-body .ribbon-panel { transition: none !important; will-change: auto; }
   .popup-item .pi-check, .popup-item .pi-icon, .modal-x { transition: none !important; }
 }
 
@@ -2027,26 +2027,60 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 
 /* ---------- Ribbon card ---------- */
 #ribbon-body {
-  min-height: 104px;
+  position: relative;
+  min-height: 100px;
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  max-width: 1900px;
   overflow-x: auto;
   overflow-y: hidden;
   background: rgba(255, 255, 255, .98);
   border: 1px solid rgba(0, 0, 0, .08);
   border-radius: 12px;
-  margin: 0 auto 12px;
+  margin: 0 12px 12px;
   padding: 12px;
   box-shadow: rgba(0, 0, 0, .04) 0 4px 10px, rgba(0, 0, 0, .06) 0 2px 8px;
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
   -webkit-font-smoothing: antialiased;
 }
 #ribbon-body::-webkit-scrollbar { height: 8px; }
 #ribbon-body::-webkit-scrollbar-track { background: transparent; }
 #ribbon-body::-webkit-scrollbar-thumb { background: var(--chrome-3); border-radius: 4px; }
+
+/* ---- Ribbon panel: one pre-rendered panel per category (mirrors Docs/Slides) ---- */
+.ribbon-panel {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  min-width: max-content;
+  margin: 0 auto;
+  opacity: 0;
+  filter: blur(4px);
+  visibility: hidden;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  transition: opacity 0.3s ease-out, filter 0.3s ease-out, visibility 0.3s;
+  will-change: opacity, filter;
+}
+.ribbon-panel.active {
+  opacity: 1;
+  filter: blur(0);
+  visibility: visible;
+  pointer-events: auto;
+  position: relative;
+  transition: opacity 0.3s ease-out, filter 0.3s ease-out, visibility;
+}
+.ribbon-panel.blur-out {
+  opacity: 0;
+  filter: blur(4px);
+  visibility: visible;
+  pointer-events: none;
+  position: relative;
+  transition: opacity 0.18s ease-in, filter 0.18s ease-in, visibility 0.18s;
+}
 
 .ribbon-group {
   display: flex;
