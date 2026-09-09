@@ -85,6 +85,77 @@
   </footer>
 </div>
 
+<!-- ===================== File Management Modal (Docs/Slides-style Backstage overlay) ===================== -->
+<div class="file-overlay" id="fileModal" role="dialog" aria-label="File">
+  <div class="file-overlay-card">
+    <!-- Header -->
+    <div class="file-overlay-header">
+      <span class="file-overlay-header-title">File</span>
+      <button class="file-overlay-close-btn" id="fileModalCloseXBtn" title="Close">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <!-- Body -->
+    <div class="file-overlay-body">
+      <!-- Workbook name -->
+      <div class="file-overlay-section">
+        <div class="file-overlay-section-label">Name</div>
+        <input class="file-overlay-name-input" id="fileModalNameInput" type="text" placeholder="Untitled workbook" autocomplete="off" spellcheck="false" />
+      </div>
+      <!-- Actions -->
+      <div class="file-overlay-section">
+        <div class="file-overlay-section-label">Actions</div>
+        <div class="file-overlay-actions-row">
+          <button class="file-overlay-action-btn file-overlay-action-btn--danger" id="fileDeleteBtn" title="Delete this workbook from browser storage">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+            Delete
+          </button>
+          <button class="file-overlay-action-btn" id="fileCloseBtn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg>
+            Close
+          </button>
+        </div>
+      </div>
+      <!-- Document -->
+      <div class="file-overlay-section">
+        <div class="file-overlay-section-label">Document</div>
+        <button class="file-overlay-action-btn" id="fileNewBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+          New workbook
+        </button>
+        <button class="file-overlay-action-btn" id="fileOpenBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          Open document…
+        </button>
+        <button class="file-overlay-action-btn" id="fileImportBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Import CSV / XLSX…
+        </button>
+      </div>
+      <!-- Export -->
+      <div class="file-overlay-section">
+        <div class="file-overlay-section-label">Export</div>
+        <button class="file-overlay-action-btn" id="fileExportXlsxBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="m9 12 6 6m0-6-6 6"/></svg>
+          Export as Workbook (.xlsx)
+        </button>
+        <button class="file-overlay-action-btn" id="fileExportCsvBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+          Export as CSV (active sheet)
+        </button>
+        <button class="file-overlay-action-btn" id="filePrintBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          Print / PDF
+        </button>
+        <button class="file-overlay-action-btn" id="fileSaveAsBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Save as copy…
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Overlays -->
 <div id="find-panel" role="dialog" aria-label="Find and Replace" hidden></div>
 <div id="modal-root"></div>

@@ -38,7 +38,6 @@ const GRID_STEP = 100;
 const DEF = { rowH: 22, colW: 88, headerH: 22, fontPt: 11, fontFamily: 'Calibri' };
 const GRID_COLOR = '#dfe1e5';
 const SEL_COLOR = '#239a4d';
-const HDR_BG = '#f5f6f7';
 const HDR_BORDER = '#cfd2d6';
 const HDR_TXT = '#5f6368';
 const SERIES_COLORS = ['#217346', '#b75d0b', '#8b5e83', '#0f7c85', '#a4262c', '#5c5cb8', '#7a7564', '#c239b3', '#4f6bed', '#986f0b'];
@@ -3038,8 +3037,14 @@ function paint() {
   const L = computeLayout();
   ctx.setTransform(R.dpr, 0, 0, R.dpr, 0, 0);
   ctx.clearRect(0, 0, L.w, L.h);
+  /* Keep the header bands (top column headers + left row headers) transparent so
+     the app surface shows through; paint white only on the cell body & scrollbars. */
+  const vbw = L.scrollVisibleV ? L.sb : 0, hbh = L.scrollVisibleH ? L.sb : 0;
   ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, L.w, L.h);
+  ctx.fillRect(L.gridX, L.gridY, L.gridW - vbw, L.gridH - hbh);
+  ctx.fillRect(L.w - vbw, L.gridY, vbw, L.gridH - hbh);
+  ctx.fillRect(L.gridX, L.h - hbh, L.gridW - vbw, hbh);
+  ctx.fillRect(L.w - vbw, L.h - hbh, vbw, hbh);
 
   const zm = L.zoom;
   const sbW = L.scrollVisibleV ? L.sb : 0, sbH = L.scrollVisibleH ? L.sb : 0;
@@ -3183,8 +3188,6 @@ function paint() {
     drawColHeaders(ctx, sh, L, c0, c1, r0, r1);
     drawRowHeaders(ctx, sh, L, r0, r1, c0, c1);
     /* corner */
-    ctx.fillStyle = HDR_BG;
-    ctx.fillRect(0, 0, L.gridX, L.gridY);
     ctx.strokeStyle = HDR_BORDER; ctx.lineWidth = 1;
     ctx.strokeRect(0.5, 0.5, L.gridX - 0.5, L.gridY - 0.5);
     ctx.fillStyle = HDR_TXT;
@@ -3609,7 +3612,6 @@ function headerSelected(sh, kind, idx) {
 function drawColHeaders(ctx, sh, L, c0, c1, r0, r1) {
   ctx.save();
   ctx.beginPath(); ctx.rect(L.gridX, 0, L.gridW, L.gridY); ctx.clip();
-  ctx.fillStyle = HDR_BG; ctx.fillRect(L.gridX, 0, L.gridW, L.gridY);
   ctx.font = Math.round(11 * Math.min(L.zoom, 1.4)) + 'px "Segoe UI", sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   let c = c0;
@@ -3636,7 +3638,6 @@ const LHdrHover = '#e3f0e8';   /* header hover tint */
 function drawRowHeaders(ctx, sh, L, r0, r1, c0, c1) {
   ctx.save();
   ctx.beginPath(); ctx.rect(0, L.gridY, L.gridX, L.gridH); ctx.clip();
-  ctx.fillStyle = HDR_BG; ctx.fillRect(0, L.gridY, L.gridX, L.gridH);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   let r = r0;
   let guard = 0;
@@ -5290,6 +5291,10 @@ function edgeOf(r, c, dr, dc) {
 
 document.addEventListener('keydown', e => {
   if (!WB) return;
+  if (fileModalOpen()) {
+    if (e.key === 'Escape') { closeFileModal(); e.preventDefault(); }
+    return;
+  }
   const tag = (document.activeElement && document.activeElement.tagName) || '';
   const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement && document.activeElement.isContentEditable;
   if (document.querySelector('.modal-overlay')) return; // modal handles its own keys
@@ -6816,6 +6821,7 @@ function validateSheetName(name) {
   return null;
 }
 function addSheet(afterId) {
+  if (WB.sheets.length >= 10) { toast('Workbooks are limited to 10 sheets', 'warn'); return; }
   const name = uniqueSheetName('Sheet' + (WB.sheets.length + 1));
   const sh = makeSheet(name);
   const idx = afterId ? WB.sheets.findIndex(s => s.id === afterId) + 1 : WB.sheets.length;
@@ -9368,6 +9374,63 @@ function fileSaveAs() {
     toast('Saved "' + WB.title + '" to browser storage', 'success');
   });
 }
+/* ---------------- File modal (Backstage-style, Docs/Slides pattern) ---------------- */
+function fileModalOpen() { const m = $('#fileModal'); return !!(m && m.classList.contains('show')); }
+function syncFileModalNameInput() {
+  const n = $('#fileModalNameInput');
+  if (n) n.value = WB.title || 'Untitled workbook';
+}
+function openFileModal() {
+  const modal = $('#fileModal');
+  if (!modal) return;
+  syncFileModalNameInput();
+  modal.classList.add('show');
+}
+function commitFileModalRename() {
+  const n = $('#fileModalNameInput');
+  if (!n) return;
+  const t = n.value.trim() || 'Untitled workbook';
+  if (t !== WB.title) {
+    WB.title = t;
+    Persistence.markDirty();
+  }
+}
+function closeFileModal() {
+  const modal = $('#fileModal');
+  if (!modal) return;
+  commitFileModalRename();
+  modal.classList.add('closing');
+  setTimeout(() => { modal.classList.remove('show'); modal.classList.remove('closing'); }, 250);
+  returnToHomeTab();
+}
+function returnToHomeTab() {
+  if (activeRibbonTab === 'Home') return;
+  activeRibbonTab = 'Home';
+  const tabsBar = $('#ribbon-tabs');
+  tabsBar.querySelectorAll('.ribbon-tab').forEach(t => {
+    const on = t.dataset.tab === 'home';
+    t.classList.toggle('active', on);
+    t.setAttribute('aria-selected', on);
+  });
+  positionRibbonIndicator();
+  swapRibbonBody();
+}
+function deleteCurrentWorkbook() {
+  confirmDialog('Delete Workbook', 'Delete "' + (WB.title || 'Untitled workbook') + '" from browser storage? This cannot be undone.', async () => {
+    try { await IO.deleteDoc(WB.id); } catch (e) {}
+    Persistence.flush();
+    deserializeWorkbook(newWorkbookData());
+    Persistence.setDocId(WB.id);
+    H.undo.length = 0; H.redo.length = 0;
+    updateUndoRedoUI();
+    rebuildAllDeps();
+    bootChrome();
+    setActiveSheet(WB.activeSheetId);
+    Persistence.markDirty();
+    Persistence.flush();
+    toast('Workbook deleted', 'success');
+  });
+}
 async function openDocumentsDialog() {
   let docs = [];
   try { docs = await IO.allDocs(); } catch (e) { toast('Could not read browser storage', 'error'); return; }
@@ -10031,23 +10094,7 @@ function colorPaletteItems(onPick, allowNone) {
 function ribbonConfig() {
   const cmd = (iconName, label, action, opts = {}) => Object.assign({ icon: iconName, label, action, title: opts.title || label }, opts);
   return {
-    File: [
-      { label: 'Document', items: [
-        cmd('file', 'New', () => fileNew(), { small: true, title: 'New workbook (Ctrl+N)' }),
-        cmd('folder', 'Open', () => openDocumentsDialog(), { small: true, title: 'Open a saved document (Ctrl+O)' }),
-        cmd('import', 'Import', () => importFileDialog(), { small: true, title: 'Import CSV / XLSX' }),
-        cmd('export', 'Export', null, { split: true, title: 'Export', menu: [
-          { label: 'Workbook (.xlsx)', icon: 'xlsx', action: () => exportXlsx() },
-          { label: 'CSV (active sheet)', icon: 'csv', action: () => exportCsv() },
-          { sep: true },
-          { label: 'Save As Copy…', icon: 'save', action: () => fileSaveAs() }
-        ] }),
-        cmd('print', 'Print', () => printWorksheet(), { small: true, title: 'Print / save as PDF (Ctrl+P)' })
-      ]},
-      { label: 'Tools', items: [
-        cmd('search', 'Search commands', () => openCommandPalette(), { small: true, title: 'Search commands (Ctrl+K)' })
-      ]}
-    ],
+    File: [],
     Home: [
       { label: 'History', items: [
         cmd('undo', 'Undo', () => undo(), { id: 'rbn-undo', title: 'Undo (Ctrl+Z)' }),
@@ -10404,6 +10451,20 @@ function buildRibbon() {
   for (const tabName in cfg) {
     const btn = el('<button class="ribbon-tab' + (tabName === activeRibbonTab ? ' active' : '') + '" role="tab" data-tab="' + tabName.toLowerCase() + '" aria-selected="' + (tabName === activeRibbonTab) + '">' + tabName + '</button>');
     btn.addEventListener('click', () => {
+      if (tabName === 'File') {
+        if (activeRibbonTab !== 'File') {
+          activeRibbonTab = 'File';
+          tabsBar.querySelectorAll('.ribbon-tab').forEach(t => {
+            const on = t === btn;
+            t.classList.toggle('active', on);
+            t.setAttribute('aria-selected', on);
+          });
+          positionRibbonIndicator();
+          blurOutActivePanel();
+        }
+        openFileModal();
+        return;
+      }
       if (activeRibbonTab === tabName) return;
       activeRibbonTab = tabName;
       tabsBar.querySelectorAll('.ribbon-tab').forEach(t => {
@@ -10481,6 +10542,25 @@ function swapRibbonBody() {
       current.removeEventListener('transitionend', onBlurred);
       current.classList.remove('blur-out');
       finishSwitch();
+    }
+  }, 220);
+}
+function blurOutActivePanel() {
+  const activePanel = $('#ribbon-body .ribbon-panel.active');
+  if (!activePanel) return;
+  activePanel.classList.add('blur-out');
+  activePanel.classList.remove('active');
+  activePanel.setAttribute('aria-hidden', 'true');
+  const finish = (e) => {
+    if (e && e.propertyName !== 'opacity') return;
+    activePanel.removeEventListener('transitionend', finish);
+    activePanel.classList.remove('blur-out');
+  };
+  activePanel.addEventListener('transitionend', finish);
+  setTimeout(() => {
+    if (activePanel.classList.contains('blur-out')) {
+      activePanel.removeEventListener('transitionend', finish);
+      activePanel.classList.remove('blur-out');
     }
   }, 220);
 }
@@ -11712,6 +11792,7 @@ function setupChrome() {
   $('#fx-cancel').innerHTML = icon('x');
   $('#fx-confirm').innerHTML = icon('check');
   $('#name-box-dd').innerHTML = icon('chevDown');
+  $('#formula-expand').innerHTML = icon('chevDown');
   $('#fx-cancel').addEventListener('click', () => { if (Edit.active) cancelEdit(); else cancelFormulaBar(); });
   $('#fx-confirm').addEventListener('click', () => { if (Edit.active) commitEditor(); else commitFormulaBar(); });
   $('#fx-insert').addEventListener('click', () => openInsertFunctionDialog());
@@ -11730,6 +11811,26 @@ function setupChrome() {
   UI.formulaInput.addEventListener('keydown', () => { if (FxAC.open) FxAC.host = UI.formulaInput; });
   UI.nameBox.addEventListener('focus', () => UI.nameBox.select());
   $('#formula-expand').addEventListener('click', () => $('#formula-row').classList.toggle('expanded'));
+  /* ---- File modal (Backstage) ---- */
+  $('#fileModalCloseXBtn').addEventListener('click', closeFileModal);
+  $('#fileModal').addEventListener('click', e => { if (e.target.id === 'fileModal') closeFileModal(); });
+  $('#fileCloseBtn').addEventListener('click', closeFileModal);
+  $('#fileDeleteBtn').addEventListener('click', () => { closeFileModal(); deleteCurrentWorkbook(); });
+  $('#fileNewBtn').addEventListener('click', () => { closeFileModal(); fileNew(); });
+  $('#fileOpenBtn').addEventListener('click', () => { closeFileModal(); openDocumentsDialog(); });
+  $('#fileImportBtn').addEventListener('click', () => { closeFileModal(); importFileDialog(); });
+  $('#fileExportXlsxBtn').addEventListener('click', () => { closeFileModal(); exportXlsx(); });
+  $('#fileExportCsvBtn').addEventListener('click', () => { closeFileModal(); exportCsv(); });
+  $('#filePrintBtn').addEventListener('click', () => { closeFileModal(); printWorksheet(); });
+  $('#fileSaveAsBtn').addEventListener('click', () => { closeFileModal(); fileSaveAs(); });
+  const fileNameInput = $('#fileModalNameInput');
+  fileNameInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); fileNameInput.blur(); closeFileModal(); }
+  });
+  fileNameInput.addEventListener('input', () => {
+    const t = fileNameInput.value.trim() || 'Untitled workbook';
+    if (t !== WB.title) { WB.title = t; Persistence.markDirty(); }
+  });
   $('#add-sheet').innerHTML = icon('plus');
   $('#add-sheet').addEventListener('click', () => addSheet(WB.activeSheetId));
   $('#tab-home').innerHTML = icon('chevsLeft');

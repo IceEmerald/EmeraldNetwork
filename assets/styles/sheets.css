@@ -216,8 +216,9 @@ button { cursor: default; }
 }
 #formula-input:hover { border-color: var(--chrome-3); }
 #formula-input:focus { border-color: var(--accent); }
-.expand-grip { width: 14px; display: flex; align-items: center; justify-content: center; color: var(--ink-4); cursor: pointer; flex: none; }
-.expand-grip::before { content: "⋯"; }
+.expand-grip { width: 18px; display: flex; align-items: center; justify-content: center; color: var(--ink-4); cursor: pointer; flex: none; }
+.expand-grip svg { width: 14px; height: 14px; stroke-width: 2.5; transition: transform .18s ease; }
+#formula-row.expanded .expand-grip svg { transform: rotate(180deg); }
 .expand-grip:hover { color: var(--ink-2); }
 
 /* ==========================================================================
@@ -1764,7 +1765,7 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
   --ui-muted: rgb(100, 116, 139);
   --ui-faint: #94a3b8;
 }
-#app { font-family: var(--font-ui); }
+#app { font-family: var(--font-ui); background: #f5f5f5; }
 
 /* ---------- Navbar (minimal overrides on top of style.css, identical to Slides/Docs) ---------- */
 .navbar {
@@ -1942,7 +1943,7 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
   background: rgba(255, 255, 255, .98);
   border: 1px solid rgba(0, 0, 0, .08);
   border-radius: 12px;
-  margin: 0 12px 12px;
+  margin: 0 12px 8px;
   padding: 12px;
   box-shadow: rgba(0, 0, 0, .04) 0 4px 10px, rgba(0, 0, 0, .06) 0 2px 8px;
   -webkit-font-smoothing: antialiased;
@@ -2212,23 +2213,28 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 .rb-select:focus { border-color: var(--ui-accent); box-shadow: 0 0 0 3px rgba(35, 154, 77, .14); outline: none; }
 .rb-size { width: 58px; }
 
-/* ---------- Formula row ---------- */
+/* ---------- Formula row (floating card — mirrors the ribbon card, no switcher) ---------- */
 #formula-row {
-  height: var(--formula-h);
+  height: auto;
+  min-height: 30px;
   display: flex;
   align-items: stretch;
-  background: rgba(255, 255, 255, .92);
-  border-bottom: 1px solid rgba(0, 0, 0, .07);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, .03);
+  gap: 6px;
+  background: rgba(255, 255, 255, .97);
+  border: 1px solid rgba(0, 0, 0, .08);
+  border-radius: 12px;
+  margin: 0 12px 12px;
+  padding: 6px 12px;
+  box-shadow: rgba(0, 0, 0, .04) 0 4px 10px, rgba(0, 0, 0, .06) 0 2px 8px;
   flex: none;
   position: relative;
   z-index: 45;
 }
 #formula-row.expanded #formula-bar-wrap { align-items: flex-start; }
 #formula-row.expanded #formula-input { height: 92px; }
-#name-box-wrap { border-right: 1px solid rgba(0, 0, 0, .08); padding: 3px 4px 3px 8px; }
+#name-box-wrap { border-right: 1px solid rgba(0, 0, 0, .08); padding: 3px 10px 3px 0; }
 #name-box {
-  width: 120px;
+  width: 88px;
   height: 100%;
   border: 1px solid transparent;
   border-radius: 8px;
@@ -2242,10 +2248,17 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 #name-box.error { border-color: #ef4444; background: #fef2f2; }
 .namebox-dd { width: 18px; height: 24px; border-radius: 6px; }
 .namebox-dd:hover { background: rgba(0, 0, 0, .06); }
-.fx-group { border-right: 1px solid rgba(0, 0, 0, .08); gap: 2px; padding: 2px 6px; }
+.fx-group { border-right: 1px solid rgba(0, 0, 0, .08); gap: 2px; padding: 2px 10px 2px 6px; }
 .fx-btn { font-size: 15px; color: var(--ui-accent); width: 32px; height: 24px; border-radius: 7px; font-style: italic; }
 .fx-btn:hover { background: rgba(35, 154, 77, .1); color: var(--ui-accent-strong); }
-#formula-bar-wrap { padding: 3px 6px 3px 4px; }
+#fx-cancel, #fx-confirm {
+  width: 22px; height: 24px;
+  border-radius: 7px;
+  color: var(--ui-muted);
+}
+#fx-cancel:hover, #fx-confirm:hover { background: rgba(0, 0, 0, .06); color: var(--ui-ink); }
+#fx-cancel svg, #fx-confirm svg { width: 15px; height: 15px; }
+#formula-bar-wrap { padding: 3px 4px 3px 8px; }
 #formula-input {
   border: 1px solid transparent;
   border-radius: 8px;
@@ -2261,8 +2274,8 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 .expand-grip { color: var(--ui-faint); }
 .expand-grip:hover { color: var(--ui-ink); }
 
-/* ---------- Grid canvas backdrop ---------- */
-#grid-area { flex: 1; position: relative; overflow: hidden; background: #eef1f4; min-height: 120px; }
+/* ---------- Grid canvas backdrop (matches the app surface so transparent headers blend in) ---------- */
+#grid-area { flex: 1; position: relative; overflow: hidden; background: #f5f5f5; min-height: 120px; }
 
 /* ---------- Bottom bar: sheet tabs (left half) + count & zoom (right half) ---------- */
 #status-bar {
@@ -2366,3 +2379,130 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
   #ribbon-tabs .ribbon-tab::after, #ribbon-tabs .ribbon-tab:hover::after,
   #ribbon-tabs .ribbon-tab.active::after { transition: none; }
 }
+
+/* ==========================================================================
+   File modal (Docs/Slides-style Backstage overlay)
+   ========================================================================== */
+@keyframes fadeInModal { from { opacity: 0; } to { opacity: 1; } }
+.file-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s, visibility 0.25s;
+  z-index: 9999;
+  padding: 20px;
+}
+.file-overlay.show { opacity: 1; visibility: visible; }
+.file-overlay.closing { opacity: 0; visibility: hidden; transition: opacity 0.2s, visibility 0.2s; }
+.file-overlay-card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: rgba(0, 0, 0, 0.15) 0 12px 40px;
+  max-width: 420px;
+  width: 100%;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+.file-overlay.show .file-overlay-card { opacity: 1; animation: fadeInModal 0.25s ease both; }
+.file-overlay.closing .file-overlay-card { opacity: 0; transition: opacity 0.2s; }
+.file-overlay-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 24px;
+  position: relative;
+}
+.file-overlay-header-title {
+  font-family: "DM Sans", sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: rgba(30, 41, 59, 0.92);
+  letter-spacing: -0.02em;
+  text-align: center;
+}
+.file-overlay-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: rgba(108, 117, 125, 0.5);
+  transition: background 0.15s, color 0.15s;
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.file-overlay-close-btn:hover { background: rgba(0, 0, 0, 0.06); color: rgba(44, 62, 80, 0.7); }
+.file-overlay-body {
+  padding: 0 24px 24px;
+  overflow-y: auto;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.file-overlay-section { display: flex; flex-direction: column; gap: 8px; }
+.file-overlay-section-label {
+  font-family: "DM Sans", sans-serif;
+  font-size: 12px;
+  color: rgba(70, 70, 70, 0.5);
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+.file-overlay-name-input {
+  font-family: "DM Sans", sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(30, 41, 59, 0.92);
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  padding: 12px 16px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+  letter-spacing: -0.01em;
+}
+.file-overlay-name-input:focus { border-color: rgba(35, 154, 77, 0.4); background: rgba(35, 154, 77, 0.03); }
+.file-overlay-actions-row { display: flex; gap: 10px; }
+.file-overlay-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: "DM Sans", sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(44, 62, 80, 0.82);
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 11px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  width: 100%;
+  letter-spacing: -0.01em;
+}
+.file-overlay-action-btn:hover { background: rgba(0, 0, 0, 0.05); color: rgba(30, 41, 59, 0.95); border-color: rgba(0, 0, 0, 0.12); }
+.file-overlay-action-btn svg { flex-shrink: 0; color: rgba(108, 117, 125, 0.45); transition: color 0.15s; }
+.file-overlay-action-btn:hover svg { color: rgba(44, 62, 80, 0.65); }
+.file-overlay-action-btn--danger {
+  color: #dc3545;
+  border-color: rgba(220, 53, 69, 0.12);
+  background: rgba(220, 53, 69, 0.04);
+}
+.file-overlay-action-btn--danger:hover { color: #c82333; background: rgba(220, 53, 69, 0.1); border-color: rgba(220, 53, 69, 0.2); }
+.file-overlay-action-btn--danger svg { color: #dc3545; }
+.file-overlay-action-btn--danger:hover svg { color: #c82333; }
+.file-overlay-action-btn[disabled] { opacity: .45; pointer-events: none; }
