@@ -4811,7 +4811,6 @@ function beginEdit(r, c, opts = {}) {
   if (!Edit.cursorMode) { ed.setSelectionRange(initial.length, initial.length); ed.focus(); }
   else { ed.setSelectionRange(initial.length, initial.length); ed.focus(); }
   updateFormulaBarForEdit(initial);
-  $('#sb-mode').textContent = 'Editing';
   requestPaint();
 }
 function rawValueText(cell) {
@@ -4894,7 +4893,6 @@ function cancelEdit() {
   hideFormulaAC();
   hideArgTip();
   updateFormulaBar();
-  $('#sb-mode').textContent = 'Ready';
   requestPaint();
   if (!Edit.fromFormulaBar) UI.formulaInput.blur();
 }
@@ -4909,7 +4907,6 @@ function commitEditor(move) {
   setRefMode(false);
   hideFormulaAC();
   hideArgTip();
-  $('#sb-mode').textContent = 'Ready';
   commitCellValue(sh, r, c, text);
   if (move === 'down' || move === true) jumpRelative(1, 0);
   else if (move === 'up') jumpRelative(-1, 0);
@@ -4944,7 +4941,6 @@ function commitCellValue(sh, r, c, text) {
   afterCellCommit(sh, r, c);
 }
 function afterCellCommit(sh, r, c) {
-  if (Calc.mode === 'manual') { $('#sb-perm').textContent = 'Manual calculation — press F9'; }
   if (sh.filter) applyFilter(sh);
   updateStatusBar();
   renderChartsLayer();
@@ -6257,95 +6253,29 @@ document.addEventListener('cut', e => {
 });
 
 /* ---------------- status bar stats ---------------- */
-/* ---------------- animated status bar statistics ----------------
- * Aggregates (count/avg/sum/min/max) ease from their previous values to the
- * new ones (~220 ms) instead of hard-snapping. Tabular numerals in CSS keep
- * the digits from jittering while they roll. */
-const SbAnim = { shown: null, raf: 0 };
-const SB_KEYS = ['count', 'numCount', 'avg', 'sum', 'min', 'max'];
-function sbFmtInt(v) { return Math.round(v).toLocaleString(); }
-function paintSbStats(el, s) {
-  const parts = [];
-  parts.push('Count: <b>' + (typeof s.count === 'number' ? sbFmtInt(s.count) : '0') + '</b>');
-  if (s.numCount) {
-    parts.push('Numerical Count: <b>' + sbFmtInt(s.numCount) + '</b>');
-    parts.push('Average: <b>' + generalNum(s.avg) + '</b>');
-    parts.push('Sum: <b>' + generalNum(s.sum) + '</b>');
-    parts.push('Min: <b>' + generalNum(s.min) + '</b>');
-    parts.push('Max: <b>' + generalNum(s.max) + '</b>');
-  }
-  el.innerHTML = parts.join(' &nbsp;·&nbsp; ');
-}
-function renderSbStats(el, target) {
-  const prev = SbAnim.shown;
-  const animable = prev && !SmoothScroll.reduced &&
-    typeof prev.sum === 'number' && isFinite(prev.sum) &&
-    typeof target.sum === 'number' && isFinite(target.sum);
-  if (!animable) {
-    SbAnim.shown = Object.assign({}, target);
-    paintSbStats(el, target);
-    return;
-  }
-  const changed = SB_KEYS.some(k =>
-    (target[k] == null) !== (prev[k] == null) ||
-    (typeof target[k] === 'number' && typeof prev[k] === 'number' && Math.abs(target[k] - prev[k]) > 1e-9));
-  if (!changed) { paintSbStats(el, prev); return; }
-  const from = Object.assign({}, prev);
-  const t0 = performance.now(), dur = 220;
-  if (SbAnim.raf) cancelAnimationFrame(SbAnim.raf);
-  const step = () => {
-    const p = Math.min(1, (performance.now() - t0) / dur);
-    const e = 1 - Math.pow(1 - p, 3);
-    const disp = {};
-    for (const k of SB_KEYS) {
-      const a = from[k], b = target[k];
-      disp[k] = (typeof a === 'number' && isFinite(a) && typeof b === 'number' && isFinite(b)) ? a + (b - a) * e : b;
-    }
-    SbAnim.shown = disp;
-    paintSbStats(el, disp);
-    if (p < 1) SbAnim.raf = requestAnimationFrame(step);
-    else { SbAnim.raf = 0; SbAnim.shown = Object.assign({}, target); paintSbStats(el, target); }
-  };
-  SbAnim.raf = requestAnimationFrame(step);
-}
+/* The selection summary is intentionally minimal: just a live Count of
+   values in the selected cells (matching the Docs/Slides status bar). */
 function updateStatusBar() {
   const el1 = $('#sb-stats');
   if (!el1) return;
   const sh = activeSheet();
-  if (SEL.sheetId !== sh.id) { el1.textContent = ''; SbAnim.shown = null; return; }
-  let count = 0, numCount = 0, sum = 0, min = Infinity, max = -Infinity;
-  let cells = 0;
-  for (const rg of SEL.ranges) cells += (rg.r2 - rg.r1 + 1) * (rg.c2 - rg.c1 + 1);
-  if (cells > 3000000) { el1.innerHTML = 'Selection too large for statistics'; SbAnim.shown = null; return; }
-  if (cells > 250000) { el1.innerHTML = 'Large selection (' + cells.toLocaleString() + ' cells) — statistics skipped'; SbAnim.shown = null; $('#sb-mode').textContent = (sh.filter ? 'Filter mode' : 'Ready') + (Calc.mode === 'manual' ? ' · Manual calc' : ''); return; }
-  forEachSelectedCell((r, c) => {
-    const cell = sh.cells.get(key(r, c));
-    if (!cell || (cell.v == null && !cell.f)) return;
-    const v = cell.f ? getComputedCell(sh.id, r, c) : cell.v;
-    count++;
-    if (typeof v === 'number') { numCount++; sum += v; if (v < min) min = v; if (v > max) max = v; }
-  });
-  renderSbStats(el1, { count, numCount, avg: numCount ? sum / numCount : null, sum: numCount ? sum : null, min: numCount ? min : null, max: numCount ? max : null });
-  const modeEl = $('#sb-mode');
-  let modeHtml;
-  if (sh.filter) {
-    const hidden = sh.filterHidden ? sh.filterHidden.size : 0;
-    const hiddenTxt = hidden ? hidden.toLocaleString() + ' row' + (hidden === 1 ? '' : 's') + ' hidden' : 'no rows hidden';
-    modeHtml = (count ? count.toLocaleString() + ' cells selected' : 'Ready') +
-      ' <span class="sb-chip sb-filter-chip" title="A filter is active on this sheet">' + icon('filter') + 'Filter · ' + hiddenTxt + '</span>' +
-      (Calc.mode === 'manual' ? ' <span class="sb-chip sb-calc-chip">Manual calc</span>' : '');
+  let count = 0;
+  if (SEL.sheetId === sh.id) {
+    let cells = 0;
+    for (const rg of SEL.ranges) cells += (rg.r2 - rg.r1 + 1) * (rg.c2 - rg.c1 + 1);
+    if (cells <= 250000) {
+      forEachSelectedCell((r, c) => {
+        const cell = sh.cells.get(key(r, c));
+        if (!cell || (cell.v == null && !cell.f)) return;
+        count++;
+      });
+      el1.textContent = 'Count: ' + count.toLocaleString();
+    } else {
+      el1.textContent = 'Count: —';
+    }
   } else {
-    const calcMode = Calc.mode === 'manual' ? ' <span class="sb-chip sb-calc-chip">Manual calc</span>' : '';
-    modeHtml = (count ? count.toLocaleString() + ' cells selected' : 'Ready') + calcMode;
+    el1.textContent = 'Count: 0';
   }
-  if (Audit.mode) {
-    computeAuditArrows();   /* refresh lazily-computed arrows so the legend count is current */
-    const auditLabel = { prec: 'Tracing precedents', dep: 'Tracing dependents', both: 'Tracing precedents + dependents', all: 'Tracing full chain' }[Audit.mode] || 'Auditing';
-    const nArrows = Audit.arrows.length ? Audit.arrows.length + ' arrow' + (Audit.arrows.length === 1 ? '' : 's') : 'no arrows';
-    modeHtml += ' <button type="button" class="sb-chip sb-audit-chip" title="Formula auditing is active (blue = precedents, red = dependents, gray = other sheets). Click a gray sheet chip on the canvas to jump to it, or click here to remove the arrows.">' +
-      icon('auditAll') + auditLabel + ' · ' + nArrows + ' · click to clear</button>';
-  }
-  modeEl.innerHTML = modeHtml;
 }
 
 /* ---------------- name box ---------------- */
@@ -7028,7 +6958,6 @@ function recalcWorkbook(evaluateAll) {
   requestPaint();
   renderChartsLayer();
   updateStatusBar();
-  $('#sb-perm').textContent = '';
   toast('Workbook recalculated', 'success', 1200);
 }
 
@@ -9528,7 +9457,7 @@ function buildMenuItems(items) {
     if (!it) continue;
     if (it.sep) { frag.appendChild(el('<div class="popup-sep"></div>')); continue; }
     if (it.title) { frag.appendChild(el('<div class="popup-title">' + esc(it.title) + '</div>')); continue; }
-    const row = el('<div class="popup-item' + (it.disabled ? ' disabled' : '') + (it.checked ? ' checked' : '') + '" role="menuitem' + (it.disabled ? 'disabled' : '') + '" tabindex="-1">' +
+    const row = el('<div class="popup-item' + (it.disabled ? ' disabled' : '') + (it.checked ? ' checked' : '') + (it.danger ? ' danger' : '') + '" role="menuitem' + (it.disabled ? 'disabled' : '') + '" tabindex="-1">' +
       (it.checked !== undefined ? '<span class="pi-check">' + (it.checked ? icon('check') : '') + '</span>' : '<span class="pi-icon">' + (it.icon ? icon(it.icon) : '') + '</span>') +
       '<span class="pi-label">' + esc(it.label) + '</span>' +
       (it.submenu ? '<span class="pi-sub">▸</span>' : '') +
@@ -10892,7 +10821,6 @@ function toggleHeadings() {
 }
 function setZoom(z) {
   VIEW.zoom = clamp(z, 0.1, 4);
-  $('#sb-zoom').value = Math.round(VIEW.zoom * 100);
   $('#sb-zoom-pct').textContent = Math.round(VIEW.zoom * 100) + '%';
   hideEditor();
   cancelSmoothScroll();
@@ -10972,7 +10900,7 @@ function updateSheetTabBar() {
       e.preventDefault();
       showPopupMenu([
         { label: 'Insert Sheet', icon: 'plusSheet', action: () => addSheet(sh.id) },
-        { label: 'Delete Sheet', icon: 'trash', action: () => deleteSheetById(sh.id) },
+        { label: 'Delete Sheet', icon: 'trash', danger: true, action: () => deleteSheetById(sh.id) },
         { label: 'Rename', icon: 'pencil', action: () => beginTabRename(sh, tab) },
         { label: 'Duplicate', icon: 'dup', action: () => duplicateSheetById(sh.id) },
         { sep: true },
@@ -11755,7 +11683,6 @@ function bootChrome() {
   buildRibbon();
   updateSheetTabBar();
   updateSaveStatus();
-  $('#sb-zoom').value = Math.round(VIEW.zoom * 100);
   $('#sb-zoom-pct').textContent = Math.round(VIEW.zoom * 100) + '%';
   $('#formula-row').style.display = VIEW.showFormulaBar ? '' : 'none';
   updateUndoRedoUI();
@@ -11782,9 +11709,6 @@ function setupChrome() {
   R.canvas.tabIndex = 0;
   setupGridEvents();
 
-  /* status bar audit chip: click clears the arrows (delegated — the chip is re-rendered with the bar) */
-  const sbMode = $('#sb-mode');
-  if (sbMode) sbMode.addEventListener('click', e => { if (e.target.closest('.sb-audit-chip')) removeAuditArrows(); });
   $('#fx-cancel').innerHTML = icon('x');
   $('#fx-confirm').innerHTML = icon('check');
   $('#name-box-dd').innerHTML = icon('chevDown');
@@ -11816,10 +11740,7 @@ function setupChrome() {
   $('#tab-prev').addEventListener('click', () => { $('#sheet-tabs').scrollLeft -= 120; });
   $('#tab-next').addEventListener('click', () => { $('#sheet-tabs').scrollLeft += 120; });
   $('#tab-end').addEventListener('click', () => { $('#sheet-tabs').scrollLeft = 99999; });
-  $('#sb-zoom').addEventListener('input', e => setZoom((+e.target.value) / 100));
   $('#sb-zoom-pct').addEventListener('click', () => animateZoom(1));
-  $('#sb-zoom-out').innerHTML = icon('zoomOut');
-  $('#sb-zoom-out').addEventListener('click', () => animateZoom(VIEW.zoom / 1.15));
   setupEditorEvents();
   window.addEventListener('resize', rafThrottle(() => { resizeCanvas(); positionRibbonIndicator(); }));
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => positionRibbonIndicator());

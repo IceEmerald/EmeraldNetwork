@@ -65,31 +65,21 @@
     <div id="drag-hint" aria-hidden="true"></div>
   </main>
 
-  <!-- ======= Sheet tabs ======= -->
-  <div id="sheet-tabs-bar">
-    <div class="tab-nav">
-      <button id="tab-home" class="iconbtn" title="Scroll to start" aria-label="Scroll sheet tabs to start"></button>
-      <button id="tab-prev" class="iconbtn" title="Scroll left" aria-label="Scroll sheet tabs left"></button>
-      <button id="tab-next" class="iconbtn" title="Scroll right" aria-label="Scroll sheet tabs right"></button>
-      <button id="tab-end" class="iconbtn" title="Scroll to end" aria-label="Scroll sheet tabs to end"></button>
-    </div>
-    <div id="sheet-tabs" role="tablist" aria-label="Worksheets"></div>
-    <button id="add-sheet" title="New sheet" aria-label="Add worksheet"></button>
-    <div id="tab-hscroll"></div>
-  </div>
-
-  <!-- ======= Status bar (EmeraldSuite pill) ======= -->
-  <footer id="status-bar">
-    <div class="sb-left">
-      <span id="sb-mode" class="statbar-item">Ready</span>
-      <span id="sb-perm" class="sb-perm statbar-item"></span>
+  <!-- ======= Bottom bar: sheet tabs (left) + status count & zoom (right) ======= -->
+  <footer id="status-bar" role="region" aria-label="Sheet tabs and status">
+    <div class="sb-sheets">
+      <div class="tab-nav" role="group" aria-label="Sheet tab navigation">
+        <button id="tab-home" class="iconbtn" title="Scroll to start" aria-label="Scroll sheet tabs to start"></button>
+        <button id="tab-prev" class="iconbtn" title="Scroll left" aria-label="Scroll sheet tabs left"></button>
+        <button id="tab-next" class="iconbtn" title="Scroll right" aria-label="Scroll sheet tabs right"></button>
+        <button id="tab-end" class="iconbtn" title="Scroll to end" aria-label="Scroll sheet tabs to end"></button>
+        <button id="add-sheet" title="New sheet" aria-label="Add worksheet"></button>
+      </div>
+      <div id="sheet-tabs" role="tablist" aria-label="Worksheets"></div>
     </div>
     <div class="sb-right">
-      <span id="sb-stats" class="statbar-item" title="Statistics for the current selection"></span>
+      <span id="sb-stats" class="statbar-item" title="Count of values in the current selection"></span>
       <span class="sb-sep" aria-hidden="true"></span>
-      <button id="sb-zoom-out" class="iconbtn statbar-item" title="Zoom out" aria-label="Zoom out"></button>
-      <span class="statbar-sep" aria-hidden="true"></span>
-      <input id="sb-zoom" type="range" min="10" max="400" step="5" value="100" aria-label="Zoom level">
       <button id="sb-zoom-pct" class="statbar-toggle" title="Reset zoom to 100%">100%</button>
     </div>
   </footer>
