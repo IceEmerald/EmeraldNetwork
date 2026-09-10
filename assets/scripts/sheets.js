@@ -2530,6 +2530,7 @@ const Persistence = {
     if (!WB) return;
     clearTimeout(this.timer);
     if (this.state === 'saving') return;
+    if (WB._persist === false) { this.state = 'saved'; updateSaveStatus(); return; }
     this.state = 'saving';
     updateSaveStatus();
     try {
@@ -2638,8 +2639,14 @@ function deserializeWorkbook(d) {
   return WB;
 }
 
+function generateSecureId(length) {
+  const arr = new Uint8Array(Math.ceil(length / 2));
+  crypto.getRandomValues(arr);
+  return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('').slice(0, length);
+}
+function newWorkbookId() { return 'book_' + Date.now() + '_' + generateSecureId(9); }
 function newWorkbookData(title) {
-  return { id: uid(), title: title || 'Untitled workbook', createdAt: nowTs(), sheets: null, activeSheetId: null, names: {}, calcMode: 'auto', view: {} };
+  return { id: newWorkbookId(), title: title || 'Untitled workbook', createdAt: nowTs(), sheets: null, activeSheetId: null, names: {}, calcMode: 'auto', view: {} };
 }
 
 async function loadLastOrNew() {
@@ -2652,6 +2659,7 @@ async function loadLastOrNew() {
     } catch (e) { console.warn('restore failed', e); }
   }
   deserializeWorkbook(newWorkbookData());
+  WB._persist = false;
   Persistence.setDocId(WB.id);
   return false;
 }
@@ -9059,6 +9067,7 @@ function importFileDialog() {
         await importCsv(file);
       }
       if (isWelcomeVisible()) activateEditor();
+      updateOwnedUrl();
     } catch (e) {
       console.error(e);
       toast('Import failed: ' + (e && e.message ? e.message : 'unknown error'), 'error', 5000);
@@ -9362,6 +9371,7 @@ function fileNew() {
     rebuildAllDeps();
     bootChrome();
     setActiveSheet(WB.activeSheetId);
+    updateOwnedUrl();
     Persistence.markDirty();
     Persistence.flush();
   });
@@ -9474,6 +9484,7 @@ async function openWorkbook(id) {
     H.undo.length = 0; H.redo.length = 0;
     updateUndoRedoUI();
     activateEditor();
+    updateOwnedUrl();
     toast('Opened "' + (WB.title || 'Untitled workbook') + '"', 'success');
   } catch (e) { toast('Could not open workbook', 'error'); }
 }
@@ -9485,6 +9496,7 @@ function welcomeNew() {
   H.undo.length = 0; H.redo.length = 0;
   updateUndoRedoUI();
   activateEditor();
+  updateOwnedUrl();
   Persistence.markDirty();
   Persistence.flush();
 }
@@ -9498,7 +9510,22 @@ function welcomeImport() {
 }
 function closeWorkbookToWelcome() {
   flushIfDirty();
+  updateOwnedUrl(true);
   showWelcomeScreen(true);
+}
+
+/* Keep the address bar in sync with the open workbook, Docs/Notes/Slides
+   style: ?owned=book_<ms>_<hex> while a workbook is open, bare URL on welcome. */
+function updateOwnedUrl(forceClear) {
+  try {
+    if (!forceClear && WB && WB.id && WB._persist !== false) {
+      const url = new URL(location.href);
+      url.searchParams.set('owned', WB.id);
+      history.replaceState({}, document.title, url);
+    } else if (location.search) {
+      history.replaceState({}, document.title, location.pathname);
+    }
+  } catch (e) {}
 }
 
 /* ---------------- File modal (Backstage-style, Docs/Slides pattern) ---------------- */
@@ -9550,10 +9577,12 @@ function deleteCurrentWorkbook() {
     Persistence.state = 'saved';
     updateSaveStatus();
     deserializeWorkbook(newWorkbookData());
+    WB._persist = false;
     Persistence.setDocId(WB.id);
     H.undo.length = 0; H.redo.length = 0;
     updateUndoRedoUI();
     showWelcomeScreen(true);
+    updateOwnedUrl();
     toast('Workbook deleted', 'success');
   });
 }
@@ -9584,6 +9613,7 @@ async function openDocumentsDialog() {
         setActiveSheet(WB.activeSheetId);
         Persistence.setDocId(WB.id);
         Persistence.markDirty();
+        updateOwnedUrl();
         closeModalStack();
         toast('Opened "' + WB.title + '"', 'success');
       } catch (e) { toast('Could not open document', 'error'); }
@@ -9596,11 +9626,13 @@ async function openDocumentsDialog() {
           Persistence.state = 'saved';
           updateSaveStatus();
           deserializeWorkbook(newWorkbookData());
+          WB._persist = false;
           Persistence.setDocId(WB.id);
           H.undo.length = 0; H.redo.length = 0;
           updateUndoRedoUI();
           closeModalStack();
           showWelcomeScreen(true);
+          updateOwnedUrl();
           return;
         }
         openDocumentsDialog();
@@ -12113,6 +12145,16 @@ async function boot() {
   setupChrome();
   await loadLastOrNew();
   showWelcomeScreen(true);
+  /* Deep-link: ?owned=book_<ms>_<hex> opens that workbook immediately,
+     matching Docs/Notes/Slides behaviour. */
+  const ownedParam = (() => { try { return new URLSearchParams(location.search).get('owned'); } catch (e) { return null; } })();
+  if (ownedParam) {
+    try {
+      const doc = await IO.loadDoc(ownedParam);
+      if (doc && doc.data) { await openWorkbook(ownedParam); }
+      else { history.replaceState({}, document.title, location.pathname); }
+    } catch (e) { history.replaceState({}, document.title, location.pathname); }
+  }
   /* marquee animation loop (cheap; only repaints when marquee active) */
   setInterval(() => { if (Clip.marquee) requestPaint(); }, 120);
   /* charts refresh after recalc */

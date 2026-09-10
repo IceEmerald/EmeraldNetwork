@@ -205,6 +205,7 @@ function setupChatStorageSync() {
         loadConversation(activeId);
       } else if (activeId && !activeConv) {
         state.convId = null;
+        updateOwnedUrl();
         showWelcome();
         renderSidebar();
       }
@@ -333,6 +334,24 @@ function genId() {
   const _b = new Uint8Array(8);
   crypto.getRandomValues(_b);
   return Array.from(_b, x => x.toString(16).padStart(2, '0')).join('');
+}
+function generateSecureId(length) {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  const arr = new Uint8Array(length);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, b => chars[b % chars.length]).join('');
+}
+function genChatId() { return generateSecureId(15); }
+function updateOwnedUrl(forceClear) {
+  try {
+    if (!forceClear && state.convId) {
+      const url = new URL(location.href);
+      url.searchParams.set('chat', state.convId);
+      history.replaceState({}, document.title, url);
+    } else if (location.search) {
+      history.replaceState({}, document.title, location.pathname);
+    }
+  } catch (e) {}
 }
 async function safeCopy(text) {
   try {
@@ -635,6 +654,7 @@ function deleteConvConfirm(id) {
     deleteConv(id);
     if (state.convId === id) {
       state.convId = null;
+      updateOwnedUrl();
       if (state.isTemp) {
         state.isTemp = false;
         state.tempHistory = [];
@@ -1703,6 +1723,7 @@ function loadConversation(id) {
   }
   updateLastMsgActions();
   updateTopbarTitle(conv.title);
+  updateOwnedUrl();
   renderSidebar();
   scrollToBottom();
   });
@@ -2577,7 +2598,7 @@ async function handleSend(opts) {
     return;
   }
   if (!state.isTemp && !state.convId) {
-    state.convId = genId();
+    state.convId = genChatId();
   }
   if (!_silent) {
     textarea.value = "";
@@ -2604,6 +2625,7 @@ async function handleSend(opts) {
     conv.messages.push({ role: "user", text, files: files.map((f) => ({ name: f.name, type: f.type, size: f.size, data: f.data || void 0, extractedText: f.extractedText })), id: userMsgId, _silent: _silent || undefined });
     upsertConv(conv);
     if (isNewConv) updateTopbarTitle(conv.title);
+    updateOwnedUrl();
     renderSidebar();
     addFilesToLibrary(files, conv.id);
   } else {
@@ -2828,6 +2850,7 @@ async function handleSend(opts) {
         deleteConv(state.convId);
       }
       state.convId = null;
+      updateOwnedUrl();
       state.tempHistory = [];
       state.isStreaming = false;
       state.abortCtrl = null;
@@ -3872,6 +3895,7 @@ function doSearch() {
 }
 function newChat() {
   state.convId = null;
+  updateOwnedUrl();
   showWelcome();
   updateTopbarTitle("");
   renderSidebar();
@@ -4252,6 +4276,13 @@ async function init() {
   setupContextMenu();
   renderSidebar();
   showWelcome();
+  /* Deep-link: ?chat=<random id> opens that conversation straight away. */
+  const ownedParam = (() => { try { return new URLSearchParams(location.search).get('chat'); } catch (e) { return null; } })();
+  if (ownedParam) {
+    const conv = getConv(ownedParam);
+    if (conv) loadConversation(ownedParam);
+    else history.replaceState({}, document.title, location.pathname);
+  }
   checkOnboarding();
   try {
     refreshModelSelectorUI();
@@ -5171,6 +5202,7 @@ async function submitUserMsgEdit(msgId) {
         deleteConv(state.convId);
       }
       state.convId = null;
+      updateOwnedUrl();
       state.tempHistory = [];
       state.isStreaming = false;
       state.abortCtrl = null;
