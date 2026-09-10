@@ -9058,6 +9058,7 @@ function importFileDialog() {
       } else {
         await importCsv(file);
       }
+      if (isWelcomeVisible()) activateEditor();
     } catch (e) {
       console.error(e);
       toast('Import failed: ' + (e && e.message ? e.message : 'unknown error'), 'error', 5000);
@@ -9374,6 +9375,132 @@ function fileSaveAs() {
     toast('Saved "' + WB.title + '" to browser storage', 'success');
   });
 }
+/* ---------------- Welcome screen (home / workbook overview) ---------------- */
+function flushIfDirty() {
+  if (Persistence.state === 'dirty') { try { return Persistence.flush(); } catch (e) {} }
+  return Promise.resolve();
+}
+function activateEditor() {
+  showWelcomeScreen(false);
+  bootChrome();
+  rebuildAllDeps();
+  resizeCanvas();
+  setActiveSheet(WB.activeSheetId);
+  updateStatusBar();
+  updateNameBox();
+  updateFormulaBar();
+}
+function showWelcomeScreen(show) {
+  const ws = $('#welcomeScreen');
+  if (!ws) return;
+  ws.style.display = show ? 'flex' : 'none';
+  document.body.classList.toggle('no-active-wb', show);
+  if (show) renderWelcomeCards();
+}
+function isWelcomeVisible() {
+  const ws = $('#welcomeScreen');
+  return !!(ws && ws.style.display === 'flex');
+}
+function fmtCardDate(ts) {
+  if (!ts) return '';
+  return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+/* Tiny spreadsheet preview (6x4 cells): header row/col get a green tint when the
+   sheet has content; cells with a value/formula get a light fill. */
+function wbMiniGrid(data) {
+  const visible = (data.sheets || []).filter(s => !s.hidden);
+  const sh = visible[0] || (data.sheets || [])[0];
+  const cells = (sh && sh.cells) ? sh.cells : {};
+  let anyCell = false; for (const k in cells) { anyCell = true; break; }
+  const COLS = 6, ROWS = 4;
+  let html = '';
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = cells[r + ',' + c];
+      const filled = !!(cell && (cell.v != null || cell.f));
+      let cls = 'wb-cell';
+      if (anyCell && (r === 0 || c === 0)) cls += ' hdr';
+      if (filled) cls += ' filled';
+      html += '<div class="' + cls + '"></div>';
+    }
+  }
+  return html;
+}
+let welcomeRenderToken = 0;
+async function renderWelcomeCards() {
+  const container = $('#workbooksDisplay');
+  const noContainer = $('#noSheetsContainer');
+  if (!container) return;
+  const myToken = ++welcomeRenderToken;
+  let docs = [];
+  try { docs = await IO.allDocs(); } catch (e) { docs = []; }
+  if (myToken !== welcomeRenderToken) return;
+  docs.sort((a, b) => (b.doc.savedAt || 0) - (a.doc.savedAt || 0));
+  if (!docs.length) {
+    container.innerHTML = '';
+    container.style.display = 'none';
+    if (noContainer) noContainer.style.display = 'flex';
+    return;
+  }
+  container.style.display = '';
+  if (noContainer) noContainer.style.display = 'none';
+  const frag = document.createDocumentFragment();
+  for (const d of docs.slice(0, 50)) {
+    const data = d.doc.data || {};
+    const sheetCount = (data.sheets || []).length;
+    const card = el('<div class="workbook-card"></div>');
+    card.innerHTML =
+      '<div class="workbook-card-thumb"><div class="wb-mini">' + wbMiniGrid(data) + '</div></div>' +
+      '<div class="workbook-card-info">' +
+      '<div class="workbook-card-title"></div>' +
+      '<div class="workbook-card-meta"></div>' +
+      '</div>';
+    card.querySelector('.workbook-card-title').textContent = data.title || 'Untitled workbook';
+    card.querySelector('.workbook-card-meta').textContent =
+      sheetCount + (sheetCount === 1 ? ' sheet' : ' sheets') + ' \u00B7 ' + fmtCardDate(d.doc.savedAt || data.createdAt);
+    card.addEventListener('click', () => openWorkbook(d.id));
+    frag.appendChild(card);
+  }
+  container.innerHTML = '';
+  container.appendChild(frag);
+}
+async function openWorkbook(id) {
+  try {
+    await flushIfDirty();
+    const doc = await IO.loadDoc(id);
+    if (!doc || !doc.data) { toast('Workbook not found', 'error'); return; }
+    deserializeWorkbook(Object.assign({ savedAt: doc.savedAt }, doc.data));
+    Persistence.setDocId(WB.id);
+    H.undo.length = 0; H.redo.length = 0;
+    updateUndoRedoUI();
+    activateEditor();
+    toast('Opened "' + (WB.title || 'Untitled workbook') + '"', 'success');
+  } catch (e) { toast('Could not open workbook', 'error'); }
+}
+function welcomeNew() {
+  flushIfDirty();
+  const wb = newWorkbookData('Untitled workbook');
+  deserializeWorkbook(wb);
+  Persistence.setDocId(WB.id);
+  H.undo.length = 0; H.redo.length = 0;
+  updateUndoRedoUI();
+  activateEditor();
+  Persistence.markDirty();
+  Persistence.flush();
+}
+function welcomeImport() {
+  /* Import into a brand-new workbook so the dormant background workbook isn't mutated. */
+  flushIfDirty();
+  deserializeWorkbook(newWorkbookData('Untitled workbook'));
+  Persistence.setDocId(WB.id);
+  H.undo.length = 0; H.redo.length = 0;
+  importFileDialog();
+}
+function closeWorkbookToWelcome() {
+  flushIfDirty();
+  showWelcomeScreen(true);
+}
+
 /* ---------------- File modal (Backstage-style, Docs/Slides pattern) ---------------- */
 function fileModalOpen() { const m = $('#fileModal'); return !!(m && m.classList.contains('show')); }
 function syncFileModalNameInput() {
@@ -9418,16 +9545,15 @@ function returnToHomeTab() {
 function deleteCurrentWorkbook() {
   confirmDialog('Delete Workbook', 'Delete "' + (WB.title || 'Untitled workbook') + '" from browser storage? This cannot be undone.', async () => {
     try { await IO.deleteDoc(WB.id); } catch (e) {}
-    Persistence.flush();
+    /* Reset the save controller so a pending debounced flush can't re-save the deleted doc. */
+    clearTimeout(Persistence.timer); Persistence.timer = 0;
+    Persistence.state = 'saved';
+    updateSaveStatus();
     deserializeWorkbook(newWorkbookData());
     Persistence.setDocId(WB.id);
     H.undo.length = 0; H.redo.length = 0;
     updateUndoRedoUI();
-    rebuildAllDeps();
-    bootChrome();
-    setActiveSheet(WB.activeSheetId);
-    Persistence.markDirty();
-    Persistence.flush();
+    showWelcomeScreen(true);
     toast('Workbook deleted', 'success');
   });
 }
@@ -9465,7 +9591,18 @@ async function openDocumentsDialog() {
     row.querySelector('[data-del]').addEventListener('click', async () => {
       confirmDialog('Delete Document', 'Delete "' + esc(data.title || 'Untitled') + '" from browser storage? This cannot be undone.', async () => {
         await IO.deleteDoc(d.id);
-        if (d.id === WB.id) { fileNew(); }
+        if (d.id === WB.id) {
+          clearTimeout(Persistence.timer); Persistence.timer = 0;
+          Persistence.state = 'saved';
+          updateSaveStatus();
+          deserializeWorkbook(newWorkbookData());
+          Persistence.setDocId(WB.id);
+          H.undo.length = 0; H.redo.length = 0;
+          updateUndoRedoUI();
+          closeModalStack();
+          showWelcomeScreen(true);
+          return;
+        }
         openDocumentsDialog();
       });
     });
@@ -9639,27 +9776,131 @@ function unhideColsMenu(x, y) {
   showPopupMenu(hidden.slice(0, 40).map(c => ({ label: 'Column ' + colName(c), action: () => setColsHidden([c], false) })), x, y);
 }
 
-/* ---------------- toasts ---------------- */
+/* ---------------- toasts (white glass pill, Docs/Slides/Notes pattern) ---------------- */
+let toastTimer = 0;
+/* Pick a monochrome #111 SVG icon for a toast message — same pattern as
+   Docs' _toastIcon / Slides' _toastIcon. Meaning is carried by the icon
+   (the pill is always the same white glass). */
+function _toastIcon(rawMsg, type) {
+  const msg = String(rawMsg || '').replace(/^\s*[\u2705\u2714\u2716\u2728\u26a0\ufe0f\u2757\u2753\u2139]+\s*/u, '').trim();
+  const m = msg.toLowerCase();
+  const INK = '#111';
+  const svg = paths => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + INK + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + paths + '</svg>';
+
+  /* 1. Loading / progress */
+  if (m.indexOf('generating') === 0 || m.indexOf('importing') === 0 || m.indexOf('reading') === 0 ||
+      m.indexOf('loading') === 0 || m.indexOf('tracing') === 0 || m.indexOf('this may take') !== -1) {
+    return { icon: svg('<line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>'), msg };
+  }
+
+  /* 2. Clipboard / copied / pasted */
+  if (m.indexOf('clipboard') !== -1 || m.indexOf('copied') !== -1 || m.indexOf('pasted') !== -1 || m.indexOf('paste ') !== -1) {
+    return { icon: svg('<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'), msg };
+  }
+
+  /* 3. Failed / error (hard errors) */
+  if (m.indexOf('failed') !== -1 || m.indexOf('error') !== -1 || m.indexOf('could not') !== -1 ||
+      m.indexOf('couldn') !== -1 || m.indexOf('not supported') !== -1 || m.indexOf('unavailable') !== -1 ||
+      m.indexOf('not found') !== -1 || m.indexOf('denied') !== -1 || m.indexOf('invalid') !== -1 ||
+      m.indexOf('skipping') !== -1 || m.indexOf('import failed') !== -1) {
+    return { icon: svg('<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>'), msg };
+  }
+
+  /* 4. Warnings / hints: must / select / no X found / cannot / empty … */
+  if (m.indexOf('must have') !== -1 || m.indexOf('must be') !== -1 || m.indexOf('must start') !== -1 ||
+      m.indexOf('must contain') !== -1 || m.indexOf('cannot') !== -1 ||
+      m.indexOf('can\'t') !== -1 || m.indexOf('select ') !== -1 || m.indexOf('nothing to') !== -1 ||
+      m.indexOf('no headings') !== -1 || m.indexOf('no text') !== -1 || m.indexOf('no image') !== -1 ||
+      m.indexOf('no matches') !== -1 || m.indexOf('no hidden') !== -1 || m.indexOf('no duplicate') !== -1 ||
+      m.indexOf('no list') !== -1 || m.indexOf('no sheets') !== -1 || m.indexOf('no data') !== -1 ||
+      m.indexOf('enter a ') !== -1 || m.indexOf('enter at least') !== -1 || m.indexOf('provide a url') !== -1 ||
+      m.indexOf('at least one') !== -1 || m.indexOf('at least two') !== -1 || m.indexOf('is empty') !== -1 ||
+      m.indexOf('is part of') !== -1 || m.indexOf('outside the filtered') !== -1 || m.indexOf('only visible') !== -1 ||
+      m.indexOf('limited to') !== -1 || m.indexOf('must contain') !== -1 || m.indexOf('coming soon') !== -1) {
+    return { icon: svg('<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>'), msg };
+  }
+
+  /* 5. Deleted / removed / cleared */
+  if (m.indexOf('deleted') !== -1 || m.indexOf('removed') !== -1) {
+    return { icon: svg('<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>'), msg };
+  }
+
+  /* 6. Milestones */
+  if (m.indexOf('%') !== -1 || m.indexOf('halfway') !== -1 || m.indexOf('goal') !== -1 || m.indexOf('well done') !== -1 || m.indexOf('benchmark') !== -1) {
+    return { icon: svg('<circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>'), msg };
+  }
+
+  /* 7. Modes toggled */
+  if (m.indexOf('mode') !== -1 || m.indexOf('calculation') !== -1 || m.indexOf('read-only') !== -1 || m.indexOf('final') !== -1) {
+    return { icon: svg('<circle cx="12" cy="12" r="3"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/><path d="M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/>'), msg };
+  }
+
+  /* 8. Success confirmations */
+  if (m.indexOf('saved') !== -1 || m.indexOf('inserted') !== -1 ||
+      m.indexOf('applied') !== -1 || m.indexOf('added') !== -1 || m.indexOf('created') !== -1 || m.indexOf('restored') !== -1 ||
+      m.indexOf('exported') !== -1 || m.indexOf('imported') !== -1 || m.indexOf('merged') !== -1 || m.indexOf('complete') !== -1 ||
+      m.indexOf('finished') !== -1 || m.indexOf('fixed') !== -1 || m.indexOf('cleared') !== -1 || m.indexOf('unlocked') !== -1 ||
+      m.indexOf('updated') !== -1 || m.indexOf('jumped to') !== -1 || m.indexOf('toggled') !== -1 || m.indexOf('stopped') !== -1 ||
+      m.indexOf('reset') !== -1 || m.indexOf('protected') !== -1 || m.indexOf('marked') !== -1 || m.indexOf('defined') !== -1 ||
+      m.indexOf('recalculated') !== -1 || m.indexOf('replaced') !== -1 || m.indexOf('rebuilt') !== -1 || m.indexOf('used') !== -1 ||
+      m.indexOf('hidden') !== -1 || m.indexOf('split into') !== -1 || m.indexOf('opened') !== -1 || m.indexOf('reverted') !== -1 ||
+      m.indexOf('replayed') !== -1 || m.indexOf('enabled') !== -1 || m.indexOf('formatted as table') !== -1) {
+    return { icon: svg('<polyline points="20 6 9 17 4 12"/>'), msg };
+  }
+
+  /* 9. Default info */
+  return { icon: svg('<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'), msg };
+}
 function toast(msg, type = 'info', ms = 2600) {
-  const root = $('#toast-root');
-  const t = el('<div class="toast ' + type + '" role="status"><div class="t-bar"></div><div class="t-msg">' + esc(msg) + '</div></div>');
-  root.appendChild(t);
-  while (root.children.length > 4) root.firstElementChild.remove();
-  setTimeout(() => { t.classList.add('leaving'); setTimeout(() => t.remove(), 300); }, ms);
+  const t = $('#toast');
+  if (!t) return;
+  const pair = _toastIcon(msg, type);
+  const outer = document.createElement('span');
+  outer.style.cssText = 'display:flex;align-items:center;gap:10px;';
+  const iconSpan = document.createElement('span');
+  iconSpan.style.cssText = 'display:inline-flex;flex-shrink:0;';
+  iconSpan.innerHTML = pair.icon;
+  const msgSpan = document.createElement('span');
+  msgSpan.textContent = pair.msg;
+  outer.appendChild(iconSpan);
+  outer.appendChild(msgSpan);
+  t.replaceChildren(outer);
+  t.className = 'toast show';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = 'toast'; }, ms);
 }
 
 /* ---------------- modal infra ---------------- */
 const modalStack = [];
-function openModal({ title, width, content, buttons, onClose }) {
+function modalIconFor(title) {
+  const t = (title || '').toLowerCase();
+  const map = [
+    ['delete', 'trash'], ['function', 'sigma'], ['chart', 'chartCol'], ['conditional', 'bucket'],
+    ['data validation', 'validate'], ['sort', 'sort'], ['filter', 'filter'], ['saved documents', 'folder'],
+    ['document', 'file'], ['workbook', 'file'], ['import', 'import'], ['export', 'export'],
+    ['print', 'print'], ['save', 'save'], ['named range', 'nameBox'], ['insert', 'plus'],
+    ['merge', 'merge'], ['format', 'styles'], ['cells', 'grid'], ['rows', 'rowInsert'],
+    ['columns', 'colInsert'], ['new sheet', 'plusSheet'], ['sheet', 'plusSheet'], ['name', 'text']
+  ];
+  for (const [k, v] of map) if (t.indexOf(k) !== -1) return v;
+  return null;
+}
+function openModal({ title, width, content, buttons, onClose, icon: iconOverride = null, confirm = false }) {
   const overlay = el('<div class="modal-overlay"><div class="modal" role="dialog" aria-modal="true" aria-label="' + esc(title) + '"></div></div>');
   const modal = overlay.querySelector('.modal');
   if (width) modal.style.width = width + 'px';
-  const head = el('<div class="modal-head"><div class="modal-title">' + esc(title) + '</div><button class="modal-x" aria-label="Close dialog">' + icon('x') + '</button></div>');
+  const iconName = iconOverride || modalIconFor(title) || 'info';
+  const danger = (buttons || []).some(b => b.danger) || iconName === 'trash';
+  modal.classList.add(confirm ? 'confirm' : 'form');
+  if (danger) modal.classList.add('danger');
+  const head = el('<div class="modal-head"><div class="modal-icon">' + icon(iconName) + '</div><div class="modal-title">' + esc(title) + '</div>' + (confirm ? '' : '<button class="modal-x" aria-label="Close dialog">' + icon('x') + '</button>') + '</div>');
+  if (danger) head.querySelector('.modal-icon').classList.add('danger');
   const body = el('<div class="modal-body"></div>');
   if (typeof content === 'string') body.innerHTML = content;
   else if (content instanceof Element) body.appendChild(content);
   const foot = el('<div class="modal-foot"></div>');
   (buttons || [{ label: 'Close' }]).forEach(b => {
+    if (!confirm && !b.onClick && (b.label === 'Cancel' || b.label === 'Close') && !b.primary && !b.danger) return;
     const btn = el('<button class="btn' + (b.primary ? ' primary' : '') + (b.danger ? ' danger' : '') + '">' + esc(b.label) + '</button>');
     btn.addEventListener('click', async () => {
       let ok = true;
@@ -9672,7 +9913,8 @@ function openModal({ title, width, content, buttons, onClose }) {
   $('#modal-root').appendChild(overlay);
   modalStack.push(overlay);
   const close = () => closeModal(overlay);
-  head.querySelector('.modal-x').addEventListener('click', close);
+  const xBtn = head.querySelector('.modal-x');
+  if (xBtn) xBtn.addEventListener('click', close);
   overlay.addEventListener('mousedown', e => { if (e.target === overlay) close(); });
   /* focus trap + Escape */
   overlay.addEventListener('keydown', e => {
@@ -9701,11 +9943,14 @@ function closeModal(overlay) {
 function closeModalStack() { while (modalStack.length) closeModal(modalStack[modalStack.length - 1]); }
 function confirmDialog(title, message, onOk, onCancel) {
   const body = el('<div style="white-space:pre-wrap">' + esc(message) + '</div>');
+  const danger = modalIconFor(title) === 'trash';
   openModal({
-    title, width: 420, content: body,
+    title, width: 420, content: body, confirm: true,
     buttons: [
       { label: 'Cancel', onClick: () => { if (onCancel) onCancel(); return true; } },
-      { label: 'OK', primary: true, onClick: () => { onOk(); return true; } }
+      danger
+        ? { label: 'Delete', danger: true, primary: true, onClick: () => { onOk(); return true; } }
+        : { label: 'OK', primary: true, onClick: () => { onOk(); return true; } }
     ]
   });
 }
@@ -11814,7 +12059,7 @@ function setupChrome() {
   /* ---- File modal (Backstage) ---- */
   $('#fileModalCloseXBtn').addEventListener('click', closeFileModal);
   $('#fileModal').addEventListener('click', e => { if (e.target.id === 'fileModal') closeFileModal(); });
-  $('#fileCloseBtn').addEventListener('click', closeFileModal);
+  $('#fileCloseBtn').addEventListener('click', () => { closeFileModal(); closeWorkbookToWelcome(); });
   $('#fileDeleteBtn').addEventListener('click', () => { closeFileModal(); deleteCurrentWorkbook(); });
   $('#fileNewBtn').addEventListener('click', () => { closeFileModal(); fileNew(); });
   $('#fileOpenBtn').addEventListener('click', () => { closeFileModal(); openDocumentsDialog(); });
@@ -11823,6 +12068,10 @@ function setupChrome() {
   $('#fileExportCsvBtn').addEventListener('click', () => { closeFileModal(); exportCsv(); });
   $('#filePrintBtn').addEventListener('click', () => { closeFileModal(); printWorksheet(); });
   $('#fileSaveAsBtn').addEventListener('click', () => { closeFileModal(); fileSaveAs(); });
+  const welcomeNewBtn = $('#welcomeNewBtn');
+  if (welcomeNewBtn) welcomeNewBtn.addEventListener('click', welcomeNew);
+  const welcomeImportBtn = $('#welcomeImportBtn');
+  if (welcomeImportBtn) welcomeImportBtn.addEventListener('click', welcomeImport);
   const fileNameInput = $('#fileModalNameInput');
   fileNameInput.addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); fileNameInput.blur(); closeFileModal(); }
@@ -11863,13 +12112,7 @@ async function boot() {
   booted = true;
   setupChrome();
   await loadLastOrNew();
-  bootChrome();
-  rebuildAllDeps();
-  resizeCanvas();
-  setActiveSheet(WB.activeSheetId);
-  updateStatusBar();
-  updateNameBox();
-  updateFormulaBar();
+  showWelcomeScreen(true);
   /* marquee animation loop (cheap; only repaints when marquee active) */
   setInterval(() => { if (Clip.marquee) requestPaint(); }, 120);
   /* charts refresh after recalc */
