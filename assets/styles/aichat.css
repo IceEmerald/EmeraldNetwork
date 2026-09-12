@@ -3863,6 +3863,7 @@ body.light-mode .lib-item:hover {
     border-width: medium;
     border-style: none;
     border-color: currentcolor;
+    backdrop-filter: blur(3px);
     border-image: none;
     color: rgb(136, 136, 136);
     cursor: pointer;
@@ -5554,13 +5555,15 @@ html, body {
     }
 
     .quick-actions {
-        width: 100%;
-        padding: 0px 10px;
+        display: none;
     }
 
-    .quick-card {
-        width: 100%;
-        min-width: unset;
+    #tempChatBtn .btn-tooltip {
+        display: none;
+    }
+
+    .input-footer-note {
+        display: none;
     }
 
     .messages-area {

@@ -2866,12 +2866,8 @@ async function handleSend(opts) {
       aiDiv = appendAIMessageDOM("", msgId, true);
       textEl = aiDiv.querySelector(".message-text");
     }
-    if (err.name === "AbortError") {
-      if (!fullText) {
-        textEl.innerHTML = `<span class="md-error">${escapeHtml(aiErrorMessage("generating the response"))}</span>`;
-      }
-    } else {
-      textEl.innerHTML = `<span class="md-error">${escapeHtml(aiErrorMessage("generating the response"))}</span>`;
+    if (!(err.name === "AbortError" && fullText)) {
+      textEl.innerHTML = `<span class="md-error">${escapeHtml(aiChatErrorText(err, "generating the response"))}</span>`;
     }
   }
   typingEl.style.display = "none";
@@ -3228,12 +3224,12 @@ async function regenerateMessage(msgEl) {
     }
   } catch (err) {
     rTypingEl.style.display = "none";
-    if (err.name !== "AbortError") {
+    if (!(err.name === "AbortError" && fullText)) {
       if (!aiDiv) {
         aiDiv = appendAIMessageDOM("", newId, true);
         textEl = aiDiv.querySelector(".message-text");
       }
-      textEl.innerHTML = `<span class="md-error">${escapeHtml(aiErrorMessage("regenerating the response"))}</span>`;
+      textEl.innerHTML = `<span class="md-error">${escapeHtml(aiChatErrorText(err, "regenerating the response"))}</span>`;
     }
   }
   rTypingEl.style.display = "none";
@@ -3401,10 +3397,10 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
   }
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
-    let errMsg = `API error ${res.status}`;
+    let errMsg = "";
     try {
       const j = JSON.parse(errText);
-      errMsg = j.error?.message || errMsg;
+      if (j?.error?.message) errMsg = j.error.message;
     } catch {
     }
     const e = new Error(errMsg);
@@ -3520,11 +3516,15 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
   if (timedOut && !finishReason) {
     const e = new Error("Response timed out \u2014 the server did not send any data for 30 seconds.");
     e._modelError = true;
+    e._timedOut = true;
     throw e;
   }
   if (finishReason && finishReason !== "STOP" && finishReason !== "MAX_TOKENS") {
     const reasonMap = { SAFETY: "Content blocked by safety filters", RECITATION: "Content blocked by recitation policy", OTHER: "Response blocked for an unknown reason" };
-    throw new Error(reasonMap[finishReason] || `Response blocked: ${finishReason}`);
+    const e = new Error(reasonMap[finishReason] || `Response blocked: ${finishReason}`);
+    e._modelError = true;
+    e._serverBlocked = true;
+    throw e;
   }
   return { finishReason, groundingMetadata, modelId: usedModelId };
 }
@@ -4079,14 +4079,43 @@ function escapeHtml(s) {
 function escapeHtmlAttr(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
-// Single source of truth for AI-chat error copy: every user-facing error
-// bubble in the chat (generating, regenerating, editing, image gen, etc.)
-// should read "An error occurred while <doing what>." so the wording stays
-// consistent and user-friendly, regardless of which code path triggered it.
-// Deliberately no raw status codes / backend detail (e.g. "API error 403")
-// are surfaced here -- those are for developer consoles, not end users.
+// Single source of truth for AI-chat error copy. Every user-facing error
+// bubble goes through aiChatErrorText(), which picks the right wording for
+// the failure type instead of showing one generic message for everything:
+//   - error.name === "AbortError"  -> user hit Stop (cancellation)
+//   - _httpStatus === 0            -> network / offline
+//   - _timedOut                    -> server stalled
+//   - _httpStatus / _serverBlocked -> the server refused or blocked the request
+//   - anything else                -> generic "An error occurred while <x>."
+// Backend detail stays in the developer console, not the UI -- except when the
+// server itself provides a user-friendly explanation (err.message), which IS
+// surfaced so blocks / rate limits tell the user what actually happened.
 function aiErrorMessage(action) {
   return `An error occurred while ${action}. Please try again.`;
+}
+function aiChatErrorText(err, action) {
+  if (err?.name === "AbortError") {
+    return "Generation stopped. You can continue whenever you're ready.";
+  }
+  if (err?._jailbreakBlocked) {
+    return "This request cannot be processed because it violates EmeraldNetwork usage policies.";
+  }
+  if (err?._httpStatus === 0 || err?.name === "TypeError") {
+    return "Couldn't reach the EmeraldBot server. Check your connection and try again.";
+  }
+  if (err?._timedOut) {
+    return "The response took too long, so generation timed out. Please try again.";
+  }
+  if (err?._httpStatus || err?._serverBlocked) {
+    const known = (err?.message || "").trim();
+    if (known) return known;
+    const status = err?._httpStatus;
+    if (status === 401 || status === 403) return `The server blocked this request.`;
+    if (status === 429) return "Too many requests right now \u2014 please wait a moment and try again.";
+    if (status >= 500) return "The server is having trouble right now \u2014 please try again in a moment.";
+    return status ? `The server blocked this request (HTTP ${status}).` : "The server blocked this request.";
+  }
+  return aiErrorMessage(action);
 }
 let _obCurStep = 0;
 let _obSelTheme = "system";
@@ -5213,12 +5242,12 @@ async function submitUserMsgEdit(msgId) {
       return;
     }
     typingEl.style.display = "none";
-    if (err.name !== "AbortError") {
+    if (!(err.name === "AbortError" && aiFullText)) {
       if (!aiDiv) {
         aiDiv = appendAIMessageDOM("", aiMsgId, true);
         aiTextEl = aiDiv.querySelector(".message-text");
       }
-      aiTextEl.innerHTML = `<span class="md-error">${escapeHtml(aiErrorMessage("generating the response"))}</span>`;
+      aiTextEl.innerHTML = `<span class="md-error">${escapeHtml(aiChatErrorText(err, "generating the response"))}</span>`;
     }
   }
   typingEl.style.display = "none";
@@ -5910,7 +5939,15 @@ async function processImageGenTag(aiDiv, prompt, convId, msgId) {
     });
     loadEl.remove();
     if (!res.ok) {
-      const _errMsg = aiErrorMessage("generating the image");
+      const _imgErr = new Error("");
+      _imgErr._httpStatus = res.status;
+      try {
+        const _t = await res.text();
+        const _j = JSON.parse(_t);
+        if (_j?.error?.message) _imgErr.message = _j.error.message;
+      } catch {
+      }
+      const _errMsg = aiChatErrorText(_imgErr, "generating the image");
       const textEl = body?.querySelector(".message-text");
       if (textEl) {
         textEl.classList.remove("message-text--empty");
@@ -5967,7 +6004,7 @@ async function processImageGenTag(aiDiv, prompt, convId, msgId) {
     if (textEl) {
       textEl.classList.remove("message-text--empty");
       const _existing = (textEl.innerHTML || "").trim();
-      const _catchMsg = escapeHtml(aiErrorMessage("generating the image"));
+      const _catchMsg = escapeHtml(aiChatErrorText(e, "generating the image"));
       textEl.innerHTML = _existing ? `${_existing}<br><span class="md-error">${_catchMsg}</span>` : `<span class="md-error">${_catchMsg}</span>`;
     }
   }
