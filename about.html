@@ -169,6 +169,52 @@
                 gap: 0.5rem;
             }
         }
+        /* ── 4. MISSION BOXES ──────────────────────── */
+        .abt-mission-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.25rem;
+            margin-top: 3.5rem;
+        }
+        .abt-mission-box {
+            background: #fff;
+            border: 1px solid rgba(0,0,0,0.06);
+            border-radius: 16px;
+            padding: 1.75rem 1.5rem;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+            transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+        }
+        .abt-mission-box:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 16px 32px rgba(0,0,0,0.1);
+            border-color: rgba(35,154,77,0.35);
+        }
+        .abt-mission-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: rgba(35,154,77,0.1);
+            color: var(--accent);
+            margin-bottom: 1.25rem;
+        }
+        .abt-mission-icon svg { width: 24px; height: 24px; }
+        .abt-mission-box h3 {
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: #1a1a1a;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+            -webkit-text-fill-color: initial;
+        }
+        .abt-mission-box p {
+            font-size: 0.95rem;
+            color: #555;
+            line-height: 1.7;
+            margin: 0;
+        }
     </style>
     <header class="navbar sticky-top apps">
         <div class="navcontainer nav-container">
@@ -298,7 +344,37 @@
             <div class="container">
                 <div class="section-header" style="margin-top: 3rem;">
                     <h2 class="animate-on-scroll" style="background: linear-gradient(90deg, rgb(26, 26, 26), rgb(90, 90, 90), rgb(26, 26, 26)) text; -webkit-text-fill-color: transparent; opacity: 1; transform: translateY(0px); filter: blur(0px); transition: opacity 0.45s ease-out, transform 0.45s ease-out, filter 0.45s ease-out, background-color 0.2s, color 0.2s, border-color 0.2s; will-change: opacity, transform, filter;">What we want?</h2>
-                    <p><span class="anim-word visible" style="transition-delay: 0.025s;">Simple...</span> <span class="anim-word visible" style="transition-delay: 0.05s;">We</span> <span class="anim-word visible" style="transition-delay: 0.075s;">want</span> <span class="anim-word visible" style="transition-delay: 0.1s;">to</span> <span class="anim-word visible" style="transition-delay: 0.125s;">empower</span> <span class="anim-word visible" style="transition-delay: 0.15s;">people</span> <span class="anim-word visible" style="transition-delay: 0.175s;">through</span> <span class="anim-word visible" style="transition-delay: 0.2s;">technology.</span> <span class="anim-word visible" style="transition-delay: 0.225s;">Every</span> <span class="anim-word visible" style="transition-delay: 0.25s;">product</span> <span class="anim-word visible" style="transition-delay: 0.275s;">we</span> <span class="anim-word visible" style="transition-delay: 0.3s;">build</span> <span class="anim-word visible" style="transition-delay: 0.325s;">is</span> <span class="anim-word visible" style="transition-delay: 0.35s;">created</span> <span class="anim-word visible" style="transition-delay: 0.375s;">with</span> <span class="anim-word visible" style="transition-delay: 0.4s;">the</span> <span class="anim-word visible" style="transition-delay: 0.425s;">goal</span> <span class="anim-word visible" style="transition-delay: 0.45s;">of</span> <span class="anim-word visible" style="transition-delay: 0.475s;">making</span> <span class="anim-word visible" style="transition-delay: 0.5s;">life</span> <span class="anim-word visible" style="transition-delay: 0.525s;">a</span> <span class="anim-word visible" style="transition-delay: 0.55s;">little</span> <span class="anim-word visible" style="transition-delay: 0.575s;">easier,</span> <span class="anim-word visible" style="transition-delay: 0.6s;">creativity</span> <span class="anim-word visible" style="transition-delay: 0.625s;">a</span> <span class="anim-word visible" style="transition-delay: 0.65s;">little</span> <span class="anim-word visible" style="transition-delay: 0.675s;">bigger,</span> <span class="anim-word visible" style="transition-delay: 0.7s;">and</span> <span class="anim-word visible" style="transition-delay: 0.725s;">possibilities</span> <span class="anim-word visible" style="transition-delay: 0.75s;">a</span> <span class="anim-word visible" style="transition-delay: 0.775s;">little</span> <span class="anim-word visible" style="transition-delay: 0.8s;">wider.</span></p>
+                    <p><span class="anim-word visible" style="transition-delay: 0.025s;">Technology</span> <span class="anim-word visible" style="transition-delay: 0.050s;">is</span> <span class="anim-word visible" style="transition-delay: 0.075s;">at</span> <span class="anim-word visible" style="transition-delay: 0.100s;">its</span> <span class="anim-word visible" style="transition-delay: 0.125s;">best</span> <span class="anim-word visible" style="transition-delay: 0.150s;">when</span> <span class="anim-word visible" style="transition-delay: 0.175s;">it</span> <span class="anim-word visible" style="transition-delay: 0.200s;">gets</span> <span class="anim-word visible" style="transition-delay: 0.225s;">out</span> <span class="anim-word visible" style="transition-delay: 0.250s;">of</span> <span class="anim-word visible" style="transition-delay: 0.275s;">the</span> <span class="anim-word visible" style="transition-delay: 0.300s;">way.</span> <span class="anim-word visible" style="transition-delay: 0.325s;">Everything</span> <span class="anim-word visible" style="transition-delay: 0.350s;">we</span> <span class="anim-word visible" style="transition-delay: 0.375s;">build</span> <span class="anim-word visible" style="transition-delay: 0.400s;">is</span> <span class="anim-word visible" style="transition-delay: 0.425s;">designed</span> <span class="anim-word visible" style="transition-delay: 0.450s;">to</span> <span class="anim-word visible" style="transition-delay: 0.475s;">be</span> <span class="anim-word visible" style="transition-delay: 0.500s;">accessible,</span> <span class="anim-word visible" style="transition-delay: 0.525s;">reliable,</span> <span class="anim-word visible" style="transition-delay: 0.550s;">and</span> <span class="anim-word visible" style="transition-delay: 0.575s;">genuinely</span> <span class="anim-word visible" style="transition-delay: 0.600s;">useful</span> <span class="anim-word visible" style="transition-delay: 0.625s;">—</span> <span class="anim-word visible" style="transition-delay: 0.650s;">so</span> <span class="anim-word visible" style="transition-delay: 0.675s;">it</span> <span class="anim-word visible" style="transition-delay: 0.700s;">earns</span> <span class="anim-word visible" style="transition-delay: 0.725s;">a</span> <span class="anim-word visible" style="transition-delay: 0.750s;">place</span> <span class="anim-word visible" style="transition-delay: 0.775s;">in</span> <span class="anim-word visible" style="transition-delay: 0.800s;">your</span> <span class="anim-word visible" style="transition-delay: 0.825s;">daily</span> <span class="anim-word visible" style="transition-delay: 0.850s;">routine</span> <span class="anim-word visible" style="transition-delay: 0.875s;">instead</span> <span class="anim-word visible" style="transition-delay: 0.900s;">of</span> <span class="anim-word visible" style="transition-delay: 0.925s;">competing</span> <span class="anim-word visible" style="transition-delay: 0.950s;">for</span> <span class="anim-word visible" style="transition-delay: 0.975s;">your</span> <span class="anim-word visible" style="transition-delay: 1.000s;">attention.</span></p>
+                    <div class="abt-mission-grid animate-on-scroll">
+                        <div class="abt-mission-box">
+                            <span class="abt-mission-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                            </span>
+                            <h3>People first</h3>
+                            <p>Software should fit how people actually work, not the other way around. If a tool is hard to use, it isn't finished yet.</p>
+                        </div>
+                        <div class="abt-mission-box">
+                            <span class="abt-mission-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                            </span>
+                            <h3>Nothing unnecessary</h3>
+                            <p>We keep things minimal by choice — real features over filler. If an option doesn't earn its place, it shouldn't be there.</p>
+                        </div>
+                        <div class="abt-mission-box">
+                            <span class="abt-mission-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"></path><path d="M10 22h4"></path><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5.76.76 1.23 1.52 1.41 2.5"></path></svg>
+                            </span>
+                            <h3>Room to create</h3>
+                            <p>Presentations, notes, flowcharts, scripts — we build places where ideas can take shape naturally, at your own pace.</p>
+                        </div>
+                        <div class="abt-mission-box">
+                            <span class="abt-mission-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"></path></svg>
+                            </span>
+                            <h3>Always improving</h3>
+                            <p>We experiment, listen to feedback, and ship careful updates. Every version should be a little better than the last.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>

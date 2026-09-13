@@ -34,6 +34,9 @@ EmeraldNetwork is a static, multi-page ecosystem for personal projects, utilitie
 | [`aichat.html`](aichat.html) | AI Chat |
 | [`slides.html`](slides.html) | Presentation app |
 | [`notes.html`](notes.html) | Notes |
+| [`sheets.html`](sheets.html) | Sheets |
+| [`docs.html`](docs.html) | Docs |
+| [`flowchart.html`](flowchart.html) | Flowchart |
 | [`emeraldsuite.html`](emeraldsuite.html) | EmeraldSuite |
 | [`emeraldessentialsplugin.html`](emeraldessentialsplugin.html) | EmeraldEssentials |
 | [`discordemeraldbot.html`](discordemeraldbot.html) | Discord bot overview |
