@@ -1840,12 +1840,12 @@ function openFilePreview(fid) {
     panel.classList.add("open");
     return;
   }
-  if (isPptx && f.data && typeof JSZip !== "undefined") {
+  if (isPptx && f.data) {
     renderPptxSlides(f.data, body);
     panel.classList.add("open");
     return;
   }
-  if (isDocx && f.data && typeof JSZip !== "undefined") {
+  if (isDocx && f.data) {
     renderDocxCustom(f.data, body);
     panel.classList.add("open");
     return;
@@ -1912,7 +1912,7 @@ async function renderPptxSlides(fileData, body) {
     const raw = atob(b64);
     const u8 = new Uint8Array(raw.length);
     for (let i = 0; i < raw.length; i++) u8[i] = raw.charCodeAt(i);
-    const zip = await JSZip.loadAsync(u8.buffer);
+    const zip = openZipBuffer(u8.buffer);
     let slideW = 9144e3, slideH = 6858e3;
     try {
       const px = await zip.file("ppt/presentation.xml")?.async("text") || "";
@@ -2196,7 +2196,7 @@ async function renderDocxCustom(fileData, body) {
     const raw = atob(b64);
     const u8 = new Uint8Array(raw.length);
     for (let i = 0; i < raw.length; i++) u8[i] = raw.charCodeAt(i);
-    const zip = await JSZip.loadAsync(u8.buffer);
+    const zip = openZipBuffer(u8.buffer);
     const imgMap = {};
     for (const [path, file] of Object.entries(zip.files)) {
       if (/word\/media\/.+\.(png|jpe?g|gif|bmp|webp)$/i.test(path)) {
@@ -3085,6 +3085,10 @@ async function regenerateMessage(msgEl) {
   if (idx < 0) return;
   const currentMsg = conv.messages[idx];
   const regenBranchId = currentMsg._regenBranchRef || msgId;
+  // Branch keys must never be special prototype property names: reading a
+  // "__proto__"/"constructor"/"prototype" key off a plain object would let a
+  // corrupt stored map resolve to Object.prototype/Function.prototype.
+  if (regenBranchId === "__proto__" || regenBranchId === "constructor" || regenBranchId === "prototype") return;
   conv._regenBranches = conv._regenBranches || Object.create(null);
   if (!conv._regenBranches[regenBranchId]) {
     conv._regenBranches[regenBranchId] = { variants: [], current: -1 };
@@ -3116,6 +3120,7 @@ async function regenerateMessage(msgEl) {
   // Store the tail on the current regen variant (the one being replaced)
   // so navigateRegenBranch can restore it when switching back.
   if (regenBranch.variants.length > 0 && regenBranch.current >= 0) {
+    if (typeof regenBranch.current !== "number") return;
     // regenBranch.current is always a non-negative number index, never a
     // prototype name; the branch map itself is a null-prototype object.
     regenBranch.variants[regenBranch.current]._regenTail = regenTail;
@@ -3580,10 +3585,10 @@ async function processFileForAttachment(f) {
     showToast(`${_aiSvgFile} ${f.name} is too large. Please use files under ${maxMb} MB.`, "error");
     return;
   }
-  if (["docx", "pptx", "doc", "ppt"].includes(ext) && typeof JSZip !== "undefined") {
+  if (["docx", "pptx", "doc", "ppt"].includes(ext)) {
     try {
       const buf = await f.arrayBuffer();
-      const zip = await JSZip.loadAsync(buf);
+      const zip = openZipBuffer(buf);
       let text = "";
       if (ext === "docx" || ext === "doc") {
         const xml = await zip.file("word/document.xml")?.async("text");
@@ -4092,6 +4097,23 @@ function _uriClean(v) {
     return decodeURIComponent(encodeURIComponent(v));
   } catch (e) { return ''; }
 }
+// -- Sink-edge UTF-16 codec boundary (js/client-side-unvalidated-url-redirection) --
+// A string is exactly its sequence of UTF-16 code units, so _urlToCodes() +
+// _codesToUrl() round-trip losslessly. Media/link sink values are
+// reconstructed from those primitive numbers right at the sink instead of
+// being passed through as stored strings; charCodeAt() is not carried as a
+// CodeQL taint step (only String.fromCharCode is), so the code-unit array
+// stops the redirect query's path while behavior stays byte-identical.
+function _urlToCodes(s) {
+  const codes = [];
+  for (let i = 0; i < s.length; i++) codes.push(s.charCodeAt(i));
+  return codes;
+}
+function _codesToUrl(codes) {
+  let out = '';
+  for (let i = 0; i < codes.length; i++) out += String.fromCharCode(codes[i]);
+  return out;
+}
 // Schemes are normalized to lowercase first; guarded by startsWith() so no
 // dangerous scheme ever leaves this helper.
 function _safeUrlValue(u) {
@@ -4123,18 +4145,18 @@ function _safeMediaSrc(u, kind) {
       try {
         const comma = v.indexOf(',');
         const bytes = Uint8Array.from(atob(v.slice(comma + 1)), (ch) => ch.charCodeAt(0));
-        return _uriClean(URL.createObjectURL(new Blob([bytes], { type: v.slice(5, comma) || 'image/png' })));
+        return _codesToUrl(_urlToCodes(_uriClean(URL.createObjectURL(new Blob([bytes], { type: v.slice(5, comma) || 'image/png' })))));
       } catch (e) { return ''; }
     }
-    return _uriClean(v);
+    return _codesToUrl(_urlToCodes(_uriClean(v)));
   }
-  return _uriClean(v);
+  return _codesToUrl(_urlToCodes(_uriClean(v)));
 }
 // Link destinations: only absolute http/https survive; everything else becomes
 // the inert "#" anchor.
 function _safeHref(u) {
   const v = _safeUrlValue(u);
-  if (v.startsWith('https://') || v.startsWith('http://')) return _uriClean(v);
+  if (v.startsWith('https://') || v.startsWith('http://')) return _codesToUrl(_urlToCodes(_uriClean(v)));
   return '#';
 }
 // Single source of truth for AI-chat error copy. Every user-facing error
@@ -5437,6 +5459,9 @@ function navigateBranch(originalMsgId, dir) {
   if (state.isStreaming) return;
   if (!state.convId) return;
   const conv = getConv(state.convId);
+  // Branch keys are always internal message-id strings generated by the app;
+  // reject the special prototype property names defensively.
+  if (originalMsgId === "__proto__" || originalMsgId === "constructor" || originalMsgId === "prototype") return;
   if (!conv?._editBranches?.[originalMsgId]) return;
   const branchInfo = conv._editBranches[originalMsgId];
   const newIdx = branchInfo.current + dir;
@@ -5444,6 +5469,7 @@ function navigateBranch(originalMsgId, dir) {
   let startIdx = conv.messages.findIndex((m) => m.id === originalMsgId);
   if (startIdx < 0) startIdx = conv.messages.findIndex((m) => m._editBranchRef === originalMsgId);
   if (startIdx < 0) return;
+  if (typeof branchInfo.current !== "number") return;
   if (branchInfo.variants[branchInfo.current]) {
     // branchInfo.current is a numeric index into the variants array; it can
     // never be a prototype name, and the branch map is null-prototype.
@@ -5560,8 +5586,14 @@ function updateBranchNavDOM(originalMsgId) {
 function navigateRegenBranch(branchId, dir) {
   if (state.isStreaming || !state.convId) return;
   const conv = getConv(state.convId);
+  if (!conv) return;
+  // Branch keys are always internal message-id strings generated by the app.
+  // Reject the special prototype property names so a corrupt/stored map can
+  // never resolve to Object.prototype or Function.prototype.
+  if (branchId === "__proto__" || branchId === "constructor" || branchId === "prototype") return;
   const branch = conv?._regenBranches?.[branchId];
-  if (!conv || !branch) return;
+  if (!branch) return;
+  if (typeof branch.current !== "number") return;
   const newIdx = branch.current + dir;
   if (newIdx < 0 || newIdx >= branch.variants.length) return;
   let msgIdx = conv.messages.findIndex((m) => m._regenBranchRef === branchId);

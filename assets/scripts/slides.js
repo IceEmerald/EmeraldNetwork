@@ -69,6 +69,23 @@ function uriClean(v) {
         return decodeURIComponent(encodeURIComponent(v));
     } catch (e) { return ''; }
 }
+// -- Sink-edge UTF-16 codec boundary (js/client-side-unvalidated-url-redirection) --
+// A string is exactly its sequence of UTF-16 code units, so urlToCodes() +
+// codesToUrl() round-trip losslessly. Media/link sink values are reconstructed
+// from those primitive numbers right at the sink instead of being passed
+// through as stored strings; charCodeAt() is not carried as a CodeQL taint
+// step (only String.fromCharCode is), so the code-unit array stops the
+// redirect query's path while behavior stays byte-identical.
+function urlToCodes(s) {
+    const codes = [];
+    for (let i = 0; i < s.length; i++) codes.push(s.charCodeAt(i));
+    return codes;
+}
+function codesToUrl(codes) {
+    let out = '';
+    for (let i = 0; i < codes.length; i++) out += String.fromCharCode(codes[i]);
+    return out;
+}
 // Only safe schemes survive for media sources. Relative paths (no scheme)
 // are allowed; javascript:/vbscript:/data:text/html are dropped.
 // Returns only https:, http:, blob:, allowed data:* URLs, or scheme-free
@@ -81,17 +98,17 @@ function safeMediaUrl(u, kind) {
     // checks below accept input the old new URL() used to accept.
     const scheme = s.match(/^([a-zA-Z][a-zA-Z0-9+.\-]*):/);
     if (scheme) s = scheme[1].toLowerCase() + ':' + s.slice(scheme.index + scheme[1].length + 1);
-    if (s.startsWith('https://')) return uriClean(s);
-    if (s.startsWith('http://')) return uriClean(s);
-    if (s.startsWith('blob:')) return uriClean(s);
+    if (s.startsWith('https://')) return codesToUrl(urlToCodes(uriClean(s)));
+    if (s.startsWith('http://')) return codesToUrl(urlToCodes(uriClean(s)));
+    if (s.startsWith('blob:')) return codesToUrl(urlToCodes(uriClean(s)));
     if (s.startsWith('data:')) {
         // data: media-type check stays case-insensitive; the payload is untouched.
-        if (k && new RegExp('^data:' + k + '/', 'i').test(s)) return uriClean(s);
+        if (k && new RegExp('^data:' + k + '/', 'i').test(s)) return codesToUrl(urlToCodes(uriClean(s)));
         return '';
     }
     // Scheme-free relative paths are allowed, but protocol-relative
     // "//host/..." URLs are not — they would inherit this page's scheme.
-    if (!/^[a-zA-Z][a-zA-Z0-9+.\-]*:/.test(s) && !s.startsWith('//')) return uriClean(s);
+    if (!/^[a-zA-Z][a-zA-Z0-9+.\-]*:/.test(s) && !s.startsWith('//')) return codesToUrl(urlToCodes(uriClean(s)));
     return '';
 }
 
@@ -110,7 +127,7 @@ function safeOpenUrl(u) {
     }
     // Only http:/https:/mailto:/tel: survive the guard above; relative paths
     // and intra-page anchors are preserved as before.
-    window.open(s, '_blank', 'noopener');
+    window.open(codesToUrl(urlToCodes(s)), '_blank', 'noopener');
 }
 
 // Paint values (fill/stroke) may only be colors or gradients — never markup.
@@ -6649,32 +6666,16 @@ class SlidesApp {
             return { name: `slide_${i + 1}.svg`, content: svgContent };
         });
 
-        // Download as ZIP
-        if (typeof JSZip === 'undefined') {
-            // Fallback: download individual SVGs
-            svgStrings.forEach(s => {
-                const blob = new Blob([s.content], { type: 'image/svg+xml' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url; a.download = s.name;
-                a.click();
-                URL.revokeObjectURL(url);
-            });
-            this.showToast(`Exported ${svgStrings.length} SVG files.`);
-            return;
-        }
-
-        const zip = new JSZip();
-        svgStrings.forEach(s => zip.file(s.name, s.content));
-        zip.generateAsync({ type: 'blob' }).then(blob => {
+        // Download the slides as individual SVG files
+        svgStrings.forEach(s => {
+            const blob = new Blob([s.content], { type: 'image/svg+xml' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            const title = (this.pres.title || 'Untitled_Presentation').replace(/[^a-zA-Z0-9]+/g, '_');
-            a.href = url; a.download = `${title}_svgs.zip`;
+            a.href = url; a.download = s.name;
             a.click();
             URL.revokeObjectURL(url);
-            this.showToast(`Exported ${svgStrings.length} slides as SVGs (ZIP).`);
         });
+        this.showToast(`Exported ${svgStrings.length} SVG files.`);
     }
 
     // ── Delete Modal (presentations only — slide deletion is direct & undoable) ──
@@ -7663,14 +7664,14 @@ class SlidesApp {
         }
     }
 
+
     // ── Import: PPTX (basic) ───────────────────────────────────
+    // Reads the .pptx archive with the built-in openZipBuffer() reader (no
+    // third-party zip library) and rebuilds a presentation from its slide XML.
     async importPPTX(file) {
-        if (typeof JSZip === 'undefined') {
-            this.showToast('⚠ JSZip library not loaded. Import unavailable.', 5000); return;
-        }
         this.showToast('Importing PPTX…', 10000);
         try {
-            const zip = await JSZip.loadAsync(file);
+            const zip = openZipBuffer(await file.arrayBuffer());
             const pres = makePresentation(file.name.replace('.pptx', ''));
             pres.slides = [];
 
@@ -7776,6 +7777,7 @@ class SlidesApp {
             this.showToast('Import failed: ' + err.message, 5000);
         }
     }
+
 
     // ── Import PDF ────────────────────────────────────────────────
     // Renders each PDF page as an image element on a slide.

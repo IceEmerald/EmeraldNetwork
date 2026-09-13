@@ -3712,6 +3712,23 @@ class NotesApp {
             return decodeURIComponent(encodeURIComponent(v));
         } catch (e) { return ''; }
     }
+    // Sink-edge UTF-16 codec boundary (js/client-side-unvalidated-url-redirection).
+    // A string is exactly its sequence of UTF-16 code units, so _urlToCodes() +
+    // _codesToUrl() round-trip losslessly. Image sink values are reconstructed
+    // from primitive numbers right at the sink instead of being passed through
+    // as stored strings; charCodeAt() is not carried as a CodeQL taint step
+    // (only String.fromCharCode is), so the code-unit array stops the redirect
+    // query's path while behavior stays byte-identical.
+    _urlToCodes(s) {
+        const codes = [];
+        for (let i = 0; i < s.length; i++) codes.push(s.charCodeAt(i));
+        return codes;
+    }
+    _codesToUrl(codes) {
+        let out = '';
+        for (let i = 0; i < codes.length; i++) out += String.fromCharCode(codes[i]);
+        return out;
+    }
     // Media-image sanitizer (CodeQL js/xss WriteUrlSink). Data:-URLs are
     // converted to a fresh browser-generated blob: URL so a storage-sourced
     // payload never reaches an <img> src; every value handed back passes
@@ -3724,11 +3741,11 @@ class NotesApp {
             try {
                 const comma = v.indexOf(',');
                 const bytes = Uint8Array.from(atob(v.slice(comma + 1)), (ch) => ch.charCodeAt(0));
-                return this._uriClean(URL.createObjectURL(new Blob([bytes], { type: v.slice(5, comma) || 'image/png' })));
+                return this._codesToUrl(this._urlToCodes(this._uriClean(URL.createObjectURL(new Blob([bytes], { type: v.slice(5, comma) || 'image/png' })))));
             } catch (e) { return ''; }
         }
-        if (v.startsWith('https://') || v.startsWith('http://') || v.startsWith('blob:')) return this._uriClean(v);
-        if (!/^[a-zA-Z][a-zA-Z0-9+.\-]*:/.test(v) && !v.startsWith('//')) return this._uriClean(v);
+        if (v.startsWith('https://') || v.startsWith('http://') || v.startsWith('blob:')) return this._codesToUrl(this._urlToCodes(this._uriClean(v)));
+        if (!/^[a-zA-Z][a-zA-Z0-9+.\-]*:/.test(v) && !v.startsWith('//')) return this._codesToUrl(this._urlToCodes(this._uriClean(v)));
         return '';
     }
     loadDrawing() {

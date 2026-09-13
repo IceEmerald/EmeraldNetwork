@@ -8717,347 +8717,7 @@ function ensureXlsxLib() {
     ], 0);
   });
 }
-function ensureJszip() {
-  return new Promise((resolve) => {
-    if (window.JSZip) return resolve(true);
-    const tryLoad = (urls, i) => {
-      if (i >= urls.length) return resolve(false);
-      const s = document.createElement('script');
-      s.src = urls[i];
-      s.onload = () => resolve(!!window.JSZip);
-      s.onerror = () => tryLoad(urls, i + 1);
-      document.head.appendChild(s);
-    };
-    tryLoad([
-      'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
-      'https://unpkg.com/jszip@3.10.1/dist/jszip.min.js'
-    ], 0);
-  });
-}
 
-/* ---------- conditional formatting import from .xlsx (raw OOXML via JSZip) ---------- */
-/* legacy indexed color palette (ECMA-376 part 1 §18.8.27) */
-const XLSX_INDEXED = ['000000','FFFFFF','FF0000','00FF00','0000FF','FFFF00','FF00FF','00FFFF','000000','FFFFFF','FF0000','00FF00','0000FF','FFFF00','FF00FF','00FFFF','800000','008000','000080','808000','800080','008080','C0C0C0','808080','9999FF','993366','FFFFCC','CCFFFF','660066','FF8080','0066CC','CCCCFF','000080','FF00FF','FFFF00','00FFFF','800080','800000','008080','0000FF','00CCFF','CCFFFF','CCFFCC','FFFF99','99CCFF','FF99CC','CC99FF','FFCC99','3366FF','33CCCC','99CC00','FFFF00','FF9900','FF6600','666699','969696','003366','339966','003300','333300','993300','993366','333399','333333'];
-function applyColorTint(hex, tint) {
-  if (!tint) return '#' + String(hex).slice(-6);
-  const c = hexToRgb(String(hex).slice(-6));
-  const out = c.map(ch => Math.max(0, Math.min(255, Math.round(tint > 0 ? ch + (255 - ch) * tint : ch * (1 + tint)))));
-  return '#' + out.map(x => x.toString(16).padStart(2, '0')).join('');
-}
-function xlsxThemePalette(themeXml) {
-  /* fallback: theme palette (mapped to theme indexes: 0=lt1 1=dk1 2=lt2 3=dk2 4..9=accent1..6) */
-  const DEF = ['FFFFFF','000000','EEECE1','1F497D','4F81BD','C0504D','9BBB59','8064A2','4BACC6','F79646','0000FF','800080'];
-  if (!themeXml) return DEF;
-  try {
-    const doc = new DOMParser().parseFromString(themeXml, 'application/xml');
-    const scheme = doc.querySelector('clrScheme');
-    if (!scheme) return DEF;
-    const names = ['dk1', 'lt1', 'dk2', 'lt2', 'accent1', 'accent2', 'accent3', 'accent4', 'accent5', 'accent6', 'hlink', 'folHlink'];
-    const vals = {};
-    names.forEach(nm => {
-      const node = scheme.querySelector(nm);
-      if (!node) return;
-      const srgb = node.querySelector('srgbClr');
-      const sys = node.querySelector('sysClr');
-      if (srgb) vals[nm] = (srgb.getAttribute('lastClr') || srgb.getAttribute('val') || '000000').slice(-6);
-      else if (sys) vals[nm] = (sys.getAttribute('lastClr') || '000000').slice(-6);
-    });
-    const order = ['lt1', 'dk1', 'lt2', 'dk2', 'accent1', 'accent2', 'accent3', 'accent4', 'accent5', 'accent6', 'hlink', 'folHlink'];
-    return order.map((nm, i) => vals[nm] || DEF[i] || '000000');
-  } catch (e) { return DEF; }
-}
-function resolveXlsxColorEl(node, theme) {
-  if (!node) return null;
-  const rgb = node.getAttribute('rgb');
-  if (rgb) return '#' + rgb.slice(-6);
-  const th = node.getAttribute('theme');
-  if (th != null && theme && theme.length) {
-    const base = theme[(+th % theme.length + theme.length) % theme.length] || '000000';
-    const tint = parseFloat(node.getAttribute('tint') || '0') || 0;
-    return applyColorTint(base, tint);
-  }
-  const idx = node.getAttribute('indexed');
-  if (idx != null) return '#' + (XLSX_INDEXED[+idx] || '000000');
-  return null;
-}
-function parseXlsxDxfs(stylesXml, theme) {
-  const out = [];
-  if (!stylesXml) return out;
-  try {
-    const doc = new DOMParser().parseFromString(stylesXml, 'application/xml');
-    const dxfsEl = doc.querySelector('dxfs');
-    if (!dxfsEl) return out;
-    dxfsEl.querySelectorAll('dxf').forEach(dxf => {
-      const st = {};
-      const font = dxf.querySelector('font');
-      if (font) {
-        const col = resolveXlsxColorEl(font.querySelector('color'), theme);
-        if (col && col.toLowerCase() !== '#ff000000' && col.toLowerCase() !== '#000000') st.color = col;
-        if (font.querySelector('b')) st.bold = true;
-        if (font.querySelector('i')) st.italic = true;
-        if (font.querySelector('strike')) st.strike = true;
-      }
-      const fill = dxf.querySelector('fill');
-      if (fill) {
-        const pf = fill.querySelector('patternFill');
-        if (pf) {
-          /* dxf fills carry the visible color in bgColor (patternType may be omitted) */
-          const col = resolveXlsxColorEl(pf.querySelector('bgColor'), theme) || resolveXlsxColorEl(pf.querySelector('fgColor'), theme);
-          if (col && col.toLowerCase() !== '#ffffff' && col.toLowerCase() !== '#ffffffff') st.backgroundColor = col;
-        }
-      }
-      out.push(st);
-    });
-  } catch (e) { /* keep what we have */ }
-  return out;
-}
-function mapXlsxSqrefToken(tok) {
-  return parseRangeText(tok) || parseRangeText(tok.replace(/^([A-Z]{1,3})(\d+):?([A-Z]{0,3})(\d*)$/i, (m, a, b, c, d) => a + b + ':' + (c || a) + (d || b)));
-}
-function unescapeXlFormula(s) {
-  return String(s).replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
-}
-async function xlsxSheetPathList(zip) {
-  /* ordered [{name, path}] resolved from xl/workbook.xml + its rels (shared by CF import & export) */
-  const files = zip.files;
-  const get = async p => { const f = files[p]; return f ? await f.async('string') : null; };
-  const wbXml = await get('xl/workbook.xml');
-  const relsXml = await get('xl/_rels/workbook.xml.rels');
-  if (!wbXml || !relsXml) return [];
-  const parser = new DOMParser();
-  const rels = {};
-  parser.parseFromString(relsXml, 'application/xml').querySelectorAll('Relationship').forEach(r => {
-    let t = r.getAttribute('Target') || '';
-    if (t.startsWith('/')) t = t.slice(1); else if (!t.startsWith('xl/')) t = 'xl/' + t;
-    rels[r.getAttribute('Id')] = t;
-  });
-  const out = [];
-  parser.parseFromString(wbXml, 'application/xml').querySelectorAll('sheet').forEach(se => {
-    const rid = se.getAttribute('r:id') || se.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id') || se.getAttribute('id');
-    const path = rels[rid];
-    if (path) out.push({ name: se.getAttribute('name'), path });
-  });
-  return out;
-}
-async function importXlsxConditionalFormatting(buf, sheetEntries) {
-  /* sheetEntries: [{ name, sh }] in workbook order; returns { added, skipped } */
-  const none = { added: 0, skipped: 0 };
-  try {
-    if (!window.JSZip && !(await ensureJszip())) return none;
-    const zip = await JSZip.loadAsync(buf);
-    const files = zip.files;
-    const getText = async p => { const f = files[p]; return f ? await f.async('string') : null; };
-    const parser = new DOMParser();
-    const theme = xlsxThemePalette(await getText('xl/theme/theme1.xml'));
-    const dxfs = parseXlsxDxfs(await getText('xl/styles.xml'), theme);
-    let added = 0, skipped = 0;
-    for (const { name, path } of await xlsxSheetPathList(zip)) {
-      const entry = sheetEntries.find(e => e.name === name);
-      if (!entry) continue;
-      const sheetXml = await getText(path);
-      if (!sheetXml || sheetXml.indexOf('conditionalFormatting') === -1) continue;
-      const doc = parser.parseFromString(sheetXml, 'application/xml');
-      const sh = entry.sh;
-      for (const cfEl of Array.from(doc.querySelectorAll('conditionalFormatting'))) {
-        const sqref = (cfEl.getAttribute('sqref') || '').trim();
-        const ranges = sqref ? sqref.split(/\s+/).map(mapXlsxSqrefToken).filter(Boolean) : [];
-        if (!ranges.length) continue;
-        for (const cfRuleEl of Array.from(cfEl.querySelectorAll('cfRule'))) {
-          try {
-            const type = cfRuleEl.getAttribute('type') || '';
-            const dxfId = cfRuleEl.getAttribute('dxfId');
-            const dxf = dxfId != null && dxfs[+dxfId] ? dxfs[+dxfId] : {};
-            const priority = +(cfRuleEl.getAttribute('priority') || 999);
-            const op = cfRuleEl.getAttribute('operator') || '';
-            const textAttr = unescapeXlFormula(cfRuleEl.getAttribute('text') || '');
-            const formulas = Array.from(cfRuleEl.children).filter(ch => ch.tagName === 'formula').map(f => unescapeXlFormula((f.textContent || '').trim()));
-            const numOrText = s => { if (s == null || s === '') return s; const n = Number(s); return !isNaN(n) && /^-?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(String(s).trim()) ? n : s; };
-            const base = { id: uid(), priority, color: dxf.backgroundColor || '#ffd8b4', fontColor: dxf.color || null };
-            let rule = null;
-            if (type === 'cellIs') {
-              const a = numOrText(formulas[0]), b = numOrText(formulas[1]);
-              if (op === 'between' && a != null && b != null) rule = Object.assign(base, { type: 'between', value: a, value2: b });
-              else if (op === 'greaterThan') rule = Object.assign(base, { type: 'greaterThan', value: a });
-              else if (op === 'greaterThanOrEqual') rule = Object.assign(base, { type: 'greaterThanOrEqual', value: a });
-              else if (op === 'lessThan') rule = Object.assign(base, { type: 'lessThan', value: a });
-              else if (op === 'lessThanOrEqual') rule = Object.assign(base, { type: 'lessThanOrEqual', value: a });
-              else if (op === 'equal') rule = Object.assign(base, { type: 'equalTo', value: a });
-              else if (op === 'notEqual') rule = Object.assign(base, { type: 'notEqualTo', value: a });
-            } else if (type === 'containsText') {
-              let v = textAttr;
-              if (!v) { const m = /SEARCH\(\s*"((?:[^"\\]|\\.)*)"/.exec(formulas[0] || ''); if (m) v = m[1].replace(/\\"/g, '"'); }
-              if (v) rule = Object.assign(base, { type: 'contains', value: v });
-            } else if (type === 'beginsWith' || type === 'endsWith') {
-              if (textAttr) rule = Object.assign(base, { type, value: textAttr });
-            } else if (type === 'expression') {
-              if (formulas[0]) rule = Object.assign(base, { type: 'expression', expr: formulas[0][0] === '=' ? formulas[0] : '=' + formulas[0], base: { r: ranges[0].r1, c: ranges[0].c1 } });
-            } else if (type === 'top10') {
-              const rank = Math.max(1, Math.trunc(+(cfRuleEl.getAttribute('rank') || 10)) || 10);
-              const pct = cfRuleEl.getAttribute('percent') === '1';
-              const bottom = cfRuleEl.getAttribute('bottom') === '1';
-              rule = Object.assign(base, { type: pct ? (bottom ? 'bottom10Percent' : 'top10Percent') : (bottom ? 'bottom10' : 'top10'), value: rank });
-            } else if (type === 'aboveAverage') {
-              const above = cfRuleEl.getAttribute('aboveAverage') !== '0';
-              rule = Object.assign(base, { type: above ? 'aboveAverage' : 'belowAverage' });
-            } else if (type === 'uniqueValues') {
-              rule = Object.assign(base, { type: 'unique' });
-            } else if (type === 'duplicateValues') {
-              rule = Object.assign(base, { type: 'duplicates' });
-            } else if (type === 'colorScale') {
-              const csEl = cfRuleEl.querySelector('colorScale');
-              const colors = csEl ? Array.from(csEl.children).filter(ch => ch.tagName === 'color').map(ch => resolveXlsxColorEl(ch, theme)).filter(Boolean) : [];
-              if (colors.length === 2) rule = Object.assign(base, { type: 'colorScale2', colorMin: colors[0], colorMax: colors[1] });
-              else if (colors.length >= 3) rule = Object.assign(base, { type: 'colorScale3', colorMin: colors[0], colorMid: colors[Math.floor(colors.length / 2)], colorMax: colors[colors.length - 1] });
-            } else if (type === 'dataBar') {
-              const barEl = cfRuleEl.querySelector('dataBar');
-              const col = barEl ? resolveXlsxColorEl(barEl.querySelector('color'), theme) : null;
-              rule = Object.assign(base, { type: 'dataBar', color: col || dxf.backgroundColor || '#638ec6' });
-            } else if (type === 'iconSet') {
-              const isEl = cfRuleEl.querySelector('iconSet');
-              const nm = isEl ? (isEl.getAttribute('iconSet') || '') : '';
-              const iMap = { '3Arrows': 'arrows3', '3ArrowsGray': 'arrows3', '3TrafficLights1': 'traffic3', '3TrafficLights2': 'traffic3', '3Signs': 'signs3', '3Flags': 'flags3', '3Stars': 'stars3', '3Symbols': 'symbols3', '3Symbols2': 'symbols3' };
-              if (iMap[nm]) rule = Object.assign(base, { type: 'iconSet', icons: iMap[nm] }); /* 4/5-icon sets remain unsupported */
-            }
-            if (!rule) { skipped++; continue; }
-            /* lower priority number wins -> apply highest priority last in our loop */
-            for (const rg of ranges) sh.cf.push(Object.assign({}, rule, { id: uid(), range: Object.assign({}, rg) }));
-            added += ranges.length;
-          } catch (e) { skipped++; }
-        }
-      }
-      /* priority order: priority 1 applied last (wins); sort descending so p1 ends up last */
-      sh.cf.sort((a, b) => (b.priority || 999) - (a.priority || 999));
-    }
-    return { added, skipped };
-  } catch (e) { console.warn('CF import skipped:', e && e.message); return none; }
-}
-
-/* ---------- conditional formatting export into a SheetJS-produced .xlsx (raw OOXML via JSZip) ---------- */
-function cfXmlEscape(s) {
-  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-function cfArgb(hex) { return 'FF' + String(hex || '#000000').replace('#', '').slice(-6).toUpperCase(); }
-function cfFormulaValue(v) {
-  if (v == null) return '0';
-  if (typeof v === 'number') return String(v);
-  return '"' + String(v) + '"';
-}
-function cfDxfSignature(r) { return JSON.stringify([r.color || null, r.fontColor || null]); }
-/* build the <cfRule> XML for one rule; dxfId is null for rules that don't use a dxf; returns null when unexportable */
-function cfRuleXml(rule, firstCell, dxfId, prio) {
-  const dxfAttr = dxfId != null ? ' dxfId="' + dxfId + '"' : '';
-  const fx = v => '<formula>' + cfXmlEscape(v) + '</formula>';
-  const val = cfFormulaValue(rule.value);
-  switch (rule.type) {
-    case 'greaterThan': return '<cfRule type="cellIs"' + dxfAttr + ' priority="' + prio + '" operator="greaterThan">' + fx(val) + '</cfRule>';
-    case 'greaterThanOrEqual': return '<cfRule type="cellIs"' + dxfAttr + ' priority="' + prio + '" operator="greaterThanOrEqual">' + fx(val) + '</cfRule>';
-    case 'lessThan': return '<cfRule type="cellIs"' + dxfAttr + ' priority="' + prio + '" operator="lessThan">' + fx(val) + '</cfRule>';
-    case 'lessThanOrEqual': return '<cfRule type="cellIs"' + dxfAttr + ' priority="' + prio + '" operator="lessThanOrEqual">' + fx(val) + '</cfRule>';
-    case 'equalTo': return '<cfRule type="cellIs"' + dxfAttr + ' priority="' + prio + '" operator="equal">' + fx(val) + '</cfRule>';
-    case 'notEqualTo': return '<cfRule type="cellIs"' + dxfAttr + ' priority="' + prio + '" operator="notEqual">' + fx(val) + '</cfRule>';
-    case 'between': return '<cfRule type="cellIs"' + dxfAttr + ' priority="' + prio + '" operator="between">' + fx(cfFormulaValue(rule.value)) + fx(cfFormulaValue(rule.value2)) + '</cfRule>';
-    case 'contains': {
-      const t = String(rule.value == null ? '' : rule.value);
-      return '<cfRule type="containsText"' + dxfAttr + ' priority="' + prio + '" operator="containsText" text="' + cfXmlEscape(t) + '">' + fx('NOT(ISERROR(SEARCH("' + t + '",' + firstCell + ')))') + '</cfRule>';
-    }
-    case 'beginsWith': {
-      const t = String(rule.value == null ? '' : rule.value);
-      return '<cfRule type="beginsWith"' + dxfAttr + ' priority="' + prio + '" operator="beginsWith" text="' + cfXmlEscape(t) + '">' + fx('LEFT(' + firstCell + ',' + t.length + ')="' + t + '"') + '</cfRule>';
-    }
-    case 'endsWith': {
-      const t = String(rule.value == null ? '' : rule.value);
-      return '<cfRule type="endsWith"' + dxfAttr + ' priority="' + prio + '" operator="endsWith" text="' + cfXmlEscape(t) + '">' + fx('RIGHT(' + firstCell + ',' + t.length + ')="' + t + '"') + '</cfRule>';
-    }
-    case 'expression': return '<cfRule type="expression"' + dxfAttr + ' priority="' + prio + '">' + fx(String(rule.expr || '').replace(/^=/, '')) + '</cfRule>';
-    case 'top10': case 'top10Percent': case 'bottom10': case 'bottom10Percent': {
-      const pct = rule.type === 'top10Percent' || rule.type === 'bottom10Percent';
-      const bottom = rule.type === 'bottom10' || rule.type === 'bottom10Percent';
-      return '<cfRule type="top10"' + dxfAttr + ' priority="' + prio + '" rank="' + Math.max(1, Number(rule.value) || 10) + '"' + (pct ? ' percent="1"' : '') + (bottom ? ' bottom="1"' : '') + '/>';
-    }
-    case 'aboveAverage': return '<cfRule type="aboveAverage"' + dxfAttr + ' priority="' + prio + '"/>';
-    case 'belowAverage': return '<cfRule type="aboveAverage"' + dxfAttr + ' priority="' + prio + '" aboveAverage="0"/>';
-    case 'unique': return '<cfRule type="uniqueValues"' + dxfAttr + ' priority="' + prio + '"/>';
-    case 'duplicates': return '<cfRule type="duplicateValues"' + dxfAttr + ' priority="' + prio + '"/>';
-    case 'colorScale2': case 'colorScale3': {
-      let cs = '<cfRule type="colorScale" priority="' + prio + '"><colorScale><cfvo type="min"/>';
-      if (rule.type === 'colorScale3') cs += '<cfvo type="percent" val="50"/>';
-      cs += '<cfvo type="max"/><color rgb="' + cfArgb(rule.colorMin) + '"/>';
-      if (rule.type === 'colorScale3' && rule.colorMid) cs += '<color rgb="' + cfArgb(rule.colorMid) + '"/>';
-      cs += '<color rgb="' + cfArgb(rule.colorMax) + '"/></colorScale></cfRule>';
-      return cs;
-    }
-    case 'dataBar': return '<cfRule type="dataBar" priority="' + prio + '"><dataBar><cfvo type="min"/><cfvo type="max"/><color rgb="' + cfArgb(rule.color) + '"/></dataBar></cfRule>';
-    case 'iconSet': {
-      const nm = { arrows3: '3Arrows', traffic3: '3TrafficLights1', signs3: '3Signs', flags3: '3Flags', stars3: '3Stars', symbols3: '3Symbols2' }[rule.icons] || '3Arrows';
-      return '<cfRule type="iconSet" priority="' + prio + '"><iconSet iconSet="' + nm + '" showValue="1"><cfvo type="percent" val="0"/><cfvo type="percent" val="33"/><cfvo type="percent" val="67"/></iconSet></cfRule>';
-    }
-    default: return null; /* banded + unknown types are ZSheet-specific and skipped */
-  }
-}
-async function applyCfToXlsxZip(zip) {
-  /* mirrors the import path: injects dxfs + conditionalFormatting blocks into a
-     SheetJS-generated workbook. Returns { added, skipped, dxfCount }. */
-  const none = { added: 0, skipped: 0, dxfCount: 0 };
-  try {
-    const targets = [];
-    for (const { name, path } of await xlsxSheetPathList(zip)) {
-      const sh = WB.sheets.find(s => !s.hidden && s.name.slice(0, 31) === name);
-      if (sh && sh.cf && sh.cf.length && zip.files[path]) targets.push({ sh, path });
-    }
-    if (!targets.length) return none;
-    /* dxf table (dedup by style signature); only highlight-style rules use dxfs */
-    const dxfIds = new Map();
-    const dxfBodies = [];
-    const dxfFor = rule => {
-      const sig = cfDxfSignature(rule);
-      if (dxfIds.has(sig)) return dxfIds.get(sig);
-      let font = '';
-      if (rule.fontColor) font = '<font><color rgb="' + cfArgb(rule.fontColor) + '"/></font>';
-      const fill = rule.color ? '<fill><patternFill><bgColor rgb="' + cfArgb(rule.color) + '"/></patternFill></fill>' : '';
-      const id = dxfBodies.length;
-      dxfBodies.push('<dxf>' + font + fill + '</dxf>');
-      dxfIds.set(sig, id);
-      return id;
-    };
-    const DXF_TYPES = ['greaterThan', 'greaterThanOrEqual', 'lessThan', 'lessThanOrEqual', 'equalTo', 'notEqualTo', 'between', 'contains', 'beginsWith', 'endsWith', 'expression', 'top10', 'bottom10', 'top10Percent', 'bottom10Percent', 'aboveAverage', 'belowAverage', 'unique', 'duplicates'];
-    let added = 0, skipped = 0;
-    for (const { sh, path } of targets) {
-      let xml = await zip.file(path).async('string');
-      /* group rules by identical range so each block keeps its sqref */
-      const groups = new Map();
-      for (let i = sh.cf.length - 1, prio = 0; i >= 0; i--) {
-        prio++; /* our last rule wins conflicts */
-        const rule = sh.cf[i];
-        const firstCell = addr(rule.range.r1, rule.range.c1);
-        const rgTxt = firstCell + ':' + addr(rule.range.r2, rule.range.c2);
-        const dxfId = DXF_TYPES.includes(rule.type) ? dxfFor(rule) : null;
-        const rx = cfRuleXml(rule, firstCell, dxfId, prio);
-        if (!rx) { skipped++; continue; }
-        added++;
-        if (!groups.has(rgTxt)) groups.set(rgTxt, []);
-        groups.get(rgTxt).push(rx);
-      }
-      if (!groups.size) continue;
-      if (xml.indexOf('conditionalFormatting') !== -1) xml = xml.replace(/<conditionalFormatting[\s\S]*?<\/conditionalFormatting>/g, '');
-      const blocks = [];
-      groups.forEach((rules, sqref) => blocks.push('<conditionalFormatting sqref="' + cfXmlEscape(sqref) + '">' + rules.join('') + '</conditionalFormatting>'));
-      xml = xml.replace('</worksheet>', blocks.join('') + '</worksheet>');
-      zip.file(path, xml);
-    }
-    if (dxfBodies.length) {
-      const stylesPath = zip.files['xl/styles.xml'] ? 'xl/styles.xml' : null;
-      if (stylesPath) {
-        let sxml = await zip.file(stylesPath).async('string');
-        const dxfBlock = '<dxfs count="' + dxfBodies.length + '">' + dxfBodies.join('') + '</dxfs>';
-        if (/<dxfs[^>]*\/>/.test(sxml)) sxml = sxml.replace(/<dxfs[^>]*\/>/, dxfBlock);          /* self-closing (SheetJS default) */
-        else if (sxml.indexOf('</dxfs>') !== -1) sxml = sxml.replace(/<dxfs[\s\S]*?<\/dxfs>/, dxfBlock); /* paired block */
-        else sxml = sxml.replace('</styleSheet>', dxfBlock + '</styleSheet>');                    /* absent: append */
-        zip.file(stylesPath, sxml);
-      }
-    }
-    return { added, skipped, dxfCount: dxfBodies.length };
-  } catch (e) { console.warn('CF export skipped:', e && e.message); return none; }
-}
 function importFileDialog() {
   const input = document.createElement('input');
   input.type = 'file';
@@ -9140,7 +8800,6 @@ async function importXlsx(file) {
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(buf, { type: 'array', cellFormula: true, cellStyles: false, cellNF: true, sheetStubs: false });
   if (!wb.SheetNames.length) { toast('The workbook has no sheets', 'warn'); return; }
-  const createdSheets = [];
   for (const name of wb.SheetNames) {
     const ws = wb.Sheets[name];
     const sh = makeSheet(uniqueSheetName(name.slice(0, 28)));
@@ -9183,18 +8842,12 @@ async function importXlsx(file) {
     }
     sh.usedMax = { r: Math.min(range.e.r, 100000), c: Math.min(range.e.c, 1000) };
     WB.sheets.push(sh);
-    createdSheets.push({ name, sh });
   }
-  /* conditional formatting from the raw OOXML (dxfs + conditionalFormatting blocks) */
-  const cfInfo = await importXlsxConditionalFormatting(buf, createdSheets);
   setActiveSheet(WB.sheets[WB.sheets.length - 1].id);
   updateSheetTabBar();
   rebuildAllDeps();
   Persistence.markDirty();
-  let msg = 'Imported workbook with ' + wb.SheetNames.length + ' sheet(s)';
-  if (cfInfo.added) msg += ' · ' + cfInfo.added + ' conditional formatting rule(s)';
-  if (cfInfo.skipped) msg += ' (' + cfInfo.skipped + ' unsupported rule(s) skipped)';
-  toast(msg, 'success', 4200);
+  toast('Imported workbook with ' + wb.SheetNames.length + ' sheet(s)', 'success', 4200);
 }
 async function exportXlsx() {
   const ok = await ensureXlsxLib();
@@ -9246,37 +8899,13 @@ async function exportXlsx() {
     XLSX.utils.book_append_sheet(wb, ws, sh.name.slice(0, 31));
   }
   const fname = (WB.title || 'workbook').replace(/[\\/:*?"<>|]/g, '_') + '.xlsx';
-  let buf;
   try {
-    buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    XLSX.writeFile(wb, fname);
+    toast('Workbook exported as XLSX (values, formulas, widths, merges, comments)', 'success', 4000);
   } catch (e) {
     console.error(e);
     toast('XLSX export failed: ' + (e && e.message ? e.message : 'unknown error'), 'error', 5000);
-    return;
   }
-  /* conditional formatting is layered into the raw OOXML afterwards (SheetJS community cannot write dxfs) */
-  const cfTotal = WB.sheets.reduce((n, s) => n + (s.hidden ? 0 : (s.cf ? s.cf.length : 0)), 0);
-  if (cfTotal > 0) {
-    const okZip = await ensureJszip();
-    if (okZip) {
-      try {
-        const zip = await JSZip.loadAsync(buf);
-        const cfInfo = await applyCfToXlsxZip(zip);
-        const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', compression: 'DEFLATE' });
-        downloadBlob(blob, fname);
-        toast('Workbook exported as XLSX (values, formulas, widths, merges, comments' + (cfInfo.added ? ', ' + cfInfo.added + ' CF rule(s)' : '') + ')', 'success', 4200);
-        return;
-      } catch (e) {
-        console.error('CF export layer failed, falling back to plain export:', e);
-      }
-    } else {
-      XLSX.writeFile(wb, fname);
-      toast('Exported without conditional formatting — the JSZip library is unavailable (no internet?)', 'warn', 5000);
-      return;
-    }
-  }
-  XLSX.writeFile(wb, fname);
-  toast('Workbook exported as XLSX (values, formulas, widths, merges, comments)', 'success', 4000);
 }
 function exportCsv() {
   const sh = activeSheet();
