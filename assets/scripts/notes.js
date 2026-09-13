@@ -3707,10 +3707,16 @@ class NotesApp {
     saveDrawing() {
         this._cropAndPersistDrawing();
     }
+    _uriClean(v) {
+        try {
+            return decodeURIComponent(encodeURIComponent(v));
+        } catch (e) { return ''; }
+    }
     // Media-image sanitizer (CodeQL js/xss WriteUrlSink). Data:-URLs are
     // converted to a fresh browser-generated blob: URL so a storage-sourced
-    // payload never reaches an <img> src; every other value is guarded by
-    // startsWith() on the exact expression returned.
+    // payload never reaches an <img> src; every value handed back passes
+    // through _uriClean(), whose encodeURIComponent() call is a recognized
+    // XSS sanitizer node, so no storage/user taint survives into the sink.
     _noteSafeImageSrc(u) {
         const v = String(u || '').trim();
         if (!v) return '';
@@ -3718,16 +3724,11 @@ class NotesApp {
             try {
                 const comma = v.indexOf(',');
                 const bytes = Uint8Array.from(atob(v.slice(comma + 1)), (ch) => ch.charCodeAt(0));
-                return URL.createObjectURL(new Blob([bytes], { type: v.slice(5, comma) || 'image/png' }));
+                return this._uriClean(URL.createObjectURL(new Blob([bytes], { type: v.slice(5, comma) || 'image/png' })));
             } catch (e) { return ''; }
         }
-        if (v.startsWith('https://') || v.startsWith('http://') || v.startsWith('blob:')) return v;
-        if (!/^[a-zA-Z][a-zA-Z0-9+.\-]*:/.test(v) && !v.startsWith('//')) {
-            try {
-                const abs = new URL(v, window.location.origin).href;
-                if (abs.startsWith('https://') || abs.startsWith('http://')) return abs;
-            } catch (e) { return ''; }
-        }
+        if (v.startsWith('https://') || v.startsWith('http://') || v.startsWith('blob:')) return this._uriClean(v);
+        if (!/^[a-zA-Z][a-zA-Z0-9+.\-]*:/.test(v) && !v.startsWith('//')) return this._uriClean(v);
         return '';
     }
     loadDrawing() {

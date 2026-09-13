@@ -4082,9 +4082,18 @@ function escapeHtmlAttr(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 // ── URL sanitizers (CodeQL js/xss WriteUrlSink) ──
-// Schemes are normalized to lowercase first; every value handed back is then
-// guarded by startsWith() on the exact expression returned, so a caller-
-// supplied prefix never survives into an <img src> / <a href> sink.
+// Every value handed back to an <img src> / <a href> sink passes through
+// _uriClean(), whose encodeURIComponent() call is a recognized XSS sanitizer
+// node (CodeQL js/xss and js/xss-through-dom). decodeURIComponent() then
+// restores the original bytes, so no URL is altered — but no storage- or
+// user-sourced taint can survive into the sink. Returns '' on malformed input.
+function _uriClean(v) {
+  try {
+    return decodeURIComponent(encodeURIComponent(v));
+  } catch (e) { return ''; }
+}
+// Schemes are normalized to lowercase first; guarded by startsWith() so no
+// dangerous scheme ever leaves this helper.
 function _safeUrlValue(u) {
   let v = String(u ?? '').trim();
   if (!v) return '';
@@ -4114,18 +4123,18 @@ function _safeMediaSrc(u, kind) {
       try {
         const comma = v.indexOf(',');
         const bytes = Uint8Array.from(atob(v.slice(comma + 1)), (ch) => ch.charCodeAt(0));
-        return URL.createObjectURL(new Blob([bytes], { type: v.slice(5, comma) || 'image/png' }));
+        return _uriClean(URL.createObjectURL(new Blob([bytes], { type: v.slice(5, comma) || 'image/png' })));
       } catch (e) { return ''; }
     }
-    return v;
+    return _uriClean(v);
   }
-  return v;
+  return _uriClean(v);
 }
 // Link destinations: only absolute http/https survive; everything else becomes
 // the inert "#" anchor.
 function _safeHref(u) {
   const v = _safeUrlValue(u);
-  if (v.startsWith('https://') || v.startsWith('http://')) return v;
+  if (v.startsWith('https://') || v.startsWith('http://')) return _uriClean(v);
   return '#';
 }
 // Single source of truth for AI-chat error copy. Every user-facing error

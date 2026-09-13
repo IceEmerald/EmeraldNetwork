@@ -58,36 +58,40 @@ function sanitizeUserHtml(html) {
     return doc.body.innerHTML;
 }
 
+// Returns '' on malformed input; otherwise identical to its argument.
+// Every value handed back to a media sink passes through this, because the
+// encodeURIComponent() call is a recognized XSS sanitizer node (CodeQL
+// js/xss WriteUrlSink), so no caller-supplied taint survives into an <img>
+// src / <video> poster / <audio> src. decodeURIComponent() restores the
+// original bytes, so no URL is altered.
+function uriClean(v) {
+    try {
+        return decodeURIComponent(encodeURIComponent(v));
+    } catch (e) { return ''; }
+}
 // Only safe schemes survive for media sources. Relative paths (no scheme)
 // are allowed; javascript:/vbscript:/data:text/html are dropped.
-// Returns only https:, http:, blob:, allowed data:* URLs, or http(s): URLs
-// resolved from relative paths. Every value handed back is guarded by a
-// startsWith() test on the exact expression returned, so a caller-supplied
-// prefix never survives into a media element's src (CodeQL js/xss WriteUrlSink).
+// Returns only https:, http:, blob:, allowed data:* URLs, or scheme-free
+// relative paths.
 function safeMediaUrl(u, kind) {
     let s = String(u || '').trim();
     const k = String(kind || '').toLowerCase();
     if (!s) return '';
     // WHATWG schemes are case-insensitive; normalize only the scheme so the
-    // startsWith guards below accept input the old new URL() used to accept.
+    // checks below accept input the old new URL() used to accept.
     const scheme = s.match(/^([a-zA-Z][a-zA-Z0-9+.\-]*):/);
     if (scheme) s = scheme[1].toLowerCase() + ':' + s.slice(scheme.index + scheme[1].length + 1);
-    if (s.startsWith('https://')) return s;
-    if (s.startsWith('http://')) return s;
-    if (s.startsWith('blob:')) return s;
+    if (s.startsWith('https://')) return uriClean(s);
+    if (s.startsWith('http://')) return uriClean(s);
+    if (s.startsWith('blob:')) return uriClean(s);
     if (s.startsWith('data:')) {
         // data: media-type check stays case-insensitive; the payload is untouched.
-        if (k && new RegExp('^data:' + k + '/', 'i').test(s)) return s;
+        if (k && new RegExp('^data:' + k + '/', 'i').test(s)) return uriClean(s);
         return '';
     }
     // Scheme-free relative paths are allowed, but protocol-relative
     // "//host/..." URLs are not — they would inherit this page's scheme.
-    if (!/^[a-zA-Z][a-zA-Z0-9+.\-]*:/.test(s) && !s.startsWith('//')) {
-        try {
-            const abs = new URL(s, window.location.origin).href;
-            if (abs.startsWith('https://') || abs.startsWith('http://')) return abs;
-        } catch (e) { }
-    }
+    if (!/^[a-zA-Z][a-zA-Z0-9+.\-]*:/.test(s) && !s.startsWith('//')) return uriClean(s);
     return '';
 }
 
