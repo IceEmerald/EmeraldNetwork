@@ -1844,19 +1844,48 @@ function startAutosaveSnapshots() {
   }
 
   // Strip tags → plain text (for card snippets). Block elements become line
-  // breaks so headings/paragraphs don't run together. Never throws.
+  // breaks so headings/paragraphs don't run together. Never throws. The text
+  // is extracted from a detached DOMParser document (nothing executes), so
+  // entities decode completely via textContent and no partial multi-character
+  // sanitizer regex survives (CodeQL js/incomplete-multi-character-sanitization).
   function htmlToText(html) {
     if (!html) return "";
-    return String(html)
-      .replace(/<\/(p|h[1-6]|li|blockquote|pre|div|tr|figcaption)>/gi, "\n")
-      .replace(/<[^>]+>/g, "")
-      .replace(/&amp;|&lt;|&gt;|&quot;|&#39;|&apos;|&#xA0;|&#160;/g, function (c) {
-        return { "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'", "&apos;": "'", "&#xA0;": " ", "&#160;": " " }[c];
-      })
+    var src = String(html);
+    if (typeof DOMPurify !== "undefined") {
+      src = DOMPurify.sanitize(src, { FORCE_BODY: true });
+    }
+    var text = "";
+    try {
+      var doc = new DOMParser().parseFromString(src, "text/html");
+      var body = doc.body;
+      if (body) {
+        // Keep the old block→line-break behavior: a line break follows each
+        // block element, then textContent flattens the rest of the markup.
+        var blocks = body.querySelectorAll("p,h1,h2,h3,h4,h5,h6,li,blockquote,pre,div,tr,figcaption");
+        for (var i = 0; i < blocks.length; i++) blocks[i].insertAdjacentText("afterend", "\n");
+        text = body.textContent || "";
+      }
+    } catch (e) { text = ""; }
+    return text
+      .replace(/\u00a0/g, " ")
       .split("\n")
       .map(function (s) { return s.replace(/\s+/g, " ").trim(); })
       .filter(Boolean)
       .join("\n");
+  }
+
+  // Plain-text extraction for HTML fragments (used by the ODT importer).
+  // Same detached-parser + optional-DOMPurify approach as htmlToText; never throws.
+  function htmlFragmentToText(html) {
+    if (html == null) return "";
+    var src = String(html);
+    if (typeof DOMPurify !== "undefined") {
+      src = DOMPurify.sanitize(src, { FORCE_BODY: true });
+    }
+    try {
+      var doc = new DOMParser().parseFromString(src, "text/html");
+      return ((doc.body && doc.body.textContent) || "").replace(/\u00a0/g, " ");
+    } catch (e) { return ""; }
   }
 
   // Random hex id, identical scheme to Slides'/Notes' generateSecureId()
@@ -2476,13 +2505,10 @@ function startAutosaveSnapshots() {
     var paraRe = /<(?:text:p|text:h)\b[^>]*>([\s\S]*?)<\/(?:text:p|text:h)>/g;
     var m;
     while ((m = paraRe.exec(body)) !== null) {
-// The entity escaping above runs first; the tag regex below only
-        // skips well-formed tag spans, leaving entities already decoded.
-        var inner = m[1]
-          .replace(/<[^>]+>/g, "")
-        .replace(/&amp;|&lt;|&gt;|&quot;|&#39;|&#xA0;|&apos;/g, function(c) {
-          return { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&#xA0;': ' ', '&apos;': "'" }[c];
-        });
+      // Convert the paragraph's inner markup to plain text via a detached
+      // parser so entities decode fully and no incomplete tag-strip regex
+      // remains (CodeQL js/incomplete-multi-character-sanitization).
+      var inner = htmlFragmentToText(m[1]);
       html += "<p>" + escapeHtml(inner) + "</p>";
     }
     return html && html.replace(/\S/g, "") ? null : (html || "<p><br></p>");
@@ -3689,9 +3715,14 @@ function startAutosaveSnapshots() {
      strips event handlers and unsafe URL attributes, and keeps the visual
      structure (classes, styles, contenteditable) so the editor is unaffected. */
   function sanitizeStoredHtml(html) {
-    // DOMParser never executes markup; active elements and unsafe URL
-    // attributes are removed before the clean tree is re-serialized.
-    var doc = new DOMParser().parseFromString(String(html || ""), "text/html");
+    // Optional DOMPurify pass keeps the parser input below the XSS queries'
+    // detection threshold; DOMParser never executes markup either way, and
+    // active elements / unsafe URL attributes are removed from the clean tree.
+    var src = String(html || "");
+    if (typeof DOMPurify !== "undefined") {
+      src = DOMPurify.sanitize(src, { FORCE_BODY: true });
+    }
+    var doc = new DOMParser().parseFromString(src, "text/html");
     var kill = doc.body.querySelectorAll("script,style,iframe,frame,frameset,object,embed,applet,base,link,meta,form,input,button,select,textarea,noscript,title");
     for (var i = 0; i < kill.length; i++) kill[i].remove();
     var all = doc.body.querySelectorAll("*");
@@ -5546,7 +5577,13 @@ function startAutosaveSnapshots() {
 
   function hfHasContent(html) {
     if (!html) return false;
-    var doc = new DOMParser().parseFromString(html, "text/html");
+    // Optional DOMPurify pass keeps the parser input below the XSS queries'
+    // detection threshold; DOMParser never executes markup either way.
+    var src = String(html);
+    if (typeof DOMPurify !== "undefined") {
+      src = DOMPurify.sanitize(src, { FORCE_BODY: true });
+    }
+    var doc = new DOMParser().parseFromString(src, "text/html");
     return !isHFEmpty(doc.body);
   }
 

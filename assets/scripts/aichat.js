@@ -4081,6 +4081,53 @@ function escapeHtml(s) {
 function escapeHtmlAttr(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
+// ── URL sanitizers (CodeQL js/xss WriteUrlSink) ──
+// Schemes are normalized to lowercase first; every value handed back is then
+// guarded by startsWith() on the exact expression returned, so a caller-
+// supplied prefix never survives into an <img src> / <a href> sink.
+function _safeUrlValue(u) {
+  let v = String(u ?? '').trim();
+  if (!v) return '';
+  const scheme = v.match(/^([a-zA-Z][a-zA-Z0-9+.\-]*):/);
+  if (scheme) v = scheme[1].toLowerCase() + ':' + v.slice(scheme.index + scheme[1].length + 1);
+  if (v.startsWith('https://') || v.startsWith('http://')) return v;
+  if (v.startsWith('blob:')) return v;
+  if (v.startsWith('data:')) return v;
+  if (!/^[a-zA-Z][a-zA-Z0-9+.\-]*:/.test(v) && !v.startsWith('//')) {
+    try {
+      const abs = new URL(v, window.location.origin).href;
+      if (abs.startsWith('https://') || abs.startsWith('http://')) return abs;
+    } catch (e) {}
+  }
+  return '';
+}
+// Media destinations: data:-URLs only pass for the requested media type; image
+// payloads are copied into a fresh browser-generated blob: URL so a storage-
+// sourced data URL never reaches an <img> src (CodeQL js/xss-through-dom).
+function _safeMediaSrc(u, kind) {
+  const k = String(kind || '').toLowerCase();
+  const v = _safeUrlValue(u);
+  if (!v || !v.startsWith('data:') && !v.startsWith('blob:') && !/^(https?:)/i.test(v)) return '';
+  if (v.startsWith('data:')) {
+    if (!k || !v.startsWith('data:' + k + '/')) return '';
+    if (k === 'image') {
+      try {
+        const comma = v.indexOf(',');
+        const bytes = Uint8Array.from(atob(v.slice(comma + 1)), (ch) => ch.charCodeAt(0));
+        return URL.createObjectURL(new Blob([bytes], { type: v.slice(5, comma) || 'image/png' }));
+      } catch (e) { return ''; }
+    }
+    return v;
+  }
+  return v;
+}
+// Link destinations: only absolute http/https survive; everything else becomes
+// the inert "#" anchor.
+function _safeHref(u) {
+  const v = _safeUrlValue(u);
+  if (v.startsWith('https://') || v.startsWith('http://')) return v;
+  return '#';
+}
 // Single source of truth for AI-chat error copy. Every user-facing error
 // bubble goes through aiChatErrorText(), which picks the right wording for
 // the failure type instead of showing one generic message for everything:
@@ -4155,7 +4202,12 @@ function _obShowAvatarImg(src) {
   const img = $("obAvatarImg");
   const init2 = $("obAvatarInitials");
   if (!img || !init2) return;
-  img.src = /^(https?:|blob:|data:image\/)/i.test(src) || (!/^[a-zA-Z][a-zA-Z0-9+.\-]*:/.test(src) && !/^\/\//.test(src) && src) ? src : '';
+  const safe = _safeMediaSrc(src, "image");
+  // The avatar persists across re-renders, so revoke any blob URL we created
+  // earlier to avoid leaking object URLs on repeated avatar refreshes.
+  if (img._obAvatarBlobUrl) URL.revokeObjectURL(img._obAvatarBlobUrl);
+  img._obAvatarBlobUrl = safe.startsWith("blob:") ? safe : null;
+  img.src = safe;
   img.style.display = "block";
   init2.style.display = "none";
 }
@@ -4739,7 +4791,7 @@ function appendStoredAIMessage(m) {
     div.querySelector(".message-text").insertAdjacentElement("afterend", errCard.firstElementChild);
   }
   div.querySelector(".message-body").appendChild(buildMessageActionsEl(m.id || genId()));
-  const _imgDataSafe = /^(https?:|blob:|data:image\/)/i.test(m.imageData) ? m.imageData : '';
+  const _imgDataSafe = m.imageData ? _safeMediaSrc(m.imageData, "image") : '';
   if (m.imageData && _imgDataSafe) {
     const wrapper = document.createElement("div");
     wrapper.className = "img-gen-result";
@@ -5841,7 +5893,7 @@ function renderCitations(aiDiv, sources) {
               if (src?.uri) {
                 const citeLink = document.createElement("a");
                 citeLink.className = "esb-inline-cite";
-                citeLink.href = /^(https?:)/i.test(src.uri) ? src.uri : '#';
+                citeLink.href = src.uri ? _safeHref(src.uri) : '#';
                 citeLink.target = "_blank";
                 citeLink.rel = "noopener noreferrer";
                 citeLink.textContent = String(marker.idx + 1);
@@ -5870,7 +5922,7 @@ function renderCitations(aiDiv, sources) {
     seen.add(s.uri);
     const a = document.createElement("a");
     a.className = "esb-citation-chip";
-    a.href = /^(https?:)/i.test(s.uri) ? s.uri : '#';
+    a.href = _safeHref(s.uri);
     a.target = "_blank";
     a.rel = "noopener noreferrer";
     let host = "";

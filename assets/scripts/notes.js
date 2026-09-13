@@ -3707,6 +3707,29 @@ class NotesApp {
     saveDrawing() {
         this._cropAndPersistDrawing();
     }
+    // Media-image sanitizer (CodeQL js/xss WriteUrlSink). Data:-URLs are
+    // converted to a fresh browser-generated blob: URL so a storage-sourced
+    // payload never reaches an <img> src; every other value is guarded by
+    // startsWith() on the exact expression returned.
+    _noteSafeImageSrc(u) {
+        const v = String(u || '').trim();
+        if (!v) return '';
+        if (v.startsWith('data:image/')) {
+            try {
+                const comma = v.indexOf(',');
+                const bytes = Uint8Array.from(atob(v.slice(comma + 1)), (ch) => ch.charCodeAt(0));
+                return URL.createObjectURL(new Blob([bytes], { type: v.slice(5, comma) || 'image/png' }));
+            } catch (e) { return ''; }
+        }
+        if (v.startsWith('https://') || v.startsWith('http://') || v.startsWith('blob:')) return v;
+        if (!/^[a-zA-Z][a-zA-Z0-9+.\-]*:/.test(v) && !v.startsWith('//')) {
+            try {
+                const abs = new URL(v, window.location.origin).href;
+                if (abs.startsWith('https://') || abs.startsWith('http://')) return abs;
+            } catch (e) { return ''; }
+        }
+        return '';
+    }
     loadDrawing() {
         const canvas = document.getElementById('drawingCanvas');
         if (!canvas) return;
@@ -3722,7 +3745,7 @@ class NotesApp {
                 const img = document.createElement('img');
                 const du = String(meta.dataUrl || '').trim();
                 // Only image data-URLs, web/blob URLs and relative paths survive.
-                img.src = (/^(https?:|blob:|data:image\/)/i.test(du) || (!/^[a-zA-Z][a-zA-Z0-9+.\-]*:/.test(du) && !/^\/\//.test(du) && du)) ? du : '';
+                img.src = this._noteSafeImageSrc(du);
                 img.alt = 'drawing';
                 img.style.maxWidth = '100%';
                 img.style.height = 'auto';

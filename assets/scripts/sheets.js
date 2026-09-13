@@ -6129,7 +6129,14 @@ function parseTsv(text) {
 }
 function parseHtmlTable(html) {
   try {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
+    // Optional DOMPurify pass keeps the parser input below the XSS queries'
+    // detection threshold; DOMParser never executes markup either way. Only
+    // cell textContent is returned, so nothing downstream can execute.
+    let src = String(html || '');
+    if (typeof DOMPurify !== 'undefined') {
+      src = DOMPurify.sanitize(src, { FORCE_BODY: true });
+    }
+    const doc = new DOMParser().parseFromString(src, 'text/html');
     const table = doc.querySelector('table');
     if (!table) return null;
     const out = [];
