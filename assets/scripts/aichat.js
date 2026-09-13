@@ -35,7 +35,7 @@ const DISPLAY_MODEL = "EmeraldCore";
    is shown as a small badge in the dropdown so the hierarchy is visible at a
    glance. ids MUST match the `publicId` field in worker.js MODELS. */
 const MODELS = [
-  { id: "astra",     name: "EmeraldCore Astra",     short: "Astra",     tier: "v4.3", desc: "Frontier flagship — ultra-deep reasoning, autonomous multi-step tasks, cross-domain synthesis." },
+  { id: "astra",     name: "EmeraldCore Astra",     short: "Astra",     tier: "v4.2", desc: "Frontier flagship — ultra-deep reasoning, autonomous multi-step tasks, cross-domain synthesis." },
   { id: "ruby",      name: "EmeraldCore Ruby",      short: "Ruby",      tier: "v4.2", desc: "Multimodal precision — vision, data science, scientific analysis, structured output." },
   { id: "gamma",     name: "EmeraldCore Gamma",     short: "Gamma",     tier: "v4.1", desc: "Deepest reasoning — math, code, hard logic." },
   { id: "diamond",   name: "EmeraldCore Diamond",   short: "Diamond",   tier: "v4",   desc: "Creative strategy, planning, long-form writing." },
