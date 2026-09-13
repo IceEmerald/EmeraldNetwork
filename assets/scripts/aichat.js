@@ -35,6 +35,8 @@ const DISPLAY_MODEL = "EmeraldCore";
    is shown as a small badge in the dropdown so the hierarchy is visible at a
    glance. ids MUST match the `publicId` field in worker.js MODELS. */
 const MODELS = [
+  { id: "astra",     name: "EmeraldCore Astra",     short: "Astra",     tier: "v4.3", desc: "Frontier flagship — ultra-deep reasoning, autonomous multi-step tasks, cross-domain synthesis." },
+  { id: "ruby",      name: "EmeraldCore Ruby",      short: "Ruby",      tier: "v4.2", desc: "Multimodal precision — vision, data science, scientific analysis, structured output." },
   { id: "gamma",     name: "EmeraldCore Gamma",     short: "Gamma",     tier: "v4.1", desc: "Deepest reasoning — math, code, hard logic." },
   { id: "diamond",   name: "EmeraldCore Diamond",   short: "Diamond",   tier: "v4",   desc: "Creative strategy, planning, long-form writing." },
   { id: "gold",      name: "EmeraldCore Gold",      short: "Gold",      tier: "v4",   desc: "Research, fact-checking, in-depth analysis." },
@@ -44,7 +46,7 @@ const MODELS = [
 ];
 /* Primary models shown directly in the dropdown. Everything else is tucked
    behind the \"Other Models\" hover trigger to keep the panel scannable. */
-const PRIMARY_MODEL_IDS = ["gamma", "diamond", "gold"];
+const PRIMARY_MODEL_IDS = ["astra", "ruby", "gamma", "diamond", "gold"];
 const OTHER_MODEL_IDS = ["kappa", "starlight", "cream"];
 const MODEL_DEFAULT_ID = "auto";
 function getModelById(id) {
