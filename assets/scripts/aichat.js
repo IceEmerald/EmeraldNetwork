@@ -46,8 +46,8 @@ const MODELS = [
 ];
 /* Primary models shown directly in the dropdown. Everything else is tucked
    behind the \"Other Models\" hover trigger to keep the panel scannable. */
-const PRIMARY_MODEL_IDS = ["astra", "ruby", "gamma", "diamond", "gold"];
-const OTHER_MODEL_IDS = ["kappa", "starlight", "cream"];
+const PRIMARY_MODEL_IDS = ["astra", "ruby", "gamma"];
+const OTHER_MODEL_IDS = ["diamond", "gold", "kappa", "starlight", "cream"];
 const MODEL_DEFAULT_ID = "auto";
 function getModelById(id) {
   return MODELS.find((m) => m.id === id) || null;
