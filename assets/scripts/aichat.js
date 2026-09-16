@@ -194,6 +194,10 @@ function setupChatStorageSync() {
   const watchedKeys = /* @__PURE__ */ new Set([CONV_KEY, LIB_KEY, SETTINGS_KEY, MEMORY_KEY, OB_KEY]);
   window.EmeraldIDBStorage.subscribe(({ key }) => {
     if (!watchedKeys.has(key)) return;
+    // Keep the Settings storage meter in sync while it is open.
+    if (document.getElementById("settingsModal")?.classList.contains("open")) {
+      _refreshStorageMeter();
+    }
     if (key === SETTINGS_KEY) {
       applyTheme(loadSettings().theme || "system");
       // Bugfix: also sync reasoning toggle UI when settings change (e.g. cross-tab).
@@ -3868,6 +3872,81 @@ function renderLibraryModal() {
 }
 let _pendingTheme = null;
 let _pendingAvatar = null;
+let _storeMeterTimer = null;
+function _fmtBytes(b) {
+  if (!Number.isFinite(b) || b <= 0) return "0 B";
+  if (b < 1024) return `${b} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let v = b;
+  let u = -1;
+  do { v /= 1024; u++; } while (v >= 1024 && u < units.length - 1);
+  return `${v < 10 ? v.toFixed(1) : Math.round(v)} ${units[u]}`;
+}
+async function _getStorageEstimate() {
+  let usage = null;
+  let quota = null;
+  try {
+    if (navigator.storage && typeof navigator.storage.estimate === "function") {
+      const est = await navigator.storage.estimate();
+      if (typeof est?.usage === "number") usage = est.usage;
+      if (typeof est?.quota === "number") quota = est.quota;
+    }
+  } catch { /* estimate() unsupported/throttled — fall back to app key sizes */ }
+  return { usage, quota };
+}
+function _sumAppKeyBytes() {
+  const rows = [];
+  const labels = { [CONV_KEY]: "Conversations", [LIB_KEY]: "Library", [SETTINGS_KEY]: "Settings", [MEMORY_KEY]: "Memories", [OB_KEY]: "Onboarding" };
+  let total = 0;
+  for (const k of [CONV_KEY, LIB_KEY, SETTINGS_KEY, MEMORY_KEY, OB_KEY]) {
+    let bytes = 0;
+    try {
+      const v = S.get(k);
+      const raw = v == null ? "" : typeof v === "string" ? v : JSON.stringify(v);
+      bytes = raw ? new TextEncoder().encode(raw).length : 0;
+    } catch { }
+    rows.push({ label: labels[k], bytes });
+    total += bytes;
+  }
+  rows.sort((a, b) => b.bytes - a.bytes);
+  return { rows, total };
+}
+async function _refreshStorageMeter() {
+  const fill = $("settStoreFill");
+  const meta = $("settStoreMeta");
+  if (!fill || !meta) return;
+  const est = await _getStorageEstimate();
+  const app = _sumAppKeyBytes();
+  const hasEstimate = typeof est.usage === "number";
+  // navigator.storage.estimate() reports this origin's total browser storage
+  // (IndexedDB holds the chat data), which is the accurate number. When it is
+  // unavailable (e.g. Safari), fall back to the sum of this app's own keys.
+  const usage = hasEstimate ? est.usage : app.total;
+  const quota = typeof est.quota === "number" ? est.quota : 0;
+  const pct = quota > 0 ? Math.min(100, (usage / quota) * 100) : 0;
+  fill.style.width = `${pct.toFixed(1)}%`;
+  fill.style.background = pct >= 90 ? "rgb(224,85,85)" : "rgb(80,200,120)";
+  meta.textContent = quota > 0
+    ? `${_fmtBytes(usage)} of ${_fmtBytes(quota)} used · ${pct.toFixed(1)}%`
+    : `${_fmtBytes(usage)} used`;
+}
+function _startStoreMeterLoop() {
+  _stopStoreMeterLoop();
+  _refreshStorageMeter();
+  _storeMeterTimer = setInterval(() => {
+    if (!document.getElementById("settingsModal")?.classList.contains("open")) {
+      _stopStoreMeterLoop();
+      return;
+    }
+    _refreshStorageMeter();
+  }, 3000);
+}
+function _stopStoreMeterLoop() {
+  if (_storeMeterTimer) {
+    clearInterval(_storeMeterTimer);
+    _storeMeterTimer = null;
+  }
+}
 function openSettings() {
   const s = loadSettings();
   const el = $("settingsModal");
@@ -3878,6 +3957,8 @@ function openSettings() {
   _refreshSettThemeUI(_pendingTheme);
   _refreshSettAvatarUI(s.userName || "", _pendingAvatar);
   el.classList.add("open");
+  _refreshStorageMeter();
+  _startStoreMeterLoop();
 }
 function saveSettings() {
   const name = $("settName")?.value.trim() || "You";

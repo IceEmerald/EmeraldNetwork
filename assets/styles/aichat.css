@@ -5305,6 +5305,14 @@ body.light-mode .quiz-panel-count {
     padding: 0px 20px 20px;
 }
 
+.sett-scroll-extra .sett-section {
+    margin-bottom: 20px;
+}
+
+.sett-scroll-extra .sett-section:last-child {
+    margin-bottom: 0;
+}
+
 .sett-data-btns {
     display: flex;
     gap: 10px;
@@ -5368,6 +5376,40 @@ body.light-mode .sett-data-btn--danger:hover {
     color: rgb(220, 115, 115);
     background: rgba(165, 10, 10, 0.25);
     border-color: rgba(224, 85, 85, 0.3);
+}
+
+.sett-store-meter {
+    margin-top: 6px;
+}
+
+.sett-store-bar {
+    height: 7px;
+    border-radius: 999px;
+    background: rgb(35, 35, 35);
+    overflow: hidden;
+}
+
+.sett-store-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 999px;
+    background: rgb(80, 200, 120);
+    transition: width 0.4s ease;
+}
+
+.sett-store-meta {
+    margin-top: 7px;
+    font-size: 12px;
+    color: rgb(136, 136, 136);
+    font-family: "DM Sans", sans-serif;
+}
+
+body.light-mode .sett-store-bar {
+    background: rgb(224, 224, 226);
+}
+
+body.light-mode .sett-store-meta {
+    color: rgb(140, 140, 140);
 }
 
 .memory-item {
