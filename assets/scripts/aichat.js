@@ -960,15 +960,30 @@ function renderMarkdown(raw) {
   // This correctly handles "$currency. Math is $e^{i\pi}$." — the first
   // pair is rejected (prose), and the second pair is accepted (real math).
   {
-    const _mathRe = /\$([^$\n]+?)\$/g;
+    const _mathRe = /\$([^$]+?)\$/gs;
     let _mm, _lastEnd = 0, _result = '';
     while ((_mm = _mathRe.exec(text)) !== null) {
       const _fullStart = _mm.index;
       const _inner = _mm[1];
-      // Reject if content has sentence boundary (prose between $ signs)
-      // or starts with a digit + has comma/space + no LaTeX commands (currency)
-      const _isCurrency = /^\d/.test(_inner) && /[, ]/.test(_inner) && !/\\[a-zA-Z]/.test(_inner);
-      if (/\.\s/.test(_inner) || _isCurrency) {
+      // Reject prose/currency between $ signs:
+      //  - sentence boundary ("$62,932.68 USD. Euler's identity is $")
+      //  - blank-line paragraph break
+      //  - currency-like content: thousands-grouped numbers ("1,234" /
+      //    "5,000 for the whole trip"), decimals ("12.50"), or long pure
+      //    digit/comma strings ("62,932"). Short item lists ("0, 1, atau 2")
+      //    and real math ("0{,}1|...|1\times 10^{-3}") are NOT currency and
+      //    must be rendered as math.
+      // The 's' flag lets math span newlines — the model frequently wraps
+      // multi-line expressions in $...$ (and hallucinates single-char line
+      // runs like "$0, 1,\na\nt\na\nu\natau2$"), which previously leaked as
+      // literal "$...$" text.
+      const _hasLaTeX = /\\[a-zA-Z]/.test(_inner);
+      const _isCurrency = !_hasLaTeX && (
+        /(?:^|\D)\d{1,3}(?:,\d{3})+(?:\.\d+)?/.test(_inner) ||
+        /\d\.\d/.test(_inner) ||
+        (/^[^\d]*\d[\d,]*$/.test(_inner) && _inner.replace(/[,\s]/g, "").length >= 5)
+      );
+      if (/\.\s/.test(_inner) || /\n\s*\n/.test(_inner) || _isCurrency) {
         // Not valid math — keep the opening $ and content as literal text,
         // but let the closing $ be re-scanned as a potential opening $
         _result += text.slice(_lastEnd, _fullStart + 1 + _inner.length);
@@ -3516,8 +3531,12 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
   // response whenever a connection is genuinely cut.
   const STREAM_IDLE_TIMEOUT = 6e4;
   let timedOut = false;
-  let gotText = false;
+  let streamedChars = 0;
   let streamDone = false;
+  // Resume only when streamed text is meaningful. A connection that drops or
+  // idles out almost immediately (a few chars) will likely do so again — a
+  // resume would just waste another slow request round-trip.
+  const MIN_RESUME_TEXT = 20;
   let idleTimer = null;
   const _resetIdle = () => {
     clearTimeout(idleTimer);
@@ -3573,7 +3592,7 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
                   options.onReasoningChunk(part.text);
                 }
               } else if (part.text) {
-                gotText = true;
+                streamedChars += part.text.length;
                 onChunk(part.text);
               }
             }
@@ -3591,7 +3610,7 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
     clearTimeout(idleTimer);
   }
   if (timedOut && !finishReason) {
-    if (gotText) {
+    if (streamedChars >= MIN_RESUME_TEXT) {
       // A long stall mid-generation (slow/stuttering connection) tripped the
       // idle timer, but the partial text we already have is valid — resume
       // it like a MAX_TOKENS continuation instead of erroring and losing it.
@@ -3608,8 +3627,10 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
     // the worker hit Cloudflare's per-request wall-time cap mid-stream, or
     // the connection dropped while data was still flowing. The partial answer
     // is valid — flag it so the caller resumes with "continue" up to a few
-    // times instead of silently cutting the response short.
-    if (gotText) {
+    // times instead of silently cutting the response short. Cuts that only
+    // produced a couple of characters are left alone (almost always just a
+    // flaky drop that would repeat).
+    if (streamedChars >= MIN_RESUME_TEXT) {
       return { finishReason: "STREAM_INTERRUPTED", groundingMetadata, modelId: usedModelId };
     }
   }
