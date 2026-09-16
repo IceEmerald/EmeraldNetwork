@@ -1030,9 +1030,29 @@ function renderMarkdown(raw) {
   });
   return html;
 }
+function _extractMemories(text) {
+  const out = [];
+  const s = String(text || "");
+  for (const bm of s.matchAll(/\[MEMORY\]([\s\S]*?)\[\/MEMORY\]/g)) {
+    const t = bm[1].trim();
+    if (t) out.push({ tag: bm[0], text: t });
+  }
+  const cleaned = s.replace(/\[MEMORY\]([\s\S]*?)\[\/MEMORY\]/g, " ");
+  for (const im of cleaned.matchAll(/\[MEMORY:\s*([^\]]+)\]/g)) {
+    const t = im[1].trim();
+    if (t) out.push({ tag: im[0], text: t });
+  }
+  return out;
+}
+function _stripMemoryTags(text) {
+  return String(text || "")
+    .replace(/\[MEMORY\]([\s\S]*?)\[\/MEMORY\]/g, " ")
+    .replace(/\[MEMORY:[^\]]*\]?/g, " ")
+    .replace(/\s*\[MEMORY(?:\]|:)[^]*$/, " ");
+}
 function _streamDisplayText(raw) {
   let t = String(raw || "");
-  t = t.replace(/\[MEMORY:[^\]]*\]?/g, "");
+  t = _stripMemoryTags(t);
   t = t.replace(/\[GENERATE_IMAGE:[^\]]*\]?/g, "");
   t = t.replace(/\[IMAGE:\s*[^\]]+\]/g, "");
   t = t.replace(/\[IMAGE_SEARCH:\s*[^\]]+\]/g, "");
@@ -2847,7 +2867,7 @@ async function handleSend(opts) {
       const _m = getModelById(_usedModelId);
       _usedModelName = _m ? _m.name : _usedModelId;
     }
-    while (finishReason === "MAX_TOKENS" && continueCount < MAX_CONTINUATIONS && !state.abortCtrl?.signal?.aborted) {
+    while ((finishReason === "MAX_TOKENS" || finishReason === "STREAM_INTERRUPTED") && continueCount < MAX_CONTINUATIONS && !state.abortCtrl?.signal?.aborted) {
       continueCount++;
       if (!continueEl && aiDiv) {
         continueEl = document.createElement("span");
@@ -2922,10 +2942,10 @@ async function handleSend(opts) {
   }
   if (fullText && aiDiv) {
     let displayText = fullText;
-    const memMatches = [...fullText.matchAll(/\[MEMORY:\s*([^\]]+)\]/g)];
-    const memoriesAdded = memMatches.map((m) => m[1].trim()).filter(Boolean);
+    const memMatches = _extractMemories(fullText);
+    const memoriesAdded = memMatches.map((m) => m.text).filter(Boolean);
     memoriesAdded.forEach((text2) => addMemory(text2));
-    displayText = displayText.replace(/\[MEMORY:[^\]]*\]?/g, "").replace(/\n{3,}/g, "\n\n").trim();
+    displayText = _stripMemoryTags(displayText).replace(/\n{3,}/g, "\n\n").trim();
     displayText = _stripThinkingPreamble(displayText).replace(/^\s+/, "");
     const memoryAdded = memoriesAdded.length > 0;
     const _imgGenMatch = displayText.match(/\[GENERATE_IMAGE:\s*([^\]]+)\]/);
@@ -2987,7 +3007,7 @@ async function handleSend(opts) {
       aiDiv.dataset.modelId = _usedModelId || "";
       aiDiv.dataset.modelName = _usedModelName || "";
     }
-    const savedText = memoryAdded ? memMatches.map((m) => m[0]).join(" ") + " " + displayText : displayText;
+    const savedText = memoryAdded ? memMatches.map((m) => m.tag).join(" ") + " " + displayText : displayText;
     if (conv) {
       conv.messages.push({
         role: "assistant",
@@ -3048,7 +3068,7 @@ function buildHistory(conv) {
     const msgs = allMsgs.slice(-HISTORY_MAX_MSGS).map((m, idx, arr) => {
       let text = m.text || "";
       text = text.replace(/<quiz>[\s\S]*?<\/quiz>/g, "[A quiz was provided here]");
-      text = text.replace(/\[MEMORY:\s*[^\]]+\]/g, "").replace(/\[GENERATE_IMAGE:\s*[^\]]+\]/g, "").replace(/\[IMAGE:\s*[^\]]+\]/g, "").replace(/\[IMAGE_SEARCH:\s*[^\]]+\]/g, "").trim();
+      text = _stripMemoryTags(text).replace(/\[GENERATE_IMAGE:\s*[^\]]+\]/g, "").replace(/\[IMAGE:\s*[^\]]+\]/g, "").replace(/\[IMAGE_SEARCH:\s*[^\]]+\]/g, "").trim();
       if (m.imagePrompt) {
         text += `
 [An image was generated and shown to the user for this prompt: "${m.imagePrompt}"]`;
@@ -3209,7 +3229,7 @@ async function regenerateMessage(msgEl) {
     if (_searchingBlock) markSearchingDone(_searchingBlock);
   };
   try {
-    const _streamResult = await streamEmeraldBot(history, apiKey, (chunk) => {
+    const _streamResult = await streamEmeraldBotResumable(history, apiKey, (chunk) => {
       _markSearchingDoneOnce();
       _markReasoningDoneOnce();
       fullText += chunk;
@@ -3287,10 +3307,10 @@ async function regenerateMessage(msgEl) {
   }
   if (fullText && aiDiv) {
     let displayText = fullText;
-    const memMatches = [...fullText.matchAll(/\[MEMORY:\s*([^\]]+)\]/g)];
-    const memoriesAdded = memMatches.map((m) => m[1].trim()).filter(Boolean);
+    const memMatches = _extractMemories(fullText);
+    const memoriesAdded = memMatches.map((m) => m.text).filter(Boolean);
     memoriesAdded.forEach((text) => addMemory(text));
-    displayText = displayText.replace(/\[MEMORY:[^\]]*\]?/g, "").replace(/\n{3,}/g, "\n\n").trim();
+    displayText = _stripMemoryTags(displayText).replace(/\n{3,}/g, "\n\n").trim();
     displayText = _stripThinkingPreamble(displayText).replace(/^\s+/, "");
     const memoryAdded = memoriesAdded.length > 0;
     const imgGenMatch = displayText.match(/\[GENERATE_IMAGE:\s*([^\]]+)\]/);
@@ -3350,7 +3370,7 @@ async function regenerateMessage(msgEl) {
       aiDiv.dataset.modelId = _usedModelId || "";
       aiDiv.dataset.modelName = _usedModelName || "";
     }
-    const savedText = memoryAdded ? memMatches.map((m) => m[0]).join(" ") + " " + displayText : displayText;
+    const savedText = memoryAdded ? memMatches.map((m) => m.tag).join(" ") + " " + displayText : displayText;
     const savedMsg = {
       role: "assistant",
       text: savedText,
@@ -3489,29 +3509,42 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
   let buffer = "";
   let finishReason = null;
   let groundingMetadata = null;
-  const STREAM_IDLE_TIMEOUT = 3e4;
+  // 30s was too aggressive for low-bandwidth / congested connections — a
+  // client stream regularily stalls mid-answer and got killed, which users
+  // experience as "the AI randomly stops generating". 60s gives slow links
+  // room to catch up, and the STREAM_INTERRUPTED recovery below resumes the
+  // response whenever a connection is genuinely cut.
+  const STREAM_IDLE_TIMEOUT = 6e4;
   let timedOut = false;
-  let idleTimer = setTimeout(() => {
-    timedOut = true;
-    try {
-      reader.cancel("Stream idle timeout");
-    } catch {
-    }
-  }, STREAM_IDLE_TIMEOUT);
+  let gotText = false;
+  let streamDone = false;
+  let idleTimer = null;
+  const _resetIdle = () => {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      timedOut = true;
+      try {
+        reader.cancel("Stream idle timeout");
+      } catch {
+      }
+    }, STREAM_IDLE_TIMEOUT);
+  };
+  _resetIdle();
   try {
-    let streamDone = false;
     while (!streamDone) {
-      const { done, value } = await reader.read();
-      clearTimeout(idleTimer);
-      idleTimer = setTimeout(() => {
-        timedOut = true;
-        try {
-          reader.cancel("Stream idle timeout");
-        } catch {
-        }
-      }, STREAM_IDLE_TIMEOUT);
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
+      let chunk;
+      try {
+        chunk = await reader.read();
+      } catch (readErr) {
+        // reader.cancel() (idle timeout) or a torn-down network make the next
+        // read() reject instead of resolving — break out so the recovery logic
+        // below can decide whether to resume the response.
+        if (timedOut) break;
+        throw readErr;
+      }
+      _resetIdle();
+      if (chunk.done) break;
+      buffer += decoder.decode(chunk.value, { stream: true });
       const lines = buffer.split("\n");
       buffer = lines.pop();
       for (const line of lines) {
@@ -3540,6 +3573,7 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
                   options.onReasoningChunk(part.text);
                 }
               } else if (part.text) {
+                gotText = true;
                 onChunk(part.text);
               }
             }
@@ -3557,10 +3591,27 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
     clearTimeout(idleTimer);
   }
   if (timedOut && !finishReason) {
-    const e = new Error("Response timed out \u2014 the server did not send any data for 30 seconds.");
+    if (gotText) {
+      // A long stall mid-generation (slow/stuttering connection) tripped the
+      // idle timer, but the partial text we already have is valid — resume
+      // it like a MAX_TOKENS continuation instead of erroring and losing it.
+      return { finishReason: "STREAM_INTERRUPTED", groundingMetadata, modelId: usedModelId };
+    }
+    const e = new Error(`Response timed out \u2014 the server did not send any data for ${STREAM_IDLE_TIMEOUT / 1e3} seconds.`);
     e._modelError = true;
     e._timedOut = true;
     throw e;
+  }
+  if (!streamDone && !finishReason) {
+    // The connection ended WITHOUT the worker's [DONE] marker or a
+    // finishReason. This is the classic "randomly stops streaming" symptom:
+    // the worker hit Cloudflare's per-request wall-time cap mid-stream, or
+    // the connection dropped while data was still flowing. The partial answer
+    // is valid — flag it so the caller resumes with "continue" up to a few
+    // times instead of silently cutting the response short.
+    if (gotText) {
+      return { finishReason: "STREAM_INTERRUPTED", groundingMetadata, modelId: usedModelId };
+    }
   }
   if (finishReason && finishReason !== "STOP" && finishReason !== "MAX_TOKENS") {
     const reasonMap = { SAFETY: "Content blocked by safety filters", RECITATION: "Content blocked by recitation policy", OTHER: "Response blocked for an unknown reason" };
@@ -3570,6 +3621,42 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
     throw e;
   }
   return { finishReason, groundingMetadata, modelId: usedModelId };
+}
+// Thin wrapper that streams a response and AUTO-RESUMES it whenever the
+// underlying stream ends on a MAX_TOKENS cap or an interrupted connection
+// (STREAM_INTERRUPTED). Each resume replays what was already generated and
+// asks the model to continue, feeding every round's chunks + reasoning into
+// the same callbacks so the UI keeps streaming seamlessly. Used by the
+// regenerate and edit-answer paths, which previously truncated the moment a
+// single stream was cut.
+async function streamEmeraldBotResumable(history, _unused, onChunk, options = {}, _extra = {}) {
+  const MAX_RESUMES = 4;
+  let accFinish = null;
+  let accGrounding = null;
+  let accModelId = null;
+  let accText = "";
+  let h = history;
+  for (let i = 0; i <= MAX_RESUMES; i++) {
+    const _progress = (chunk) => {
+      accText += chunk;
+      if (typeof onChunk === "function") onChunk(chunk);
+    };
+    const res = await streamEmeraldBot(h, _unused, _progress, options, _extra);
+    if (res.modelId) accModelId = res.modelId;
+    if (res.groundingMetadata) {
+      if (accGrounding?.groundingChunks) {
+        const existingUris = new Set(accGrounding.groundingChunks.map((c) => c?.web?.uri));
+        const newChunks = (res.groundingMetadata.groundingChunks || []).filter((c) => !existingUris.has(c?.web?.uri));
+        accGrounding = { groundingChunks: [...accGrounding.groundingChunks, ...newChunks] };
+      } else {
+        accGrounding = res.groundingMetadata;
+      }
+    }
+    accFinish = res.finishReason;
+    if (accFinish !== "MAX_TOKENS" && accFinish !== "STREAM_INTERRUPTED") break;
+    h = [...history, { role: "model", parts: [{ text: accText }] }, { role: "user", parts: [{ text: "continue" }] }];
+  }
+  return { finishReason: accFinish, groundingMetadata: accGrounding, modelId: accModelId };
 }
 function extractGroundingSources(groundingMetadata) {
   if (!groundingMetadata) return [];
@@ -4776,9 +4863,9 @@ function _renderCachedImageSearchResults(aiDiv, cacheMap) {
 }
 function appendStoredAIMessage(m) {
   const rawText = m.text || "";
-  let displayText = rawText.replace(/\[MEMORY:\s*[^\]]+\]/g, "").replace(/\[GENERATE_IMAGE:\s*[^\]]+\]/g, "").replace(/\n{3,}/g, "\n\n").trim();
+  let displayText = _stripMemoryTags(rawText).replace(/\[GENERATE_IMAGE:\s*[^\]]+\]/g, "").replace(/\n{3,}/g, "\n\n").trim();
   displayText = _stripThinkingPreamble(displayText).replace(/^\s+/, "");
-  const hasMemory = m.hasMemory || /\[MEMORY:/.test(rawText);
+  const hasMemory = m.hasMemory || /\[MEMORY:/.test(rawText) || /\[MEMORY\]/.test(rawText);
   let quizData = m.hasQuiz && m.quizData ? m.quizData : null;
   let beforeQuiz = "";
   let afterQuiz = "";
@@ -5289,7 +5376,7 @@ async function submitUserMsgEdit(msgId) {
     if (_searchingBlock) markSearchingDone(_searchingBlock);
   };
   try {
-    const _streamResult = await streamEmeraldBot(history, apiKey, (chunk) => {
+    const _streamResult = await streamEmeraldBotResumable(history, apiKey, (chunk) => {
       _markSearchingDoneOnce();
       _markReasoningDoneOnce();
       aiFullText += chunk;
@@ -5383,10 +5470,10 @@ async function submitUserMsgEdit(msgId) {
   }
   if (aiFullText && aiDiv) {
     let dispText = aiFullText;
-    const memM = [...aiFullText.matchAll(/\[MEMORY:\s*([^\]]+)\]/g)];
-    const memoriesAdded = memM.map((m) => m[1].trim()).filter(Boolean);
+    const memM = _extractMemories(aiFullText);
+    const memoriesAdded = memM.map((m) => m.text).filter(Boolean);
     memoriesAdded.forEach((t) => addMemory(t));
-    dispText = dispText.replace(/\[MEMORY:[^\]]*\]?/g, "").replace(/\n{3,}/g, "\n\n").trim();
+    dispText = _stripMemoryTags(dispText).replace(/\n{3,}/g, "\n\n").trim();
     const memoryAdded = memoriesAdded.length > 0;
     const imgM = dispText.match(/\[GENERATE_IMAGE:\s*([^\]]+)\]/);
     const imgPrompt = imgM ? imgM[1].trim() : null;
