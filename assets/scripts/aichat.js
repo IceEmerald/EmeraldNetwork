@@ -3057,6 +3057,7 @@ function buildHistory(conv) {
       if (!isRecent && text.length > HISTORY_MAX_CHARS) {
         text = text.slice(0, HISTORY_MAX_CHARS) + "\n[...content truncated...]";
       }
+      if (m.role === "user" && !text) text = "[No text content]";
       return {
         role: m.role === "user" ? "user" : "model",
         parts: [{ text }]
