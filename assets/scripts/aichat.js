@@ -977,17 +977,28 @@ function renderMarkdown(raw) {
       //    digit/comma strings ("62,932"). Short item lists ("0, 1, atau 2")
       //    and real math ("0{,}1|...|1\times 10^{-3}") are NOT currency and
       //    must be rendered as math.
+      //  - PROSE smuggled between stray $ signs (e.g. a long sentence that
+      //    happens to start with "$-203,7" and end with "-155$"). Math never
+      //    contains double quotes, and real inline math rarely has >=3
+      //    multi-letter words or >=3 single-character lines (the latter is
+      //    the model's char-by-char hallucination, like "$0, 1,\na\nt\na\nu
+      //    \natau2$"). Such spans are left literal so Markdown + the
+      //    char-run collapse handle them as ordinary text.
       // The 's' flag lets math span newlines — the model frequently wraps
       // multi-line expressions in $...$ (and hallucinates single-char line
-      // runs like "$0, 1,\na\nt\na\nu\natau2$"), which previously leaked as
-      // literal "$...$" text.
+      // runs), which previously leaked as literal "$...$" text.
       const _hasLaTeX = /\\[a-zA-Z]/.test(_inner);
       const _isCurrency = !_hasLaTeX && (
         /(?:^|\D)\d{1,3}(?:,\d{3})+(?:\.\d+)?/.test(_inner) ||
         /\d\.\d/.test(_inner) ||
         (/^[^\d]*\d[\d,]*$/.test(_inner) && _inner.replace(/[,\s]/g, "").length >= 5)
       );
-      if (/\.\s/.test(_inner) || /\n\s*\n/.test(_inner) || _isCurrency) {
+      const _isProse = !_hasLaTeX && (
+        /["“”]/.test(_inner) ||
+        ((_inner.match(/[a-zA-Z]{2,}/g) || []).length >= 3) ||
+        (_inner.split("\n").filter((l) => l.trim().length === 1 && /\S/.test(l)).length >= 3)
+      );
+      if (/\.\s/.test(_inner) || /\n\s*\n/.test(_inner) || _isCurrency || _isProse) {
         // Not valid math — keep the opening $ and content as literal text,
         // but let the closing $ be re-scanned as a potential opening $
         _result += text.slice(_lastEnd, _fullStart + 1 + _inner.length);
@@ -1034,17 +1045,17 @@ function renderMarkdown(raw) {
   html = html.replace(/MATHBLOCK(\d+)MATHBLOCK/g, (_, i) => {
     try {
       const src = _preprocessLatexColor(mathBlocks[i].src);
-      return typeof katex !== "undefined" ? `<div class="md-math-block">${katex.renderToString(src, { throwOnError: false, displayMode: true })}</div>` : `<pre>$$${mathBlocks[i].src}$$</pre>`;
+      return typeof katex !== "undefined" ? `<div class="md-math-block">${katex.renderToString(src, { throwOnError: false, displayMode: true })}</div>` : `<pre>$$${_collapseCharByCharRuns(mathBlocks[i].src)}$$</pre>`;
     } catch {
-      return `<pre>$$${mathBlocks[i].src}$$</pre>`;
+      return `<pre>$$${_collapseCharByCharRuns(mathBlocks[i].src)}$$</pre>`;
     }
   });
   html = html.replace(/MATHINLINE(\d+)MATHINLINE/g, (_, i) => {
     try {
       const src = _preprocessLatexColor(mathBlocks[i].src);
-      return typeof katex !== "undefined" ? katex.renderToString(src, { throwOnError: false }) : `$${mathBlocks[i].src}$`;
+      return typeof katex !== "undefined" ? katex.renderToString(src, { throwOnError: false }) : `$${_collapseCharByCharRuns(mathBlocks[i].src)}$`;
     } catch {
-      return `$${mathBlocks[i].src}$`;
+      return `$${_collapseCharByCharRuns(mathBlocks[i].src)}$`;
     }
   });
   return html;
