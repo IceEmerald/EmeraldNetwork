@@ -900,7 +900,13 @@ function _collapseCharByCharRuns(text) {
       if (run.length >= 3) {
         const joined = run.join('');
         const next = lines[i].trim();
-        if (!(next && next.indexOf(joined) === 0)) {
+        // The model frequently emits a char-by-char copy of the NEXT line,
+        // sometimes with a single leading symbol (e.g. "*Rumus:" duplicate,
+        // or ")tidak..." where ")R..." was broken apart). Dedup when the run
+        // is exactly the next line, or the next line's content after one
+        // leading symbol (index 0 or 1).
+        const leadIdx = next.indexOf(joined);
+        if (!(leadIdx === 0 || leadIdx === 1)) {
           result.push(joined);
         }
       } else {
@@ -993,11 +999,12 @@ function renderMarkdown(raw) {
         /\d\.\d/.test(_inner) ||
         (/^[^\d]*\d[\d,]*$/.test(_inner) && _inner.replace(/[,\s]/g, "").length >= 5)
       );
-      const _isProse = !_hasLaTeX && (
-        /["“”]/.test(_inner) ||
-        ((_inner.match(/[a-zA-Z]{2,}/g) || []).length >= 3) ||
-        (_inner.split("\n").filter((l) => l.trim().length === 1 && /\S/.test(l)).length >= 3)
-      );
+      // Char-by-char hallucination: >=3 single-character lines inside a
+      // $...$ span means the model broke a sentence apart (e.g. "R\nu\nm\nu\n
+      // s\n:\n"). Real math never has that, so reject EVEN IF LaTeX commands
+      // are present — the span is contaminated prose, not a formula.
+      const _soloChars = _inner.split("\n").filter((l) => l.trim().length === 1 && /\S/.test(l)).length;
+      const _isProse = /["“”]/.test(_inner) || _soloChars >= 3 || (!_hasLaTeX && (_inner.match(/[a-zA-Z]{2,}/g) || []).length >= 3);
       if (/\.\s/.test(_inner) || /\n\s*\n/.test(_inner) || _isCurrency || _isProse) {
         // Not valid math — keep the opening $ and content as literal text,
         // but let the closing $ be re-scanned as a potential opening $
@@ -1059,6 +1066,12 @@ function renderMarkdown(raw) {
     }
   });
   return html;
+}
+function _mdInline(raw) {
+  return String(raw || "").replace(/^<p>\s*/, "").replace(/\s*<\/p>\s*$/, "");
+}
+function _mdBlock(raw) {
+  return renderMarkdown(raw).trim();
 }
 function _extractMemories(text) {
   const out = [];
@@ -4697,12 +4710,34 @@ function closeMobileSidebar() {
 function _quizUpdateProgress(qid) {
   const qz = (window._quizzes || {})[qid];
   if (!qz) return;
-  const answered = Object.keys(qz.answers).length;
+  let answered = 0;
   const total = qz.data.questions.length;
+  qz.data.questions.forEach((q, qi) => {
+    const t = q.type || "mcq";
+    const a = qz.answers[qi];
+    if (t === "matching") {
+      if (Array.isArray(a) && a.length === Math.min((q.left || []).length, (q.right || []).length) && a.every((v) => typeof v === "number")) answered++;
+    } else if (t === "multi") {
+      if (Array.isArray(a) && a.length > 0) answered++;
+    } else if (t === "mcq") {
+      if (typeof a === "number") answered++;
+    } else {
+      if (a != null && String(a).trim() !== "") answered++;
+    }
+  });
   const prog = document.getElementById(`${qid}_prog`);
   if (prog) prog.textContent = `${answered} / ${total} answered`;
   const submit = document.getElementById(`${qid}_submit`);
   if (submit) submit.disabled = answered < total;
+}
+function _shuffledIdx(n) {
+  const arr = [];
+  for (let i = 0; i < n; i++) arr.push(i);
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+  }
+  return arr;
 }
 function renderQuizWidget(qid, data) {
   const qs = data.questions || [];
@@ -4710,7 +4745,6 @@ function renderQuizWidget(qid, data) {
   const infoSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>`;
   const qHtml = qs.map((q, qi) => {
     const type = q.type || "mcq";
-    let typeBadge = "";
     let inputHtml = "";
     if (type === "fill") {
       inputHtml = "";
@@ -4720,12 +4754,53 @@ function renderQuizWidget(qid, data) {
           oninput="_quizEssayInput('${qid}',${qi},this.value)"
           placeholder="Write your answer here\u2026" rows="4"></textarea>
       </div>`;
+    } else if (type === "multi") {
+      inputHtml = `<div class="quiz-options quiz-options--multi">
+        ${(q.options || []).map((opt, oi) => `
+          <button type="button" class="quiz-opt quiz-opt--multi" data-oi="${oi}" id="${qid}_q${qi}_o${oi}" onclick="_quizToggleMulti('${qid}',${qi},${oi})">
+            <span class="quiz-opt-box"><svg class="quiz-opt-check" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
+            <span class="quiz-opt-letter">${String.fromCharCode(65 + oi)}</span>
+            <span>${_mdInline(renderMarkdown(opt))}</span>
+          </button>`).join("")}
+      </div>`;
+    } else if (type === "matching") {
+      const n = Math.min((q.left || []).length, (q.right || []).length);
+      let perm = q._rightPerm;
+      if (!perm || perm.length !== n) {
+        perm = _shuffledIdx(n);
+        q._rightPerm = perm;
+      }
+      const dispRight = perm.map((ri) => (q.right || [])[ri] || "");
+      const rightOpts = dispRight.map((r, d) => `<option value="${d}">${String.fromCharCode(65 + d)}. ${_mdInline(renderMarkdown(r))}</option>`).join("");
+      inputHtml = `<div class="quiz-match-wrap">
+        <div class="quiz-match-grid">
+          <div class="quiz-match-col quiz-match-col--left">
+            ${(q.left || []).slice(0, n).map((l, li) => `
+              <div class="quiz-match-row">
+                <span class="quiz-match-num">${li + 1}</span>
+                <span class="quiz-match-left">${_mdInline(renderMarkdown(l))}</span>
+                <select class="quiz-match-select" id="${qid}_q${qi}_m${li}" onchange="_quizMatchSel('${qid}',${qi},${li},this.value)">
+                  <option value="">\u2014</option>
+                  ${rightOpts}
+                </select>
+              </div>`).join("")}
+          </div>
+          <div class="quiz-match-col quiz-match-col--right">
+            <div class="quiz-match-right-head">Right column</div>
+            ${dispRight.map((r, d) => `
+              <div class="quiz-match-row">
+                <span class="quiz-match-letter">${String.fromCharCode(65 + d)}</span>
+                <span class="quiz-match-right">${_mdInline(renderMarkdown(r))}</span>
+              </div>`).join("")}
+          </div>
+        </div>
+      </div>`;
     } else {
       inputHtml = `<div class="quiz-options">
         ${(q.options || []).map((opt, oi) => `
-          <button class="quiz-opt" id="${qid}_q${qi}_o${oi}" onclick="_quizSelect('${qid}',${qi},${oi})">
+          <button type="button" class="quiz-opt" id="${qid}_q${qi}_o${oi}" onclick="_quizSelect('${qid}',${qi},${oi})">
             <span class="quiz-opt-letter">${String.fromCharCode(65 + oi)}</span>
-            <span>${escapeHtml(opt)}</span>
+            <span>${_mdInline(renderMarkdown(opt))}</span>
           </button>`).join("")}
       </div>`;
     }
@@ -4743,15 +4818,15 @@ function renderQuizWidget(qid, data) {
       const inlineInput = `<input type="text" class="quiz-fill-inline" id="${qid}_q${qi}_fill"
         oninput="_quizFillInput('${qid}',${qi},this.value)"
         placeholder="\u2026" autocomplete="off" spellcheck="false" size="14">`;
-      let joined = parts.map((p, i) => escapeHtml(p) + (i < parts.length - 1 ? inlineInput : "")).join("");
+      let joined = parts.map((p, i) => (p ? _mdInline(renderMarkdown(p)) : "") + (i < parts.length - 1 ? inlineInput : "")).join("");
       // If the question has no ___ placeholder at all, append an input at the
       // end so the user actually has something to type into.
       if (!hasPlaceholder) {
-        joined = escapeHtml(raw) + " " + inlineInput;
+        joined = _mdInline(renderMarkdown(raw)) + " " + inlineInput;
       }
       qTextHtml = `<div class="quiz-q-text quiz-q-fill-text">${qi + 1}. ${joined}</div>`;
     } else {
-      qTextHtml = `<div class="quiz-q-text">${qi + 1}. ${escapeHtml(q.q)}${typeBadge}</div>`;
+      qTextHtml = `<div class="quiz-q-text">${qi + 1}. ${_mdInline(renderMarkdown(q.q))}${type === "multi" ? ' <span class="quiz-type-hint">\u2705 select all that apply</span>' : type === "matching" ? ' <span class="quiz-type-hint">\u2194\uFE0F pair the items</span>' : ""}</div>`;
     }
     return `<div class="quiz-question" id="${qid}_q${qi}">
       ${qTextHtml}
@@ -4781,6 +4856,34 @@ window._quizSelect = function(qid, qi, oi) {
   questionEl?.querySelectorAll(".quiz-opt").forEach((btn, i) => {
     btn.classList.toggle("selected", i === oi);
   });
+  _quizUpdateProgress(qid);
+};
+window._quizToggleMulti = function(qid, qi, oi) {
+  const qz = (window._quizzes || {})[qid];
+  if (!qz || qz.submitted) return;
+  const set = Array.isArray(qz.answers[qi]) ? qz.answers[qi].slice() : [];
+  const idx = set.indexOf(oi);
+  if (idx >= 0) set.splice(idx, 1);
+  else set.push(oi);
+  set.sort((a, b) => a - b);
+  if (set.length) qz.answers[qi] = set;
+  else delete qz.answers[qi];
+  const questionEl = document.getElementById(`${qid}_q${qi}`);
+  if (questionEl) {
+    questionEl.querySelectorAll(".quiz-opt--multi").forEach((btn) => {
+      const oi2 = parseInt(btn.getAttribute("data-oi") || btn.id.split("_o")[1], 10);
+      btn.classList.toggle("selected", Array.isArray(qz.answers[qi]) && qz.answers[qi].includes(oi2));
+    });
+  }
+  _quizUpdateProgress(qid);
+};
+window._quizMatchSel = function(qid, qi, li, value) {
+  const qz = (window._quizzes || {})[qid];
+  if (!qz || qz.submitted) return;
+  const q = (qz.data.questions || [])[qi];
+  const a = (qz.answers[qi] && Array.isArray(qz.answers[qi]) ? qz.answers[qi].slice() : []);
+  a[li] = value === "" || value == null ? null : parseInt(value, 10);
+  qz.answers[qi] = a;
   _quizUpdateProgress(qid);
 };
 window._quizFillInput = function(qid, qi, value) {
@@ -4849,6 +4952,61 @@ window._quizSubmit = function(qid) {
         expEl.style.display = "block";
         expEl.innerHTML = `${infoSvg} Your answer has been recorded. Click "Ask AI" for personalized feedback.`;
       }
+    } else if (type === "multi") {
+      autoTotal++;
+      const correctSet = (q.answer || []).map(Number);
+      const chosenSet = (chosen || []).map(Number);
+      const isCorrect = correctSet.length === chosenSet.length && correctSet.every((v) => chosenSet.includes(v));
+      if (isCorrect) score++;
+      const questionEl = document.getElementById(`${qid}_q${qi}`);
+      questionEl?.querySelectorAll(".quiz-opt--multi").forEach((btn, oi) => {
+        if (correctSet.includes(oi)) btn.classList.add("correct");
+        else if (chosenSet.includes(oi)) btn.classList.add("wrong");
+        btn.disabled = true;
+      });
+      if (expEl) {
+        expEl.style.display = "block";
+        const letters = correctSet.map((o) => String.fromCharCode(65 + o)).join(", ");
+        const note = isCorrect
+          ? `<span class="quiz-fill-correct-ans quiz-fill-correct-ans-ok">\u2713 Correct!</span>`
+          : `<span class="quiz-fill-correct-ans">\u2713 Correct answers: <strong>${letters}</strong></span>`;
+        expEl.innerHTML = `${note}${q.explanation ? `<br>${infoSvg} ${_mdInline(renderMarkdown(q.explanation))}` : ""}`;
+      }
+    } else if (type === "matching") {
+      autoTotal++;
+      const n = Math.min((q.left || []).length, (q.right || []).length);
+      const perm = q._rightPerm || (q._rightPerm = _shuffledIdx(n));
+      const chSel = Array.isArray(chosen) ? chosen : [];
+      let ok = 0;
+      for (let li = 0; li < n; li++) {
+        const ch = chSel[li];
+        if (typeof ch !== "number") continue;
+        if (perm.indexOf(Number(q.answer && q.answer[li])) === ch) ok++;
+      }
+      const isCorrect = ok === n;
+      if (isCorrect) score++;
+      for (let li = 0; li < n; li++) {
+        const selEl = document.getElementById(`${qid}_q${qi}_m${li}`);
+        if (!selEl) continue;
+        const correctDisp = perm.indexOf(Number(q.answer && q.answer[li]));
+        const choice = Number(chSel[li]);
+        selEl.disabled = true;
+        selEl.classList.remove("quiz-match-correct", "quiz-match-wrong");
+        if (choice === correctDisp) selEl.classList.add("quiz-match-correct");
+        else selEl.classList.add("quiz-match-wrong");
+      }
+      if (expEl) {
+        expEl.style.display = "block";
+        const pairs = (q.left || []).slice(0, n).map((l, li) => {
+          const ri = Number(q.answer && q.answer[li]);
+          const letter = String.fromCharCode(65 + perm.indexOf(ri));
+          return `${_mdInline(renderMarkdown(l))} \u2192 ${letter}. ${_mdInline(renderMarkdown((q.right || [])[ri] || ""))}`;
+        });
+        const note = isCorrect
+          ? `<span class="quiz-fill-correct-ans quiz-fill-correct-ans-ok">\u2713 Correct!</span>`
+          : `<span class="quiz-fill-correct-ans">\u2713 Correct pairs:</span><br>${pairs.join("<br>")}`;
+        expEl.innerHTML = `${note}${q.explanation ? `<br><br>${infoSvg} ${_mdInline(renderMarkdown(q.explanation))}` : ""}`;
+      }
     }
   });
   qz.score = score;
@@ -4871,11 +5029,26 @@ window._quizAskAI = function(qid) {
   if (!qz) return;
   const mcqFillWrong = qz.data.questions.filter((q, i) => {
     const type = q.type || "mcq";
-    if (type === "mcq") return qz.answers[i] !== q.answer;
+    const chosen = qz.answers[i];
+    if (type === "mcq") return chosen !== q.answer;
     if (type === "fill") {
-      const ua = (qz.answers[i] || "").toString().trim().toLowerCase();
+      const ua = (chosen || "").toString().trim().toLowerCase();
       const ca = (q.answer || "").trim().toLowerCase();
       return ua !== ca && !ca.split("|").map((s) => s.trim()).includes(ua);
+    }
+    if (type === "multi") {
+      const cs = (q.answer || []).map(Number);
+      const chs = (chosen || []).map(Number);
+      return cs.length !== chs.length || !cs.every((v) => chs.includes(v));
+    }
+    if (type === "matching") {
+      const n = Math.min((q.left || []).length, (q.right || []).length);
+      const perm = q._rightPerm || [];
+      const chs = Array.isArray(chosen) ? chosen : [];
+      for (let li = 0; li < n; li++) {
+        if (perm.indexOf(Number(q.answer && q.answer[li])) !== Number(chs[li])) return true;
+      }
+      return false;
     }
     return false;
   });
@@ -5158,7 +5331,46 @@ function _extractQuiz(text) {
       if (!norm.q && norm.text) norm.q = norm.text;
       if (!Array.isArray(norm.options)) norm.options = [];
       norm.options = norm.options.map(String);
-      if (norm.type === "fill" || norm.type === "essay") {
+      const rawType = String(norm.type || "").toLowerCase();
+      if (rawType === "multi" || rawType === "multiple" || rawType === "multi-select" || rawType === "multiselect" || rawType === "multiple-answer" || rawType === "checkbox" || rawType === "checkboxes") {
+        norm.type = "multi";
+        const ans = Array.isArray(norm.answer) ? norm.answer : norm.answer != null ? [norm.answer] : [];
+        norm.answer = ans.map((x) => {
+          if (typeof x === "string" && /^[A-Ea-e]$/.test(x.trim())) return x.trim().toUpperCase().charCodeAt(0) - 65;
+          const n = parseInt(x, 10);
+          return isNaN(n) ? -1 : n;
+        }).filter((n) => n >= 0 && n < norm.options.length);
+      } else if (rawType === "matching" || rawType === "match" || rawType === "pair" || rawType === "pairs" || rawType === "mencocokkan" || rawType === "penjodohan" || rawType === "match the" || rawType === "matching type") {
+        norm.type = "matching";
+        if (!Array.isArray(norm.left) || norm.left.length === 0) {
+          const prs = (Array.isArray(norm.pairs) ? norm.pairs : [])
+            .concat(Array.isArray(norm.matches) ? norm.matches : [])
+            .concat(Array.isArray(norm.pairsList) ? norm.pairsList : [])
+            .filter(Boolean);
+          norm.left = prs.map((p) => (Array.isArray(p) ? p[0] : (p && (p.left ?? p.l ?? p[0] ?? ""))));
+          norm.right = prs.map((p) => (Array.isArray(p) ? p[1] : (p && (p.right ?? p.r ?? p[1] ?? ""))));
+          if (prs.length) norm.answer = norm.left.map((_, i) => i);
+        }
+        norm.left = (norm.left || []).map(String);
+        norm.right = (norm.right || []).map(String);
+        const n = Math.min(norm.left.length, norm.right.length);
+        const rawAns = Array.isArray(norm.answer) ? norm.answer : norm.answer != null ? [norm.answer] : [];
+        norm.answer = norm.left.slice(0, n).map((_, li) => {
+          const v = rawAns[li];
+          if (v == null) return li;
+          if (typeof v === "string") {
+            const lv = v.trim().toLowerCase();
+            if (/^[A-Za-z]$/.test(lv)) return lv.toUpperCase().charCodeAt(0) - 65;
+            const n2 = parseInt(v, 10);
+            if (!isNaN(n2) && n2 >= 0 && n2 < n) return n2;
+            const byText = norm.right.map((r) => r.toLowerCase()).indexOf(lv);
+            if (byText >= 0) return byText;
+            return li;
+          }
+          const n2 = parseInt(v, 10);
+          return isNaN(n2) || n2 < 0 || n2 >= n ? li : n2;
+        });
+      } else if (norm.type === "fill" || norm.type === "essay") {
         if (typeof norm.answer !== "string") norm.answer = String(norm.answer ?? "");
       } else {
         norm.type = norm.type || "mcq";
