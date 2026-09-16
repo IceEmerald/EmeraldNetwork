@@ -1,112 +1,212 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EmeraldNetwork | Suite</title>
-    <meta name="description" content="EmeraldSuite. The ultimate All in one Office application to help you with your projects.">
+    <title>EmeraldSuite | Home</title>
+    <meta name="description" content="EmeraldSuite Home. All your notes, documents, presentations and spreadsheets — synced in one place.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/assets/styles/style.css" />
+    <link rel="stylesheet" href="/assets/styles/emeraldsuite.css" />
     <link rel="icon" type="image/x-icon" href="/assets/images/favicon.webp">
-    <link rel="icon" href="/assets/images/favicon.ico" sizes="any">
 </head>
+
 <body>
+    <div class="suite-app">
         <header class="navbar sticky-top">
             <div class="navcontainer nav-container">
-                <a href="/" class="logo">
-                    <img href="/" src="/assets/images/favicon.webp" width="30" height="30" viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-primary"><rect width="25" height="19" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></img>
-                    <span href="/" class="logo-text">EmeraldNetwork</span>
+                <a href="/" class="logo" aria-label="EmeraldNetwork home">
+                    <img src="/assets/images/favicon.webp" width="30" height="30" class="icon-primary" alt="EmeraldSuite logo">
+                    <span class="logo-text">EmeraldSuite</span>
                 </a>
-                        <nav class="nav-links">
-                          <a href="/">Home</a>
-                          <div class="dropdown">
-                            <a href="/#apps" class="dropdown-button">
-                              <span>Products</span>
-                                <svg class="dropdownsvg" viewBox="-2.4 -2.4 28.80 28.80" xmlns="http://www.w3.org/2000/svg" fill="#222222">
-                                  <g>
-                                    <path fill="none" d="M0 0h24v24H0z"></path>
-                                    <path d="M12 15l-4.243-4.243 1.415-1.414L12 12.172l2.828-2.829 1.415 1.414z"></path>
-                                  </g>
-                                </svg>
-                            </a>
-                            <div class="dropdown-content">
-                                <a href="discordserver">Discord Server</a>
-                                  <a href="emeraldsuite">EmeraldSuite</a>
-                                  <a href="emeraldessentialsplugin">EmeraldEssentials Plugin</a>
-                                  <a href="discordemeraldbot">Discord EmeraldBot</a>
-                            </div>
-                          </div>
-                        </nav>
+                <nav class="nav-links apps-nav">
+                    <span class="apps-label">Apps:</span>
+                    <a href="notes.html" class="apps-link">Notes</a>
+                    <a href="docs.html" class="apps-link">Documents</a>
+                    <a href="slides.html" class="apps-link">Slides</a>
+                    <a href="sheets.html" class="apps-link">Sheets</a>
+                </nav>
             </div>
         </header>
+
         <div id="custom-context-menu" class="rightclick-menu">
-                        <div class="context-section">
-                          <span class="context-title"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;display:inline-block"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> Tools</span>
-                          <a onclick="copyTextContent()">Copy Text</a>
-                          <a onclick="copyPageLink()">Copy Page Link</a>
-                          <a onclick="showElementInfo()">Show Element Info</a>
-                        </div>
-                      </div>
-                      <div id="custom-toast" class="custom-toast"></div>
-        <main>
-            <section
-              id="notfound"
-            >
-                <div class="container hero-container" style="transform: translateY(-15%); display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 45vh; text-align: center;">
-                    <div class="notfound-content">
-                        <div style="margin-top: 35rem;"></div>
-                        <p style="text-align: center;" class="animate-on-scroll">Only Note App that currently exist...</p>
-                        <div style="margin-top: 5rem;"></div>
-                        <div class="animate-on-scroll hero-buttons" style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 2rem; justify-content: center;">
-                            <a href="notes" class="button button-outline">
-                                Open EmeraldNotes!
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <line x1="5" y1="12" x2="19" y2="12"/>
-                                    <polyline points="12 5 19 12 12 19"/>
-                                </svg>
-                            </a>
-                            </div>
-                        <div style="margin-top: 20rem;"></div>
+            <div class="context-section">
+                <span class="context-title"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;display:inline-block"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> Tools</span>
+                <a onclick="copyTextContent()">Copy Text</a>
+                <a onclick="copyPageLink()">Copy Page Link</a>
+                <a onclick="showElementInfo()">Show Element Info</a>
+            </div>
+        </div>
+        <div id="custom-toast" class="custom-toast"></div>
+
+        <main class="suite-main">
+            <section class="suite-hero">
+                <div class="hero-inner">
+                    <h1 class="suite-greeting" id="greeting">Welcome back.</h1>
+                    <div class="suite-search">
+                        <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                        <input id="searchInput" type="search" placeholder="Search your files…" autocomplete="off" spellcheck="false">
+                        <kbd>/</kbd>
                     </div>
                 </div>
             </section>
-        </main>
-        <footer class="footer">
-            <div class="container footer-container">
-                <div class="footer-brand">
-                    <img src="/assets/images/favicon.webp" alt="EmeraldNetwork logo" class="footer-logo">
-                    <div>
-                        <p class="footer-brand-name">EmeraldNetwork</p>
-                        <p class="footer-brand-tagline">Shaping the future of connection, intelligence, and digital possibility.</p>
+
+            <section class="apps-grid" aria-label="Create in EmeraldSuite">
+                <a class="app-tile" href="notes.html" style="--c:#a21caf;--soft:rgba(162,28,175,0.12)">
+                    <span class="app-tile-icon">
+                        <img src="/assets/images/notesicon.webp" width="26" height="26" alt="EmeraldNotes">
+                    </span>
+                    <span class="app-tile-info">
+                        <span class="app-tile-name">EmeraldNotes</span>
+                        <span class="app-tile-desc">Notes</span>
+                    </span>
+                    <span class="app-tile-count" id="statNumNotes">0</span>
+                </a>
+                <a class="app-tile" href="docs.html" style="--c:#0891b2;--soft:rgba(8,145,178,0.12)">
+                    <span class="app-tile-icon">
+                        <img src="/assets/images/docsicon.webp" width="26" height="26" alt="EmeraldDocs">
+                    </span>
+                    <span class="app-tile-info">
+                        <span class="app-tile-name">EmeraldDocs</span>
+                        <span class="app-tile-desc">Documents</span>
+                    </span>
+                    <span class="app-tile-count" id="statNumDocs">0</span>
+                </a>
+                <a class="app-tile" href="slides.html" style="--c:#f97316;--soft:rgba(249,115,22,0.12)">
+                    <span class="app-tile-icon">
+                        <img src="/assets/images/slidesicon.webp" width="26" height="26" alt="EmeraldSlides">
+                    </span>
+                    <span class="app-tile-info">
+                        <span class="app-tile-name">EmeraldSlides</span>
+                        <span class="app-tile-desc">Presentations</span>
+                    </span>
+                    <span class="app-tile-count" id="statNumSlides">0</span>
+                </a>
+                <a class="app-tile" href="sheets.html" style="--c:#217346;--soft:rgba(33,115,70,0.12)">
+                    <span class="app-tile-icon">
+                        <img src="/assets/images/sheetsicon.webp" width="26" height="26" alt="EmeraldSheets">
+                    </span>
+                    <span class="app-tile-info">
+                        <span class="app-tile-name">EmeraldSheets</span>
+                        <span class="app-tile-desc">Spreadsheets</span>
+                    </span>
+                    <span class="app-tile-count" id="statNumSheets">0</span>
+                </a>
+            </section>
+
+            <section class="suite-files">
+                <div class="files-toolbar">
+                    <div class="filter-bar" id="filterBar">
+                        <button class="filter-btn active" data-filter="all">All files</button>
+                        <button class="filter-btn" data-filter="notes"><img class="fd" src="/assets/images/notesicon.webp" alt="">Notes</button>
+                        <button class="filter-btn" data-filter="docs"><img class="fd" src="/assets/images/docsicon.webp" alt="">Documents</button>
+                        <button class="filter-btn" data-filter="slides"><img class="fd" src="/assets/images/slidesicon.webp" alt="">Presentations</button>
+                        <button class="filter-btn" data-filter="sheets"><img class="fd" src="/assets/images/sheetsicon.webp" alt="">Spreadsheets</button>
+                    </div>
+                    <div class="toolbar-actions">
+                        <div class="files-count" id="filesCount"></div>
+                        <div class="new-wrap">
+                            <button class="btn-new" id="newFileBtn" aria-haspopup="true" aria-expanded="false" title="Create a new file">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                                <span>New</span>
+                                <svg class="btn-new-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                            </button>
+                            <div class="new-menu" id="newMenu" hidden>
+                                <a href="notes.html" style="--c:#a21caf;--soft:rgba(162,28,175,0.12)">
+                                    <span class="new-menu-icon"><img src="/assets/images/notesicon.webp" width="18" height="18" alt=""></span>
+                                    <span><b>New note</b><small>Quick notes &amp; ideas</small></span>
+                                </a>
+                                <a href="docs.html" style="--c:#0891b2;--soft:rgba(8,145,178,0.12)">
+                                    <span class="new-menu-icon"><img src="/assets/images/docsicon.webp" width="18" height="18" alt=""></span>
+                                    <span><b>New document</b><small>Word documents</small></span>
+                                </a>
+                                <a href="slides.html" style="--c:#f97316;--soft:rgba(249,115,22,0.12)">
+                                    <span class="new-menu-icon"><img src="/assets/images/slidesicon.webp" width="18" height="18" alt=""></span>
+                                    <span><b>New presentation</b><small>Slides</small></span>
+                                </a>
+                                <a href="sheets.html" style="--c:#217346;--soft:rgba(33,115,70,0.12)">
+                                    <span class="new-menu-icon"><img src="/assets/images/sheetsicon.webp" width="18" height="18" alt=""></span>
+                                    <span><b>New spreadsheet</b><small>Spreadsheets</small></span>
+                                </a>
+                            </div>
+                        </div>
+                        <select class="sort-select" id="sortSelect" title="Sort order">
+                            <option value="recent">Recently edited</option>
+                            <option value="name">Name (A–Z)</option>
+                            <option value="nameDesc">Name (Z–A)</option>
+                        </select>
+                        <button class="icon-btn" id="refreshBtn" title="Refresh file list">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+                        </button>
                     </div>
                 </div>
-                <div class="footer-social-links">
-                <a href="https://youtube.com/iceemerald" target="_blank" rel="noopener noreferrer" class="social-icon-button-footer" aria-label="YouTube">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-2C18.88 4 12 4 12 4s-6.88 0-8.59.42a2.78 2.78 0 0 0-1.95 2A29.94 29.94 0 0 0 1 12a29.94 29.94 0 0 0 .46 5.58 2.78 2.78 0 0 0 1.95 2C5.12 20 12 20 12 20s6.88 0 8.59-.42a2.78 2.78 0 0 0 1.95-2A29.94 29.94 0 0 0 23 12a29.94 29.94 0 0 0-.46-5.58z"></path><polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02"></polygon></svg>
-                </a>
-                <a href="https://instagram.com/iceemerald23" target="_blank" rel="noopener noreferrer" class="social-icon-button-footer" aria-label="Instagram">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.5" y2="6.5"/></svg>
-                </a>
-                <a href="mailto:hello@emeraldnetwork.groups.id" class="social-icon-button-footer" aria-label="Email">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-                </a>
+
+                <div class="files-grid" id="filesGrid" role="list" aria-label="Your files"></div>
+
+                <div class="empty-state" id="emptyState" hidden>
+                    <img id="emptyImg" src="/assets/images/favicon.webp" alt="">
+                    <h3 id="emptyTitle">No files here yet</h3>
+                    <p id="emptyText">Create something new to see it appear in your suite.</p>
+                    <div class="empty-actions" id="emptyActions"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div class="file-menu" id="fileMenu" hidden>
+        <div class="file-menu-head" id="fileMenuHead">
+            <span class="fm-icon" id="fmIcon"></span>
+            <span class="fm-title" id="fmTitle"></span>
+            <span class="fm-meta" id="fmMeta"></span>
+        </div>
+        <div class="file-menu-body">
+            <button class="fm-item" data-fm="open"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>Open</button>
+            <button class="fm-item" data-fm="newtab"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>Open in new tab</button>
+            <button class="fm-item" data-fm="copy"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Copy link</button>
+            <div class="fm-sep"></div>
+            <button class="fm-item" data-fm="rename"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Rename</button>
+            <button class="fm-item fm-danger" data-fm="delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>Delete</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="renameOverlay">
+        <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="renameModalTitle">
+            <div class="modal-head">
+                <h3 id="renameModalTitle">Rename file</h3>
+                <button class="modal-x" id="renameClose" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-app" id="renameAppLabel"></div>
+            <form id="renameForm">
+                <input class="modal-input" id="renameInput" type="text" maxlength="120" autocomplete="off" spellcheck="false">
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-ghost" id="renameCancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Rename</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="deleteOverlay">
+        <div class="modal-dialog modal-danger-dialog" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+            <div class="modal-head">
+                <h3 id="deleteModalTitle">Delete file</h3>
+                <button class="modal-x" id="deleteClose" aria-label="Close">&times;</button>
+            </div>
+            <p class="modal-text" id="deleteText">This file will be permanently deleted from this device. This cannot be undone.</p>
+            <div class="modal-app" id="deleteAppLabel"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-ghost" id="deleteCancel">Cancel</button>
+                <button type="button" class="btn btn-danger" id="deleteConfirm">Delete</button>
             </div>
         </div>
-        <div class="footer-splitter"></div>
-        <div class="footer-bottom">
-            <p>&copy; <span id="current-year"></span> EmeraldNetwork · IceEmerald</p>
-            <div class="footer-links">
-                <a href="terms">Terms of Use</a>
-                <a href="privacy">Privacy Policy</a>
-                <a href="status">System status</a>
-            </div>
-        </div>
-    </footer>
-    <script src="/assets/scripts/animationvisible.js"></script>
-                             <script src="/assets/scripts/scrollice.js"></script>
-                        <script src="/assets/scripts/dropdown.js"></script>
+    </div>
+
     <script src="/assets/scripts/rightclick.js"></script>
+    <script src="/assets/scripts/idb-storage.js"></script>
+    <script src="/assets/scripts/emeraldsuite.js"></script>
 </body>
+
 </html>

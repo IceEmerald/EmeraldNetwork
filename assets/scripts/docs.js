@@ -25,14 +25,14 @@
   var CARET_BLOCK_ATTR = "data-caret-block";
   var CARET_OFFSET_ATTR = "data-caret-offset";
   // Multi-document storage: one index of metadata + one key per document,
-  // mirroring the Slides app (emeraldslides_index / emeraldslides_pres_<id>).
-  var DOC_INDEX_KEY = "emeralddocs_index";
-  function docDataKey(id) { return "emeralddocs_doc_" + id; }
+  // mirroring the Slides app (emeraldcore.storage.suite.slides / ...<id>).
+  var DOC_INDEX_KEY = "emeraldcore.storage.suite.docs";
+  function docDataKey(id) { return "emeraldcore.storage.suite.docs." + id; }
   // THEME_KEY removed — dark mode is no longer supported.
-  function versionsKey(id) { return "emeralddocs.versions." + id; }
-  var MARGINS_KEY = "emeralddocs.margins";
-  var GOAL_KEY = "emeralddocs.goal";
-  var WRITING_TIME_KEY = "emeralddocs.writingTime";
+  function versionsKey(id) { return "emeraldcore.storage.suite.docs.versions." + id; }
+  var MARGINS_KEY = "emeraldcore.storage.suite.docs.margins";
+  var GOAL_KEY = "emeraldcore.storage.suite.docs.goal";
+  var WRITING_TIME_KEY = "emeraldcore.storage.suite.docs.writingTime";
   var MAX_VERSIONS = 10;
   var AUTOSAVE_SNAPSHOT_MS = 60 * 1000; // 1 minute
   var autosaveSnapshotTimer = null;
@@ -1780,11 +1780,6 @@ function startAutosaveSnapshots() {
       var idx = null;
       if (window.EmeraldIDBStorage) {
         idx = await window.EmeraldIDBStorage.getJSON(DOC_INDEX_KEY);
-        if (!idx) idx = await window.EmeraldIDBStorage.migrateLocalJSON(DOC_INDEX_KEY);
-      }
-      if (!idx) {
-        var raw = localStorage.getItem(DOC_INDEX_KEY);
-        if (raw) idx = JSON.parse(raw);
       }
       documents = Array.isArray(idx) ? idx : [];
       // De-duplicate by id, newest first (same defensive cleanup as Slides)
@@ -1805,11 +1800,9 @@ function startAutosaveSnapshots() {
 
   async function saveIndex() {
     try {
-      // EmeraldIDBStorage.setJSON removes the localStorage copy of the key
-      // (IDB is primary), so mirror to localStorage only afterwards —
-      // same pattern as slides.js saveIndex().
+      // EmeraldIDBStorage.setJSON buffers to localStorage, syncs to IndexedDB,
+      // then removes the localStorage copy. IndexedDB is the source of truth.
       if (window.EmeraldIDBStorage) await window.EmeraldIDBStorage.setJSON(DOC_INDEX_KEY, documents);
-      localStorage.setItem(DOC_INDEX_KEY, JSON.stringify(documents));
     } catch (e) {}
   }
 
@@ -1818,11 +1811,6 @@ function startAutosaveSnapshots() {
       var data = null;
       if (window.EmeraldIDBStorage) {
         data = await window.EmeraldIDBStorage.getJSON(docDataKey(id));
-        if (!data) data = await window.EmeraldIDBStorage.migrateLocalJSON(docDataKey(id));
-      }
-      if (!data) {
-        var raw = localStorage.getItem(docDataKey(id));
-        if (raw) data = JSON.parse(raw);
       }
       return data;
     } catch (e) { return null; }
@@ -1830,15 +1818,12 @@ function startAutosaveSnapshots() {
 
   async function writeDocData(data) {
     try {
-      // IDB first, localStorage mirror second (setJSON removes the LS copy)
       if (window.EmeraldIDBStorage) await window.EmeraldIDBStorage.setJSON(docDataKey(data.id), data);
-      localStorage.setItem(docDataKey(data.id), JSON.stringify(data));
     } catch (e) {}
   }
 
   async function deleteDocData(id) {
     try {
-      localStorage.removeItem(docDataKey(id));
       if (window.EmeraldIDBStorage) await window.EmeraldIDBStorage.delete(docDataKey(id));
     } catch (e) {}
   }
@@ -1984,8 +1969,6 @@ function startAutosaveSnapshots() {
     try {
       if (idbAvailable()) {
         idb.setJSON(versionsKey(currentDocId), versions);
-      } else {
-        localStorage.setItem(versionsKey(currentDocId), JSON.stringify(versions));
       }
     } catch (e) {}
   }
@@ -1993,15 +1976,11 @@ function startAutosaveSnapshots() {
   function getVersions() {
     if (!currentDocId) return [];
     try {
-      var raw = null;
       if (idbAvailable()) {
-        raw = idb.getJSONSync(versionsKey(currentDocId));
+        var raw = idb.getJSONSync(versionsKey(currentDocId));
         // getJSONSync returns parsed object, not string
         if (raw) return raw;
       }
-      // fallback to localStorage
-      raw = localStorage.getItem(versionsKey(currentDocId));
-      if (raw) return JSON.parse(raw) || [];
       return [];
     } catch (e) { return []; }
   }
@@ -4184,7 +4163,6 @@ function startAutosaveSnapshots() {
   function saveMargins() {
     try {
       if (idbAvailable()) { idb.setJSON(MARGINS_KEY, pageMargins); }
-      else { localStorage.setItem(MARGINS_KEY, JSON.stringify(pageMargins)); }
     } catch (e) {}
   }
 
@@ -4192,10 +4170,6 @@ function startAutosaveSnapshots() {
     try {
       var m = null;
       if (idbAvailable()) { m = idb.getJSONSync(MARGINS_KEY); }
-      if (!m) {
-        var raw = localStorage.getItem(MARGINS_KEY);
-        if (raw) m = JSON.parse(raw);
-      }
       if (m && typeof m.left === "number" && typeof m.right === "number") {
         pageMargins.top = clampMargin(m.top);
         pageMargins.right = clampMargin(m.right);
@@ -4321,7 +4295,6 @@ function startAutosaveSnapshots() {
   function saveGoal() {
     try {
       if (idbAvailable()) { idb.setJSON(GOAL_KEY, goalTarget); }
-      else { localStorage.setItem(GOAL_KEY, String(goalTarget)); }
     } catch (e) {}
   }
 
@@ -4330,8 +4303,6 @@ function startAutosaveSnapshots() {
       var v = null;
       if (idbAvailable()) { v = idb.getJSONSync(GOAL_KEY); }
       if (v !== null && v !== undefined) { goalTarget = parseInt(v, 10) || 0; return; }
-      var raw = localStorage.getItem(GOAL_KEY);
-      if (raw) goalTarget = parseInt(raw, 10) || 0;
     } catch (e) {}
   }
 
@@ -4791,7 +4762,8 @@ function startAutosaveSnapshots() {
     if (wc && wc.classList.contains("open") && sessionActive) renderWritingTimeStats();
   }
 
-  /* Tally of all writing time, saved across sessions (IDB + localStorage fallback). */
+  /* Tally of all writing time, saved across sessions via IndexedDB
+   (with a transient localStorage buffer handled by EmeraldIDBStorage). */
   var writingTimeCache = null;
 
   function loadWritingTime() {
@@ -4799,10 +4771,6 @@ function startAutosaveSnapshots() {
     try {
       var wt = null;
       if (idbAvailable()) wt = idb.getJSONSync(WRITING_TIME_KEY);
-      if (!wt) {
-        var raw = localStorage.getItem(WRITING_TIME_KEY);
-        if (raw) wt = JSON.parse(raw);
-      }
       if (wt && typeof wt.totalSeconds === "number") {
         writingTimeCache = { totalSeconds: wt.totalSeconds, sessions: wt.sessions || 0 };
         return writingTimeCache;
@@ -4815,7 +4783,6 @@ function startAutosaveSnapshots() {
   function saveWritingTime() {
     try {
       if (idbAvailable()) idb.setJSON(WRITING_TIME_KEY, writingTimeCache);
-      else localStorage.setItem(WRITING_TIME_KEY, JSON.stringify(writingTimeCache));
     } catch (e) {}
   }
 
@@ -7847,8 +7814,7 @@ function startAutosaveSnapshots() {
 
   function saveEndnotes() {
     try {
-      if (idbAvailable()) idb.setJSON("emeralddocs.endnotes", endnotes);
-      else localStorage.setItem("emeralddocs.endnotes", JSON.stringify(endnotes));
+      if (idbAvailable()) idb.setJSON("emeraldcore.storage.suite.docs.endnotes", endnotes);
     } catch (e) {}
   }
 
@@ -7877,24 +7843,21 @@ function startAutosaveSnapshots() {
   function loadEndnotes() {
     try {
       var f = null;
-      if (idbAvailable()) f = idb.getJSONSync("emeralddocs.endnotes");
-      if (!f) { var raw = localStorage.getItem("emeralddocs.endnotes"); if (raw) f = JSON.parse(raw); }
+      if (idbAvailable()) f = idb.getJSONSync("emeraldcore.storage.suite.docs.endnotes");
       if (Array.isArray(f)) endnotes = f;
     } catch (e) {}
   }
 
   function saveFootnotes() {
     try {
-      if (idbAvailable()) idb.setJSON("emeralddocs.footnotes", footnotes);
-      else localStorage.setItem("emeralddocs.footnotes", JSON.stringify(footnotes));
+      if (idbAvailable()) idb.setJSON("emeraldcore.storage.suite.docs.footnotes", footnotes);
     } catch (e) {}
   }
 
   function loadFootnotes() {
     try {
       var f = null;
-      if (idbAvailable()) f = idb.getJSONSync("emeralddocs.footnotes");
-      if (!f) { var raw = localStorage.getItem("emeralddocs.footnotes"); if (raw) f = JSON.parse(raw); }
+      if (idbAvailable()) f = idb.getJSONSync("emeraldcore.storage.suite.docs.footnotes");
       if (Array.isArray(f)) footnotes = f;
     } catch (e) {}
   }

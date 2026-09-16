@@ -877,6 +877,40 @@ function _preprocessLatexColor(src) {
   return result;
 }
 
+// When the model hallucinates and outputs individual characters separated by
+// newlines (e.g. "N\ni\nl\na\ni\nk\ne"), marked with breaks:true renders
+// each \n as <br>, producing a char-by-char display. Detect runs of 3+
+// consecutive lines that each contain a single non-whitespace character and
+// collapse them back into a single word. The model often then repeats the
+// full word on the following line — when the collapsed word exactly prefixes
+// that next line, drop the collapsed duplicate.
+function _collapseCharByCharRuns(text) {
+  const lines = text.split('\n');
+  const result = [];
+  let run = [];
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i].trim();
+    if (t.length === 1 && /\S/.test(t)) {
+      run.push(t);
+    } else {
+      if (run.length >= 3) {
+        const joined = run.join('');
+        const next = lines[i].trim();
+        if (!(next && next.indexOf(joined) === 0)) {
+          result.push(joined);
+        }
+      } else {
+        for (const c of run) result.push(c);
+      }
+      run = [];
+      result.push(lines[i]);
+    }
+  }
+  if (run.length >= 3) result.push(run.join(''));
+  else for (const c of run) result.push(c);
+  return result.join('\n');
+}
+
 function renderMarkdown(raw) {
   if (typeof marked === "undefined") return escapeHtml(raw);
   let text = raw;
@@ -959,6 +993,7 @@ function renderMarkdown(raw) {
     const i = mathBlocks.push({ type: "inline", src: m }) - 1;
     return `MATHINLINE${i}MATHINLINE`;
   });
+  text = _collapseCharByCharRuns(text);
   text = text.replace(/\x02CODEBLOCK(\d+)\x02/g, (_, i) => codeBlocks[+i]);
   let html = marked.parse(text);
   if (typeof DOMPurify !== "undefined") {

@@ -1,5 +1,5 @@
 /* ============================================================================
- * ZSheet — a complete client-side spreadsheet application.
+ * EmeraldSheets — a complete client-side spreadsheet application.
  * Pure HTML/CSS/JS. No server, no framework. Persistence via IndexedDB.
  *
  * Internal architecture (all inside one IIFE):
@@ -203,7 +203,8 @@ function setIcon(elm, name) { if (elm) elm.innerHTML = icon(name); }
  * 2. INDEXEDDB PERSISTENCE
  * ========================================================================== */
 const IO = (() => {
-  const DB_NAME = 'ZSheetDB', STORE = 'workbooks';
+  const DB_NAME = 'emeraldcore.storage.suite.sheets', STORE = 'workbooks';
+  const RECENT_KEY = 'emeraldcore.suite.sheets.recent';
   let dbPromise = null;
 
   function openDB() {
@@ -245,9 +246,26 @@ const IO = (() => {
     const store = db.transaction(STORE).objectStore(STORE);
     const keys = await reqP(store.getAllKeys());
     const vals = await reqP(store.getAll());
-    return keys.map((k, i) => ({ id: k, doc: vals[i] })).filter(x => x.doc);
+    return keys.map((k, i) => ({ id: k, doc: vals[i] }))
+      .filter(x => x.id !== RECENT_KEY && x.doc);
   }
-  return { saveDoc, loadDoc, deleteDoc, allDocs };
+  async function saveRecent(id) {
+    const db = await openDB();
+    return new Promise((resolve) => {
+      const t = db.transaction(STORE, 'readwrite');
+      t.objectStore(STORE).put(id, RECENT_KEY);
+      t.oncomplete = () => resolve(true);
+      t.onerror = () => resolve(false);
+    });
+  }
+  async function loadRecent() {
+    try {
+      const db = await openDB();
+      const val = await reqP(db.transaction(STORE).objectStore(STORE).get(RECENT_KEY));
+      return typeof val === 'string' ? val : null;
+    } catch (e) { return null; }
+  }
+  return { saveDoc, loadDoc, deleteDoc, allDocs, saveRecent, loadRecent };
 })();
 
 /* ==========================================================================
@@ -2546,7 +2564,7 @@ const Persistence = {
       toast('Could not save to browser storage: ' + e.message, 'error');
     }
   },
-  setDocId(id) { this.docId = id; try { localStorage.setItem('zsheet.active', id); } catch (e) {} }
+  setDocId(id) { this.docId = id; IO.saveRecent(id); }
 };
 
 function updateSaveStatus() {
@@ -2651,7 +2669,7 @@ function newWorkbookData(title) {
 
 async function loadLastOrNew() {
   let lastId = null;
-  try { lastId = localStorage.getItem('zsheet.active'); } catch (e) {}
+  try { lastId = await IO.loadRecent(); } catch (e) {}
   if (lastId) {
     try {
       const doc = await IO.loadDoc(lastId);
@@ -10208,7 +10226,7 @@ function ribbonConfig() {
       { label: 'Help', items: [
         cmd('help', 'Quick Help', () => openHelpDialog('help'), { small: true }),
         cmd('keyboard', 'Shortcuts', () => openHelpDialog('shortcuts'), { small: true, title: 'Keyboard shortcuts' }),
-        cmd('info', 'About', () => openHelpDialog('about'), { small: true, title: 'About ZSheet' })
+        cmd('info', 'About', () => openHelpDialog('about'), { small: true, title: 'About EmeraldSheets' })
       ]}
     ]
   };
@@ -11298,11 +11316,11 @@ function openHelpDialog(page) {
   const shortcuts = [['Arrow keys / Tab / Enter', 'Move the active cell'], ['Shift + Arrow', 'Extend selection'], ['Ctrl + Arrow', 'Jump to edge of data region'], ['Ctrl + Home / End', 'Go to A1 / last used cell'], ['F2', 'Edit the active cell'], ['Type any character', 'Start typing in the active cell'], ['Enter / Tab / Esc', 'Commit / commit / cancel an edit'], ['Delete / Backspace', 'Clear cell contents'], ['Ctrl + C / X / V', 'Copy / cut / paste'], ['Ctrl + Z / Y', 'Undo / redo'], ['Ctrl + B / I / U', 'Bold / italic / underline'], ['Ctrl + F / H', 'Find / replace'], ['Ctrl + G', 'Go to'], ['Ctrl + A', 'Select all'], ['Ctrl + S', 'Save to browser'], ['Ctrl + P', 'Print / PDF'], ['F9', 'Recalculate workbook'], ['Ctrl + `', 'Toggle formula view'], ['Ctrl + Page Up/Down', 'Switch worksheets'], ['Double-click header edge', 'AutoFit row/column'], ['Drag fill handle', 'Fill series / copy / formulas'], ['Drag selection border', 'Move cells']];
   const rows = shortcuts.map(s => '<tr><td>' + esc(s[0]) + '</td><td>' + esc(s[1]) + '</td></tr>').join('');
   const bodies = {
-    help: '<h3 style="margin-top:0">Welcome to ZSheet</h3><p>ZSheet is a complete spreadsheet that runs entirely in your browser. Everything is stored locally with IndexedDB — nothing is sent to any server.</p><ul><li>Enter formulas starting with <span class="kbd">=</span> — e.g. <span class="kbd">=SUM(A1:A10)</span>, <span class="kbd">=IF(A1&gt;5,"High","Low")</span>.</li><li>Use the ribbon for formatting, number formats, borders, merges, tables and charts.</li><li>Drag the small square at the selection corner to fill series; drag the selection border to move cells.</li><li>Use Data ▸ Filter for dropdown column filters, Data ▸ Validation to restrict entries.</li><li>The Home tab has Import, Export (.xlsx / .csv) and Print (also saves as PDF) buttons. Your work autosaves to this browser.</li></ul>',
+    help: '<h3 style="margin-top:0">Welcome to EmeraldSheets</h3><p>EmeraldSheets is a complete spreadsheet that runs entirely in your browser. Everything is stored locally with IndexedDB — nothing is sent to any server.</p><ul><li>Enter formulas starting with <span class="kbd">=</span> — e.g. <span class="kbd">=SUM(A1:A10)</span>, <span class="kbd">=IF(A1&gt;5,"High","Low")</span>.</li><li>Use the ribbon for formatting, number formats, borders, merges, tables and charts.</li><li>Drag the small square at the selection corner to fill series; drag the selection border to move cells.</li><li>Use Data ▸ Filter for dropdown column filters, Data ▸ Validation to restrict entries.</li><li>The Home tab has Import, Export (.xlsx / .csv) and Print (also saves as PDF) buttons. Your work autosaves to this browser.</li></ul>',
     shortcuts: '<table class="help-table">' + rows + '</table>',
-    about: '<h3 style="margin-top:0">ZSheet</h3><p>A self-contained client-side spreadsheet application. Version 1.0.</p><p>Storage: IndexedDB in this browser. Import/export uses SheetJS from a CDN when available — the app works fully offline without it.</p><p>Privacy: all workbook data stays on this device. No servers, no accounts, no tracking.</p>'
+    about: '<h3 style="margin-top:0">EmeraldSheets</h3><p>A self-contained client-side spreadsheet application. Version 1.0.</p><p>Storage: IndexedDB in this browser. Import/export uses SheetJS from a CDN when available — the app works fully offline without it.</p><p>Privacy: all workbook data stays on this device. No servers, no accounts, no tracking.</p>'
   };
-  openModal({ title: page === 'shortcuts' ? 'Keyboard Shortcuts' : page === 'about' ? 'About ZSheet' : 'Quick Help', width: 620, content: '<div>' + bodies[page] + '</div>', buttons: [{ label: 'Close', primary: true }] });
+  openModal({ title: page === 'shortcuts' ? 'Keyboard Shortcuts' : page === 'about' ? 'About EmeraldSheets' : 'Quick Help', width: 620, content: '<div>' + bodies[page] + '</div>', buttons: [{ label: 'Close', primary: true }] });
 }
 
 /* ---------------- diagnostics (Tools > Diagnostics) ---------------- */
@@ -11795,7 +11813,7 @@ async function boot() {
   setInterval(() => { if (Clip.marquee) requestPaint(); }, 120);
   /* charts refresh after recalc */
   setInterval(() => { if (Calc.dirty.size === 0) return; }, 5000);
-  console.log('ZSheet ready — sheets:', WB.sheets.length);
+  console.log('EmeraldSheets ready — sheets:', WB.sheets.length);
   /* minimal debug/QA surface (read-only introspection) */
   window.ZS = {
     historyLen: () => H.undo.length,

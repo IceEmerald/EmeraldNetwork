@@ -438,8 +438,8 @@ class SlidesApp {
         this._morphAnimTimer = null;
 
         // Storage key prefix
-        this.PRES_INDEX_KEY = 'emeraldslides_index';
-        this.PRES_DATA_KEY  = (id) => `emeraldslides_pres_${id}`;
+        this.PRES_INDEX_KEY = 'emeraldcore.storage.suite.slides';
+        this.PRES_DATA_KEY  = (id) => `emeraldcore.storage.suite.slides.${id}`;
 
         this.ready = this.init();
     }
@@ -491,10 +491,6 @@ class SlidesApp {
         try {
             const storage = window.EmeraldIDBStorage;
             let idx = storage ? await storage.getJSON(this.PRES_INDEX_KEY) : null;
-            if (!idx) {
-                const raw = localStorage.getItem(this.PRES_INDEX_KEY);
-                idx = raw ? JSON.parse(raw) : [];
-            }
             this.presentations = Array.isArray(idx) ? idx : [];
 
             // ── De-duplicate by ID (keep newest updatedAt) ──
@@ -528,7 +524,6 @@ class SlidesApp {
             const storage = window.EmeraldIDBStorage;
             const meta = this.presentations;
             if (storage) await storage.setJSON(this.PRES_INDEX_KEY, meta);
-            localStorage.setItem(this.PRES_INDEX_KEY, JSON.stringify(meta));
         } catch (e) { console.warn('saveIndex', e); }
     }
 
@@ -536,10 +531,6 @@ class SlidesApp {
         try {
             const storage = window.EmeraldIDBStorage;
             let data = storage ? await storage.getJSON(this.PRES_DATA_KEY(id)) : null;
-            if (!data) {
-                const raw = localStorage.getItem(this.PRES_DATA_KEY(id));
-                data = raw ? JSON.parse(raw) : null;
-            }
             return data;
         } catch (e) { return null; }
     }
@@ -549,7 +540,6 @@ class SlidesApp {
             const storage = window.EmeraldIDBStorage;
             const key = this.PRES_DATA_KEY(pres.id);
             if (storage) await storage.setJSON(key, pres);
-            localStorage.setItem(key, JSON.stringify(pres));
         } catch (e) { console.warn('savePresData', e); }
     }
 
@@ -557,7 +547,6 @@ class SlidesApp {
         try {
             const storage = window.EmeraldIDBStorage;
             if (storage) await storage.delete(this.PRES_DATA_KEY(id));
-            localStorage.removeItem(this.PRES_DATA_KEY(id));
         } catch (e) {}
     }
 

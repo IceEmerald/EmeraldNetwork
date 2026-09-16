@@ -1,12 +1,12 @@
 (function () {
-    const DB_NAME = 'emeraldnetwork_client_storage';
+    const DB_NAME = 'emeraldcore.storage.suite';
     const DB_VERSION = 1;
     const STORE_NAME = 'kv';
     const cache = new Map();
     const subscribers = new Set();
     const tabId = Math.random().toString(36).slice(2) + Date.now().toString(36);
     const channel = typeof BroadcastChannel !== 'undefined'
-        ? new BroadcastChannel('emeraldnetwork-idb-storage')
+        ? new BroadcastChannel('emeraldcore.storage.suite')
         : null;
     let db = null;
     let ready = false;
@@ -31,7 +31,7 @@
             };
             request.onsuccess = () => resolve(request.result);
             request.onerror = () => reject(request.error);
-            request.onblocked = () => console.warn('IndexedDB upgrade blocked for EmeraldNetwork storage.');
+            request.onblocked = () => console.warn('IndexedDB upgrade blocked for EmeraldCore storage.');
         });
     }
 
@@ -75,6 +75,14 @@
         if (channel) channel.postMessage(message);
     }
 
+    function readLocalRaw(key) {
+        try { return localStorage.getItem(key); } catch (_) { return null; }
+    }
+
+    function removeLocalRaw(key) {
+        try { localStorage.removeItem(key); } catch (_) {}
+    }
+
     function putRaw(key, value) {
         cache.set(key, value);
         if (!db) return Promise.resolve();
@@ -89,7 +97,7 @@
 
     function deleteRaw(key) {
         cache.delete(key);
-        try { localStorage.removeItem(key); } catch (_) {}
+        removeLocalRaw(key);
         if (!db) return Promise.resolve();
         const tx = db.transaction(STORE_NAME, 'readwrite');
         tx.objectStore(STORE_NAME).delete(key);
@@ -109,23 +117,35 @@
             return loadCache();
         })
         .catch((error) => {
-            console.warn('IndexedDB unavailable. Persistent app storage is disabled for this session.', error);
+            console.warn('IndexedDB unavailable. Falling back to localStorage for this session.', error);
             db = null;
         })
         .finally(() => { ready = true; });
 
-    function readLocalRaw(key) {
-        try { return localStorage.getItem(key); } catch (_) { return null; }
+    function readCache(key) {
+        return cache.get(key) || null;
     }
 
-    function readRawSync(key) {
-        if (cache.has(key)) return cache.get(key);
-        return readLocalRaw(key);
+    async function hydrateKey(key) {
+        /* Auto-sync a localStorage fallback copy into IndexedDB, then clean it up. */
+        const raw = readLocalRaw(key);
+        if (raw == null) return;
+        if (!db) {
+            cache.set(key, raw);
+            return; // IDB not available yet — keep the localStorage copy.
+        }
+        try {
+            await putRaw(key, raw);
+        } catch (error) {
+            return;
+        }
+        if (cache.get(key) === raw) removeLocalRaw(key);
     }
 
     async function getJSON(key) {
         await readyPromise;
-        const raw = readRawSync(key);
+        if (readLocalRaw(key) != null) await hydrateKey(key);
+        const raw = readCache(key);
         if (!raw) return null;
         try { return JSON.parse(raw); } catch (_) { return null; }
     }
@@ -133,18 +153,25 @@
     async function setJSON(key, value, options = {}) {
         const raw = JSON.stringify(value);
         await readyPromise;
-        await putRaw(key, raw);
-        try { localStorage.removeItem(key); } catch (_) {}
+        cache.set(key, raw);
+        try { localStorage.setItem(key, raw); } catch (_) {}
+        if (db) {
+            try { await putRaw(key, raw); }
+            catch (error) { console.warn('IndexedDB write failed, keeping localStorage copy:', key, error); return; }
+        }
+        if (cache.get(key) === raw) removeLocalRaw(key);
         broadcast({ key, type: 'set' });
     }
 
     function setJSONSync(key, value, options = {}) {
         const raw = JSON.stringify(value);
         cache.set(key, raw);
+        try { localStorage.setItem(key, raw); } catch (_) {}
 
         readyPromise.then(() => {
+            if (!db) return; // keep the localStorage fallback until IndexedDB is available
             return putRaw(key, raw).then(() => {
-                try { localStorage.removeItem(key); } catch (_) {}
+                if (cache.get(key) === raw) removeLocalRaw(key);
                 broadcast({ key, type: 'set' });
             });
         }).catch((error) => {
@@ -153,26 +180,13 @@
     }
 
     function getJSONSync(key) {
-        const raw = readRawSync(key);
+        const raw = readCache(key) || readLocalRaw(key);
         if (!raw) return null;
         try { return JSON.parse(raw); } catch (_) { return null; }
     }
 
-    async function migrateLocalJSON(key, options = {}) {
-        await readyPromise;
-        if (!db || cache.has(key)) return getJSON(key);
-
-        const raw = readLocalRaw(key);
-        if (!raw) return null;
-        let parsed = null;
-        try { parsed = JSON.parse(raw); } catch (_) { return null; }
-
-        await putRaw(key, raw);
-        if (options.removeLocal !== false) {
-            try { localStorage.removeItem(key); } catch (_) {}
-        }
-        broadcast({ key, type: 'set' });
-        return parsed;
+    function migrateLocalJSON(key) {
+        return getJSON(key);
     }
 
     function createJSONStore(options = {}) {

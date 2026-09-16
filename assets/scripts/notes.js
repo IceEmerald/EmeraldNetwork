@@ -87,19 +87,9 @@ class NotesApp {
             const storage = window.EmeraldIDBStorage;
             let storedNotes = null;
             if (storage) {
-                storedNotes = await storage.getJSON('emeraldnotes_data');
-                if (!storedNotes) {
-                    storedNotes = await storage.migrateLocalJSON('emeraldnotes_data');
-                }
-                await Promise.all([
-                    storage.migrateLocalJSON('emeraldnotes_collab_sessions'),
-                    storage.migrateLocalJSON('emeraldnotes_collab_owner'),
-                    storage.migrateLocalJSON('emeraldnotes_collab_non_owner'),
-                    storage.migrateLocalJSON('emeraldnotes_collaborator'),
-                    storage.migrateLocalJSON('sidebarCollapsed'),
-                ]);
+                storedNotes = await storage.getJSON('emeraldcore.storage.suite.notes');
             } else {
-                storedNotes = NotesApp.memoryStorageFallback.get('emeraldnotes_data') || null;
+                storedNotes = NotesApp.memoryStorageFallback.get('emeraldcore.storage.suite.notes') || null;
             }
             if (storedNotes) {
                 this.notes = storedNotes;
@@ -129,9 +119,9 @@ class NotesApp {
             const toSave = this.notes.filter(n => !n._isCollabNote);
             const storage = window.EmeraldIDBStorage;
             if (storage) {
-                storage.setJSONSync('emeraldnotes_data', toSave);
+                storage.setJSONSync('emeraldcore.storage.suite.notes', toSave);
             } else {
-                NotesApp.memoryStorageFallback.set('emeraldnotes_data', toSave);
+                NotesApp.memoryStorageFallback.set('emeraldcore.storage.suite.notes', toSave);
             }
             this.showSaveIndicator('saved');
         } catch (error) {
@@ -158,7 +148,7 @@ class NotesApp {
         if (this._storageSyncReady || !window.EmeraldIDBStorage?.subscribe) return;
         this._storageSyncReady = true;
         window.EmeraldIDBStorage.subscribe(({ key }) => {
-            if (key === 'emeraldnotes_data') {
+            if (key === 'emeraldcore.storage.suite.notes') {
                 this.handleExternalNotesChange();
             }
         });
@@ -332,9 +322,9 @@ class NotesApp {
         }
         try {
             if (sessions.length > 0) {
-                this.setStoredValue('emeraldnotes_collab_sessions', sessions);
+                this.setStoredValue('emeraldcore.storage.suite.notes.collab_sessions', sessions);
             } else {
-                this.removeStoredValue('emeraldnotes_collab_sessions');
+                this.removeStoredValue('emeraldcore.storage.suite.notes.collab_sessions');
             }
         } catch (_) {}
     }
@@ -344,9 +334,9 @@ class NotesApp {
         }
         this.collabSessions.clear();
         this._activeCollabSessionId = null;
-        this.removeStoredValue('emeraldnotes_collab_sessions');
-        this.removeStoredValue('emeraldnotes_collab_owner');
-        this.removeStoredValue('emeraldnotes_collab_non_owner');
+        this.removeStoredValue('emeraldcore.storage.suite.notes.collab_sessions');
+        this.removeStoredValue('emeraldcore.storage.suite.notes.collab_owner');
+        this.removeStoredValue('emeraldcore.storage.suite.notes.collab_non_owner');
     }
     _setupConnectionMonitor() {
         this._disconnected = false;
@@ -439,7 +429,7 @@ class NotesApp {
     }
     loadCollaboratorInfo() {
         try {
-            const parsed = this.getStoredValue('emeraldnotes_collaborator');
+            const parsed = this.getStoredValue('emeraldcore.storage.suite.notes.collaborator');
             if (parsed) {
                 if (parsed && parsed.id && parsed.name && parsed.color) {
                     return parsed;
@@ -466,7 +456,7 @@ class NotesApp {
         if (!collaborator.name || collaborator.name.trim() === '') {
             collaborator.name = 'User ' + _rnd(9999);
         }
-        this.setStoredValue('emeraldnotes_collaborator', collaborator);
+        this.setStoredValue('emeraldcore.storage.suite.notes.collaborator', collaborator);
         return collaborator;
     }
     checkShareSessionFromURL() {
@@ -485,19 +475,19 @@ class NotesApp {
         }
         let restored = [];
         try {
-            const saved = this.getStoredValue('emeraldnotes_collab_sessions');
+            const saved = this.getStoredValue('emeraldcore.storage.suite.notes.collab_sessions');
             if (saved) restored = saved;
         } catch (_) {}
         if (restored.length === 0) {
             try {
-                const legacyOwner = this.getStoredValue('emeraldnotes_collab_owner');
+                const legacyOwner = this.getStoredValue('emeraldcore.storage.suite.notes.collab_owner');
                 if (legacyOwner) {
                     const { sessionId: sid, noteId } = legacyOwner;
                     if (sid) restored.push({ sessionId: sid, noteId, isOwner: true });
                 }
             } catch (_) {}
             try {
-                const legacyNO = this.getStoredValue('emeraldnotes_collab_non_owner');
+                const legacyNO = this.getStoredValue('emeraldcore.storage.suite.notes.collab_non_owner');
                 if (legacyNO) {
                     const { sessionId: sid } = legacyNO;
                     if (sid && !restored.some(r => r.sessionId === sid)) {
@@ -505,8 +495,8 @@ class NotesApp {
                     }
                 }
             } catch (_) {}
-            this.removeStoredValue('emeraldnotes_collab_owner');
-            this.removeStoredValue('emeraldnotes_collab_non_owner');
+            this.removeStoredValue('emeraldcore.storage.suite.notes.collab_owner');
+            this.removeStoredValue('emeraldcore.storage.suite.notes.collab_non_owner');
         }
         if (restored.length === 0) return;
         const ownerSessions = restored.filter(r => r.isOwner);
@@ -1446,7 +1436,7 @@ class NotesApp {
     }
     leaveCollabNote() {
         if (this.collabIsOwner) return; 
-        this.removeStoredValue('emeraldnotes_collab_non_owner');
+        this.removeStoredValue('emeraldcore.storage.suite.notes.collab_non_owner');
         if (this.collabSessionId) {
             this._unregisterSession(this.collabSessionId);
         }
@@ -1524,9 +1514,9 @@ class NotesApp {
         const cursors = document.getElementById('collabCursors');
         if (cursors) cursors.innerHTML = '';
         this._hideLeaveButton();
-        this.removeStoredValue('emeraldnotes_collab_owner');
-        this.removeStoredValue('emeraldnotes_collab_non_owner');
-        this.removeStoredValue('emeraldnotes_collab_sessions');
+        this.removeStoredValue('emeraldcore.storage.suite.notes.collab_owner');
+        this.removeStoredValue('emeraldcore.storage.suite.notes.collab_non_owner');
+        this.removeStoredValue('emeraldcore.storage.suite.notes.collab_sessions');
         for (const s of this.collabSessions.values()) {
             if (s.eventSource) { try { s.eventSource.close(); } catch (_) {} }
         }
@@ -4219,10 +4209,10 @@ class NotesApp {
             }
             sidebar.classList.toggle('collapsed');
             const isCollapsed = sidebar.classList.contains('collapsed');
-            this.setStoredValue('sidebarCollapsed', isCollapsed);
+            this.setStoredValue('emeraldcore.storage.suite.notes.sidebar', isCollapsed);
             this.updateToggleIcon(toggleBtn, isCollapsed);
         });
-        const savedState = this.getStoredValue('sidebarCollapsed');
+        const savedState = this.getStoredValue('emeraldcore.storage.suite.notes.sidebar');
         if (savedState === true && !this.isMobile()) {
             sidebar.classList.add('collapsed');
             this.updateToggleIcon(toggleBtn, true);
