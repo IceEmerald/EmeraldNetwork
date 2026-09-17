@@ -799,7 +799,7 @@ body.light-mode .model-dropdown-other-list {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: color 0.2s, background 0.2s, box-shadow 0.2s, border-color 0.2s;
+    transition: color 0.2s, background 0.2s, box-shadow 0.2s, border-color 0.2s, opacity 0.3s ease;
     flex-shrink: 0;
 }
 
@@ -1406,13 +1406,74 @@ body.light-mode .message-avatar-user {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: color 0.2s, background 0.2s;
+    transition: color 0.2s, background 0.2s, opacity 0.3s ease;
     flex-shrink: 0;
 }
 
 .input-attach-btn:hover {
     color: rgb(192, 192, 192);
     background: rgb(40, 40, 40);
+}
+
+.input-goto-btn {
+    height: 33px;
+    background: rgb(48, 48, 48);
+    border-width: medium;
+    border-style: none;
+    border-color: currentcolor;
+    border-image: none;
+    cursor: pointer;
+    color: rgb(210, 210, 210);
+    padding: 0 14px;
+    border-radius: 25px;
+    margin-bottom: 1px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.8rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    flex-shrink: 0;
+    margin-right: 4px;
+    max-width: 176px;
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.3s ease, visibility 0.3s, max-width 0.3s ease, padding 0.3s ease, margin-right 0.3s ease, background 0.2s, color 0.2s;
+}
+
+.input-goto-btn svg {
+    flex-shrink: 0;
+}
+
+.chat-input-box:not(.input-busy) .input-goto-btn {
+    max-width: 0;
+    padding-left: 0;
+    padding-right: 0;
+    margin-right: 0;
+    opacity: 0;
+    visibility: hidden;
+}
+
+.input-goto-btn:hover {
+    background: rgb(64, 64, 64);
+    color: rgb(235, 235, 235);
+}
+
+.input-goto-btn:active {
+    transform: translateY(0.5px);
+}
+
+body.light-mode .input-goto-btn {
+    background: rgb(230, 230, 230);
+    color: rgb(105, 105, 105);
+}
+
+body.light-mode .input-goto-btn:hover {
+    background: rgb(216, 216, 216);
+    color: rgb(80, 80, 80);
 }
 
 #webSearchBtn.active {
@@ -1563,11 +1624,50 @@ body.light-mode .esb-citation-chip svg {
     min-height: 28px;
     max-height: 180px;
     overflow-y: auto;
+    transition: opacity 0.3s ease;
 }
 
 .chat-textarea::placeholder {
     color: rgb(68, 68, 68);
     font-family: "DM Sans", sans-serif;
+}
+
+/* Active-shade state: the AI is answering in another conversation the user
+   switched away from — gray out the + / reasoning buttons and gray the
+   "Ask anything..." placeholder (now "Still answering"). Used only when NOT
+   viewing the streaming conversation. */
+.chat-input-box.input-busy .input-attach-btn,
+.chat-input-box.input-busy .input-reasoning-btn {
+    opacity: 0.45;
+    pointer-events: none;
+    cursor: not-allowed;
+}
+
+.chat-input-box.input-busy .chat-textarea {
+    opacity: 0.65;
+    cursor: default;
+}
+
+.chat-input-box.input-busy .chat-textarea::placeholder {
+    color: rgb(110, 110, 110);
+    opacity: 1;
+}
+
+.chat-input-box.input-busy .input-container {
+    border-color: rgba(80, 200, 120, 0.3);
+}
+
+body.light-mode .chat-input-box.input-busy .input-attach-btn,
+body.light-mode .chat-input-box.input-busy .input-reasoning-btn {
+    opacity: 0.5;
+}
+
+body.light-mode .chat-input-box.input-busy .chat-textarea::placeholder {
+    color: rgb(150, 150, 150);
+}
+
+body.light-mode .chat-input-box.input-busy .input-container {
+    border-color: rgba(80, 200, 120, 0.55);
 }
 
 .send-btn {
@@ -4922,14 +5022,6 @@ body.light-mode .fp-text-code {
     color: rgb(255, 255, 255);
 }
 
-.quiz-type-hint {
-    font-size: 11px;
-    font-weight: 600;
-    color: rgb(76, 175, 125);
-    margin-left: 6px;
-    vertical-align: middle;
-}
-
 .quiz-opt--multi {
     cursor: pointer;
 }
@@ -4982,44 +5074,9 @@ body.light-mode .fp-text-code {
 
 .quiz-match-wrap {
     margin-top: 6px;
-}
-
-.quiz-match-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 18px;
-}
-
-@media (max-width: 640px) {
-    .quiz-match-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-.quiz-match-col {
     display: flex;
     flex-direction: column;
     gap: 7px;
-}
-
-.quiz-match-col--right {
-    border-left: 1px solid var(--border);
-    padding-left: 16px;
-}
-
-@media (max-width: 640px) {
-    .quiz-match-col--right {
-        border-left: none;
-        padding-left: 0;
-    }
-}
-
-.quiz-match-right-head {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--text-muted);
 }
 
 .quiz-match-row {
@@ -5029,8 +5086,7 @@ body.light-mode .fp-text-code {
     min-height: 34px;
 }
 
-.quiz-match-num,
-.quiz-match-letter {
+.quiz-match-num {
     width: 20px;
     height: 20px;
     border-radius: 50%;
@@ -5043,41 +5099,206 @@ body.light-mode .fp-text-code {
     flex-shrink: 0;
 }
 
-.quiz-match-left,
-.quiz-match-right {
+.quiz-match-left {
     font-size: 13px;
     font-weight: 500;
     flex: 1;
 }
 
-.quiz-match-right {
-    font-weight: 400;
-    color: var(--text-muted);
-}
-
-.quiz-match-select {
+.quiz-match-dd {
+    position: relative;
     flex-shrink: 0;
-    max-width: 120px;
-    padding: 5px 8px;
-    border-radius: 7px;
-    border: 1.5px solid var(--border);
-    background: var(--bg);
-    color: var(--text);
-    font-size: 12.5px;
-    font-family: "DM Sans";
-    cursor: pointer;
 }
 
-.quiz-match-select.quiz-match-correct {
+.quiz-match-dd-btn {
+    min-width: 180px;
+    max-width: 260px;
+    display: block;
+    padding: 6px 30px 6px 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: rgb(192, 192, 192);
+    font-family: "DM Sans", sans-serif;
+    font-size: 12.5px;
+    cursor: pointer;
+    text-align: left;
+    position: relative;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.quiz-match-dd-btn::after {
+    content: "\25BC";
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 8px;
+    color: rgb(110, 110, 110);
+    font-family: "Segoe UI Symbol", "Arial Unicode MS", "DejaVu Sans", sans-serif;
+    transition: transform 0.18s, color 0.18s;
+}
+
+.quiz-match-dd-btn:hover,
+.quiz-match-dd.open .quiz-match-dd-btn {
+    border-color: rgba(80, 200, 120, 0.35);
+    background: rgba(80, 200, 120, 0.05);
+    color: rgb(224, 224, 224);
+}
+
+.quiz-match-dd.open .quiz-match-dd-btn::after {
+    transform: translateY(-50%) rotate(180deg);
+    color: rgb(80, 200, 120);
+}
+
+.quiz-match-dd-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: auto;
+    right: 0px;
+    min-width: 240px;
+    max-width: min(320px, calc(100vw - 24px));
+    max-height: 230px;
+    overflow-y: auto;
+    background: rgb(30, 30, 30);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 9px;
+    box-shadow: rgba(0, 0, 0, 0.5) 0px 8px 30px;
+    z-index: 10001;
+    display: none;
+}
+
+.quiz-match-dd.open .quiz-match-dd-menu {
+    display: flex;
+    flex-direction: column;
+    animation: quizDdIn 0.16s ease-out;
+}
+
+@keyframes quizDdIn {
+    0% {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0px);
+    }
+}
+
+.quiz-match-dd-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    width: 100%;
+    background: none;
+    border: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    color: rgb(187, 187, 187);
+    font-family: "DM Sans", sans-serif;
+    font-size: 12.5px;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+}
+
+.quiz-match-dd-item:last-child {
+    border-bottom: none;
+}
+
+.quiz-match-dd-item:hover {
+    background: rgb(37, 37, 37);
+    color: rgb(240, 240, 240);
+}
+
+.quiz-match-dd-text {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.quiz-match-dd-check {
+    flex-shrink: 0;
+    opacity: 0;
+    color: rgb(80, 200, 120);
+    transition: opacity 0.12s;
+}
+
+.quiz-match-dd-item.selected {
+    background: rgba(80, 200, 120, 0.08);
+    color: rgb(240, 240, 240);
+}
+
+.quiz-match-dd-item.selected .quiz-match-dd-check {
+    opacity: 1;
+}
+
+.quiz-match-dd.locked {
+    pointer-events: none;
+}
+
+.quiz-match-dd.locked .quiz-match-dd-btn {
+    cursor: default;
+}
+
+.quiz-match-dd.quiz-match-correct .quiz-match-dd-btn {
     border-color: rgb(39, 174, 96);
     background: rgba(39, 174, 96, 0.12);
+    color: rgb(75, 205, 125);
+}
+
+.quiz-match-dd.quiz-match-correct .quiz-match-dd-btn::after {
     color: rgb(39, 174, 96);
 }
 
-.quiz-match-select.quiz-match-wrong {
+.quiz-match-dd.quiz-match-wrong .quiz-match-dd-btn {
     border-color: rgb(231, 76, 60);
     background: rgba(231, 76, 60, 0.12);
+    color: rgb(245, 130, 115);
+}
+
+.quiz-match-dd.quiz-match-wrong .quiz-match-dd-btn::after {
     color: rgb(231, 76, 60);
+}
+
+body.light-mode .quiz-match-dd-btn {
+    background: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.12);
+    color: rgb(85, 85, 85);
+}
+
+body.light-mode .quiz-match-dd-btn:hover,
+body.light-mode .quiz-match-dd.open .quiz-match-dd-btn {
+    border-color: rgba(80, 200, 120, 0.6);
+    background: rgba(80, 200, 120, 0.08);
+    color: rgb(0, 0, 0);
+}
+
+body.light-mode .quiz-match-dd-menu {
+    background: rgb(255, 255, 255);
+    border-color: rgb(232, 232, 232);
+    box-shadow: rgba(0, 0, 0, 0.14) 0px 10px 28px, rgba(0, 0, 0, 0.06) 0px 2px 6px;
+}
+
+body.light-mode .quiz-match-dd-item {
+    color: rgb(85, 85, 85);
+    border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+body.light-mode .quiz-match-dd-item:hover {
+    background: rgb(240, 240, 240);
+    color: rgb(0, 0, 0);
+}
+
+body.light-mode .quiz-match-dd-item.selected {
+    background: rgba(80, 200, 120, 0.1);
+    color: rgb(0, 0, 0);
 }
 
 .quiz-explanation {
