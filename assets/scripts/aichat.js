@@ -35,12 +35,12 @@ const DISPLAY_MODEL = "EmeraldCore";
    is shown as a small badge in the dropdown so the hierarchy is visible at a
    glance. ids MUST match the `publicId` field in worker.js MODELS. */
 const MODELS = [
-  { id: "astra",     name: "EmeraldCore Astra",     short: "Astra",     tier: "v4.2", desc: "Frontier flagship â€” ultra-deep reasoning, autonomous multi-step tasks, cross-domain synthesis." },
-  { id: "ruby",      name: "EmeraldCore Ruby",      short: "Ruby",      tier: "v4.2", desc: "Multimodal precision â€” vision, data science, scientific analysis, structured output." },
-  { id: "gamma",     name: "EmeraldCore Gamma",     short: "Gamma",     tier: "v4.1", desc: "Deepest reasoning â€” math, code, hard logic." },
+  { id: "astra",     name: "EmeraldCore Astra",     short: "Astra",     tier: "v4.2", desc: "Frontier flagship — ultra-deep reasoning, autonomous multi-step tasks, cross-domain synthesis." },
+  { id: "ruby",      name: "EmeraldCore Ruby",      short: "Ruby",      tier: "v4.2", desc: "Multimodal precision — vision, data science, scientific analysis, structured output." },
+  { id: "gamma",     name: "EmeraldCore Gamma",     short: "Gamma",     tier: "v4.1", desc: "Deepest reasoning — math, code, hard logic." },
   { id: "diamond",   name: "EmeraldCore Diamond",   short: "Diamond",   tier: "v4",   desc: "Creative strategy, planning, long-form writing." },
   { id: "gold",      name: "EmeraldCore Gold",      short: "Gold",      tier: "v4",   desc: "Research, fact-checking, in-depth analysis." },
-  { id: "kappa",     name: "EmeraldCore Kappa",     short: "Kappa",     tier: "v3.5", desc: "Versatile â€” web, roleplay, basic math." },
+  { id: "kappa",     name: "EmeraldCore Kappa",     short: "Kappa",     tier: "v3.5", desc: "Versatile — web, roleplay, basic math." },
   { id: "starlight", name: "EmeraldCore Starlight", short: "Starlight", tier: "v3",   desc: "Balanced everyday chat and quick tasks." },
   { id: "cream",     name: "EmeraldCore Cream",     short: "Cream",     tier: "v2",   desc: "Fast, lightweight answers for simple questions." }
 ];
@@ -60,7 +60,7 @@ function setSelectedModelId(id) {
   const s = loadSettings();
   saveSettingsObj({ ...s, modelId: id });
 }
-/* â”€â”€ Reasoning mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ── Reasoning mode ─────────────────────────────────────────────
    When enabled, the worker turns on Gemini's thinkingConfig
    (thinkingBudget: -1 = dynamic) and appends a step-by-step reasoning
    hint to the system prompt. Persisted in settings.reasoning (boolean).
@@ -84,7 +84,7 @@ function refreshReasoningToggleUI() {
   const on = isReasoningEnabled();
   btn.classList.toggle("active", on);
   btn.setAttribute("aria-pressed", on ? "true" : "false");
-  btn.title = on ? "Reasoning mode is ON â€” slower, deeper answers." : "Turn on reasoning mode";
+  btn.title = on ? "Reasoning mode is ON — slower, deeper answers." : "Turn on reasoning mode";
 }
 const SEARCH_PROXY_URL = "https://emeraldnetwork-aichatsearch.iceemerald.workers.dev";
 const IMAGE_WORKER_URL = "https://emeraldnetwork-aichatimagegen.iceemerald.workers.dev";
@@ -128,7 +128,7 @@ async function migrateChatStorageToIndexedDB() {
       window.EmeraldIDBStorage.migrateLocalJSON(OB_KEY)
     ]);
   } catch (err) {
-    // Migration failure shouldn't crash init â€” log so it's not invisible.
+    // Migration failure shouldn't crash init — log so it's not invisible.
     console.warn("migrateChatStorageToIndexedDB failed:", err);
   }
 }
@@ -531,9 +531,9 @@ async function ctxCopyText() {
   }
   const ok = await safeCopy(selectedText);
   if (ok) {
-    // `escHtml` / `truncate` were never defined in this codebase â€” use the
+    // `escHtml` / `truncate` were never defined in this codebase — use the
     // real `escapeHtml` helper and inline the truncation.
-    const preview = escapeHtml(selectedText.length > 100 ? selectedText.slice(0, 100) + "â€¦" : selectedText);
+    const preview = escapeHtml(selectedText.length > 100 ? selectedText.slice(0, 100) + "…" : selectedText);
     showToast(`${_aiSvgCopy} Copied: "${preview}"`);
   } else {
     showToast(`${_aiSvgWarn} Failed to copy.`);
@@ -764,7 +764,7 @@ function setupMarked() {
   function _blockquoteRenderer(token) {
     let body = "";
     if (token && typeof token === "object") {
-      // marked v18: token.tokens contains parsed child tokens â€” render recursively
+      // marked v18: token.tokens contains parsed child tokens — render recursively
       if (Array.isArray(token.tokens) && this.parser) {
         body = this.parser.parse(token.tokens);
       } else {
@@ -801,42 +801,42 @@ function setupMarked() {
 //
 // The model produces THREE variants of \color usage that we must handle:
 //
-//   (A) \color{X}{Y}      â€” TWO-ARG, INVALID LaTeX. The model treats \color
+//   (A) \color{X}{Y}      — TWO-ARG, INVALID LaTeX. The model treats \color
 //                           as if it were \textcolor. NOT standard LaTeX
 //                           (in real LaTeX, \color{X} sets the color for the
 //                           rest of the group; the following {Y} is a
 //                           separate group). KaTeX accepts this but it is
 //                           brittle. We convert it to \textcolor{X}{Y}.
 //
-//   (B) \color{X}content  â€” ONE-ARG SWITCH (the real LaTeX form). Sets color
+//   (B) \color{X}content  — ONE-ARG SWITCH (the real LaTeX form). Sets color
 //                           for the rest of the current group. We find the
 //                           enclosing {...} group and wrap its content in
 //                           \textcolor{X}{...}.
-//                           e.g.  e^{\color{red}i\pi}  â†’  e^{\textcolor{red}{i\pi}}
+//                           e.g.  e^{\color{red}i\pi}  →  e^{\textcolor{red}{i\pi}}
 //
-//   (C) \textcolor{X}{Y}  â€” already correct. Leave alone.
+//   (C) \textcolor{X}{Y}  — already correct. Leave alone.
 //
 // Pass 1 handles (A). Pass 2 handles (B). Existing \textcolor is untouched.
 function _preprocessLatexColor(src) {
   if (!src || src.indexOf('\\color{') === -1) return src;
   let result = src;
 
-  // â”€â”€ Pass 1: \color{X}{Y} (two-arg malformed) â†’ \textcolor{X}{Y}
+  // ── Pass 1: \color{X}{Y} (two-arg malformed) → \textcolor{X}{Y}
   // Match \color{X} immediately followed by { (with optional whitespace).
-  // Replace only the \color{X} part â€” leave the {Y} part intact so the
-  // closing brace of Y stays balanced. Effect: \color{X}{Y} â†’ \textcolor{X}{Y}.
+  // Replace only the \color{X} part — leave the {Y} part intact so the
+  // closing brace of Y stays balanced. Effect: \color{X}{Y} → \textcolor{X}{Y}.
   // We must NOT touch \textcolor{X}{Y} (already correct). The regex below
   // only matches \color{ (not \textcolor{) because of the negative lookbehind
   // for "text" before the backslash.
   result = result.replace(/(?<!\\text)\\color\{([^}]+)\}(\s*)\{/g,
     (full, color, ws) => '\\textcolor{' + color + '}' + ws + '{');
 
-  // â”€â”€ Pass 2: \color{X}content (one-arg switch) â†’ \textcolor{X}{content}
+  // ── Pass 2: \color{X}content (one-arg switch) → \textcolor{X}{content}
   // Now any remaining \color{X} is the switch form (NOT immediately followed
   // by a { group of its own). Find the enclosing {...} group and wrap its
   // content in \textcolor{X}{...}.
-  //   e.g.  e^{\color{red}i\pi}  â†’  e^{\textcolor{red}{i\pi}}
-  //   e.g.  {\color{blue}a + b}  â†’  {\textcolor{blue}{a + b}}
+  //   e.g.  e^{\color{red}i\pi}  →  e^{\textcolor{red}{i\pi}}
+  //   e.g.  {\color{blue}a + b}  →  {\textcolor{blue}{a + b}}
   const re = /\\color\{([^}]+)\}/g;
   let match;
   const replacements = [];
@@ -844,9 +844,9 @@ function _preprocessLatexColor(src) {
     const start = match.index;
     const afterColor = start + match[0].length;
     const color = match[1];
-    // Skip if immediately followed by { â€” that was Pass 1's job.
+    // Skip if immediately followed by { — that was Pass 1's job.
     // (Pass 1 already converted those, but be defensive in case the regex
-    // missed something â€” e.g. whitespace edge cases.)
+    // missed something — e.g. whitespace edge cases.)
     let nextNonWs = afterColor;
     while (nextNonWs < result.length && /\s/.test(result[nextNonWs])) nextNonWs++;
     if (result[nextNonWs] === '{') continue;
@@ -888,7 +888,7 @@ function _preprocessLatexColor(src) {
 // each \n as <br>, producing a char-by-char display. Detect runs of 3+
 // consecutive lines that each contain a single non-whitespace character and
 // collapse them back into a single word. The model often then repeats the
-// full word on the following line â€” when the collapsed word exactly prefixes
+// full word on the following line — when the collapsed word exactly prefixes
 // that next line, drop the collapsed duplicate.
 function _collapseCharByCharRuns(text) {
   const lines = text.split('\n');
@@ -963,13 +963,13 @@ function renderMarkdown(raw) {
   // (e.g. "$62,932.68 USD. Euler's identity is $e^{i\pi}$."), the regex
   // matches from the first $ to the second $, swallowing the prose between
   // them into a single "math" block. KaTeX fails to parse prose as math,
-  // and with throwOnError:false it falls back to raw markup â€” the
+  // and with throwOnError:false it falls back to raw markup — the
   // "raw LaTeX" / "mashed words" bug.
   //
   // Fix: use an exec-based loop with content validation. When a match is
   // rejected (not valid math), we advance past only the opening $, so the
   // closing $ can serve as the opening $ of the next potential math block.
-  // This correctly handles "$currency. Math is $e^{i\pi}$." â€” the first
+  // This correctly handles "$currency. Math is $e^{i\pi}$." — the first
   // pair is rejected (prose), and the second pair is accepted (real math).
   {
     const _mathRe = /\$([^$]+?)\$/gs;
@@ -992,7 +992,7 @@ function renderMarkdown(raw) {
       //    the model's char-by-char hallucination, like "$0, 1,\na\nt\na\nu
       //    \natau2$"). Such spans are left literal so Markdown + the
       //    char-run collapse handle them as ordinary text.
-      // The 's' flag lets math span newlines â€” the model frequently wraps
+      // The 's' flag lets math span newlines — the model frequently wraps
       // multi-line expressions in $...$ (and hallucinates single-char line
       // runs), which previously leaked as literal "$...$" text.
       const _hasLaTeX = /\\[a-zA-Z]/.test(_inner);
@@ -1004,17 +1004,17 @@ function renderMarkdown(raw) {
       // Char-by-char hallucination: >=3 single-character lines inside a
       // $...$ span means the model broke a sentence apart (e.g. "R\nu\nm\nu\n
       // s\n:\n"). Real math never has that, so reject EVEN IF LaTeX commands
-      // are present â€” the span is contaminated prose, not a formula.
+      // are present — the span is contaminated prose, not a formula.
       const _soloChars = _inner.split("\n").filter((l) => l.trim().length === 1 && /\S/.test(l)).length;
-      const _isProse = /["â€œâ€]/.test(_inner) || _soloChars >= 3 || (!_hasLaTeX && (_inner.match(/[a-zA-Z]{2,}/g) || []).length >= 3);
+      const _isProse = /["“”]/.test(_inner) || _soloChars >= 3 || (!_hasLaTeX && (_inner.match(/[a-zA-Z]{2,}/g) || []).length >= 3);
       if (/\.\s/.test(_inner) || /\n\s*\n/.test(_inner) || _isCurrency || _isProse) {
-        // Not valid math â€” keep the opening $ and content as literal text,
+        // Not valid math — keep the opening $ and content as literal text,
         // but let the closing $ be re-scanned as a potential opening $
         _result += text.slice(_lastEnd, _fullStart + 1 + _inner.length);
         _lastEnd = _fullStart + 1 + _inner.length; // position of closing $
         _mathRe.lastIndex = _lastEnd;
       } else {
-        // Valid math â€” replace with placeholder (consume both $ signs)
+        // Valid math — replace with placeholder (consume both $ signs)
         _result += text.slice(_lastEnd, _fullStart);
         const i = mathBlocks.push({ type: "inline", src: _inner }) - 1;
         _result += `MATHINLINE${i}MATHINLINE`;
@@ -1027,7 +1027,7 @@ function renderMarkdown(raw) {
   }
   // Also support \(...\) inline math delimiters (some models use these).
   // Use a tempered greedy token to allow backslashes inside the content
-  // (e.g. \(e^{i\pi}\)) â€” the old regex [^\\\n]+? stopped at the first \.
+  // (e.g. \(e^{i\pi}\)) — the old regex [^\\\n]+? stopped at the first \.
   text = text.replace(/\\\(((?:(?!\\\))[\s\S])+?)\\\)/g, (_, m) => {
     const i = mathBlocks.push({ type: "inline", src: m }) - 1;
     return `MATHINLINE${i}MATHINLINE`;
@@ -1115,14 +1115,14 @@ function _streamDisplayText(raw) {
   }
   return { text: t, quizStarted: false };
 }
-/* â”€â”€ Per-word streaming reveal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ── Per-word streaming reveal ──────────────────────────────────
    Wraps each whitespace-separated token in the streaming message
    text in a <span class="stream-word">. Words that are NEW since
    the last call (index >= previously-wrapped count, tracked on
    textEl.dataset.streamWords) get the `is-new` modifier, which
    triggers a blur-in animation DIRECTLY on insertion: the word
-   starts hidden (opacity 0, blurred) and animates to sharp â€” no
-   showâ†’hideâ†’animate flash. Words that were already shown are
+   starts hidden (opacity 0, blurred) and animates to sharp — no
+   show→hide→animate flash. Words that were already shown are
    left untouched (no `is-new` class) so they don't re-animate
    every time the streaming innerHTML is rebuilt.
 
@@ -1175,8 +1175,8 @@ function _stripThinkingPreamble(text) {
   while (changed && guard < 100) {
     changed = false;
     guard++;
-    if (/^\s*\[[A-Z][A-Z\sâ€”-]*(STRICT|ABSOLUTE|NEVER VIOLATE|CRITICAL)[^\]]*\]\s*/i.test(t)) {
-      t = t.replace(/^\s*\[[A-Z][A-Z\sâ€”-]*(?:STRICT|ABSOLUTE|NEVER VIOLATE|CRITICAL)[^\]]*\]\s*\n?/i, "");
+    if (/^\s*\[[A-Z][A-Z\s—-]*(STRICT|ABSOLUTE|NEVER VIOLATE|CRITICAL)[^\]]*\]\s*/i.test(t)) {
+      t = t.replace(/^\s*\[[A-Z][A-Z\s—-]*(?:STRICT|ABSOLUTE|NEVER VIOLATE|CRITICAL)[^\]]*\]\s*\n?/i, "");
       changed = true;
       continue;
     }
@@ -1576,7 +1576,7 @@ function runCode(btn) {
 // attributes (onclick, oninput, ...) from the HTML. The code-block renderer
 // emits <button class="md-copy-btn" onclick="copyCode(this)"> and
 // <button class="md-run-btn" onclick="runCode(this)">, but after DOMPurify
-// runs the onclick is gone â€” so clicking Copy / Run does nothing.
+// runs the onclick is gone — so clicking Copy / Run does nothing.
 //
 // Rather than weakening DOMPurify by adding "onclick" to ADD_ATTR (which
 // would let AI-generated HTML inject arbitrary handlers), we install a
@@ -1654,7 +1654,7 @@ function moveLibTabIndicator(tabEl) {
   indicator.style.width = indW + "px";
   indicator.style.left = center - indW / 2 + "px";
 }
-/* â”€â”€ Chat-switch animation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ── Chat-switch animation ─────────────────────────────────────
    When the user switches conversations (or returns to the welcome
    screen), we blur + slide the chat content down + fade it out, swap
    the inner content while invisible, then unblur + slide it back up.
@@ -1665,8 +1665,8 @@ function moveLibTabIndicator(tabEl) {
      mid-message and a fade would interrupt the stream).
    - If a switch is already in flight, the second call swaps immediately
      (no double-animation).
-   - The animation duration is 180ms each way (out â†’ swap â†’ in), so the
-     total perceived switch is ~360ms â€” fast enough to feel snappy.
+   - The animation duration is 180ms each way (out → swap → in), so the
+     total perceived switch is ~360ms — fast enough to feel snappy.
 */
 let _chatSwitchAnimating = false;
 let _chatSwitchPending = null;
@@ -1677,9 +1677,9 @@ function animateChatSwitch(swapFn) {
     return;
   }
   if (_chatSwitchAnimating) {
-    // A switch is already animating â€” store the latest swap and apply it
+    // A switch is already animating — store the latest swap and apply it
     // when the current animation reaches the swap point.  This prevents
-    // the repeated blurâ†’unblurâ†’blurâ†’unblur cycle when rapidly clicking
+    // the repeated blur→unblur→blur→unblur cycle when rapidly clicking
     // through chats: the ongoing fade-out continues, the content is
     // swapped at the midpoint, and then a single fade-in plays.
     _chatSwitchPending = swapFn;
@@ -2132,7 +2132,7 @@ async function renderPptxSlides(fileData, body) {
     window[`__pp_${vid}`] = { s: slideHtmls, i: 0, rw: RW, rh: RH, doScale };
     setTimeout(doScale, 0);
     // Disconnect any previous ResizeObserver on body before installing a new
-    // one â€” otherwise each PPTX preview stacks a new observer with stale
+    // one — otherwise each PPTX preview stacks a new observer with stale
     // closures over the old doScale / RW / RH.
     if (body._pptxRO) { try { body._pptxRO.disconnect(); } catch (e) {} }
     if (window.ResizeObserver) {
@@ -2437,10 +2437,10 @@ function buildMessageActionsEl(msgId) {
   _actDiv.appendChild(_dislikeBtn);
   return _actDiv;
 }
-/* â”€â”€ Reasoning panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ── Reasoning panel ─────────────────────────────────────────────
    When reasoning mode is enabled, the worker streams Gemini's
    `thought: true` parts separately (see streamEmeraldBot). We render
-   them inside a collapsible "Reasoning" block above the answer text â€”
+   them inside a collapsible "Reasoning" block above the answer text —
    the same UX Claude / o1 use: a header row with a spinner while
    thinking, flipping to a checkmark + "Done" once the final answer
    begins streaming; the body expands during reasoning and auto-
@@ -2449,7 +2449,7 @@ function buildMessageActionsEl(msgId) {
    The block is created lazily (only when the first reasoning chunk
    arrives) so messages without reasoning show no empty panel. */
 const _REASONING_EXPAND_MS = 250; // smooth height transition
-// Per-block interval timers for the "Thinking for Xsâ€¦" live label.
+// Per-block interval timers for the "Thinking for Xs…" live label.
 // WeakMap so the timer reference dies with the DOM node if it's removed.
 const _reasoningTimers = new WeakMap();
 
@@ -2475,7 +2475,7 @@ function _setReasoningLabel(block, verb /* "Thinking" | "Thought" */) {
 
 function reasoningBlockHTML(isDone) {
   // isDone=true is used when rendering a stored message that already
-  // has completed reasoning â€” label says "Thought for a moment" since
+  // has completed reasoning — label says "Thought for a moment" since
   // we don't have the original elapsed time persisted.
   return `<div class="reasoning-block${isDone ? " is-done" : ""}" data-state="${isDone ? "done" : "thinking"}">
     <div class="reasoning-header" role="button" tabindex="0" aria-expanded="${isDone ? "false" : "true"}" onclick="toggleReasoningBlock(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleReasoningBlock(this);}">
@@ -2504,7 +2504,7 @@ function createReasoningBlock(aiDiv) {
   }
   // Start expanded while thinking.
   block.classList.add("is-expanded");
-  // Live-tick the "Thinking for Xsâ€¦" label once per second.
+  // Live-tick the "Thinking for Xs…" label once per second.
   block.dataset.startedAt = String(Date.now());
   _setReasoningLabel(block, "Thinking");
   const timer = setInterval(() => {
@@ -2518,7 +2518,7 @@ function appendReasoningToBlock(block, chunk) {
   const textEl = block.querySelector(".reasoning-text");
   if (!textEl) return;
   // Use a dataset accumulator (not textContent) because renderMarkdown
-  // produces HTML â€” concatenating innerHTML would re-parse partial HTML
+  // produces HTML — concatenating innerHTML would re-parse partial HTML
   // and corrupt formatting mid-stream.
   let acc = block.dataset.reasoningRaw || "";
   acc += chunk;
@@ -2562,7 +2562,7 @@ function toggleReasoningBlock(headerEl) {
   headerEl.setAttribute("aria-expanded", isExpanded ? "true" : "false");
 }
 
-// â”€â”€ Searching panel (same design as Reasoning, separate UI block) â”€â”€â”€â”€â”€â”€
+// ── Searching panel (same design as Reasoning, separate UI block) ──────
 const _searchingTimers = new WeakMap();
 
 function _setSearchingLabel(block, verb) {
@@ -2706,7 +2706,7 @@ function gotoStreamingChat() {
 // Always hide the LIVE typing indicator. The element captured when a stream
 // started (`typingEl`) can be detached from the DOM after the conversation
 // view is re-rendered (e.g. user switched chats mid-stream), so hiding that
-// stale reference would leave the "Second bubble â€” just animation" stuck.
+// stale reference would leave the "Second bubble — just animation" stuck.
 function _hideTypingIndicator() {
   const el = document.getElementById("typingIndicator");
   if (el) el.style.display = "none";
@@ -2741,7 +2741,7 @@ function rateMsg(btn, type) {
 async function handleSend(opts) {
   const _silent = !!(opts && opts.silent);
   if (state.isStreaming) {
-    if (_silent) showToast(`${_aiSvgWarn} Please wait â€” the AI is still responding.`);
+    if (_silent) showToast(`${_aiSvgWarn} Please wait — the AI is still responding.`);
     return;
   }
   _autoScrollSticky = true;  // re-enable sticky scroll on new send
@@ -2833,7 +2833,7 @@ async function handleSend(opts) {
             }
             if (readmeRes.ok) {
               const rm = await readmeRes.json();
-              // atob returns a byte-string, not a UTF-8 string â€” non-ASCII
+              // atob returns a byte-string, not a UTF-8 string — non-ASCII
               // READMEs (emoji, accents, CJK) became mojibake. Decode via
               // TextDecoder so multi-byte sequences are interpreted as UTF-8.
               if (rm?.content) {
@@ -2867,7 +2867,7 @@ async function handleSend(opts) {
         }
       } catch (e) {
         console.warn("Web search failed:", e);
-        showToast(`${_aiSvgWarn} Web search unavailable â€” proceeding without context.`);
+        showToast(`${_aiSvgWarn} Web search unavailable — proceeding without context.`);
       }
     }
     _setLabel(null);
@@ -2932,8 +2932,8 @@ async function handleSend(opts) {
   _streamOpts.onReasoningChunk = (chunk) => {
     _markSearchingDoneOnce();
     // First reasoning chunk creates the message bubble early (typing
-    // indicator hides) and the reasoning panel â€” same UX Claude / o1 use
-    // where the "Thinkingâ€¦" block appears before any answer text streams.
+    // indicator hides) and the reasoning panel — same UX Claude / o1 use
+    // where the "Thinking…" block appears before any answer text streams.
     _reasoningText += chunk;
     if (!_ensureStreamDom()) return;
     if (!_reasoningBlock) _reasoningBlock = createReasoningBlock(aiDiv);
@@ -2941,7 +2941,7 @@ async function handleSend(opts) {
     scrollToBottom();
   };
   const _doStream = async (h) => streamEmeraldBot(h, apiKey, (chunk) => {
-    // First non-thought chunk means reasoning phase is over â†’ flip the
+    // First non-thought chunk means reasoning phase is over → flip the
     // reasoning block to "Done" (auto-collapses shortly after).
     _markSearchingDoneOnce();
     _markReasoningDoneOnce();
@@ -3000,7 +3000,7 @@ async function handleSend(opts) {
   } catch (err) {
     if (err?._jailbreakBlocked) {
       // Jailbreak attempt detected by the worker. Tear down the current
-      // conversation entirely â€” delete it from storage, return the user
+      // conversation entirely — delete it from storage, return the user
       // to the welcome screen, refresh the sidebar so the chat no longer
       // appears in Recents, and surface a toast explaining what happened.
       // No assistant message is rendered.
@@ -3034,7 +3034,7 @@ async function handleSend(opts) {
     }
   }
   _hideTypingIndicator();
-  // Stream ended â€” flip the reasoning panel to "Done" (if one exists).
+  // Stream ended — flip the reasoning panel to "Done" (if one exists).
   // Important for the case where the model produced reasoning but no
   // answer text (e.g. error / abort before first answer chunk).
   _markSearchingDoneOnce();
@@ -3147,7 +3147,7 @@ async function handleSend(opts) {
       state.tempHistory.push({ role: "model", parts: [{ text: savedText }] });
       // Empty-string user parts make the Gemini API reject the next request
       // with a 400. Use a non-empty placeholder so buildHistory stays valid.
-      if (quizData) state.tempHistory.push({ role: "user", parts: [{ text: "[User started a quiz â€” no text message]" }] });
+      if (quizData) state.tempHistory.push({ role: "user", parts: [{ text: "[User started a quiz — no text message]" }] });
     }
     if (_imgPrompt) {
       processImageGenTag(aiDiv, _imgPrompt, state.convId, msgId);
@@ -3236,8 +3236,8 @@ function buildHistory(conv) {
                 const disp = Number(chs[li]);
                 const chRight = (qq.right || [])[perm[disp]];
                 const coRight = (qq.right || [])[ri];
-                chosenPairs.push(`"${qq.left[li]} â†’ ${chRight == null || chRight === "" ? "skipped" : chRight}"`);
-                correctPairs.push(`"${qq.left[li]} â†’ ${coRight || ""}"`);
+                chosenPairs.push(`"${qq.left[li]} → ${chRight == null || chRight === "" ? "skipped" : chRight}"`);
+                correctPairs.push(`"${qq.left[li]} → ${coRight || ""}"`);
                 if (perm.indexOf(ri) !== disp) ok = false;
               }
               chosenTxt = chosenPairs.join(", ");
@@ -3250,7 +3250,7 @@ function buildHistory(conv) {
               ok = ua === ca || ca.split("|").map(function(s) { return s.trim(); }).includes(ua);
             } else {
               chosenTxt = (raw != null && String(raw).trim()) ? `"${raw}"` : "skipped";
-              correctTxt = "(essay â€” no fixed answer)";
+              correctTxt = "(essay — no fixed answer)";
               ok = null;
             }
             const result = ok === null ? "ESSAY" : ok ? "CORRECT" : "WRONG";
@@ -3373,7 +3373,7 @@ async function regenerateMessage(msgEl) {
       }
     } catch (e) {
       console.warn("Web search failed:", e);
-      showToast(`${_aiSvgWarn} Web search unavailable â€” proceeding without context.`);
+      showToast(`${_aiSvgWarn} Web search unavailable — proceeding without context.`);
     }
   }
   let _groundingMetadata = null;
@@ -3653,7 +3653,7 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
   }
   // Jailbreak detection: when the worker flags a request as blocked
   // (X-Safety-Status: blocked), it sends an EMPTY SSE stream with no
-  // refusal text. We must NOT stream anything to the user â€” instead we
+  // refusal text. We must NOT stream anything to the user — instead we
   // throw a tagged error so the caller can remove the conversation,
   // return the user to the welcome screen, and show a toast.
   const _safetyStatus = res.headers.get("X-Safety-Status");
@@ -3689,7 +3689,7 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
   let buffer = "";
   let finishReason = null;
   let groundingMetadata = null;
-  // 30s was too aggressive for low-bandwidth / congested connections â€” a
+  // 30s was too aggressive for low-bandwidth / congested connections — a
   // client stream regularily stalls mid-answer and got killed, which users
   // experience as "the AI randomly stops generating". 60s gives slow links
   // room to catch up, and the STREAM_INTERRUPTED recovery below resumes the
@@ -3699,7 +3699,7 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
   let streamedChars = 0;
   let streamDone = false;
   // Resume only when streamed text is meaningful. A connection that drops or
-  // idles out almost immediately (a few chars) will likely do so again â€” a
+  // idles out almost immediately (a few chars) will likely do so again — a
   // resume would just waste another slow request round-trip.
   const MIN_RESUME_TEXT = 20;
   let idleTimer = null;
@@ -3721,7 +3721,7 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
         chunk = await reader.read();
       } catch (readErr) {
         // reader.cancel() (idle timeout) or a torn-down network make the next
-        // read() reject instead of resolving â€” break out so the recovery logic
+        // read() reject instead of resolving — break out so the recovery logic
         // below can decide whether to resume the response.
         if (timedOut) break;
         throw readErr;
@@ -3777,7 +3777,7 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
   if (timedOut && !finishReason) {
     if (streamedChars >= MIN_RESUME_TEXT) {
       // A long stall mid-generation (slow/stuttering connection) tripped the
-      // idle timer, but the partial text we already have is valid â€” resume
+      // idle timer, but the partial text we already have is valid — resume
       // it like a MAX_TOKENS continuation instead of erroring and losing it.
       return { finishReason: "STREAM_INTERRUPTED", groundingMetadata, modelId: usedModelId };
     }
@@ -3791,7 +3791,7 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
     // finishReason. This is the classic "randomly stops streaming" symptom:
     // the worker hit Cloudflare's per-request wall-time cap mid-stream, or
     // the connection dropped while data was still flowing. The partial answer
-    // is valid â€” flag it so the caller resumes with "continue" up to a few
+    // is valid — flag it so the caller resumes with "continue" up to a few
     // times instead of silently cutting the response short. Cuts that only
     // produced a couple of characters are left alone (almost always just a
     // flaky drop that would repeat).
@@ -3856,7 +3856,7 @@ function extractGroundingSources(groundingMetadata) {
       seen.add(uri);
       let displayTitle = title;
       if (!displayTitle || displayTitle === uri || displayTitle.includes("://")) {
-        // Gemini didn't provide a real title â€” try to extract a readable one from the URL
+        // Gemini didn't provide a real title — try to extract a readable one from the URL
         try {
           const u = new URL(uri);
           const pathSegs = u.pathname.split("/").filter(Boolean);
@@ -3868,7 +3868,7 @@ function extractGroundingSources(groundingMetadata) {
             if (displayTitle.length > 1) displayTitle = displayTitle[0].toUpperCase() + displayTitle.slice(1);
             if (displayTitle.length > 60) displayTitle = displayTitle.slice(0, 57) + "...";
           } else {
-            // No path segments â€” try hostname as fallback (stripped of www. and TLD)
+            // No path segments — try hostname as fallback (stripped of www. and TLD)
             const host = u.hostname.replace(/^www\./, "");
             const parts = host.split(".");
             if (parts.length > 1) {
@@ -4052,7 +4052,7 @@ async function _getStorageEstimate() {
       if (typeof est?.usage === "number") usage = est.usage;
       if (typeof est?.quota === "number") quota = est.quota;
     }
-  } catch { /* estimate() unsupported/throttled â€” fall back to app key sizes */ }
+  } catch { /* estimate() unsupported/throttled — fall back to app key sizes */ }
   return { usage, quota };
 }
 function _sumAppKeyBytes() {
@@ -4088,7 +4088,7 @@ async function _refreshStorageMeter() {
   fill.style.width = `${pct.toFixed(1)}%`;
   fill.style.background = pct >= 90 ? "rgb(224,85,85)" : "rgb(80,200,120)";
   meta.textContent = quota > 0
-    ? `${_fmtBytes(usage)} of ${_fmtBytes(quota)} used Â· ${pct.toFixed(1)}%`
+    ? `${_fmtBytes(usage)} of ${_fmtBytes(quota)} used · ${pct.toFixed(1)}%`
     : `${_fmtBytes(usage)} used`;
 }
 function _startStoreMeterLoop() {
@@ -4173,7 +4173,7 @@ function _refreshSettAvatarUI(name, avatarData) {
           imgEl.src = imgEl._avatarBlobUrl;
           imgEl.style.display = "block";
         }
-      } catch (_) { /* invalid data URL â€” leave image hidden */ }
+      } catch (_) { /* invalid data URL — leave image hidden */ }
     }
     if (initEl) initEl.style.display = "none";
     if (removeBtn) removeBtn.style.display = "inline-block";
@@ -4228,7 +4228,7 @@ async function handleAvatarUpload(input) {
     console.error(err);
     showToast("Failed to process avatar", "error");
   } finally {
-    // Guarantee cleanup even if decoding threw â€” prevents object-URL leak.
+    // Guarantee cleanup even if decoding threw — prevents object-URL leak.
     if (objUrl) URL.revokeObjectURL(objUrl);
   }
   input.value = "";
@@ -4293,7 +4293,7 @@ function newChat() {
   updateTopbarTitle("");
   renderSidebar();
 }
-/* â”€â”€ Smart auto-scroll â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ── Smart auto-scroll ──────────────────────────────────────────
    _autoScrollSticky tracks whether the chat should auto-scroll to
    bottom during streaming.  It starts true.  If the user scrolls UP
    (away from bottom), it flips to false and scrollToBottom() becomes
@@ -4302,7 +4302,7 @@ function newChat() {
    control: scroll up to read earlier text without being forced down,
    scroll back to bottom to re-lock onto the latest output. */
 let _autoScrollSticky = true;
-/* Threshold in px â€” if the user is within this distance of the
+/* Threshold in px — if the user is within this distance of the
    bottom, we consider them "at the bottom" and re-enable sticky. */
 const _AUTO_SCROLL_THRESHOLD = 60;
 function _initAutoScrollListener() {
@@ -4319,7 +4319,7 @@ function _initAutoScrollListener() {
   /* On keyboard scroll (PageUp/Down, arrow keys) */
   cc.addEventListener('keydown', markUserScroll);
   cc.addEventListener('scroll', () => {
-    if (!_userScrolling) return;  // programmatic scroll â€” ignore
+    if (!_userScrolling) return;  // programmatic scroll — ignore
     _userScrolling = false;
     const atBottom = cc.scrollHeight - cc.scrollTop - cc.clientHeight
                      < _AUTO_SCROLL_THRESHOLD;
@@ -4332,7 +4332,7 @@ function scrollToBottom() {
   if (!cc) return;
   /* Use smooth scroll so the motion feels natural instead of a
      hard jump.  Only use instant scroll when the distance is tiny
-     (avoids visible micro-scrolls for 1â€“2 px differences). */
+     (avoids visible micro-scrolls for 1–2 px differences). */
   const distance = cc.scrollHeight - cc.scrollTop - cc.clientHeight;
   if (distance <= 2) return;  // already there, no-op
   if (distance < 80) {
@@ -4342,7 +4342,7 @@ function scrollToBottom() {
   }
 }
 /* Force-scroll to bottom (ignores sticky flag).  Used when the user
-   sends a new message â€” we always want to jump to bottom then. */
+   sends a new message — we always want to jump to bottom then. */
 function scrollToBottomForce() {
   _autoScrollSticky = true;
   const cc = $("chatContent");
@@ -4472,11 +4472,11 @@ function escapeHtml(s) {
 function escapeHtmlAttr(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
-// â”€â”€ URL sanitizers (CodeQL js/xss WriteUrlSink) â”€â”€
+// ── URL sanitizers (CodeQL js/xss WriteUrlSink) ──
 // Every value handed back to an <img src> / <a href> sink passes through
 // _uriClean(), whose encodeURIComponent() call is a recognized XSS sanitizer
 // node (CodeQL js/xss and js/xss-through-dom). decodeURIComponent() then
-// restores the original bytes, so no URL is altered â€” but no storage- or
+// restores the original bytes, so no URL is altered — but no storage- or
 // user-sourced taint can survive into the sink. Returns '' on malformed input.
 function _uriClean(v) {
   try {
@@ -4651,7 +4651,7 @@ async function _obAvatarUpload(input) {
   } catch (e) {
     showToast("Could not load image", "error");
   } finally {
-    // Guarantee cleanup even if decoding threw â€” prevents object-URL leak.
+    // Guarantee cleanup even if decoding threw — prevents object-URL leak.
     if (objUrl) URL.revokeObjectURL(objUrl);
   }
   input.value = "";
@@ -4684,7 +4684,7 @@ function _obMemoryPreview() {
   if (importBtn) {
     importBtn.style.display = "";
   }
-  // `countEl` was referenced but never declared â€” would throw ReferenceError
+  // `countEl` was referenced but never declared — would throw ReferenceError
   // on every input event after memories are found. The title above already
   // shows the count, so the orphan block is removed.
 }
@@ -5230,7 +5230,7 @@ My answer: "${e.a}"${e.rubric ? `
     prompt += "\nPlease give me feedback.";
   }
   prompt += "\n\n[IMPORTANT: Only provide explanations and essay feedback for the above. Do NOT generate a new quiz. Do NOT generate an image. No <quiz> tags. No [GENERATE_IMAGE:...] tags. Just a plain helpful response.]";
-  // Send silently â€” no user message bubble, no input box text.
+  // Send silently — no user message bubble, no input box text.
   // The AI typing indicator appears immediately; the response streams in directly.
   handleSend({ silent: true, silentText: prompt });
 };
@@ -5293,7 +5293,7 @@ function clearAllChats() {
   closeModal("settingsModal");
   showToast("\u2713 All chats & memories cleared");
 }
-/* â”€â”€ Render cached image search results (from IndexedDB) without re-fetching â”€â”€ */
+/* ── Render cached image search results (from IndexedDB) without re-fetching ── */
 function _renderCachedImageSearchResults(aiDiv, cacheMap) {
   if (!cacheMap || typeof cacheMap !== 'object') return;
   // For each [IMAGE_SEARCH:] placeholder, look up its cached result by query
@@ -5349,7 +5349,7 @@ function appendStoredAIMessage(m) {
       <div class="message-sender">EmeraldBot</div>
       <div class="message-text md-content"${_initText ? "" : ' style="display:none"'}>${_initHTML}</div>
     </div>`;
-  // Re-render persisted reasoning (collapsed by default â€” the model has
+  // Re-render persisted reasoning (collapsed by default — the model has
   // already finished thinking). Stored separately from `text` so it never
   // gets sent back to Gemini in buildHistory.
   if (m.reasoning && typeof m.reasoning === "string" && m.reasoning.trim()) {
@@ -5367,7 +5367,7 @@ function appendStoredAIMessage(m) {
     div.querySelector(".message-sender").insertAdjacentElement("afterend", badge);
   }
   if (quizData) {
-    // CodeQL fix (#52/#56): sanitize qid to safe chars only â€” prevents
+    // CodeQL fix (#52/#56): sanitize qid to safe chars only — prevents
     // injection via quizData._id or m.id which are user-influenced.
     const _rawQid = quizData._id || "quiz_" + (m.id || genId());
     const qid = _rawQid.replace(/[^a-zA-Z0-9_-]/g, "_");
@@ -5413,14 +5413,14 @@ function appendStoredAIMessage(m) {
   }
   const typingEl = $("typingIndicator");
   $("messagesArea").insertBefore(div, typingEl);
-  // â”€â”€ Render image search results: use cached results if available (stable on reload) â”€â”€
+  // ── Render image search results: use cached results if available (stable on reload) ──
   if (m.imageSearchCache && Object.keys(m.imageSearchCache).length) {
     _renderCachedImageSearchResults(div, m.imageSearchCache);
   } else {
-    // First time or no cached results â†’ fetch from API and cache
+    // First time or no cached results → fetch from API and cache
     processImageSearchTags(div, state.convId, m.id);
   }
-  // â”€â”€ Restore citations from persisted sources â”€â”€
+  // ── Restore citations from persisted sources ──
   if (m.sources && Array.isArray(m.sources) && m.sources.length) {
     renderCitations(div, m.sources);
   }
@@ -5436,42 +5436,42 @@ function _extractQuiz(text) {
   let parseFailed = false;
   let raw = quizMatch[1];
 
-  // â”€â”€ Pre-extraction cleanup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Pre-extraction cleanup ──────────────────────────────────────────
   // Strip markdown code fences the AI might wrap around the JSON
   raw = raw.replace(/^[\s\n]*```(?:json|JSON)?[\s\n]*\n?/i, "");
   raw = raw.replace(/\n?[\s\n]*```[\s\n]*$/i, "");
-  // Strip HTML entities the AI might emit (e.g. &quot; â†’ ")
-  // CodeQL fix (#53): Decode HTML entities the AI might emit (e.g. &quot; â†’ ")
-  // CRITICAL: &amp; MUST be decoded LAST to prevent double-decode (e.g. &amp;lt; â†’ <).
+  // Strip HTML entities the AI might emit (e.g. &quot; → ")
+  // CodeQL fix (#53): Decode HTML entities the AI might emit (e.g. &quot; → ")
+  // CRITICAL: &amp; MUST be decoded LAST to prevent double-decode (e.g. &amp;lt; → <).
   // Original code decoded &amp; before &lt; causing double-escaping vulnerability.
   raw = raw.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
   // Strip JS/JSON comments (// and /* */)
   raw = raw.replace(/\/\/[^\n]*/g, "");
   raw = raw.replace(/\/\*[\s\S]*?\*\//g, "");
   // Strip leading/trailing commentary the AI might add around the JSON
-  // Find the first { and last } â€” everything between is the JSON candidate
+  // Find the first { and last } — everything between is the JSON candidate
   const firstBrace = raw.indexOf("{");
   const lastBrace = raw.lastIndexOf("}");
   if (firstBrace >= 0 && lastBrace > firstBrace) {
     raw = raw.slice(firstBrace, lastBrace + 1);
   }
 
-  // â”€â”€ Parse attempt 1: as-is â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Parse attempt 1: as-is ──────────────────────────────────────────
   try {
     quizData = JSON.parse(raw);
   } catch (e1) {
-    // â”€â”€ Parse attempt 2: fix common AI mistakes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Parse attempt 2: fix common AI mistakes ───────────────────────
     try {
       let fixed = raw
         .replace(/,\s*([}\]])/g, "$1")                // trailing commas before } or ]
-        .replace(/'/g, '"')                             // single â†’ double quotes
-        .replace(/(?<=[{,])\s*(\w+)\s*:/g, '"$1":')   // unquoted keys after { or , â†’ quoted
-        .replace(/:\s*undefined/g, ':null')            // undefined â†’ null
-        .replace(/:\s*NaN/g, ':0')                     // NaN â†’ 0
+        .replace(/'/g, '"')                             // single → double quotes
+        .replace(/(?<=[{,])\s*(\w+)\s*:/g, '"$1":')   // unquoted keys after { or , → quoted
+        .replace(/:\s*undefined/g, ':null')            // undefined → null
+        .replace(/:\s*NaN/g, ':0')                     // NaN → 0
         .replace(/\\(?!["\\/bfnrtu])/g, '\\\\');      // escape stray backslashes
       quizData = JSON.parse(fixed);
     } catch (e2) {
-      // â”€â”€ Parse attempt 3: aggressive â€” walk the string character by
+      // ── Parse attempt 3: aggressive — walk the string character by
       // character, tracking brace/bracket depth, and extract the longest
       // valid JSON substring that parses.  This catches cases where the
       // AI adds extra text INSIDE the braces but outside the structure.
@@ -5484,7 +5484,7 @@ function _extractQuiz(text) {
     }
   }
 
-  // â”€â”€ Normalize: ensure questions array exists and each question has expected shape â”€â”€
+  // ── Normalize: ensure questions array exists and each question has expected shape ──
   if (quizData && Array.isArray(quizData.questions)) {
     quizData.questions = quizData.questions.map((q) => {
       if (typeof q !== "object" || q === null) return q;
@@ -5610,7 +5610,7 @@ function quizErrorCardHTML() {
   </div>`;
 }
 
-// Event delegation: .quiz-card[data-qid] clicks â†’ openQuizPanel
+// Event delegation: .quiz-card[data-qid] clicks → openQuizPanel
 document.addEventListener("click", function(e) {
   const card = e.target.closest(".quiz-card[data-qid]");
   if (card) openQuizPanel(card.dataset.qid);
@@ -5814,7 +5814,7 @@ async function submitUserMsgEdit(msgId) {
   scrollToBottom();
   const history = conv ? buildHistory(conv) : [...state.tempHistory];
   // Re-attach the original files to the latest user turn in history. Without
-  // this, the AI never receives the attachments on resubmit â€” `buildHistory`
+  // this, the AI never receives the attachments on resubmit — `buildHistory`
   // only emits text parts, so the file content was being silently dropped.
   if (originalFiles.length && history.length) {
     const last = history[history.length - 1];
@@ -5842,7 +5842,7 @@ async function submitUserMsgEdit(msgId) {
       }
     } catch (e) {
       console.warn("Web search failed:", e);
-      showToast(`${_aiSvgWarn} Web search unavailable â€” proceeding without context.`);
+      showToast(`${_aiSvgWarn} Web search unavailable — proceeding without context.`);
     }
   }
   let _groundingMetadata = null;
@@ -6461,9 +6461,9 @@ function _stripSourcesFromHTML(textEl) {
   // Look for the last <strong>/<b> containing "Sources" followed by a list or paragraph
   const strongs = textEl.querySelectorAll("strong, b");
   for (let i = strongs.length - 1; i >= 0; i--) {
-    const txt = strongs[i].textContent.trim().replace(/[\s:ï¼š]/g, "").toLowerCase();
+    const txt = strongs[i].textContent.trim().replace(/[\s:：]/g, "").toLowerCase();
     if (txt === "sources" || txt === "source" || txt === "references" || txt === "reference") {
-      // Found a "Sources" header â€” remove it and everything after it
+      // Found a "Sources" header — remove it and everything after it
       let node = strongs[i];
       // Check if it's inside a heading (h1-h6) or paragraph
       const parent = node.closest("h1,h2,h3,h4,h5,h6,p,li");
@@ -6479,7 +6479,7 @@ function _stripSourcesFromHTML(textEl) {
   for (let i = lists.length - 1; i >= 0; i--) {
     const prev = lists[i].previousElementSibling;
     if (prev && (prev.closest("strong,b") || prev.tagName.match(/^H[1-6]$/))) {
-      const prevTxt = prev.textContent.trim().replace(/[\s:ï¼š]/g, "").toLowerCase();
+      const prevTxt = prev.textContent.trim().replace(/[\s:：]/g, "").toLowerCase();
       if (prevTxt === "sources" || prevTxt === "references") {
         prev.remove();
         lists[i].remove();
@@ -6490,17 +6490,17 @@ function _stripSourcesFromHTML(textEl) {
 }
 
 function renderCitations(aiDiv, sources) {
-  // Always process [N] patterns â€” even without sources, convert them to
+  // Always process [N] patterns — even without sources, convert them to
   // orphan badges so they're not left as raw "[1]" plain text.
   if (!sources) sources = [];
   const body = aiDiv?.querySelector(".message-body");
   if (!body) return;
 
-  // â”€â”€ Step 1: Convert inline [1], [2], [1][2] citations to clickable superscript badges â”€â”€
+  // ── Step 1: Convert inline [1], [2], [1][2] citations to clickable superscript badges ──
   const mdContent = body.querySelector(".md-content") || body;
   if (mdContent) {
     // Walk text nodes to replace [N] patterns without breaking HTML
-    // Skip text nodes inside <code> and <pre> elements â€” those should stay as-is
+    // Skip text nodes inside <code> and <pre> elements — those should stay as-is
     const walker = document.createTreeWalker(mdContent, NodeFilter.SHOW_TEXT, null, false);
     const textNodes = [];
     while (walker.nextNode()) {
@@ -6516,8 +6516,8 @@ function renderCitations(aiDiv, sources) {
     }
 
     for (const node of textNodes) {
-      // Match [N], [N,M], [N-M] where N is 1-99 â€” also handle clustered like [1][2]
-      // First pass: expand compound citations like [1,2] â†’ [1][2] and [1-3] â†’ [1][2][3]
+      // Match [N], [N,M], [N-M] where N is 1-99 — also handle clustered like [1][2]
+      // First pass: expand compound citations like [1,2] → [1][2] and [1-3] → [1][2][3]
       let expanded = node.nodeValue.replace(/\[(\d{1,2})\s*,\s*(\d{1,2})\]/g, '[$1][$2]');
       expanded = expanded.replace(/\[(\d{1,2})\s*-\s*(\d{1,2})\]/g, (_, start, end) => {
         let out = '';
@@ -6528,9 +6528,9 @@ function renderCitations(aiDiv, sources) {
       const replaced = expanded.replace(/\[(\d{1,2})\]/g, (match, numStr) => {
         const idx = parseInt(numStr, 10) - 1;
         if (idx >= 0 && idx < sources.length && sources[idx]?.uri) {
-          return `\x01CITE${idx}\x01`;  // Has source â†’ clickable link
+          return `\x01CITE${idx}\x01`;  // Has source → clickable link
         }
-        return `\x01ORPHAN${numStr}\x01`;  // No source â†’ styled badge (not clickable)
+        return `\x01ORPHAN${numStr}\x01`;  // No source → styled badge (not clickable)
       });
       if (replaced !== node.nodeValue) {
         // Split into parts: text + <a> citations
@@ -6551,7 +6551,7 @@ function renderCitations(aiDiv, sources) {
             const markerIdx = Math.floor(i / 2);
             const marker = markerIdx < types.length ? types[markerIdx] : null;
             if (marker && marker.type === "CITE") {
-              // Has source â†’ clickable link
+              // Has source → clickable link
               const src = sources[marker.idx];
               if (src?.uri) {
                 const citeLink = document.createElement("a");
@@ -6563,7 +6563,7 @@ function renderCitations(aiDiv, sources) {
                 frag.appendChild(citeLink);
               }
             } else {
-              // No source â†’ styled badge (not clickable)
+              // No source → styled badge (not clickable)
               const badge = document.createElement("span");
               badge.className = "esb-inline-cite esb-cite-orphan";
               badge.textContent = String(parseInt(parts[i], 10));
@@ -6576,7 +6576,7 @@ function renderCitations(aiDiv, sources) {
     }
   }
 
-  // â”€â”€ Step 2: Build source chips at the bottom â”€â”€
+  // ── Step 2: Build source chips at the bottom ──
   const wrap = document.createElement("div");
   wrap.className = "esb-citations";
   const seen = /* @__PURE__ */ new Set();
@@ -6592,10 +6592,10 @@ function renderCitations(aiDiv, sources) {
     try {
       host = new URL(s.uri).hostname.replace(/^www\./, "");
     } catch {}
-    // Build chip text: "domain" or "domain â€º Title"
+    // Build chip text: "domain" or "domain › Title"
     let displayTitle = s.title || "";
     if (displayTitle && displayTitle.includes("://")) {
-      // Title is actually a URL â€” strip it
+      // Title is actually a URL — strip it
       displayTitle = "";
     }
     // If title is just the domain repeated (e.g. "example.com" for example.com url), skip it
@@ -6606,7 +6606,7 @@ function renderCitations(aiDiv, sources) {
     if (displayTitle.length > 60) displayTitle = displayTitle.slice(0, 57) + "...";
     let chipText = host || "Source";
     if (displayTitle && displayTitle !== host) {
-      chipText = host + " â€º " + displayTitle;
+      chipText = host + " › " + displayTitle;
     }
     // Tooltip shows full title+URL on hover (useful when chip text is truncated)
     a.title = (displayTitle || host) + "\n" + s.uri;
@@ -6755,7 +6755,7 @@ function processWebImageTags(aiDiv, displayText) {
 }
 
 
-/* â”€â”€ Image Search: Fetch real images from the image search API â”€â”€ */
+/* ── Image Search: Fetch real images from the image search API ── */
 async function processImageSearchTags(aiDiv, convId, msgId) {
   const searchingEls = aiDiv?.querySelectorAll(".web-image-searching");
   if (!searchingEls || !searchingEls.length) return;
@@ -6782,15 +6782,15 @@ async function processImageSearchTags(aiDiv, convId, msgId) {
   const good = results.filter(r => r.status === 'fulfilled' && r.value?.img).map(r => r.value);
   const bad = results.filter(r => r.status === 'fulfilled' && !r.value?.img).map(r => r.value?.el).filter(Boolean);
 
-  // Mark failed â€” each stays in place with error state (visible placeholder)
+  // Mark failed — each stays in place with error state (visible placeholder)
   for (const el of bad) {
     el.classList.remove("web-image-searching");
     el.classList.add("web-image-failed");
   }
   if (!good.length) return;
 
-  // â”€â”€ Place each image inline at its own placeholder position â”€â”€
-  // No gallery grouping â€” each [IMAGE_SEARCH:] tag gets its own image right where it appears
+  // ── Place each image inline at its own placeholder position ──
+  // No gallery grouping — each [IMAGE_SEARCH:] tag gets its own image right where it appears
   for (const { el, img, query } of good) {
     el.classList.remove("web-image-searching");
     el.classList.add("web-image-loaded");
@@ -6799,7 +6799,7 @@ async function processImageSearchTags(aiDiv, convId, msgId) {
   }
   scrollToBottom();
 
-  // â”€â”€ Persist image search results to IndexedDB so they survive reload â”€â”€
+  // ── Persist image search results to IndexedDB so they survive reload ──
   // Store results indexed by query so each can be matched back to its placeholder on reload
   if (convId && msgId) {
     try {
@@ -6808,7 +6808,7 @@ async function processImageSearchTags(aiDiv, convId, msgId) {
       if (convObj) {
         const savedMsg = convObj.messages.find((m) => m.id === msgId);
         if (savedMsg) {
-          // Build a map: query â†’ {url, alt} so each placeholder can find its cached result
+          // Build a map: query → {url, alt} so each placeholder can find its cached result
           const cacheMap = {};
           for (const { img, query } of good) {
             cacheMap[query] = { url: img.url, alt: img.alt || query };
@@ -6824,7 +6824,7 @@ async function processImageSearchTags(aiDiv, convId, msgId) {
     }
   }
 }
-/* â”€â”€ Web Image Preview (right-side panel) + load/error delegation â”€â”€ */
+/* ── Web Image Preview (right-side panel) + load/error delegation ── */
 function _openImagePreviewPanel(src, name) {
   if (typeof closeCodePreviewPanel === "function") closeCodePreviewPanel();
   if (typeof closeQuizPanel === "function") closeQuizPanel();

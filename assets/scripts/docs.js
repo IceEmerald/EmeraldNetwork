@@ -1,4 +1,4 @@
-﻿/* BUILD 2026-08-26.12 (References: Footnote/Endnote/Citation custom modals; proper endnote system — numbered refs, end-of-doc section, panel management; Styles group (Title/H1-H3/Normal via formatBlock); Caption/Cross-ref/Table-of-Figures removed) */
+/* BUILD 2026-08-26.12 (References: Footnote/Endnote/Citation custom modals; proper endnote system — numbered refs, end-of-doc section, panel management; Styles group (Title/H1-H3/Normal via formatBlock); Caption/Cross-ref/Table-of-Figures removed) */
 /* =========================================================
    Emerald Docs — Word Processor  (v2)
    Real pagination engine: content is distributed across real
