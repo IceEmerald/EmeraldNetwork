@@ -7060,7 +7060,6 @@ body.light-mode .img-gen-loading-title {
     border: none;
     background: var(--bg-secondary, #1e1e1e);
     overflow: hidden;
-    aspect-ratio: 1 / 1;
     margin-top: 8px;
     margin-bottom: 4px;
 }
@@ -7069,7 +7068,6 @@ body.light-mode .img-gen-loading-title {
 .web-image-gallery .web-image-result {
     max-width: none;
     width: 100%;
-    aspect-ratio: 1 / 1;
     margin-top: 0;
     margin-bottom: 0;
 }
@@ -7088,10 +7086,12 @@ body.light-mode .web-image-result {
 
 .web-image {
     display: block;
-    width: 100%;
-    height: 100%;
+    width: auto;
+    max-width: 100%;
+    height: auto;
+    max-height: 360px;
     border-radius: 8px;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 /* "Open in new tab" button - removed (click opens right-side panel) */

@@ -331,6 +331,7 @@ function upsertConv(conv) {
 function deleteConv(id) {
   saveConvs(loadConvs().filter((c) => c.id !== id));
   saveLib(loadLib().filter((f) => f.convId !== id));
+  delete _convPanelState[id];
 }
 function _cryptoInt(n) {
   const _max = Math.floor(0x100000000 / n) * n;
@@ -1618,6 +1619,7 @@ function openCodePreviewPanel(titleText, srcdoc) {
   closeFilePreviewPanel();
   closeQuizPanel();
   if (title) title.textContent = titleText || "Code Preview";
+  _recordPanelState({ type: "code", title: titleText || "Code Preview", srcdoc });
   body.innerHTML = `<iframe class="code-preview-frame" sandbox="allow-scripts allow-forms" referrerpolicy="no-referrer"></iframe>`;
   const frame = body.querySelector("iframe");
   frame.srcdoc = srcdoc;
@@ -1627,6 +1629,7 @@ function openCodePreviewPanel(titleText, srcdoc) {
 function closeCodePreviewPanel() {
   const panel = $("codePreviewPanel");
   if (!panel || !panel.classList.contains("open")) return;
+  _forgetPanelState();
   panel.classList.add("closing");
   setTimeout(() => {
     panel.classList.remove("open", "closing");
@@ -1737,6 +1740,8 @@ function showWelcome() {
   // Hide the "Temporary" pill on the new-chat/welcome screen; it should
   // only appear once the user actually starts chatting (showMessages()).
   if ($("tempBadge")) $("tempBadge").style.display = "none";
+  // New chat / welcome screen never shows a side panel from another chat.
+  _hardClosePanels();
     _syncInputBusyUi();
     };
     if (wasShowingMessages) {
@@ -1819,6 +1824,7 @@ function loadConversation(id) {
   if (!conv) return;
   // Skip animation if we're already on this conversation.
   if (state.convId === id && !state.isTemp) return;
+  _refreshPanelStateSnapshot();
   state.convId = id;
   state.isTemp = false;
   animateChatSwitch(() => {
@@ -1840,6 +1846,7 @@ function loadConversation(id) {
   updateOwnedUrl();
   renderSidebar();
   scrollToBottom();
+  _applyPanelStateForConv(id);
   // If a background stream is still generating for THIS conversation, keep
   // the typing indicator visible so the user sees it's still answering.
   if (state.isStreaming && state.streamConvId === id) {
@@ -1929,6 +1936,71 @@ const _TEXT_PREVIEW_EXTS = /* @__PURE__ */ new Set([
   "conf",
   "properties"
 ]);
+/* ── Per-chat side-panel memory ──────────────────────────────────────
+   Each conversation remembers which side panel (file/image preview, quiz,
+   or code preview) is open. Switching chats therefore never leaks one
+   chat's panel into another, and returning to a chat restores its own
+   open panel. The memory lives in-page only: it is dropped when the
+   chat is deleted, all chats are cleared, or the page reloads. */
+const _convPanelState = /* @__PURE__ */ Object.create(null);
+let _panelStateGuard = false;
+function _activePanelConvId() {
+  return (typeof state !== "undefined" && state && state.convId) || null;
+}
+function _recordPanelState(payload) {
+  if (_panelStateGuard) return;
+  const cid = _activePanelConvId();
+  if (!cid) return;
+  _convPanelState[cid] = payload;
+}
+function _forgetPanelState(cid) {
+  if (_panelStateGuard) return;
+  const id = cid !== undefined ? cid : _activePanelConvId();
+  if (id) delete _convPanelState[id];
+}
+function _hardClosePanels() {
+  ["filePreviewPanel", "quizPanel", "codePreviewPanel"].forEach((id) => {
+    const p = $(id);
+    if (p) p.classList.remove("open", "closing");
+  });
+}
+function _refreshPanelStateSnapshot() {
+  const cid = _activePanelConvId();
+  if (!cid) return;
+  const st = _convPanelState[cid];
+  if (!st || st.type !== "file") return;
+  const panel = $("filePreviewPanel");
+  if (!panel || !panel.classList.contains("open")) return;
+  st.zoom = _fpZoom;
+  const body = $("fpPanelBody");
+  if (body) st.scroll = body.scrollTop;
+}
+function _applyPanelStateForConv(cid) {
+  _panelStateGuard = true;
+  try {
+    _hardClosePanels();
+    if (!cid) return;
+    const st = _convPanelState[cid];
+    if (!st) return;
+    if (st.type === "file") {
+      const fid = _regFile(st.f);
+      openFilePreview(fid);
+      _fpCurrentFid = fid;
+      _fpZoom = st.zoom || 1;
+      _fpApplyZoom();
+      const body = $("fpPanelBody");
+      if (body && st.scroll) body.scrollTop = st.scroll;
+    } else if (st.type === "quiz") {
+      openQuizPanel(st.qid);
+    } else if (st.type === "code") {
+      openCodePreviewPanel(st.title, st.srcdoc);
+    } else if (st.type === "webimg") {
+      _openImagePreviewPanel(st.src, st.name);
+    }
+  } finally {
+    _panelStateGuard = false;
+  }
+}
 function openFilePreview(fid) {
   const f = _fileRegistry[fid];
   if (!f) return;
@@ -1939,6 +2011,7 @@ function openFilePreview(fid) {
   const title = $("fpPanelTitle");
   if (!panel || !body) return;
   if (title) title.textContent = f.name || "Preview";
+  _recordPanelState({ type: "file", f, zoom: _fpZoom });
   _fpZoom = 1;
   _fpCurrentFid = fid;
   _fpUpdateZoomLabel();
@@ -2004,6 +2077,7 @@ function openFilePreview(fid) {
 function closeFilePreviewPanel() {
   const panel = $("filePreviewPanel");
   if (!panel || !panel.classList.contains("open")) return;
+  _forgetPanelState();
   panel.classList.add("closing");
   // Release viewer state and pdfjs/PPTX resources retained on window.
   const body = $("fpPanelBody");
@@ -3650,14 +3724,12 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
     throw e;
   }
   if (!res.ok) {
-    const errText = await res.text().catch(() => "");
-    let errMsg = "";
-    try {
-      const j = JSON.parse(errText);
-      if (j?.error?.message) errMsg = j.error.message;
-    } catch {
-    }
-    const e = new Error(errMsg);
+    // Consume the body for cleanup but NEVER copy its text into the error:
+    // even after worker-side sanitization, frontend classification must rely
+    // on the HTTP status alone so nothing internal can surface in the UI or
+    // the developer console.
+    await res.text().catch(() => "");
+    const e = new Error(`HTTP ${res.status}`);
     e._modelError = true;
     e._httpStatus = res.status;
     throw e;
@@ -4562,11 +4634,14 @@ function _safeHref(u) {
 //   - error.name === "AbortError"  -> user hit Stop (cancellation)
 //   - _httpStatus === 0            -> network / offline
 //   - _timedOut                    -> server stalled
-//   - _httpStatus / _serverBlocked -> the server refused or blocked the request
+//   - 401 / 403 / _serverBlocked   -> the server refused the request
+//   - 429 / quota / rate-limit     -> momentarily at capacity, retry later
+//   - 5xx / server failures        -> server trouble, retry in a moment
 //   - anything else                -> generic "An error occurred while <x>."
-// Backend detail stays in the developer console, not the UI -- except when the
-// server itself provides a user-friendly explanation (err.message), which IS
-// surfaced so blocks / rate limits tell the user what actually happened.
+// Backend error text is NEVER passed through to the UI: the raw message can
+// leak quota/billing details, model ids, endpoint URLs, or developer console
+// output. We only inspect it internally (status code + content keywords) to
+// pick friendly copy, then discard it.
 function aiErrorMessage(action) {
   return `An error occurred while ${action}. Please try again.`;
 }
@@ -4583,14 +4658,19 @@ function aiChatErrorText(err, action) {
   if (err?._timedOut) {
     return "The response took too long, so generation timed out. Please try again.";
   }
-  if (err?._httpStatus || err?._serverBlocked) {
-    const known = (err?.message || "").trim();
-    if (known) return known;
-    const status = err?._httpStatus;
-    if (status === 401 || status === 403) return `The server blocked this request.`;
-    if (status === 429) return "Too many requests right now \u2014 please wait a moment and try again.";
-    if (status >= 500) return "The server is having trouble right now \u2014 please try again in a moment.";
-    return status ? `The server blocked this request (HTTP ${status}).` : "The server blocked this request.";
+  const status = err?._httpStatus;
+  const raw = (err?.message || "").trim();
+  if (err?._serverBlocked || status === 401 || status === 403) {
+    return "The server blocked this request. Please try again.";
+  }
+  // 429 / 402 together with quota/rate-limit/billing keywords (quota exceeded,
+  // INSUFFICIENT_QUOTA, rate limit, ...) — friendly retry copy only, never
+  // the backend's plan/billing wording.
+  if (status === 402 || status === 429 || /quota|insufficient_quota|rate.?limit|RESOURCE_EXHAUSTED|Too Many Requests|billing|payment/i.test(raw)) {
+    return "EmeraldBot is at capacity right now \u2014 please wait a moment and try again.";
+  }
+  if (status >= 500 || /5\d{2}|internal|temporarily unavailable|please retry|try again/i.test(raw)) {
+    return "The server is having trouble right now \u2014 please try again in a moment.";
   }
   return aiErrorMessage(action);
 }
@@ -5290,6 +5370,7 @@ function clearAllChats() {
   saveConvs([]);
   saveLib([]);
   window._quizzes = {};
+  Object.keys(_convPanelState).forEach((k) => delete _convPanelState[k]);
   state.convId = null;
   state.isTemp = false;
   state.tempHistory = [];
@@ -5641,6 +5722,7 @@ function openQuizPanel(qid) {
   const n = qz.data.questions ? qz.data.questions.length : 0;
   if (title) title.textContent = qz.data.title || "Quiz";
   if (count) count.textContent = n + " question" + (n !== 1 ? "s" : "");
+  _recordPanelState({ type: "quiz", qid });
   body.innerHTML = renderQuizWidget(qid, qz.data);
   const widgetHeader = body.querySelector(".quiz-header");
   if (widgetHeader) widgetHeader.style.display = "none";
@@ -5649,6 +5731,7 @@ function openQuizPanel(qid) {
 function closeQuizPanel() {
   const p = $("quizPanel");
   if (!p || !p.classList.contains("open")) return;
+  _forgetPanelState();
   p.classList.add("closing");
   setTimeout(() => {
     p.classList.remove("open", "closing");
@@ -6591,22 +6674,35 @@ function renderCitations(aiDiv, sources) {
   const wrap = document.createElement("div");
   wrap.className = "esb-citations";
   const seen = /* @__PURE__ */ new Set();
+  // Hosts that should never appear as citation chips: search-engine-internal
+  // navigation and known fake/spam domains (e.g. "unknownlink.com",
+  // "vertexaigoogle.com").
+  const _JUNK_HOST_RE = /(^|\.)bing\.com$|(^|\.)duckduckgo\.com$|(^|\.)(unknownlink|vertexaigoogle|aigoogle|makingcouldthisbeup)(\.|$)/i;
+  const _JUNK_TITLE_RE = /https?:\/\/(?!\/)|unknownlink|vertexaigoogle|aigoogle/i;
   sources.forEach((s) => {
     if (!s?.uri || seen.has(s.uri)) return;
+    const href = _safeHref(s.uri);
+    if (href === "#") return;
     seen.add(s.uri);
     const a = document.createElement("a");
     a.className = "esb-citation-chip";
-    a.href = _safeHref(s.uri);
+    a.href = href;
     a.target = "_blank";
     a.rel = "noopener noreferrer";
     let host = "";
     try {
       host = new URL(s.uri).hostname.replace(/^www\./, "");
     } catch {}
+    if (!host || _JUNK_HOST_RE.test(host)) return;
     // Build chip text: "domain" or "domain › Title"
     let displayTitle = s.title || "";
     if (displayTitle && displayTitle.includes("://")) {
       // Title is actually a URL — strip it
+      displayTitle = "";
+    }
+    if (displayTitle && _JUNK_TITLE_RE.test(displayTitle)) {
+      // Spam/brand-impersonation title — show the link directly, not
+      // "junktitle › realdomain".
       displayTitle = "";
     }
     // If title is just the domain repeated (e.g. "example.com" for example.com url), skip it
@@ -6617,7 +6713,7 @@ function renderCitations(aiDiv, sources) {
     if (displayTitle.length > 60) displayTitle = displayTitle.slice(0, 57) + "...";
     let chipText = host || "Source";
     if (displayTitle && displayTitle !== host) {
-      chipText = host + " › " + displayTitle;
+      chipText = host + " \u203A " + displayTitle;
     }
     // Tooltip shows full title+URL on hover (useful when chip text is truncated)
     a.title = (displayTitle || host) + "\n" + s.uri;
@@ -6667,14 +6763,11 @@ async function processImageGenTag(aiDiv, prompt, convId, msgId) {
     });
     loadEl.remove();
     if (!res.ok) {
-      const _imgErr = new Error("");
+      const _imgErr = new Error(`HTTP ${res.status}`);
       _imgErr._httpStatus = res.status;
-      try {
-        const _t = await res.text();
-        const _j = JSON.parse(_t);
-        if (_j?.error?.message) _imgErr.message = _j.error.message;
-      } catch {
-      }
+      // The image worker may relay raw upstream error text (quota, billing,
+      // model ids). Drop it — classify by status code only.
+      await res.text().catch(() => "");
       const _errMsg = aiChatErrorText(_imgErr, "generating the image");
       const textEl = body?.querySelector(".message-text");
       if (textEl) {
@@ -6844,6 +6937,7 @@ function _openImagePreviewPanel(src, name) {
   const title = document.getElementById("fpPanelTitle");
   if (!panel || !body) { window.open(src, "_blank"); return; }
   if (title) title.textContent = name || "Image Preview";
+  _recordPanelState({ type: "webimg", src, name: name || "Image Preview" });
   if (typeof _fpZoom !== "undefined") { _fpZoom = 1; }
   if (typeof _fpUpdateZoomLabel === "function") _fpUpdateZoomLabel();
   if (typeof _fpCurrentFid !== "undefined") { _fpCurrentFid = null; }
