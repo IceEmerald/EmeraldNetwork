@@ -996,10 +996,21 @@ function renderMarkdown(raw) {
       // multi-line expressions in $...$ (and hallucinates single-char line
       // runs), which previously leaked as literal "$...$" text.
       const _hasLaTeX = /\\[a-zA-Z]/.test(_inner);
+      // The final "long pure number" guard must reject GARBAGE, not math.
+      // The old shape check (/^[^\d]*\d[\d,]*$/) matches any span that ENDS
+      // in a number — the arbitrary non-digit PREFIX lets formulas like
+      // "E = mc^2" through, so they were misclassified as currency and their
+      // $ pair rejected. That then let the next $ swallow the prose between
+      // two inline math spans: "$E = mc^2$, where $c \approx...$" became
+      // "$E = mc^2 <math>,where </math>c \approx...$". Only treat a span as
+      // a bare number when stripping thousands separators / whitespace leaves
+      // a pure digit string (with an optional leading sign) — letters/symbols
+      // mean it is a formula, not a currency amount.
+      const _compactNum = _inner.replace(/[,\s]/g, "");
       const _isCurrency = !_hasLaTeX && (
         /(?:^|\D)\d{1,3}(?:,\d{3})+(?:\.\d+)?/.test(_inner) ||
         /\d\.\d/.test(_inner) ||
-        (/^[^\d]*\d[\d,]*$/.test(_inner) && _inner.replace(/[,\s]/g, "").length >= 5)
+        (/^[^\d]*\d[\d,]*$/.test(_inner) && /^-?[\d.]+$/.test(_compactNum) && _compactNum.length >= 5)
       );
       // Char-by-char hallucination: >=3 single-character lines inside a
       // $...$ span means the model broke a sentence apart (e.g. "R\nu\nm\nu\n
