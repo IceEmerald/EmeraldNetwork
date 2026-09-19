@@ -116,21 +116,6 @@ const LIB_KEY = "en_chat_lib";
 const SETTINGS_KEY = "en_chat_settings";
 const MEMORY_KEY = "en_chat_memory";
 const OB_KEY = "en_onboarded";
-const FILE_BLOB_PREFIX = "en_chat_file_";
-async function storeFileBlob(base64) {
-  if (!window.EmeraldIDBStorage) return null;
-  const key = FILE_BLOB_PREFIX + genId();
-  await window.EmeraldIDBStorage.setBlob(key, base64);
-  return key;
-}
-async function getFileBlob(key) {
-  if (!window.EmeraldIDBStorage || !key) return null;
-  return window.EmeraldIDBStorage.getBlob(key);
-}
-async function deleteFileBlob(key) {
-  if (!window.EmeraldIDBStorage || !key) return;
-  await window.EmeraldIDBStorage.delete(key);
-}
 async function migrateChatStorageToIndexedDB() {
   if (!window.EmeraldIDBStorage) return;
   try {
@@ -158,28 +143,12 @@ let state = {
   tempHistory: []
 };
 function loadConvs() {
-  const cached = S.get(CONV_KEY);
-  if (cached !== null) return cached;
-  return [];
-}
-async function loadConvsAsync() {
-  if (window.EmeraldIDBStorage) {
-    const convs = await window.EmeraldIDBStorage.getJSON(CONV_KEY);
-    if (convs) return convs;
-  }
   return S.get(CONV_KEY) || [];
 }
 function saveConvs(arr) {
   S.set(CONV_KEY, arr);
 }
 function loadLib() {
-  return S.get(LIB_KEY) || [];
-}
-async function loadLibAsync() {
-  if (window.EmeraldIDBStorage) {
-    const lib = await window.EmeraldIDBStorage.getJSON(LIB_KEY);
-    if (lib) return lib;
-  }
   return S.get(LIB_KEY) || [];
 }
 function saveLib(arr) {
@@ -268,7 +237,7 @@ function setupChatStorageSync() {
     }
   });
 }
-async function buildFileParts(files) {
+function buildFileParts(files) {
   const parts = [];
   const unreadable = [];
   const INLINE_PREFIXES = ["image/", "audio/", "video/", "text/"];
@@ -332,12 +301,8 @@ ${f.extractedText}`;
       }
       continue;
     }
-    let dataUrl = f.data;
-    if (!dataUrl && f.blobKey) {
-      dataUrl = await getFileBlob(f.blobKey);
-    }
-    if (!dataUrl) continue;
-    const b64 = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
+    if (!f.data) continue;
+    const b64 = f.data.includes(",") ? f.data.split(",")[1] : f.data;
     const isInline = INLINE_PREFIXES.some((p) => type.startsWith(p)) || INLINE_EXACT.has(type);
     const isTextExt = TEXT_EXTS.has(ext);
     if (isInline) {
@@ -364,16 +329,6 @@ function upsertConv(conv) {
   saveConvs(arr);
 }
 function deleteConv(id) {
-  const conv = getConv(id);
-  if (conv) {
-    for (const m of conv.messages) {
-      if (m.files) {
-        for (const f of m.files) {
-          if (f?.blobKey) deleteFileBlob(f.blobKey);
-        }
-      }
-    }
-  }
   saveConvs(loadConvs().filter((c) => c.id !== id));
   saveLib(loadLib().filter((f) => f.convId !== id));
   delete _convPanelState[id];
@@ -1931,8 +1886,7 @@ function fileCardHTML(f) {
   const fid = _regFile(f);
   const isImg = f.type && f.type.startsWith("image/");
   const name = escapeHtml(f.name || "");
-  const thumb = f.thumb || f.data;
-  const inner = isImg && thumb ? `<img class="msg-file-thumb" src="${escapeHtmlAttr(thumb)}" alt="">` : fileIcon(f.type || "");
+  const inner = isImg && f.data ? `<img class="msg-file-thumb" src="${escapeHtmlAttr(f.data)}" alt="">` : fileIcon(f.type || "");
   return `<div class="msg-file-card${isImg ? " msg-file-card--img" : ""}" data-fid="${fid}" onclick="openFilePreview('${fid}')" title="${name}">${inner}<span class="msg-file-name">${name}</span></div>`;
 }
 const _TEXT_PREVIEW_EXTS = /* @__PURE__ */ new Set([
@@ -2067,34 +2021,30 @@ function openFilePreview(fid) {
   const isDocx = f.type?.includes("word") || ext_fp === "docx" || ext_fp === "doc";
   const isPptx = f.type?.includes("presentation") || ext_fp === "pptx" || ext_fp === "ppt";
   const isText = _TEXT_PREVIEW_EXTS.has(ext_fp);
-  let dataUrl = f.data;
-  if (!dataUrl && f.blobKey) {
-    dataUrl = await getFileBlob(f.blobKey);
-  }
-  if (isImg && dataUrl) {
-    body.innerHTML = `<div class="fp-img-wrap"><img src="${dataUrl}" alt="${escapeHtml(f.name || "")}" id="fpImgEl" style="transform-origin:top center;"></div>`;
+  if (isImg && f.data) {
+    body.innerHTML = `<div class="fp-img-wrap"><img src="${f.data}" alt="${escapeHtml(f.name || "")}" id="fpImgEl" style="transform-origin:top center;"></div>`;
     panel.classList.add("open");
     _fpApplyZoom();
     return;
   }
-  if (isPDF && dataUrl) {
-    renderPdfCustom(dataUrl, body);
+  if (isPDF && f.data) {
+    renderPdfCustom(f.data, body);
     panel.classList.add("open");
     return;
   }
-  if (isPptx && dataUrl) {
-    renderPptxSlides(dataUrl, body);
+  if (isPptx && f.data) {
+    renderPptxSlides(f.data, body);
     panel.classList.add("open");
     return;
   }
-  if (isDocx && dataUrl) {
-    renderDocxCustom(dataUrl, body);
+  if (isDocx && f.data) {
+    renderDocxCustom(f.data, body);
     panel.classList.add("open");
     return;
   }
-  if (isText && dataUrl) {
+  if (isText && f.data) {
     try {
-      const b64 = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
+      const b64 = f.data.includes(",") ? f.data.split(",")[1] : f.data;
       const binStr = atob(b64);
       const bytes = new Uint8Array(binStr.length);
       for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
@@ -2914,7 +2864,7 @@ async function handleSend(opts) {
   } : null;
   if (conv) {
     const isNewConv = !getConv(conv.id);
-    conv.messages.push({ role: "user", text, files: files.map((f) => ({ name: f.name, type: f.type, size: f.size, blobKey: f.blobKey, thumb: f.thumb, extractedText: f.extractedText })), id: userMsgId, _silent: _silent || undefined });
+    conv.messages.push({ role: "user", text, files: files.map((f) => ({ name: f.name, type: f.type, size: f.size, data: f.data || void 0, extractedText: f.extractedText })), id: userMsgId, _silent: _silent || undefined });
     upsertConv(conv);
     if (isNewConv) updateTopbarTitle(conv.title);
     updateOwnedUrl();
@@ -2924,7 +2874,7 @@ async function handleSend(opts) {
     state.tempHistory.push({ role: "user", parts: [{ text }] });
   }
   const history = buildHistory(conv);
-  const fileParts = await buildFileParts(files);
+  const fileParts = buildFileParts(files);
   if (fileParts.length) history[history.length - 1].parts.push(...fileParts);
   const urlsInMsg = extractUrls(text);
   const _wsNeeded = detectWebSearchIntent(text) || urlsInMsg.length > 0;
@@ -4114,9 +4064,7 @@ async function processFileForAttachment(f) {
           fr.onabort = () => reject(new Error("FileReader aborted"));
           fr.readAsDataURL(f);
         });
-        const blobKey = await storeFileBlob(dataUrl);
-        const thumb = dataUrl.length < 200 * 1024 ? dataUrl : await makeThumb(dataUrl, f.type);
-        state.attachments.push({ name: f.name, type: f.type, size: f.size, blobKey, thumb, extractedText: text.slice(0, 12e4) });
+        state.attachments.push({ name: f.name, type: f.type, size: f.size, data: dataUrl, extractedText: text.slice(0, 12e4) });
       } else {
         state.attachments.push({ name: f.name, type: f.type, size: f.size, extractedText: text.slice(0, 12e4) });
       }
@@ -4136,35 +4084,8 @@ async function processFileForAttachment(f) {
       finalSize = compressed.size;
     }
   }
-  const blobKey = await storeFileBlob(finalDataUrl);
-  const thumb = finalDataUrl.length < 200 * 1024 ? finalDataUrl : await makeThumb(finalDataUrl, f.type);
-  state.attachments.push({ name: f.name, type: f.type, size: finalSize, blobKey, thumb, extractedText: text.slice(0, 12e4) });
+  state.attachments.push({ name: f.name, type: f.type, size: finalSize, data: finalDataUrl });
   renderAttachmentPreviews();
-}
-async function makeThumb(dataUrl, mimeType) {
-  try {
-    const img = await new Promise((resolve, reject) => {
-      const im = new Image();
-      im.onload = () => resolve(im);
-      im.onerror = () => reject(new Error("image decode failed"));
-      im.src = dataUrl;
-    });
-    const max = 200;
-    const scale = Math.min(1, max / Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height));
-    const w = Math.max(1, Math.round((img.naturalWidth || img.width) * scale));
-    const h = Math.max(1, Math.round((img.naturalHeight || img.height) * scale));
-    const canvas = document.createElement("canvas");
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return dataUrl;
-    ctx.drawImage(img, 0, 0, w, h);
-    const quality = mimeType === "image/png" ? undefined : 0.7;
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, mimeType, quality));
-    return blob ? await _readFileAsDataURL(blob) : dataUrl;
-  } catch {
-    return dataUrl;
-  }
 }
 async function handleFileSelect(input) {
   const files = Array.from(input.files || []);
@@ -4189,7 +4110,7 @@ function renderAttachmentPreviews() {
   wrap.innerHTML = state.attachments.map((f, i) => {
     if (f.type?.startsWith("image/")) {
       return `<div class="attach-thumb">
-        <img src="${f.thumb || ''}" alt="${escapeHtml(f.name)}">
+        <img src="${f.data}" alt="${escapeHtml(f.name)}">
         <button class="attach-rm" onclick="removeAttachment(${i})">\xD7</button>
       </div>`;
     }
@@ -4201,15 +4122,10 @@ function renderAttachmentPreviews() {
   }).join("");
 }
 function removeAttachment(idx) {
-  const f = state.attachments[idx];
-  if (f?.blobKey) deleteFileBlob(f.blobKey);
   state.attachments.splice(idx, 1);
   renderAttachmentPreviews();
 }
 function clearAttachments() {
-  for (const f of state.attachments) {
-    if (f?.blobKey) deleteFileBlob(f.blobKey);
-  }
   state.attachments = [];
   renderAttachmentPreviews();
 }
@@ -5017,7 +4933,7 @@ async function init() {
   setupChatStorageSync();
   setupMarked();
   setupContextMenu();
-  await loadConvsAsync().then(renderSidebar);
+  renderSidebar();
   showWelcome();
   /* Deep-link: ?chat=<random id> opens that conversation straight away. */
   const ownedParam = (() => { try { return new URLSearchParams(location.search).get('chat'); } catch (e) { return null; } })();
@@ -6065,7 +5981,7 @@ async function submitUserMsgEdit(msgId) {
   if (originalFiles.length && history.length) {
     const last = history[history.length - 1];
     if (last && last.parts && last.parts.length) {
-      const fileParts = await buildFileParts(originalFiles);
+      const fileParts = buildFileParts(originalFiles);
       if (fileParts.length) last.parts.push(...fileParts);
     }
   }
