@@ -116,6 +116,8 @@ const LIB_KEY = "en_chat_lib";
 const SETTINGS_KEY = "en_chat_settings";
 const MEMORY_KEY = "en_chat_memory";
 const OB_KEY = "en_onboarded";
+// Safe ceiling well under V8's ~512MB JSON.stringify limit.
+const MAX_CONV_STORAGE_BYTES = 450 * 1024 * 1024;
 async function migrateChatStorageToIndexedDB() {
   if (!window.EmeraldIDBStorage) return;
   try {
@@ -146,6 +148,18 @@ function loadConvs() {
   return S.get(CONV_KEY) || [];
 }
 function saveConvs(arr) {
+  try {
+    const raw = JSON.stringify(arr);
+    if (raw.length > MAX_CONV_STORAGE_BYTES) {
+      const e = new Error("Storage quota exceeded");
+      e._quotaExceeded = true;
+      e._currentBytes = raw.length;
+      throw e;
+    }
+  } catch (e) {
+    if (!e._quotaExceeded) throw e;
+    throw e;
+  }
   S.set(CONV_KEY, arr);
 }
 function loadLib() {
@@ -326,7 +340,14 @@ function upsertConv(conv) {
   const idx = arr.findIndex((c) => c.id === conv.id);
   if (idx >= 0) arr[idx] = conv;
   else arr.unshift(conv);
-  saveConvs(arr);
+  try {
+    saveConvs(arr);
+  } catch (e) {
+    if (e._quotaExceeded) {
+      showToast(`${_aiSvgError} Storage full (${Math.round(e._currentBytes / 1024 / 1024)} MB). Delete old chats or remove attachments to continue.`, "error");
+    }
+    throw e;
+  }
 }
 function deleteConv(id) {
   saveConvs(loadConvs().filter((c) => c.id !== id));
@@ -2865,7 +2886,11 @@ async function handleSend(opts) {
   if (conv) {
     const isNewConv = !getConv(conv.id);
     conv.messages.push({ role: "user", text, files: files.map((f) => ({ name: f.name, type: f.type, size: f.size, data: f.data || void 0, extractedText: f.extractedText })), id: userMsgId, _silent: _silent || undefined });
-    upsertConv(conv);
+    try {
+      upsertConv(conv);
+    } catch {
+      return; // toast already shown by upsertConv
+    }
     if (isNewConv) updateTopbarTitle(conv.title);
     updateOwnedUrl();
     renderSidebar();
