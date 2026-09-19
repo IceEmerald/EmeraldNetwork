@@ -1907,7 +1907,7 @@ body.light-mode .chat-input-box.input-busy .input-container {
     border: 1px solid rgba(0, 0, 0, 0.1);
     border-radius: 8px;
     min-width: 240px;
-    z-index: 10000;
+    z-index: 1000000;
     box-shadow: rgba(0, 0, 0, 0.1) 0px 10px 20px;
     backdrop-filter: blur(3px);
     padding: 8px 0px;
