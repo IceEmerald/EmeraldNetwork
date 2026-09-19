@@ -158,12 +158,28 @@ let state = {
   tempHistory: []
 };
 function loadConvs() {
+  const cached = S.get(CONV_KEY);
+  if (cached !== null) return cached;
+  return [];
+}
+async function loadConvsAsync() {
+  if (window.EmeraldIDBStorage) {
+    const convs = await window.EmeraldIDBStorage.getJSON(CONV_KEY);
+    if (convs) return convs;
+  }
   return S.get(CONV_KEY) || [];
 }
 function saveConvs(arr) {
   S.set(CONV_KEY, arr);
 }
 function loadLib() {
+  return S.get(LIB_KEY) || [];
+}
+async function loadLibAsync() {
+  if (window.EmeraldIDBStorage) {
+    const lib = await window.EmeraldIDBStorage.getJSON(LIB_KEY);
+    if (lib) return lib;
+  }
   return S.get(LIB_KEY) || [];
 }
 function saveLib(arr) {
@@ -5001,7 +5017,7 @@ async function init() {
   setupChatStorageSync();
   setupMarked();
   setupContextMenu();
-  renderSidebar();
+  await loadConvsAsync().then(renderSidebar);
   showWelcome();
   /* Deep-link: ?chat=<random id> opens that conversation straight away. */
   const ownedParam = (() => { try { return new URLSearchParams(location.search).get('chat'); } catch (e) { return null; } })();

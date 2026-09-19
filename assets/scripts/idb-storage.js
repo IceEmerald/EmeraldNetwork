@@ -152,6 +152,10 @@
         if (localRaw != null) await hydrateKey(key);
         const raw = readCache(key) || await getRaw(key);
         if (!raw) return null;
+        if (raw.length > SYNC_PARSE_MAX) {
+            console.warn(`getJSON: skipping parse of ${(raw.length/1024/1024).toFixed(1)}MB for "${key}"`);
+            return null;
+        }
         try { return JSON.parse(raw); } catch { return null; }
     }
 
@@ -187,9 +191,14 @@
         });
     }
 
+    const SYNC_PARSE_MAX = 2 * 1024 * 1024;
     function getJSONSync(key) {
         const raw = readCache(key) || (readLocalRaw(key));
         if (!raw) return null;
+        if (raw.length > SYNC_PARSE_MAX) {
+            console.warn(`getJSONSync: skipping synchronous parse of ${(raw.length/1024/1024).toFixed(1)}MB for "${key}" — use getJSON() instead`);
+            return null;
+        }
         try { return JSON.parse(raw); } catch { return null; }
     }
 
