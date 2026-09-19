@@ -117,7 +117,7 @@ const SETTINGS_KEY = "en_chat_settings";
 const MEMORY_KEY = "en_chat_memory";
 const OB_KEY = "en_onboarded";
 // Safe ceiling well under V8's ~512MB JSON.stringify limit.
-const MAX_CONV_STORAGE_BYTES = 450 * 1024 * 1024;
+const MAX_CONV_STORAGE_BYTES = 500 * 1024 * 1024;
 async function migrateChatStorageToIndexedDB() {
   if (!window.EmeraldIDBStorage) return;
   try {
@@ -142,7 +142,8 @@ let state = {
   streamConvId: null,
   streamMsgId: null,
   attachments: [],
-  tempHistory: []
+  tempHistory: [],
+  storageFull: false
 };
 function loadConvs() {
   return S.get(CONV_KEY) || [];
@@ -344,7 +345,9 @@ function upsertConv(conv) {
     saveConvs(arr);
   } catch (e) {
     if (e._quotaExceeded) {
+      state.storageFull = true;
       showToast(`${_aiSvgError} Storage full (${Math.round(e._currentBytes / 1024 / 1024)} MB). Delete old chats or remove attachments to continue.`, "error");
+      _syncSendButtonState();
     }
     throw e;
   }
@@ -353,6 +356,43 @@ function deleteConv(id) {
   saveConvs(loadConvs().filter((c) => c.id !== id));
   saveLib(loadLib().filter((f) => f.convId !== id));
   delete _convPanelState[id];
+  _recheckStorageQuota();
+}
+function _recheckStorageQuota() {
+  if (!state.storageFull) return;
+  try {
+    const raw = JSON.stringify(loadConvs());
+    if (raw.length <= MAX_CONV_STORAGE_BYTES) {
+      state.storageFull = false;
+      _syncInputBusyUi();
+      _syncSendButtonState();
+    }
+  } catch {
+    // ignore
+  }
+}
+function _syncSendButtonState() {
+  const btn = $("sendBtn");
+  if (!btn) return;
+  const full = state.storageFull;
+  if (full) {
+    btn.title = "Storage full — delete chats or attachments";
+    btn.onclick = () => showToast(`${_aiSvgError} Storage full. Delete old chats or remove attachments to continue.`, "error");
+  } else {
+    btn.title = "Send";
+    btn.onclick = handleSend;
+  }
+  const glyph = full
+    ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`
+    : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>`;
+  if (btn.innerHTML === glyph) return;
+  btn.dataset.swapping = "1";
+  btn.style.opacity = "0";
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    btn.innerHTML = glyph;
+    btn.style.opacity = "";
+    btn.dataset.swapping = "0";
+  }));
 }
 function _cryptoInt(n) {
   const _max = Math.floor(0x100000000 / n) * n;
@@ -2793,10 +2833,11 @@ function _syncInputBusyUi() {
   const ta = $("chatInput");
   if (!box || !ta) return;
   const busy = state.isStreaming && !_activeStreamTargetsView(state.streamConvId);
+  const full = state.storageFull;
   box.classList.toggle("input-busy", busy);
-  const ph = busy ? "Still answering..." : "Ask anything...";
+  const ph = full ? "Storage full — delete chats or attachments to continue" : (busy ? "Still answering..." : "Ask anything...");
   if (ta.placeholder !== ph) ta.placeholder = ph;
-  ta.readOnly = busy;
+  ta.readOnly = busy || full;
 }
 // Jump back to the conversation that is currently generating in the
 // background (visible beside the stop button while "Still answering...").
@@ -2846,6 +2887,10 @@ function rateMsg(btn, type) {
 }
 async function handleSend(opts) {
   const _silent = !!(opts && opts.silent);
+  if (state.storageFull) {
+    showToast(`${_aiSvgError} Storage full. Delete old chats or remove attachments to free space.`, "error");
+    return;
+  }
   if (state.isStreaming) {
     if (_silent) showToast(`${_aiSvgWarn} Please wait — the AI is still responding.`);
     return;
@@ -3379,16 +3424,22 @@ function buildHistory(conv) {
 function setSendState(sending) {
   const btn = $("sendBtn");
   if (!btn) return;
+  const full = state.storageFull;
   if (sending) {
     btn.title = "Stop";
     btn.onclick = stopStreaming;
+  } else if (full) {
+    btn.title = "Storage full — delete chats or attachments";
+    btn.onclick = () => showToast(`${_aiSvgError} Storage full. Delete old chats or remove attachments to continue.`, "error");
   } else {
     btn.title = "Send";
     btn.onclick = handleSend;
   }
-  const glyph = sending
-    ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`
-    : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>`;
+  const glyph = full
+    ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`
+    : sending
+      ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`
+      : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>`;
   if (btn.innerHTML === glyph) return;
   btn.dataset.swapping = "1";
   btn.style.opacity = "0";
@@ -4255,17 +4306,14 @@ async function _refreshStorageMeter() {
   const est = await _getStorageEstimate();
   const app = _sumAppKeyBytes();
   const hasEstimate = typeof est.usage === "number";
-  // navigator.storage.estimate() reports this origin's total browser storage
-  // (IndexedDB holds the chat data), which is the accurate number. When it is
-  // unavailable (e.g. Safari), fall back to the sum of this app's own keys.
   const usage = hasEstimate ? est.usage : app.total;
-  const quota = typeof est.quota === "number" ? est.quota : 0;
-  const pct = quota > 0 ? Math.min(100, (usage / quota) * 100) : 0;
+  // Effective hard limit is V8's JSON.stringify ceiling (~512MB),
+  // we guard at 500MB so that's the "100%" mark users care about.
+  const HARD_LIMIT = 500 * 1024 * 1024;
+  const pct = Math.min(100, (usage / HARD_LIMIT) * 100);
   fill.style.width = `${pct.toFixed(1)}%`;
   fill.style.background = pct >= 90 ? "rgb(224,85,85)" : "rgb(80,200,120)";
-  meta.textContent = quota > 0
-    ? `${_fmtBytes(usage)} of ${_fmtBytes(quota)} used · ${pct.toFixed(1)}%`
-    : `${_fmtBytes(usage)} used`;
+  meta.textContent = `${_fmtBytes(usage)} of ${_fmtBytes(HARD_LIMIT)} used · ${pct.toFixed(1)}%`;
 }
 function _startStoreMeterLoop() {
   _stopStoreMeterLoop();
