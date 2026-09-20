@@ -99,9 +99,14 @@
     function plainHtml(html) {
         if (!html) return '';
         try {
-            const doc = new DOMParser().parseFromString(String(html), 'text/html');
-            return (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
-        } catch (e) { return ''; }
+            const doc = new DOMParser().parseFromString(String(html), 'text/xml');
+            return (doc.documentElement?.textContent || '').replace(/\s+/g, ' ').trim();
+        } catch (e) {
+            try {
+                const doc = new DOMParser().parseFromString(String(html), 'text/html');
+                return (doc.body?.textContent || '').replace(/\s+/g, ' ').trim();
+            } catch { return ''; }
+        }
     }
 
     function countWords(html) {

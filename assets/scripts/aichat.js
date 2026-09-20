@@ -5455,19 +5455,20 @@ function clearAllChats() {
 }
 /* ── Render cached image search results (from IndexedDB) without re-fetching ── */
 function _renderCachedImageSearchResults(aiDiv, cacheMap) {
-  if (!cacheMap || typeof cacheMap !== 'object') return;
-  // For each [IMAGE_SEARCH:] placeholder, look up its cached result by query
-  const placeholders = aiDiv.querySelectorAll(".web-image-searching");
-  placeholders.forEach(el => {
-    const query = el.dataset.imgSearch;
-    if (query && cacheMap[query]) {
-      const { url, alt } = cacheMap[query];
-      el.classList.remove("web-image-searching");
-      el.classList.add("web-image-loaded");
-      el.dataset.webImg = "1";
-      el.innerHTML = '<img class="web-image" src="' + escapeHtmlAttr(url) + '" alt="' + escapeHtmlAttr(alt || "Image") + '" loading="lazy">';
-    }
-  });
+    if (!cacheMap || typeof cacheMap !== 'object') return;
+    const placeholders = aiDiv.querySelectorAll(".web-image-searching");
+    placeholders.forEach(el => {
+        const query = el.dataset.imgSearch;
+        if (!query) return;
+        const safeKey = String(query).replace(/^(__proto__|constructor|prototype)$/, '_$1');
+        if (cacheMap[safeKey]) {
+            const { url, alt } = cacheMap[safeKey];
+            el.classList.remove("web-image-searching");
+            el.classList.add("web-image-loaded");
+            el.dataset.webImg = "1";
+            el.innerHTML = '<img class="web-image" src="' + escapeHtmlAttr(url) + '" alt="' + escapeHtmlAttr(alt || "Image") + '" loading="lazy">';
+        }
+    });
 }
 function appendStoredAIMessage(m) {
   const rawText = m.text || "";
@@ -6977,20 +6978,19 @@ async function processImageSearchTags(aiDiv, convId, msgId) {
     try {
       const convArr = loadConvs();
       const convObj = convArr.find((c) => c.id === convId);
-      if (convObj) {
+if (convObj) {
         const savedMsg = convObj.messages.find((m) => m.id === msgId);
         if (savedMsg) {
-          // Build a map: query → {url, alt} so each placeholder can find its cached result
-          const cacheMap = {};
-          for (const { img, query } of good) {
-            cacheMap[query] = { url: img.url, alt: img.alt || query };
-          }
-          // Merge with any existing cached results (preserve results from other placeholders)
-          if (!savedMsg.imageSearchCache) savedMsg.imageSearchCache = {};
-          Object.assign(savedMsg.imageSearchCache, cacheMap);
-          upsertConv(convObj);
+            const cacheMap = {};
+            for (const { img, query } of good) {
+                const safeKey = String(query).replace(/^(__proto__|constructor|prototype)$/, '_$1');
+                cacheMap[safeKey] = { url: img.url, alt: img.alt || query };
+            }
+            if (!savedMsg.imageSearchCache) savedMsg.imageSearchCache = {};
+            Object.assign(savedMsg.imageSearchCache, cacheMap);
+            upsertConv(convObj);
         }
-      }
+    }
     } catch (e) {
       console.warn("[ImageSearch] Failed to cache results:", e);
     }
