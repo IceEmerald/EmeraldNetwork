@@ -3433,9 +3433,11 @@ async function regenerateMessage(msgEl) {
   // so navigateRegenBranch can restore it when switching back.
   if (regenBranch.variants.length > 0 && regenBranch.current >= 0) {
     if (typeof regenBranch.current !== "number") return;
+    const curIdx = regenBranch.current;
+    if (!Number.isInteger(curIdx) || curIdx < 0 || curIdx >= regenBranch.variants.length) return;
     // regenBranch.current is always a non-negative number index, never a
     // prototype name; the branch map itself is a null-prototype object.
-    regenBranch.variants[regenBranch.current]._regenTail = regenTail;
+    regenBranch.variants[curIdx]._regenTail = regenTail;
   }
   const history = buildHistory(conv);
   state.isStreaming = true;
@@ -6255,12 +6257,12 @@ function navigateBranch(originalMsgId, dir) {
   if (startIdx < 0) startIdx = conv.messages.findIndex((m) => m._editBranchRef === originalMsgId);
   if (startIdx < 0) return;
   if (typeof branchInfo.current !== "number") return;
-  if (branchInfo.variants[branchInfo.current]) {
-    // branchInfo.current is a numeric index into the variants array; it can
-    // never be a prototype name, and the branch map is null-prototype.
-    branchInfo.variants[branchInfo.current].text = conv.messages[startIdx].text;
-    branchInfo.variants[branchInfo.current].tail = conv.messages.slice(startIdx + 1).map((m) => ({ ...m }));
-    branchInfo.variants[branchInfo.current].files = (conv.messages[startIdx].files || []).map((f) => ({ ...f }));
+  const curIdx = branchInfo.current;
+  if (!Number.isInteger(curIdx) || curIdx < 0 || curIdx >= branchInfo.variants.length) return;
+  if (branchInfo.variants[curIdx]) {
+    branchInfo.variants[curIdx].text = conv.messages[startIdx].text;
+    branchInfo.variants[curIdx].tail = conv.messages.slice(startIdx + 1).map((m) => ({ ...m }));
+    branchInfo.variants[curIdx].files = (conv.messages[startIdx].files || []).map((f) => ({ ...f }));
   }
   branchInfo.current = newIdx;
   const target = branchInfo.variants[newIdx];
