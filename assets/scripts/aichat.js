@@ -189,6 +189,11 @@ function deleteMemory(id) {
   saveMemories(loadMemories().filter((m) => m.id !== id));
   renderMemoriesModal();
 }
+function safeSetProp(obj, prop, value) {
+  if (!obj || typeof obj !== "object") return;
+  if (typeof prop !== "string" || prop === "__proto__" || prop === "constructor" || prop === "prototype") return;
+  Object.defineProperty(obj, prop, { value, writable: true, configurable: true, enumerable: true });
+}
 let chatStorageSyncReady = false;
 function setupChatStorageSync() {
   if (chatStorageSyncReady || !window.EmeraldIDBStorage?.subscribe) return;
@@ -3437,7 +3442,8 @@ async function regenerateMessage(msgEl) {
     if (!Number.isInteger(curIdx) || curIdx < 0 || curIdx >= regenBranch.variants.length) return;
     // regenBranch.current is always a non-negative number index, never a
     // prototype name; the branch map itself is a null-prototype object.
-    regenBranch.variants[curIdx]._regenTail = regenTail;
+    const variant = regenBranch.variants[curIdx];
+    if (variant) safeSetProp(variant, "_regenTail", regenTail);
   }
   const history = buildHistory(conv);
   state.isStreaming = true;
@@ -6260,9 +6266,10 @@ function navigateBranch(originalMsgId, dir) {
   const curIdx = branchInfo.current;
   if (!Number.isInteger(curIdx) || curIdx < 0 || curIdx >= branchInfo.variants.length) return;
   if (branchInfo.variants[curIdx]) {
-    branchInfo.variants[curIdx].text = conv.messages[startIdx].text;
-    branchInfo.variants[curIdx].tail = conv.messages.slice(startIdx + 1).map((m) => ({ ...m }));
-    branchInfo.variants[curIdx].files = (conv.messages[startIdx].files || []).map((f) => ({ ...f }));
+    const variant = branchInfo.variants[curIdx];
+    safeSetProp(variant, "text", conv.messages[startIdx].text);
+    safeSetProp(variant, "tail", conv.messages.slice(startIdx + 1).map((m) => ({ ...m })));
+    safeSetProp(variant, "files", (conv.messages[startIdx].files || []).map((f) => ({ ...f })));
   }
   branchInfo.current = newIdx;
   const target = branchInfo.variants[newIdx];

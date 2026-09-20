@@ -99,7 +99,7 @@
     function plainHtml(html) {
         if (!html) return '';
         const ta = document.createElement('textarea');
-        ta.innerHTML = String(html);
+        ta.textContent = String(html);
         return ta.value.replace(/\s+/g, ' ').trim();
     }
 
