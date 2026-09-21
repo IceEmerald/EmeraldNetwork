@@ -939,6 +939,8 @@ function renderMarkdown(raw) {
   let text = raw;
   text = text.replace(/<quiz>[\s\S]*?<\/quiz>/g, "");
   text = text.replace(/<quiz>[\s\S]*$/g, "");
+  text = text.replace(/<es-app>[\s\S]*?<\/es-app>/g, "");
+  text = text.replace(/<es-app>[\s\S]*$/g, "");
   // Convert [IMAGE: url] tags to inline image HTML before markdown processing.
   // This ensures images render inline in the chat like ChatGPT, not as raw text.
   const webImageBlocks = [];
@@ -1124,9 +1126,20 @@ function _streamDisplayText(raw) {
   t = t.replace(/\[IMAGE:\s*[^\]]+\]/g, "");
   t = t.replace(/\[IMAGE_SEARCH:\s*[^\]]+\]/g, "");
   t = _stripThinkingPreamble(t);
+  const appIdx = t.indexOf("<es-app>");
+  if (appIdx >= 0) {
+    return { text: t.slice(0, appIdx), quizStarted: false, appStarted: true };
+  }
+  const appTag = "<es-app";
+  for (let i = appTag.length; i >= 1; i--) {
+    if (t.endsWith(appTag.slice(0, i))) {
+      t = t.slice(0, -i);
+      break;
+    }
+  }
   const quizIdx = t.indexOf("<quiz>");
   if (quizIdx >= 0) {
-    return { text: t.slice(0, quizIdx), quizStarted: true };
+    return { text: t.slice(0, quizIdx), quizStarted: true, appStarted: false };
   }
   const tag = "<quiz";
   for (let i = tag.length; i >= 1; i--) {
@@ -1135,7 +1148,7 @@ function _streamDisplayText(raw) {
       break;
     }
   }
-  return { text: t, quizStarted: false };
+  return { text: t, quizStarted: false, appStarted: false };
 }
 /* ── Per-word streaming reveal ──────────────────────────────────
    Wraps each whitespace-separated token in the streaming message
@@ -3043,7 +3056,7 @@ async function handleSend(opts) {
     fullText += chunk;
     if (!_ensureStreamDom()) return;
     const _sd = _streamDisplayText(fullText);
-    textEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.quizStarted ? quizLoadingCardHTML() : '<span class="stream-cursor" aria-hidden="true"></span>');
+    textEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.quizStarted ? quizLoadingCardHTML() : _sd.appStarted ? esAppLoadingCardHTML() : '<span class="stream-cursor" aria-hidden="true"></span>');
     _wrapStreamWords(textEl);
     scrollToBottom();
   }, _streamOpts);
@@ -3166,9 +3179,15 @@ async function handleSend(opts) {
     const afterQuizText = _quizResult.after;
     const _quizParseFailed = _quizResult.parseFailed;
     displayText = _quizResult.before;
+    const _appResult = (quizData || _quizParseFailed) ? { appData: null, parseFailed: false, before: displayText, after: "" } : _extractEmeraldApp(displayText);
+    const appData = _appResult.appData;
+    const beforeAppText = _appResult.before;
+    const afterAppText = _appResult.after;
+    const _appParseFailed = _appResult.parseFailed;
+    displayText = beforeAppText;
     textEl.classList.remove("stream-reveal");
     const _textToShow = (quizData || _quizParseFailed) ? beforeQuizText : displayText;
-    const _hasOtherContent = !!(quizData || _quizParseFailed || _imgPrompt || memoryAdded);
+    const _hasOtherContent = !!(quizData || _quizParseFailed || appData || _appParseFailed || _imgPrompt || memoryAdded);
     if (_textToShow) {
       textEl.innerHTML = renderMarkdown(_textToShow);
     } else if (_hasOtherContent) {
@@ -3205,6 +3224,11 @@ async function handleSend(opts) {
       errCard.innerHTML = quizErrorCardHTML();
       textEl.insertAdjacentElement("afterend", errCard.firstElementChild);
     }
+    if (appData) {
+      renderEsAppCard(textEl, appData, afterAppText, msgId);
+    } else if (_appParseFailed) {
+      renderEsAppErrorCard(textEl);
+    }
     const _groundingSources = extractGroundingSources(_groundingMetadata);
     const _allSources = [..._groundingSources, ..._webSources];
     // Always render citations (converts [N] to orphan badges when no sources).
@@ -3229,6 +3253,10 @@ async function handleSend(opts) {
         quizData: quizData || void 0,
         quizTextBefore: (quizData || _quizParseFailed) ? beforeQuizText : void 0,
         quizTextAfter: (quizData || _quizParseFailed) ? afterQuizText : void 0,
+        hasEsApp: !!(appData || _appParseFailed),
+        esAppData: appData || void 0,
+        esAppTextBefore: (appData || _appParseFailed) ? beforeAppText : void 0,
+        esAppTextAfter: (appData || _appParseFailed) ? afterAppText : void 0,
         imagePrompt: _imgPrompt || void 0,
         // Persist the reasoning text so the collapsible "Reasoning" panel
         // can be re-rendered on page reload. Stored separately from `text`
@@ -3280,6 +3308,7 @@ function buildHistory(conv) {
     const msgs = allMsgs.slice(-HISTORY_MAX_MSGS).map((m, idx, arr) => {
       let text = m.text || "";
       text = text.replace(/<quiz>[\s\S]*?<\/quiz>/g, "[A quiz was provided here]");
+      text = text.replace(/<es-app>[\s\S]*?<\/es-app>/g, "[Content was offered for import to EmeraldSuite]");
       text = _stripMemoryTags(text).replace(/\[GENERATE_IMAGE:\s*[^\]]+\]/g, "").replace(/\[IMAGE:\s*[^\]]+\]/g, "").replace(/\[IMAGE_SEARCH:\s*[^\]]+\]/g, "").trim();
       if (m.imagePrompt) {
         text += `
@@ -3529,7 +3558,7 @@ async function regenerateMessage(msgEl) {
       fullText += chunk;
       if (!_ensureStreamDom()) return;
       const _sd = _streamDisplayText(fullText);
-      textEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.quizStarted ? quizLoadingCardHTML() : '<span class="stream-cursor" aria-hidden="true"></span>');
+      textEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.quizStarted ? quizLoadingCardHTML() : _sd.appStarted ? esAppLoadingCardHTML() : '<span class="stream-cursor" aria-hidden="true"></span>');
       _wrapStreamWords(textEl);
       scrollToBottom();
     }, {
@@ -3608,9 +3637,15 @@ async function regenerateMessage(msgEl) {
     const afterQuizText = _quizResult.after;
     const _quizParseFailed = _quizResult.parseFailed;
     displayText = _quizResult.before;
+    const _appResult = (quizData || _quizParseFailed) ? { appData: null, parseFailed: false, before: displayText, after: "" } : _extractEmeraldApp(displayText);
+    const appData = _appResult.appData;
+    const beforeAppText = _appResult.before;
+    const afterAppText = _appResult.after;
+    const _appParseFailed = _appResult.parseFailed;
+    displayText = beforeAppText;
     textEl.classList.remove("stream-reveal");
     const _regenTextToShow = (quizData || _quizParseFailed) ? beforeQuizText : displayText;
-    const _hasOtherContent = !!(quizData || _quizParseFailed || imgPrompt || memoryAdded);
+    const _hasOtherContent = !!(quizData || _quizParseFailed || appData || _appParseFailed || imgPrompt || memoryAdded);
     if (_regenTextToShow) {
       textEl.innerHTML = renderMarkdown(_regenTextToShow);
     } else if (_hasOtherContent) {
@@ -3647,6 +3682,11 @@ async function regenerateMessage(msgEl) {
       errCard.innerHTML = quizErrorCardHTML();
       textEl.insertAdjacentElement("afterend", errCard.firstElementChild);
     }
+    if (appData) {
+      renderEsAppCard(textEl, appData, afterAppText, newId);
+    } else if (_appParseFailed) {
+      renderEsAppErrorCard(textEl);
+    }
     const _groundingSources = extractGroundingSources(_groundingMetadata);
     const _allSources = [..._groundingSources, ..._webSources];
     renderCitations(aiDiv, _allSources);
@@ -3669,6 +3709,10 @@ async function regenerateMessage(msgEl) {
       quizData: quizData || void 0,
       quizTextBefore: (quizData || _quizParseFailed) ? beforeQuizText : void 0,
       quizTextAfter: (quizData || _quizParseFailed) ? afterQuizText : void 0,
+      hasEsApp: !!(appData || _appParseFailed),
+      esAppData: appData || void 0,
+      esAppTextBefore: (appData || _appParseFailed) ? beforeAppText : void 0,
+      esAppTextAfter: (appData || _appParseFailed) ? afterAppText : void 0,
       imagePrompt: imgPrompt || void 0,
       reasoning: _reasoningText || void 0,
       sources: _allSources.length ? _allSources.map(s => ({ title: s.title || '', uri: s.uri })) : void 0
@@ -5516,7 +5560,24 @@ function appendStoredAIMessage(m) {
       displayText = _qr.before;
     }
   }
-  const _initText = (quizData || quizParseFailed) ? beforeQuiz : displayText;
+  let esAppData = m.hasEsApp && m.esAppData ? m.esAppData : null;
+  let beforeApp = "";
+  let afterApp = "";
+  let appParseFailed = false;
+  if (esAppData) {
+    beforeApp = m.esAppTextBefore !== void 0 ? m.esAppTextBefore : "";
+    afterApp = m.esAppTextAfter || "";
+  } else if (!quizData && !quizParseFailed) {
+    const _ar = _extractEmeraldApp(displayText);
+    if (_ar.appData || _ar.parseFailed) {
+      esAppData = _ar.appData;
+      beforeApp = _ar.before;
+      afterApp = _ar.after;
+      appParseFailed = _ar.parseFailed;
+      displayText = _ar.before;
+    }
+  }
+  const _initText = (quizData || quizParseFailed) ? beforeQuiz : ((esAppData || appParseFailed) ? beforeApp : displayText);
   const _initHTML = m.isError ? `<span class="md-error">${escapeHtml(_initText)}</span>` : _initText ? renderMarkdown(_initText) : "";
   const div = document.createElement("div");
   div.className = "message";
@@ -5576,6 +5637,11 @@ function appendStoredAIMessage(m) {
     const errCard = document.createElement("div");
     errCard.innerHTML = quizErrorCardHTML();
     div.querySelector(".message-text").insertAdjacentElement("afterend", errCard.firstElementChild);
+  }
+  if (esAppData) {
+    renderEsAppCard(div.querySelector(".message-text"), esAppData, afterApp, m.id || genId());
+  } else if (appParseFailed) {
+    renderEsAppErrorCard(div.querySelector(".message-text"));
   }
   div.querySelector(".message-body").appendChild(buildMessageActionsEl(m.id || genId()));
   const _imgDataSafe = m.imageData ? _safeMediaSrc(m.imageData, "image") : '';
@@ -5794,6 +5860,388 @@ function quizErrorCardHTML() {
     </div>
   </div>`;
 }
+
+/* ── EmeraldSuite import (es-app) ─────────────────────────────
+   The AI may end a response with <es-app>{json}</es-app>. The tag is
+   stripped from the visible text and replaced with a card; clicking the
+   card imports the JSON payload into the matching EmeraldSuite app and
+   opens it via ?owned=<id>. Mirrors the quiz-tag machinery above. */
+const _ES_APPS = {
+  notes:  { label: "EmeraldNotes",  action: "Open in Notes",  file: "notes.html",  color: "#a21caf", soft: "rgba(162,28,175,0.15)" },
+  docs:   { label: "EmeraldDocs",   action: "Open in Docs",   file: "docs.html",   color: "#0891b2", soft: "rgba(8,145,178,0.15)" },
+  slides: { label: "EmeraldSlides", action: "Open in Slides", file: "slides.html", color: "#f97316", soft: "rgba(249,115,22,0.15)" },
+  sheets: { label: "EmeraldSheets", action: "Open in Sheets", file: "sheets.html", color: "#217346", soft: "rgba(33,115,70,0.15)" }
+};
+const _ES_ANIM_TYPES = ["appear", "fade", "fly", "zoom", "spin", "bounce"];
+function _esAppKind(data) {
+  const a = String((data && data.app) || "").toLowerCase().trim();
+  return _ES_APPS[a] ? a : null;
+}
+function _extractEmeraldApp(text) {
+  const src = String(text || "");
+  const m = src.match(/<es-app>([\s\S]+?)<\/es-app>/) || src.match(/<es-app>([\s\S]+)$/);
+  if (!m) return { before: text, after: "", appData: null, parseFailed: false };
+  const start = src.indexOf("<es-app>");
+  const before = src.slice(0, start).trim();
+  const after = src.slice(start + m[0].length).trim();
+  let raw = m[1];
+  let appData = null;
+  let parseFailed = false;
+  raw = raw.replace(/^[\s\n]*```(?:json|JSON)?[\s\n]*\n?/i, "");
+  raw = raw.replace(/\n?[\s\n]*```[\s\n]*$/i, "");
+  raw = raw.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
+  raw = raw.replace(/\/\/[^\n]*/g, "");
+  raw = raw.replace(/\/\*[\s\S]*?\*\//g, "");
+  const firstBrace = raw.indexOf("{");
+  const lastBrace = raw.lastIndexOf("}");
+  if (firstBrace >= 0 && lastBrace > firstBrace) raw = raw.slice(firstBrace, lastBrace + 1);
+  try {
+    appData = JSON.parse(raw);
+  } catch (e1) {
+    try {
+      const fixed = raw
+        .replace(/,\s*([}\]])/g, "$1")
+        .replace(/(?<=[{,])\s*(\w+)\s*:/g, '"$1":')
+        .replace(/:\s*undefined/g, ":null")
+        .replace(/:\s*NaN/g, ":0")
+        .replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
+      appData = JSON.parse(fixed);
+    } catch (e2) {
+      try { appData = _aggressiveJSONExtract(raw); }
+      catch (e3) { parseFailed = true; }
+    }
+  }
+  if (appData && !_esAppKind(appData)) { parseFailed = true; appData = null; }
+  return { before, after, appData, parseFailed };
+}
+function _esAppIconSvg(kind) {
+  if (kind === "slides") return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="1"/><path d="M12 16v4M8 20h8"/></svg>';
+  if (kind === "sheets") return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>';
+  if (kind === "notes") return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>';
+  return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7"/></svg>';
+}
+function esAppLoadingCardHTML() {
+  return `<div class="quiz-loading-card">
+    <div class="quiz-loading-icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4caf7d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7"/></svg>
+    </div>
+    <div>
+      <div style="font-size:13.5px;font-weight:600;color:var(--text);margin-bottom:4px">Preparing import\u2026</div>
+      <div class="quiz-loading-dots">
+        <div class="quiz-loading-dot"></div>
+        <div class="quiz-loading-dot"></div>
+        <div class="quiz-loading-dot"></div>
+      </div>
+    </div>
+  </div>`;
+}
+function esAppCardHTML(id, data) {
+  const kind = _esAppKind(data) || "docs";
+  const app = _ES_APPS[kind];
+  const title = (data && data.title) || "Untitled";
+  let meta = app.action;
+  if (kind === "slides" && Array.isArray(data.slides)) {
+    const n = data.slides.length;
+    meta += " \xB7 " + n + " slide" + (n !== 1 ? "s" : "");
+  } else if (kind === "sheets" && Array.isArray(data.rows)) {
+    const n = data.rows.length;
+    meta += " \xB7 " + n + " row" + (n !== 1 ? "s" : "");
+  }
+  return `<div class="esapp-card" data-esapp="${escapeHtmlAttr(id)}" style="--esapp-accent:${app.color};--esapp-soft:${app.soft}">
+    <div class="esapp-card-icon">${_esAppIconSvg(kind)}</div>
+    <div class="esapp-card-info">
+      <div class="esapp-card-title">${escapeHtml(title)}</div>
+      <div class="esapp-card-meta">${escapeHtml(app.label)} \xB7 ${escapeHtml(meta)}</div>
+    </div>
+    <svg class="esapp-card-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+  </div>`;
+}
+function esAppErrorCardHTML() {
+  return `<div class="esapp-card esapp-card--error">
+    <div class="esapp-card-icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d93025" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    </div>
+    <div class="esapp-card-info">
+      <div class="esapp-card-title" style="color:#d93025">Import data failed to load</div>
+      <div class="esapp-card-meta">The import data could not be parsed. Try regenerating.</div>
+    </div>
+  </div>`;
+}
+function renderEsAppCard(textEl, appData, afterAppText, msgId) {
+  if (!textEl || !appData) return "";
+  const id = "esapp_" + genId();
+  window._esApps = window._esApps || {};
+  window._esApps[id] = { data: appData, msgId };
+  const cardEl = document.createElement("div");
+  cardEl.innerHTML = esAppCardHTML(id, appData);
+  textEl.insertAdjacentElement("afterend", cardEl.firstElementChild);
+  if (afterAppText) {
+    const afterEl = document.createElement("div");
+    afterEl.className = "message-text md-content";
+    afterEl.style.marginTop = "8px";
+    afterEl.innerHTML = renderMarkdown(afterAppText);
+    textEl.nextElementSibling.insertAdjacentElement("afterend", afterEl);
+  }
+  return id;
+}
+function renderEsAppErrorCard(textEl) {
+  if (!textEl) return;
+  const errCard = document.createElement("div");
+  errCard.innerHTML = esAppErrorCardHTML();
+  textEl.insertAdjacentElement("afterend", errCard.firstElementChild);
+}
+async function _esStoreGet(key) {
+  try { if (window.EmeraldIDBStorage) return await window.EmeraldIDBStorage.getJSON(key); } catch (e) {}
+  return null;
+}
+async function _esStoreSet(key, val) {
+  if (window.EmeraldIDBStorage) { await window.EmeraldIDBStorage.setJSON(key, val); return; }
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
+}
+function _esSheetsPut(id, doc) {
+  return new Promise((resolve, reject) => {
+    if (typeof indexedDB === "undefined") { reject(new Error("IndexedDB unavailable")); return; }
+    const req = indexedDB.open("emeraldcore.storage.suite.sheets", 1);
+    req.onupgradeneeded = () => { const d = req.result; if (!d.objectStoreNames.contains("workbooks")) d.createObjectStore("workbooks"); };
+    req.onsuccess = () => {
+      const db = req.result;
+      const t = db.transaction("workbooks", "readwrite");
+      t.objectStore("workbooks").put(doc, id);
+      t.oncomplete = () => { try { db.close(); } catch (e) {} resolve(true); };
+      t.onerror = () => reject(t.error);
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+function _esHtml(md) {
+  const html = renderMarkdown(String(md == null ? "" : md));
+  try { if (typeof DOMPurify !== "undefined") return DOMPurify.sanitize(html); } catch (e) {}
+  return html;
+}
+function _esPlainText(s) {
+  return String(s == null ? "" : s).replace(/<[^>]*>/g, " ").replace(/[#*_>`~]/g, " ").replace(/\s+/g, " ").trim();
+}
+function _esUid(prefix) { return (prefix || "el_") + Date.now().toString(36) + generateSecureId(6); }
+function _esWordCount(md) {
+  const t = _esPlainText(md);
+  return t ? t.split(/\s+/).filter(Boolean).length : 0;
+}
+async function _esImportNotes(data) {
+  const id = "note_" + Date.now() + "_" + generateSecureId(9);
+  const now = new Date().toISOString();
+  let arr = await _esStoreGet("emeraldcore.storage.suite.notes");
+  arr = Array.isArray(arr) ? arr : [];
+  arr.unshift({ id, title: _esPlainText(data.title) || "Imported Note", content: _esHtml(data.content), createdAt: now, modifiedAt: now });
+  await _esStoreSet("emeraldcore.storage.suite.notes", arr);
+  return id;
+}
+async function _esImportDoc(data) {
+  const id = "doc_" + Date.now() + "_" + generateSecureId(9);
+  const now = Date.now();
+  const title = _esPlainText(data.title) || "Imported Document";
+  const content = _esHtml(data.content) || "<p><br></p>";
+  let idx = await _esStoreGet("emeraldcore.storage.suite.docs");
+  idx = Array.isArray(idx) ? idx : [];
+  idx.unshift({ id, title, updatedAt: now, wordCount: _esWordCount(data.content) });
+  await _esStoreSet("emeraldcore.storage.suite.docs", idx);
+  await _esStoreSet("emeraldcore.storage.suite.docs." + id, {
+    id, title, content, savedAt: now,
+    theme: data.theme === "dark" ? "dark" : "light",
+    header: "", footer: "", footnotes: [], endnotes: [], comments: []
+  });
+  return id;
+}
+function _esSplitSlides(data) {
+  if (Array.isArray(data.slides) && data.slides.length) return data.slides;
+  const text = String(data.content == null ? "" : data.content);
+  let parts = text.split(/\n(?=#{1,2}\s)/).map((s) => s.trim()).filter(Boolean);
+  if (parts.length <= 1) {
+    const paras = text.split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean);
+    parts = [];
+    for (let i = 0; i < paras.length; i += 4) parts.push(paras.slice(i, i + 4).join("\n\n"));
+  }
+  if (!parts.length) parts = [text];
+  return parts.map((p) => {
+    const m = p.match(/^#{1,2}\s*(.+)$/m);
+    const title = m ? m[1].trim() : "";
+    const body = title ? p.replace(/^#{1,2}\s*.+\n?/, "").trim() : p;
+    return { title, content: body };
+  });
+}
+function _esSlideElement(el, z, fallbackColor) {
+  const raw = el.text != null ? el.text : el.html != null ? el.html : "";
+  return {
+    id: _esUid("el_"), type: "text",
+    x: Number.isFinite(+el.x) ? +el.x : 60,
+    y: Number.isFinite(+el.y) ? +el.y : 60,
+    w: Number.isFinite(+el.w) ? +el.w : 840,
+    h: Number.isFinite(+el.h) ? +el.h : 120,
+    r: 0, z,
+    html: _esHtml(raw),
+    fontFamily: el.fontFamily || "DM Sans",
+    fontSize: Number.isFinite(+el.fontSize) ? +el.fontSize : 24,
+    bold: !!el.bold, italic: !!el.italic, underline: false,
+    color: el.color || fallbackColor || "#1a1a1a",
+    textAlign: el.textAlign || "left",
+    opacity: 1
+  };
+}
+function _esBuildSlide(s, data) {
+  const src = s && typeof s === "object" ? s : {};
+  const bg = src.background || data.background || "#ffffff";
+  const textColor = src.textColor || data.textColor || "#1a1a1a";
+  const slide = { id: _esUid("sld_"), background: { type: "color", value: String(bg) }, elements: [], notes: String(src.notes == null ? "" : src.notes) };
+  let els = [];
+  if (Array.isArray(src.elements) && src.elements.length) {
+    els = src.elements.map((el, j) => _esSlideElement(el || {}, j + 1, textColor));
+  } else {
+    let z = 1;
+    if (src.title) els.push(_esSlideElement({ text: src.title, x: 60, y: 44, w: 840, h: 90, fontSize: 40, bold: true, color: textColor }, z++, textColor));
+    if (src.content) els.push(_esSlideElement({ text: src.content, x: 60, y: 168, w: 840, h: 320, fontSize: 22, color: textColor }, z++, textColor));
+    if (!els.length) els.push(_esSlideElement({ text: "", x: 60, y: 44, w: 840, h: 90, fontSize: 40, bold: true, color: textColor }, z++, textColor));
+  }
+  slide.elements = els;
+  if (Array.isArray(src.animations) && src.animations.length) {
+    slide.animations = src.animations.map((a) => {
+      const t = Number(a && a.target);
+      const targetEl = els[Number.isFinite(t) ? t : 0];
+      if (!targetEl) return null;
+      const type = _ES_ANIM_TYPES.includes(String(a.type).toLowerCase()) ? String(a.type).toLowerCase() : "fade";
+      const start = ["click", "with", "after", "auto"].includes(String(a.start).toLowerCase()) ? String(a.start).toLowerCase() : "click";
+      const dur = Number(a.duration);
+      return { id: _esUid("anm_"), elementId: targetEl.id, type, start, duration: Number.isFinite(dur) && dur > 0 ? dur : 0.5 };
+    }).filter(Boolean);
+  }
+  return slide;
+}
+async function _esImportSlides(data) {
+  const id = "pres_" + Date.now() + "_" + generateSecureId(9);
+  const now = Date.now();
+  const title = _esPlainText(data.title) || "Imported Presentation";
+  const slides = _esSplitSlides(data).map((s) => _esBuildSlide(s, data));
+  const pres = { id, title, createdAt: now, updatedAt: now, slides };
+  let idx = await _esStoreGet("emeraldcore.storage.suite.slides");
+  idx = Array.isArray(idx) ? idx : [];
+  idx.unshift({ id, title, updatedAt: now, slideCount: slides.length });
+  await _esStoreSet("emeraldcore.storage.suite.slides", idx);
+  await _esStoreSet("emeraldcore.storage.suite.slides." + id, pres);
+  return id;
+}
+function _esColIndex(letter) {
+  let n = 0;
+  const s = String(letter || "").toUpperCase();
+  for (let i = 0; i < s.length; i++) n = n * 26 + (s.charCodeAt(i) - 64);
+  return n - 1;
+}
+function _esCellStyle(st) {
+  const o = {};
+  if (!st) return null;
+  if (st.bold) o.bold = true;
+  if (st.italic) o.italic = true;
+  if (st.underline) o.underline = st.underline === 2 ? 2 : 1;
+  if (st.strike) o.strike = true;
+  if (st.color) o.color = String(st.color);
+  if (st.backgroundColor || st.fill) o.backgroundColor = String(st.backgroundColor || st.fill);
+  if (st.halign) o.halign = String(st.halign);
+  if (st.valign) o.valign = String(st.valign);
+  if (st.wrap) o.wrap = true;
+  if (Number.isFinite(+st.fontSize)) o.fontSize = +st.fontSize;
+  if (st.fontFamily) o.fontFamily = String(st.fontFamily);
+  if (st.numberFormat) o.numberFormat = String(st.numberFormat);
+  return Object.keys(o).length ? o : null;
+}
+function _esBuildSheetData(data) {
+  const id = _esUid("sh_");
+  const cells = {}, rows = {}, cols = {};
+  const matrix = Array.isArray(data.rows) ? data.rows : [];
+  matrix.forEach((rowArr, r) => {
+    if (!Array.isArray(rowArr)) return;
+    rowArr.forEach((val, c) => {
+      if (val === null || val === undefined || val === "") return;
+      cells[r + "," + c] = { v: val, f: null, s: null };
+    });
+  });
+  if (data.cellStyles && typeof data.cellStyles === "object") {
+    for (const ref in data.cellStyles) {
+      const m = /^([A-Za-z]+)(\d+)$/.exec(ref);
+      if (!m) continue;
+      const r = parseInt(m[2], 10) - 1, c = _esColIndex(m[1]);
+      if (r < 0 || c < 0) continue;
+      const key = r + "," + c;
+      const st = _esCellStyle(data.cellStyles[ref]);
+      if (!cells[key]) cells[key] = { v: "", f: null, s: null };
+      if (st) cells[key].s = st;
+    }
+  }
+  if (Array.isArray(data.columnWidths)) {
+    data.columnWidths.forEach((w, c) => { const n = Number(w); if (Number.isFinite(n) && n > 0) cols[c] = { s: Math.round(n), h: 0, fh: 0 }; });
+  } else if (data.columnWidths && typeof data.columnWidths === "object") {
+    for (const k in data.columnWidths) {
+      const c = /^[A-Za-z]+$/.test(k) ? _esColIndex(k) : parseInt(k, 10);
+      const n = Number(data.columnWidths[k]);
+      if (Number.isFinite(c) && c >= 0 && Number.isFinite(n) && n > 0) cols[c] = { s: Math.round(n), h: 0, fh: 0 };
+    }
+  }
+  const fr = data.freeze && typeof data.freeze === "object" ? data.freeze : {};
+  return {
+    id, name: _esPlainText(data.sheetName) || "Sheet1",
+    tabColor: data.tabColor || null, hidden: false,
+    cells, rows, cols, merges: [], notes: [],
+    freeze: { r: Math.max(0, parseInt(fr.r, 10) || 0), c: Math.max(0, parseInt(fr.c, 10) || 0) },
+    charts: [], cf: [], dv: [], filter: null, showGridlines: true
+  };
+}
+async function _esImportSheets(data) {
+  const wbId = "book_" + Date.now() + "_" + generateSecureId(9);
+  const now = Date.now();
+  const title = _esPlainText(data.title) || "Imported Spreadsheet";
+  const sheet = _esBuildSheetData(data);
+  const wbData = {
+    v: 1, id: wbId, title, createdAt: now,
+    sheets: [sheet], activeSheetId: sheet.id, names: {}, calcMode: "auto",
+    view: { zoom: 1, showFormulaBar: true, showHeadings: true, showFormulas: false }
+  };
+  await _esSheetsPut(wbId, { id: wbId, data: wbData, savedAt: now });
+  return wbId;
+}
+async function openEsAppImport(id) {
+  const safeId = String(id || "").replace(/[^a-zA-Z0-9_-]/g, "_");
+  const rec = (window._esApps || {})[safeId];
+  if (!rec) return;
+  const data = rec.data;
+  const kind = _esAppKind(data);
+  if (!kind) return;
+  const app = _ES_APPS[kind];
+  // Open the tab synchronously (still inside the click gesture) so popup
+  // blockers allow it; the URL is filled in after the async import writes.
+  let win = null;
+  try { win = window.open("about:blank", "_blank"); } catch (e) { win = null; }
+  const closeWin = () => { try { if (win && !win.closed) win.close(); } catch (e) {} };
+  let newId = null;
+  try {
+    if (kind === "notes") newId = await _esImportNotes(data);
+    else if (kind === "docs") newId = await _esImportDoc(data);
+    else if (kind === "slides") newId = await _esImportSlides(data);
+    else if (kind === "sheets") newId = await _esImportSheets(data);
+  } catch (e) {
+    console.warn("EmeraldSuite import failed:", e);
+    closeWin();
+    showToast(`${_aiSvgWarn} Could not import to EmeraldSuite.`, "error");
+    return;
+  }
+  if (!newId) { closeWin(); return; }
+  const url = app.file + "?owned=" + encodeURIComponent(newId);
+  showToast(`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:-2px;margin-right:5px"><polyline points="20 6 9 17 4 12"/></svg> Imported to ${app.label}`, "success");
+  if (win && !win.closed) {
+    try { win.location.href = url; return; } catch (e) {}
+  }
+  try { location.href = url; } catch (e) {}
+}
+// Event delegation: .esapp-card[data-esapp] clicks → openEsAppImport
+document.addEventListener("click", function(e) {
+  const card = e.target.closest(".esapp-card[data-esapp]");
+  if (card) openEsAppImport(card.dataset.esapp);
+});
 
 // Event delegation: .quiz-card[data-qid] clicks → openQuizPanel
 document.addEventListener("click", function(e) {
@@ -6070,7 +6518,7 @@ async function submitUserMsgEdit(msgId) {
       aiFullText += chunk;
       if (!_ensureStreamDom()) return;
       const _sd = _streamDisplayText(aiFullText);
-      aiTextEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.quizStarted ? quizLoadingCardHTML() : '<span class="stream-cursor" aria-hidden="true"></span>');
+      aiTextEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.quizStarted ? quizLoadingCardHTML() : _sd.appStarted ? esAppLoadingCardHTML() : '<span class="stream-cursor" aria-hidden="true"></span>');
       _wrapStreamWords(aiTextEl);
       scrollToBottom();
     }, {
@@ -6167,9 +6615,15 @@ async function submitUserMsgEdit(msgId) {
     const afterQuizText = _quizResult.after;
     const _quizParseFailed = _quizResult.parseFailed;
     dispText = _quizResult.before;
+    const _appResult = (quizData || _quizParseFailed) ? { appData: null, parseFailed: false, before: dispText, after: "" } : _extractEmeraldApp(dispText);
+    const appData = _appResult.appData;
+    const beforeAppText = _appResult.before;
+    const afterAppText = _appResult.after;
+    const _appParseFailed = _appResult.parseFailed;
+    dispText = beforeAppText;
     aiTextEl.classList.remove("stream-reveal");
     const _editTextToShow = (quizData || _quizParseFailed) ? beforeQuizText : dispText;
-    const _hasOtherContent = !!(quizData || _quizParseFailed || imgPrompt || memoryAdded);
+    const _hasOtherContent = !!(quizData || _quizParseFailed || appData || _appParseFailed || imgPrompt || memoryAdded);
     if (_editTextToShow) {
       aiTextEl.innerHTML = renderMarkdown(_editTextToShow);
     } else if (_hasOtherContent) {
@@ -6206,6 +6660,11 @@ async function submitUserMsgEdit(msgId) {
       errCard.innerHTML = quizErrorCardHTML();
       aiTextEl.insertAdjacentElement("afterend", errCard.firstElementChild);
     }
+    if (appData) {
+      renderEsAppCard(aiTextEl, appData, afterAppText, aiMsgId);
+    } else if (_appParseFailed) {
+      renderEsAppErrorCard(aiTextEl);
+    }
     const _groundingSources = extractGroundingSources(_groundingMetadata);
     const _allSources = [..._groundingSources, ..._webSources];
     renderCitations(aiDiv, _allSources);
@@ -6228,6 +6687,10 @@ async function submitUserMsgEdit(msgId) {
         quizData: quizData || void 0,
         quizTextBefore: (quizData || _quizParseFailed) ? beforeQuizText : void 0,
         quizTextAfter: (quizData || _quizParseFailed) ? afterQuizText : void 0,
+        hasEsApp: !!(appData || _appParseFailed),
+        esAppData: appData || void 0,
+        esAppTextBefore: (appData || _appParseFailed) ? beforeAppText : void 0,
+        esAppTextAfter: (appData || _appParseFailed) ? afterAppText : void 0,
         imagePrompt: imgPrompt || void 0,
         reasoning: _reasoningText || void 0,
         sources: _allSources.length ? _allSources.map(s => ({ title: s.title || '', uri: s.uri })) : void 0
