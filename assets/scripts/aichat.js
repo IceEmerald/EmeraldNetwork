@@ -295,9 +295,10 @@ function buildFileParts(files) {
     const type = (f.type || "application/octet-stream").toLowerCase();
     const ext = (f.name || "").split(".").pop().toLowerCase();
     const isOffice = ["pptx", "ppt", "docx", "doc", "xlsx", "xls"].includes(ext);
+    const meta = ` [File: ${f.name} (${type})]`;
     if (isOffice && f.extractedText) {
       try {
-        const txt = `[File: ${f.name}]
+        const txt = `${meta}
 ${f.extractedText}`;
         const b642 = btoa(unescape(encodeURIComponent(txt)));
         parts.push({ inlineData: { mimeType: "text/plain", data: b642 } });
@@ -311,9 +312,13 @@ ${f.extractedText}`;
     const isInline = INLINE_PREFIXES.some((p) => type.startsWith(p)) || INLINE_EXACT.has(type);
     const isTextExt = TEXT_EXTS.has(ext);
     if (isInline) {
+      parts.push({ text: meta });
       parts.push({ inlineData: { mimeType: type, data: b64 } });
     } else if (isTextExt) {
-      parts.push({ inlineData: { mimeType: "text/plain", data: b64 } });
+      const txt = `${meta}
+${atob(b64)}`;
+      const b64txt = btoa(unescape(encodeURIComponent(txt)));
+      parts.push({ inlineData: { mimeType: "text/plain", data: b64txt } });
     } else {
       unreadable.push(f.name);
     }
@@ -3446,6 +3451,17 @@ async function regenerateMessage(msgEl) {
     if (variant) safeSetProp(variant, "_regenTail", regenTail);
   }
   const history = buildHistory(conv);
+  const userMsgIdx = idx - 1;
+  if (userMsgIdx >= 0) {
+    const userMsg = conv.messages[userMsgIdx];
+    if (userMsg.files && userMsg.files.length) {
+      const fileParts = buildFileParts(userMsg.files);
+      if (fileParts.length && history.length) {
+        const last = history[history.length - 1];
+        if (last?.parts?.length) last.parts.push(...fileParts);
+      }
+    }
+  }
   state.isStreaming = true;
   state.abortCtrl = new AbortController();
   state.streamConvId = conv ? conv.id : null;
