@@ -11799,6 +11799,15 @@ async function boot() {
   setupChrome();
   await loadLastOrNew();
   showWelcomeScreen(true);
+  /* Agent link: the AI chat posts an "es-edit" message here after rewriting
+     a workbook, so an already-open sheets tab reloads it without a refresh. */
+  if (window.emeraldsuiteAgent && window.emeraldsuiteAgent.onSync) {
+    window.emeraldsuiteAgent.onSync((msg) => {
+      if (msg && msg.type === 'es-edit' && msg.app === 'sheets' && msg.id && WB && msg.id === WB.id) {
+        openWorkbook(msg.id);
+      }
+    });
+  }
   /* Deep-link: ?owned=book_<ms>_<hex> opens that workbook immediately,
      matching Docs/Notes/Slides behaviour. */
   const ownedParam = (() => { try { return new URLSearchParams(location.search).get('owned'); } catch (e) { return null; } })();

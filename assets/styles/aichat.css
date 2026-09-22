@@ -1353,6 +1353,7 @@ body.light-mode .message-avatar-user {
 }
 
 .chat-input-wrap {
+    position: relative;
     padding: 0px 20px 18px;
     transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -5719,6 +5720,215 @@ body.light-mode .esapp-card:hover {
 .esapp-card--error:hover {
     border-color: rgba(217, 48, 37, 0.4);
     background: rgba(217, 48, 37, 0.04);
+}
+
+/* ── EmeraldSuite file agent: "Updated File" pill ── */
+.file-edit-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(8, 145, 178, 0.12);
+    border: 1px solid rgba(8, 145, 178, 0.32);
+    color: rgb(8, 145, 178);
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 20px;
+    margin-bottom: 8px;
+    letter-spacing: 0.3px;
+    width: fit-content;
+}
+
+.file-edit-badge--error {
+    background: rgba(217, 48, 37, 0.1);
+    border-color: rgba(217, 48, 37, 0.3);
+    color: rgb(224, 90, 80);
+}
+
+/* ── Attached-file chip (inside the chat input) ── */
+.suite-chip {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 10px;
+    margin: 2px 4px 8px 4px;
+    border: 1px solid color-mix(in srgb, var(--chip-accent, #0891b2) 40%, transparent);
+    background: color-mix(in srgb, var(--chip-accent, #0891b2) 12%, transparent);
+    border-radius: 10px;
+    width: fit-content;
+    max-width: 92%;
+}
+
+.suite-chip-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    color: var(--chip-accent, #0891b2);
+    background: color-mix(in srgb, var(--chip-accent, #0891b2) 16%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.suite-chip-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.suite-chip-meta {
+    font-size: 10.5px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.suite-chip-open {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font: 600 12.5px/1.3 "DM Sans", sans-serif;
+    color: var(--text);
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 260px;
+}
+
+.suite-chip-open:hover {
+    text-decoration: underline;
+    color: var(--chip-accent, #0891b2);
+}
+
+.suite-chip-x {
+    background: none;
+    border: none;
+    padding: 2px;
+    cursor: pointer;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    margin-left: 2px;
+    flex-shrink: 0;
+}
+
+.suite-chip-x:hover {
+    color: rgb(224, 90, 80);
+}
+
+/* ── Suite file picker popover ── */
+.suite-file-picker {
+    position: absolute;
+    bottom: 84px;
+    left: 20px;
+    z-index: 1300;
+    width: 340px;
+    max-height: 380px;
+    display: flex;
+    flex-direction: column;
+    background: rgb(26, 26, 26);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+}
+
+body.light-mode .suite-file-picker {
+    background: rgb(255, 255, 255);
+}
+
+.suite-file-picker-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+}
+
+.suite-file-picker-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 18px;
+    line-height: 1;
+    padding: 0 2px;
+}
+
+.suite-file-picker-close:hover {
+    color: var(--text);
+}
+
+.suite-file-list {
+    overflow-y: auto;
+    padding: 8px;
+}
+
+.suite-file-loading {
+    padding: 18px 10px;
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--text-muted);
+}
+
+.suite-file-group {
+    margin-bottom: 8px;
+}
+
+.suite-file-group-label {
+    font-size: 10.5px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 6px 6px 4px;
+}
+
+.suite-file-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    background: none;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: left;
+    color: var(--text);
+}
+
+.suite-file-row:hover {
+    background: rgba(76, 175, 125, 0.08);
+}
+
+.suite-file-row-icon {
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+    color: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.suite-file-row-title {
+    flex: 1 1 0%;
+    min-width: 0;
+    font-size: 12.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.suite-file-row-arrow {
+    color: var(--text-muted);
+    flex-shrink: 0;
 }
 
 .quiz-panel-body .quiz-widget {

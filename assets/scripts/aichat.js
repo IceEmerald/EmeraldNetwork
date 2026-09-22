@@ -941,6 +941,8 @@ function renderMarkdown(raw) {
   text = text.replace(/<quiz>[\s\S]*$/g, "");
   text = text.replace(/<es-app>[\s\S]*?<\/es-app>/g, "");
   text = text.replace(/<es-app>[\s\S]*$/g, "");
+  text = text.replace(/<es-edit>[\s\S]*?<\/es-edit>/g, "");
+  text = text.replace(/<es-edit>[\s\S]*$/g, "");
   // Convert [IMAGE: url] tags to inline image HTML before markdown processing.
   // This ensures images render inline in the chat like ChatGPT, not as raw text.
   const webImageBlocks = [];
@@ -1126,9 +1128,20 @@ function _streamDisplayText(raw) {
   t = t.replace(/\[IMAGE:\s*[^\]]+\]/g, "");
   t = t.replace(/\[IMAGE_SEARCH:\s*[^\]]+\]/g, "");
   t = _stripThinkingPreamble(t);
+  const editIdx = t.indexOf("<es-edit>");
+  if (editIdx >= 0) {
+    return { text: t.slice(0, editIdx), quizStarted: false, appStarted: false, editStarted: true };
+  }
+  const editTag = "<es-edit";
+  for (let i = editTag.length; i >= 1; i--) {
+    if (t.endsWith(editTag.slice(0, i))) {
+      t = t.slice(0, -i);
+      break;
+    }
+  }
   const appIdx = t.indexOf("<es-app>");
   if (appIdx >= 0) {
-    return { text: t.slice(0, appIdx), quizStarted: false, appStarted: true };
+    return { text: t.slice(0, appIdx), quizStarted: false, appStarted: true, editStarted: false };
   }
   const appTag = "<es-app";
   for (let i = appTag.length; i >= 1; i--) {
@@ -1139,7 +1152,7 @@ function _streamDisplayText(raw) {
   }
   const quizIdx = t.indexOf("<quiz>");
   if (quizIdx >= 0) {
-    return { text: t.slice(0, quizIdx), quizStarted: true, appStarted: false };
+    return { text: t.slice(0, quizIdx), quizStarted: true, appStarted: false, editStarted: false };
   }
   const tag = "<quiz";
   for (let i = tag.length; i >= 1; i--) {
@@ -1148,7 +1161,7 @@ function _streamDisplayText(raw) {
       break;
     }
   }
-  return { text: t, quizStarted: false, appStarted: false };
+  return { text: t, quizStarted: false, appStarted: false, editStarted: false };
 }
 /* ── Per-word streaming reveal ──────────────────────────────────
    Wraps each whitespace-separated token in the streaming message
@@ -2899,6 +2912,16 @@ async function handleSend(opts) {
   const history = buildHistory(conv);
   const fileParts = buildFileParts(files);
   if (fileParts.length) history[history.length - 1].parts.push(...fileParts);
+  // Attach the live EmeraldSuite file the agent is editing, if any. Re-read
+  // from storage every send so the AI always sees the latest user edits.
+  if (_aiFile) {
+    try {
+      const fileCtx = await _efBuildContext(_aiFile.app, _aiFile.id);
+      if (fileCtx && history.length && history[history.length - 1]?.parts?.length) {
+        history[history.length - 1].parts.unshift({ text: fileCtx });
+      }
+    } catch (e) { console.warn("File context failed:", e); }
+  }
   const urlsInMsg = extractUrls(text);
   const _wsNeeded = detectWebSearchIntent(text) || urlsInMsg.length > 0;
   state.isStreaming = true;
@@ -3056,7 +3079,7 @@ async function handleSend(opts) {
     fullText += chunk;
     if (!_ensureStreamDom()) return;
     const _sd = _streamDisplayText(fullText);
-    textEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.quizStarted ? quizLoadingCardHTML() : _sd.appStarted ? esAppLoadingCardHTML() : '<span class="stream-cursor" aria-hidden="true"></span>');
+    textEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.editStarted ? esEditLoadingCardHTML() : _sd.quizStarted ? quizLoadingCardHTML() : _sd.appStarted ? esAppLoadingCardHTML() : '<span class="stream-cursor" aria-hidden="true"></span>');
     _wrapStreamWords(textEl);
     scrollToBottom();
   }, _streamOpts);
@@ -3185,9 +3208,15 @@ async function handleSend(opts) {
     const afterAppText = _appResult.after;
     const _appParseFailed = _appResult.parseFailed;
     displayText = beforeAppText;
+    let _fEditRes = null;
+    if (!(quizData || _quizParseFailed || appData || _appParseFailed)) {
+      const _fe = _extractFileEdit(fullText);
+      if (_fe.edit || _fe.parseFailed) { _fEditRes = _fe; displayText = _fe.before; }
+    }
+    let _fileEditOutcome = null;
     textEl.classList.remove("stream-reveal");
     const _textToShow = (quizData || _quizParseFailed) ? beforeQuizText : displayText;
-    const _hasOtherContent = !!(quizData || _quizParseFailed || appData || _appParseFailed || _imgPrompt || memoryAdded);
+    const _hasOtherContent = !!(quizData || _quizParseFailed || appData || _appParseFailed || _fEditRes || _imgPrompt || memoryAdded);
     if (_textToShow) {
       textEl.innerHTML = renderMarkdown(_textToShow);
     } else if (_hasOtherContent) {
@@ -3229,6 +3258,10 @@ async function handleSend(opts) {
     } else if (_appParseFailed) {
       renderEsAppErrorCard(textEl);
     }
+    if (_fEditRes) {
+      _fileEditOutcome = await _efApplyEdit(_fEditRes, msgId);
+      renderFileEditBadge(aiDiv, _fileEditOutcome);
+    }
     const _groundingSources = extractGroundingSources(_groundingMetadata);
     const _allSources = [..._groundingSources, ..._webSources];
     // Always render citations (converts [N] to orphan badges when no sources).
@@ -3257,6 +3290,7 @@ async function handleSend(opts) {
         esAppData: appData || void 0,
         esAppTextBefore: (appData || _appParseFailed) ? beforeAppText : void 0,
         esAppTextAfter: (appData || _appParseFailed) ? afterAppText : void 0,
+        fileEdit: _fileEditOutcome || void 0,
         imagePrompt: _imgPrompt || void 0,
         // Persist the reasoning text so the collapsible "Reasoning" panel
         // can be re-rendered on page reload. Stored separately from `text`
@@ -3309,6 +3343,7 @@ function buildHistory(conv) {
       let text = m.text || "";
       text = text.replace(/<quiz>[\s\S]*?<\/quiz>/g, "[A quiz was provided here]");
       text = text.replace(/<es-app>[\s\S]*?<\/es-app>/g, "[Content was offered for import to EmeraldSuite]");
+      text = text.replace(/<es-edit>[\s\S]*?<\/es-edit>/g, "[Update was applied to your file in EmeraldSuite]");
       text = _stripMemoryTags(text).replace(/\[GENERATE_IMAGE:\s*[^\]]+\]/g, "").replace(/\[IMAGE:\s*[^\]]+\]/g, "").replace(/\[IMAGE_SEARCH:\s*[^\]]+\]/g, "").trim();
       if (m.imagePrompt) {
         text += `
@@ -3491,6 +3526,14 @@ async function regenerateMessage(msgEl) {
       }
     }
   }
+  if (_aiFile) {
+    try {
+      const fileCtx = await _efBuildContext(_aiFile.app, _aiFile.id);
+      if (fileCtx && history.length && history[history.length - 1]?.parts?.length) {
+        history[history.length - 1].parts.unshift({ text: fileCtx });
+      }
+    } catch (e) { console.warn("File context failed:", e); }
+  }
   state.isStreaming = true;
   state.abortCtrl = new AbortController();
   state.streamConvId = conv ? conv.id : null;
@@ -3558,7 +3601,7 @@ async function regenerateMessage(msgEl) {
       fullText += chunk;
       if (!_ensureStreamDom()) return;
       const _sd = _streamDisplayText(fullText);
-      textEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.quizStarted ? quizLoadingCardHTML() : _sd.appStarted ? esAppLoadingCardHTML() : '<span class="stream-cursor" aria-hidden="true"></span>');
+textEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.editStarted ? esEditLoadingCardHTML() : _sd.quizStarted ? quizLoadingCardHTML() : _sd.appStarted ? esAppLoadingCardHTML() : '<span class="stream-cursor" aria-hidden="true"></span>');
       _wrapStreamWords(textEl);
       scrollToBottom();
     }, {
@@ -3643,9 +3686,15 @@ async function regenerateMessage(msgEl) {
     const afterAppText = _appResult.after;
     const _appParseFailed = _appResult.parseFailed;
     displayText = beforeAppText;
+    let _fEditRes = null;
+    if (!(quizData || _quizParseFailed || appData || _appParseFailed)) {
+      const _fe = _extractFileEdit(fullText);
+      if (_fe.edit || _fe.parseFailed) { _fEditRes = _fe; displayText = _fe.before; }
+    }
+    let _fileEditOutcome = null;
     textEl.classList.remove("stream-reveal");
     const _regenTextToShow = (quizData || _quizParseFailed) ? beforeQuizText : displayText;
-    const _hasOtherContent = !!(quizData || _quizParseFailed || appData || _appParseFailed || imgPrompt || memoryAdded);
+    const _hasOtherContent = !!(quizData || _quizParseFailed || appData || _appParseFailed || _fEditRes || imgPrompt || memoryAdded);
     if (_regenTextToShow) {
       textEl.innerHTML = renderMarkdown(_regenTextToShow);
     } else if (_hasOtherContent) {
@@ -3687,6 +3736,10 @@ async function regenerateMessage(msgEl) {
     } else if (_appParseFailed) {
       renderEsAppErrorCard(textEl);
     }
+    if (_fEditRes) {
+      _fileEditOutcome = await _efApplyEdit(_fEditRes, newId);
+      renderFileEditBadge(aiDiv, _fileEditOutcome);
+    }
     const _groundingSources = extractGroundingSources(_groundingMetadata);
     const _allSources = [..._groundingSources, ..._webSources];
     renderCitations(aiDiv, _allSources);
@@ -3713,6 +3766,7 @@ async function regenerateMessage(msgEl) {
       esAppData: appData || void 0,
       esAppTextBefore: (appData || _appParseFailed) ? beforeAppText : void 0,
       esAppTextAfter: (appData || _appParseFailed) ? afterAppText : void 0,
+      fileEdit: _fileEditOutcome || void 0,
       imagePrompt: imgPrompt || void 0,
       reasoning: _reasoningText || void 0,
       sources: _allSources.length ? _allSources.map(s => ({ title: s.title || '', uri: s.uri })) : void 0
@@ -5643,6 +5697,7 @@ function appendStoredAIMessage(m) {
   } else if (appParseFailed) {
     renderEsAppErrorCard(div.querySelector(".message-text"));
   }
+  if (m.fileEdit && m.fileEdit.ok) renderFileEditBadge(div, m.fileEdit);
   div.querySelector(".message-body").appendChild(buildMessageActionsEl(m.id || genId()));
   const _imgDataSafe = m.imageData ? _safeMediaSrc(m.imageData, "image") : '';
   if (m.imageData && _imgDataSafe) {
@@ -6243,6 +6298,405 @@ document.addEventListener("click", function(e) {
   if (card) openEsAppImport(card.dataset.esapp);
 });
 
+/* ── EmeraldSuite file agent (es-edit) ─────────────────────────
+   The chat can be attached to one file (Notes/Docs/Slides/Sheets). On every
+   send the file's LIVE content is attached as [EMERALDSUITE FILE CONTEXT] so
+   the agent always sees the user's latest edits. When the user asks for a
+   change, the agent responds with <es-edit>{json}</es-edit> (the FULL new
+   file content); we write it back to the same storage the app reads and show
+   an "Updated File" pill (mirrors the memory badge). The open app tab syncs
+   automatically via the storage layer's BroadcastChannel (Sheets via the
+   es-ai agent channel). */
+let _aiFile = null; // { app, id, title }
+
+function _efLabel(app) { return (_ES_APPS[app] && _ES_APPS[app].label) || app; }
+
+async function _efRead(app, id) {
+  try {
+    if (app === "notes") {
+      const arr = await _esStoreGet("emeraldcore.storage.suite.notes");
+      if (!Array.isArray(arr)) return { app, id, title: "", text: "", exists: false };
+      const n = arr.find((x) => x.id === id);
+      if (!n) return { app, id, title: "", text: "", exists: false };
+      return { app, id, title: n.title || "Untitled Note", text: _esPlainText(n.content || ""), exists: true };
+    }
+    if (app === "docs") {
+      const d = await _esStoreGet("emeraldcore.storage.suite.docs." + id);
+      if (!d) return { app, id, title: "", text: "", exists: false };
+      return { app, id, title: d.title || "Untitled Document", text: _esPlainText(d.content || ""), exists: true };
+    }
+    if (app === "slides") {
+      const d = await _esStoreGet("emeraldcore.storage.suite.slides." + id);
+      if (!d || !Array.isArray(d.slides)) return { app, id, title: "", text: "", exists: false };
+      const parts = [];
+      d.slides.forEach((s, i) => {
+        const title = _esPlainText(s && s.title) || "Slide " + (i + 1);
+        const notes = _esPlainText(s && s.notes);
+        parts.push("## " + title + (notes ? "  (notes: " + notes + ")" : "") + "\n" + _esPlainText(s && s.content));
+      });
+      return { app, id, title: d.title || "Untitled Presentation", text: parts.join("\n\n"), exists: true };
+    }
+    if (app === "sheets") {
+      const doc = await _efSheetsGet(id);
+      const data = doc && doc.data;
+      if (!data) return { app, id, title: "", text: "", exists: false };
+      const sheet = Array.isArray(data.sheets) && data.sheets.length ? data.sheets[0] : null;
+      return { app, id, title: data.title || "Untitled Spreadsheet", text: sheet ? (sheet.name ? "Sheet: " + sheet.name + "\n" : "") + _efSheetToMd(sheet) : "(empty)", exists: true };
+    }
+  } catch (e) { console.warn("File read failed:", e); }
+  return { app, id, title: "", text: "", exists: false };
+}
+
+function _efSheetToMd(sheet) {
+  let maxR = 0, maxC = 0;
+  for (const k in (sheet && sheet.cells) || {}) {
+    const ci = k.indexOf(",");
+    const r = +k.slice(0, ci), c = +k.slice(ci + 1);
+    if (r > maxR) maxR = r; if (c > maxC) maxC = c;
+  }
+  if (maxR > 199) maxR = 199;
+  if (maxC > 19) maxC = 19;
+  const val = (r, c) => {
+    const m = sheet.cells[r + "," + c]; if (!m) return "";
+    let v = m.v; if (v === null || v === undefined || typeof v === "object") v = "";
+    return String(v);
+  };
+  const lines = [];
+  for (let r = 0; r <= maxR; r++) {
+    const cells = [];
+    let empty = true;
+    for (let c = 0; c <= maxC; c++) {
+      const s = val(r, c).replace(/\|/g, "\\|").replace(/[\t\r\n]+/g, " ").replace(/ +/g, " ");
+      if (s) empty = false;
+      cells.push(s.slice(0, 120));
+    }
+    if (!empty || r === 0) lines.push("| " + cells.join(" | ") + " |");
+  }
+  if (!lines.length) return "(empty)";
+  const n = lines[0].split("|").length - 2 || 1;
+  lines.splice(1, 0, "| " + Array(n).fill("---").join(" | ") + " |");
+  return lines.join("\n");
+}
+
+async function _efBuildContext(app, id) {
+  if (!app || !id) return null;
+  const r = await _efRead(app, id);
+  if (!r || !r.exists) return null;
+  let body = r.text || "(empty)";
+  if (body.length > 16000) body = body.slice(0, 16000) + "\n[...truncated...]";
+  return "[EMERALDSUITE FILE CONTEXT]\n" +
+    "App: " + _efLabel(app) + "\n" +
+    "File ID: " + id + "\n" +
+    "Title: " + r.title + "\n" +
+    (app === "slides" ? "Canvas: 960x540\n" : "") +
+    "This is the file attached to this chat. The user may ask you to edit it — if so, respond with your normal text and <es-edit>{json}</es-edit> containing the FULL new file content (per the EMERALDSUITE FILE EDIT INSTRUCTIONS).\n\n" +
+    body;
+}
+
+function _extractFileEdit(text) {
+  const src = String(text || "");
+  const m = src.match(/<es-edit>([\s\S]+?)<\/es-edit>/) || src.match(/<es-edit>([\s\S]+)$/);
+  if (!m) return { before: text, after: "", edit: null, parseFailed: false };
+  const start = src.indexOf("<es-edit>");
+  const before = src.slice(0, start).trim();
+  const after = src.slice(start + m[0].length).trim();
+  let raw = m[1];
+  let edit = null;
+  let parseFailed = false;
+  raw = raw.replace(/^[\s\n]*```(?:json|JSON)?[\s\n]*\n?/i, "");
+  raw = raw.replace(/\n?[\s\n]*```[\s\n]*$/i, "");
+  raw = raw.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
+  raw = raw.replace(/\/\/[^\n]*/g, "");
+  raw = raw.replace(/\/\*[\s\S]*?\*\//g, "");
+  const firstBrace = raw.indexOf("{");
+  const lastBrace = raw.lastIndexOf("}");
+  if (firstBrace >= 0 && lastBrace > firstBrace) raw = raw.slice(firstBrace, lastBrace + 1);
+  try {
+    edit = JSON.parse(raw);
+  } catch (e1) {
+    try {
+      const fixed = raw
+        .replace(/,\s*([}\]])/g, "$1")
+        .replace(/(?<=[{,])\s*(\w+)\s*:/g, '"$1":')
+        .replace(/:\s*undefined/g, ":null")
+        .replace(/:\s*NaN/g, ":0")
+        .replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
+      edit = JSON.parse(fixed);
+    } catch (e2) {
+      try { edit = _aggressiveJSONExtract(raw); }
+      catch (e3) { parseFailed = true; }
+    }
+  }
+  if (!parseFailed) {
+    const valid = edit && typeof edit === "object" && !Array.isArray(edit) &&
+      (edit.title != null || edit.content != null || Array.isArray(edit.slides) || Array.isArray(edit.rows));
+    if (!valid) { parseFailed = true; edit = null; }
+  }
+  return { before, after, edit, parseFailed };
+}
+
+function esEditLoadingCardHTML() {
+  return `<div class="quiz-loading-card">
+    <div class="quiz-loading-icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0891b2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+    </div>
+    <div>
+      <div style="font-size:13.5px;font-weight:600;color:var(--text);margin-bottom:4px">Updating file\u2026</div>
+      <div class="quiz-loading-dots">
+        <div class="quiz-loading-dot"></div>
+        <div class="quiz-loading-dot"></div>
+        <div class="quiz-loading-dot"></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function _efApplyEdit(fEditRes, msgId) {
+  if (!fEditRes) return { ok: false };
+  if (!_aiFile || !_aiFile.app || !_aiFile.id) return { ok: false, error: "no-file" };
+  const app = _aiFile.app;
+  const id = _aiFile.id;
+  if (!fEditRes.edit && fEditRes.parseFailed) return { app, id, ok: false };
+  const edit = fEditRes.edit;
+  try {
+    if (app === "notes") {
+      const key = "emeraldcore.storage.suite.notes";
+      let arr = await _esStoreGet(key);
+      arr = Array.isArray(arr) ? arr : [];
+      const now = new Date().toISOString();
+      const title = _esPlainText(edit.title) || "Imported Note";
+      const content = _esHtml(edit.content) || "";
+      let note = arr.find((n) => n.id === id);
+      if (note) { note.title = title; note.content = content; note.modifiedAt = now; }
+      else arr.unshift({ id, title, content, createdAt: now, modifiedAt: now });
+      await _esStoreSet(key, arr);
+      return { app, id, ok: true, title };
+    }
+    if (app === "docs") {
+      const now = Date.now();
+      const title = _esPlainText(edit.title);
+      if (!title) return { app, id, ok: false };
+      const content = _esHtml(edit.content) || "<p><br></p>";
+      let idx = await _esStoreGet("emeraldcore.storage.suite.docs");
+      idx = Array.isArray(idx) ? idx : [];
+      let meta = idx.find((m) => m.id === id);
+      if (meta) { meta.title = title; meta.updatedAt = now; meta.wordCount = _esWordCount(edit.content); }
+      else idx.unshift({ id, title, updatedAt: now, wordCount: _esWordCount(edit.content) });
+      await _esStoreSet("emeraldcore.storage.suite.docs", idx);
+      await _esStoreSet("emeraldcore.storage.suite.docs." + id, { id, title, content, savedAt: now, theme: edit.theme === "dark" ? "dark" : "light", header: "", footer: "", footnotes: [], endnotes: [], comments: [] });
+      return { app, id, ok: true, title };
+    }
+    if (app === "slides") {
+      const now = Date.now();
+      const title = _esPlainText(edit.title);
+      if (!title) return { app, id, ok: false };
+      let idx = await _esStoreGet("emeraldcore.storage.suite.slides");
+      idx = Array.isArray(idx) ? idx : [];
+      let prev = null;
+      try { const d = await _esStoreGet("emeraldcore.storage.suite.slides." + id); if (d && d.id) prev = d; } catch (e) {}
+      const srcSlides = (Array.isArray(edit.slides) && edit.slides.length) ? edit.slides : _esSplitSlides(edit);
+      const slides = srcSlides.map((s) => _esBuildSlide(s, edit));
+      const pres = { id, title, createdAt: (prev && prev.createdAt) || now, updatedAt: now, slides };
+      let meta = idx.find((m) => m.id === id);
+      if (meta) { meta.title = title; meta.updatedAt = now; meta.slideCount = slides.length; }
+      else idx.unshift({ id, title, updatedAt: now, slideCount: slides.length });
+      await _esStoreSet("emeraldcore.storage.suite.slides", idx);
+      await _esStoreSet("emeraldcore.storage.suite.slides." + id, pres);
+      return { app, id, ok: true, title };
+    }
+    if (app === "sheets") {
+      const now = Date.now();
+      const title = _esPlainText(edit.title) || "Imported Spreadsheet";
+      const sheet = _esBuildSheetData(Object.assign({ title }, edit));
+      const prev = await _efSheetsGet(id);
+      const prevData = (prev && prev.data) || null;
+      const wbData = {
+        v: 1, id, title, createdAt: (prevData && prevData.createdAt) || now,
+        sheets: [sheet], activeSheetId: sheet.id, names: {},
+        calcMode: "auto", view: { zoom: 1, showFormulaBar: true, showHeadings: true, showFormulas: false }
+      };
+      await _esSheetsPut(id, { id, data: wbData, savedAt: now });
+      try { if (window.emeraldsuiteAgent && window.emeraldsuiteAgent.postSync) window.emeraldsuiteAgent.postSync({ type: "es-edit", app: "sheets", id }); } catch (e) {}
+      return { app, id, ok: true, title };
+    }
+  } catch (e2) {
+    console.warn("File edit failed:", e2);
+    return { app, id, ok: false };
+  }
+  return { app, id, ok: false };
+}
+
+function renderFileEditBadge(aiDiv, outcome) {
+  if (!aiDiv || !aiDiv.querySelector) return;
+  const sender = aiDiv.querySelector(".message-sender");
+  if (!sender) return;
+  const ok = !!(outcome && outcome.ok);
+  const b = document.createElement("div");
+  b.className = "file-edit-badge" + (ok ? "" : " file-edit-badge--error");
+  const icon = ok
+    ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>'
+    : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+  b.innerHTML = icon + " " + (ok ? "Updated File" : (outcome && outcome.error === "no-file" ? "No file attached to edit" : "Edit not applied"));
+  sender.insertAdjacentElement("afterend", b);
+}
+
+function _efUpdateChipTitle(title) {
+  if (!_aiFile) return;
+  if (title) { _aiFile.title = title; _aiFile.updatedTitle = true; }
+  _efRenderChip();
+}
+
+function _efRenderChip() {
+  const chip = document.getElementById("suiteFileChip");
+  if (!chip) return;
+  if (!_aiFile) { chip.style.display = "none"; chip.innerHTML = ""; return; }
+  const app = _ES_APPS[_aiFile.app];
+  chip.style.display = "flex";
+  chip.style.setProperty("--chip-accent", app ? app.color : "#0891b2");
+  chip.innerHTML =
+    '<div class="suite-chip-icon">' + _esAppIconSvg(_aiFile.app) + '</div>' +
+    '<div class="suite-chip-info">' +
+      '<div class="suite-chip-meta">' + escapeHtml(_efLabel(_aiFile.app)) + '</div>' +
+      '<button type="button" class="suite-chip-open" onclick="openAttachedAI()" title="Open in ' + escapeHtmlAttr(_efLabel(_aiFile.app)) + '">' + escapeHtml(_aiFile.title || "Untitled") + '</button>' +
+    '</div>' +
+    '<button type="button" class="suite-chip-x" title="Detach file" onclick="detachAIFile()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>';
+}
+function openAttachedAI() {
+  if (!_aiFile) return;
+  const app = _ES_APPS[_aiFile.app];
+  if (!app) return;
+  try { window.open(app.file + "?owned=" + encodeURIComponent(_aiFile.id), "_blank"); } catch (e) {}
+}
+function attachAIFile(app, id) {
+  _aiFile = { app, id, title: "…" };
+  _efRenderChip();
+  const pp = document.getElementById("suiteFilePicker");
+  if (pp) pp.style.display = "none";
+  _efRead(app, id).then((r) => { if (r && r.exists) { _aiFile.title = r.title || _aiFile.title; _aiFile.updatedTitle = true; _efRenderChip(); } }).catch(() => {});
+  showToast('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:-2px;margin-right:5px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> File attached — the AI can now edit it.', "success");
+}
+function detachAIFile() {
+  _aiFile = null;
+  _efRenderChip();
+  const pp = document.getElementById("suiteFilePicker");
+  if (pp) pp.style.display = "none";
+}
+function openSuiteFilePicker() {
+  const pp = document.getElementById("suiteFilePicker");
+  if (!pp) return;
+  if (pp.style.display === "block") { pp.style.display = "none"; return; }
+  _efPopulatePicker();
+  pp.style.display = "block";
+}
+async function _efPopulatePicker() {
+  const list = document.getElementById("suiteFileList");
+  if (!list) return;
+  list.innerHTML = '<div class="suite-file-loading">Loading files\u2026</div>';
+  const groups = [];
+  const mount = (app, items) => { if (items && items.length) groups.push({ app, items }); };
+  try {
+    const notes = await _esStoreGet("emeraldcore.storage.suite.notes");
+    mount("notes", Array.isArray(notes) ? notes.map((n) => ({ id: n.id, title: n.title || "Untitled Note", updatedAt: Date.parse(n.modifiedAt) || 0 })) : []);
+    const docsIdx = await _esStoreGet("emeraldcore.storage.suite.docs");
+    mount("docs", Array.isArray(docsIdx) ? docsIdx.map((m) => ({ id: m.id, title: m.title || "Untitled Document", updatedAt: m.updatedAt || 0 })) : []);
+    const slidesIdx = await _esStoreGet("emeraldcore.storage.suite.slides");
+    mount("slides", Array.isArray(slidesIdx) ? slidesIdx.map((m) => ({ id: m.id, title: m.title || "Untitled Presentation", updatedAt: m.updatedAt || 0 })) : []);
+    const sheets = await _efSheetsAll();
+    mount("sheets", sheets);
+  } catch (e) { console.warn("File picker failed:", e); }
+  if (!groups.length) { list.innerHTML = '<div class="suite-file-loading">No EmeraldSuite files found yet.</div>'; return; }
+  let html = "";
+  groups.forEach((g) => {
+    html += '<div class="suite-file-group"><div class="suite-file-group-label">' + escapeHtml(_efLabel(g.app)) + '</div>';
+    g.items.slice(0, 24).forEach((it) => {
+      html += '<button type="button" class="suite-file-row" data-app="' + escapeHtmlAttr(g.app) + '" data-id="' + escapeHtmlAttr(String(it.id)) + '">' +
+        '<span class="suite-file-row-icon">' + _esAppIconSvg(g.app) + '</span>' +
+        '<span class="suite-file-row-title">' + escapeHtml(it.title || it.id || "Untitled") + '</span>' +
+        '<span class="suite-file-row-arrow">\u203A</span></button>';
+    });
+    html += '</div>';
+  });
+  list.innerHTML = html;
+}
+function _efSheetsGet(id) {
+  return new Promise((resolve) => {
+    if (typeof indexedDB === "undefined") { resolve(null); return; }
+    let req;
+    try { req = indexedDB.open("emeraldcore.storage.suite.sheets", 1); } catch (e) { resolve(null); return; }
+    req.onerror = () => resolve(null);
+    req.onupgradeneeded = () => { const d = req.result; if (!d.objectStoreNames.contains("workbooks")) d.createObjectStore("workbooks"); };
+    req.onsuccess = () => {
+      const db = req.result;
+      try {
+        const tx = db.transaction("workbooks", "readonly");
+        const r = tx.objectStore("workbooks").get(id);
+        r.onsuccess = () => { try { db.close(); } catch (e) {} resolve(r.result || null); };
+        r.onerror = () => { try { db.close(); } catch (e) {} resolve(null); };
+      } catch (e) { try { db.close(); } catch (e2) {} resolve(null); }
+    };
+  });
+}
+function _efSheetsAll() {
+  return new Promise((resolve) => {
+    if (typeof indexedDB === "undefined") { resolve([]); return; }
+    let req;
+    try { req = indexedDB.open("emeraldcore.storage.suite.sheets", 1); } catch (e) { resolve([]); return; }
+    req.onerror = () => resolve([]);
+    req.onupgradeneeded = () => { const d = req.result; if (!d.objectStoreNames.contains("workbooks")) d.createObjectStore("workbooks"); };
+    req.onsuccess = () => {
+      const db = req.result;
+      try {
+        const tx = db.transaction("workbooks", "readonly");
+        const st = tx.objectStore("workbooks");
+        const kreq = st.getAllKeys();
+        const vreq = st.getAll();
+        let keys = null, vals = null, done = 0;
+        const finish = () => {
+          try { db.close(); } catch (e) {}
+          if (!Array.isArray(keys) || !Array.isArray(vals)) { resolve([]); return; }
+          const out = [];
+          keys.forEach((k, i) => {
+            const doc = vals[i];
+            const d = doc && doc.data;
+            if (d) out.push({ id: k, title: d.title || "Untitled Spreadsheet", updatedAt: (doc && doc.savedAt) || 0 });
+          });
+          out.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+          resolve(out);
+        };
+        kreq.onsuccess = () => { keys = kreq.result; if (++done === 2) finish(); };
+        kreq.onerror = () => { keys = null; if (++done === 2) finish(); };
+        vreq.onsuccess = () => { vals = vreq.result; if (++done === 2) finish(); };
+        vreq.onerror = () => { vals = null; if (++done === 2) finish(); };
+      } catch (e) { try { db.close(); } catch (e2) {} resolve([]); }
+    };
+  });
+}
+function _efInitFromUrl() {
+  try {
+    const p = new URLSearchParams(location.search);
+    const app = String(p.get("file") || "").toLowerCase().trim();
+    const id = String(p.get("owned") || "");
+    if (app && id && _ES_APPS[app]) attachAIFile(app, id);
+  } catch (e) {}
+}
+function _efWire() {
+  try {
+    const btn = document.getElementById("suiteFileBtn");
+    if (btn) btn.addEventListener("click", openSuiteFilePicker);
+    _efInitFromUrl();
+  } catch (e) {}
+}
+document.addEventListener("click", function(e) {
+  const row = e.target.closest(".suite-file-row[data-app][data-id]");
+  if (row) { attachAIFile(row.dataset.app, row.dataset.id); return; }
+  const picker = document.getElementById("suiteFilePicker");
+  if (picker && picker.style.display === "block" && !picker.contains(e.target)) {
+    const btn = document.getElementById("suiteFileBtn");
+    if (!btn || !btn.contains(e.target)) picker.style.display = "none";
+  }
+});
+document.addEventListener("DOMContentLoaded", _efWire, { once: true });
+
 // Event delegation: .quiz-card[data-qid] clicks → openQuizPanel
 document.addEventListener("click", function(e) {
   const card = e.target.closest(".quiz-card[data-qid]");
@@ -6518,7 +6972,7 @@ async function submitUserMsgEdit(msgId) {
       aiFullText += chunk;
       if (!_ensureStreamDom()) return;
       const _sd = _streamDisplayText(aiFullText);
-      aiTextEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.quizStarted ? quizLoadingCardHTML() : _sd.appStarted ? esAppLoadingCardHTML() : '<span class="stream-cursor" aria-hidden="true"></span>');
+      aiTextEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.editStarted ? esEditLoadingCardHTML() : _sd.quizStarted ? quizLoadingCardHTML() : _sd.appStarted ? esAppLoadingCardHTML() : '<span class="stream-cursor" aria-hidden="true"></span>');
       _wrapStreamWords(aiTextEl);
       scrollToBottom();
     }, {
@@ -6621,9 +7075,15 @@ async function submitUserMsgEdit(msgId) {
     const afterAppText = _appResult.after;
     const _appParseFailed = _appResult.parseFailed;
     dispText = beforeAppText;
+    let _fEditRes = null;
+    if (!(quizData || _quizParseFailed || appData || _appParseFailed)) {
+      const _fe = _extractFileEdit(aiFullText);
+      if (_fe.edit || _fe.parseFailed) { _fEditRes = _fe; dispText = _fe.before; }
+    }
+    let _fileEditOutcome = null;
     aiTextEl.classList.remove("stream-reveal");
     const _editTextToShow = (quizData || _quizParseFailed) ? beforeQuizText : dispText;
-    const _hasOtherContent = !!(quizData || _quizParseFailed || appData || _appParseFailed || imgPrompt || memoryAdded);
+    const _hasOtherContent = !!(quizData || _quizParseFailed || appData || _appParseFailed || _fEditRes || imgPrompt || memoryAdded);
     if (_editTextToShow) {
       aiTextEl.innerHTML = renderMarkdown(_editTextToShow);
     } else if (_hasOtherContent) {
@@ -6665,6 +7125,10 @@ async function submitUserMsgEdit(msgId) {
     } else if (_appParseFailed) {
       renderEsAppErrorCard(aiTextEl);
     }
+    if (_fEditRes) {
+      _fileEditOutcome = await _efApplyEdit(_fEditRes, aiMsgId);
+      renderFileEditBadge(aiDiv, _fileEditOutcome);
+    }
     const _groundingSources = extractGroundingSources(_groundingMetadata);
     const _allSources = [..._groundingSources, ..._webSources];
     renderCitations(aiDiv, _allSources);
@@ -6691,6 +7155,7 @@ async function submitUserMsgEdit(msgId) {
         esAppData: appData || void 0,
         esAppTextBefore: (appData || _appParseFailed) ? beforeAppText : void 0,
         esAppTextAfter: (appData || _appParseFailed) ? afterAppText : void 0,
+        fileEdit: _fileEditOutcome || void 0,
         imagePrompt: imgPrompt || void 0,
         reasoning: _reasoningText || void 0,
         sources: _allSources.length ? _allSources.map(s => ({ title: s.title || '', uri: s.uri })) : void 0

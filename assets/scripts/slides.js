@@ -7858,4 +7858,14 @@ SlidesApp.memoryStorageFallback = new Map();
 
 document.addEventListener('DOMContentLoaded', () => {
     window.slidesApp = new SlidesApp();
+    // Cross-tab sync so "Ask AI" edits (which write the presentation to
+    // storage from the chat tab) reload the open deck without a refresh.
+    if (window.EmeraldIDBStorage && window.EmeraldIDBStorage.subscribe) {
+        window.EmeraldIDBStorage.subscribe(({ key }) => {
+            const app = window.slidesApp;
+            if (!app || !app.pres || !app.pres.id || !key) return;
+            if (key !== app.PRES_DATA_KEY(app.pres.id)) return;
+            app.openPresentation(app.pres.id);
+        });
+    }
 });
