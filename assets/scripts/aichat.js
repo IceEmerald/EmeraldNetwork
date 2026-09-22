@@ -5266,6 +5266,7 @@ window._quizSelect = function(qid, qi, oi) {
     btn.classList.toggle("selected", i === oi);
   });
   _quizUpdateProgress(qid);
+  _quizPersist(qid);
 };
 window._quizToggleMulti = function(qid, qi, oi) {
   const qz = (window._quizzes || {})[qid];
@@ -5285,6 +5286,7 @@ window._quizToggleMulti = function(qid, qi, oi) {
     });
   }
   _quizUpdateProgress(qid);
+  _quizPersist(qid);
 };
 window._quizMatchOpen = function(qid, qi, li, evt) {
   evt && evt.stopPropagation();
@@ -5316,6 +5318,7 @@ window._quizMatchPick = function(qid, qi, li, d, evt) {
   qz.answers[qi] = a;
   wrapper.classList.remove("open");
   _quizUpdateProgress(qid);
+  _quizPersist(qid);
 };
 document.addEventListener("click", (e) => {
   document.querySelectorAll(".quiz-match-dd.open").forEach((w) => {
@@ -5331,6 +5334,7 @@ window._quizFillInput = function(qid, qi, value) {
   if (value.trim()) qz.answers[qi] = value;
   else delete qz.answers[qi];
   _quizUpdateProgress(qid);
+  _quizPersist(qid);
 };
 window._quizEssayInput = function(qid, qi, value) {
   const qz = (window._quizzes || {})[qid];
@@ -5338,11 +5342,18 @@ window._quizEssayInput = function(qid, qi, value) {
   if (value.trim()) qz.answers[qi] = value;
   else delete qz.answers[qi];
   _quizUpdateProgress(qid);
+  _quizPersist(qid);
 };
 window._quizSubmit = function(qid) {
   const qz = (window._quizzes || {})[qid];
   if (!qz || qz.submitted) return;
   qz.submitted = true;
+  _quizApplyGrades(qid);
+  _quizPersistNow(qid, state && state.convId);
+};
+function _quizApplyGrades(qid) {
+  const qz = (window._quizzes || {})[qid];
+  if (!qz) return;
   const infoSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>`;
   let score = 0, autoTotal = 0, essayCount = 0;
   qz.data.questions.forEach((q, qi) => {
@@ -5465,7 +5476,74 @@ window._quizSubmit = function(qid) {
   }
   const footer = document.getElementById(`${qid}_submit`);
   if (footer) footer.style.display = "none";
-};
+}
+/* ── Persist quiz state (answers + completion) onto the stored assistant
+   message so answers survive page reloads and chat switches. ───────── */
+let _quizPersistTimer = null;
+function _quizPersist(qid) {
+  if (!state || !state.convId || state.isTemp) return;
+  const cid = state.convId;
+  clearTimeout(_quizPersistTimer);
+  _quizPersistTimer = setTimeout(function() { _quizPersistNow(qid, cid); }, 400);
+}
+function _quizPersistNow(qid, cid) {
+  if (!qid || !cid) return;
+  const qz = (window._quizzes || {})[qid];
+  if (!qz) return;
+  const conv = getConv(cid);
+  if (!conv) return;
+  let found = false;
+  conv.messages.forEach(function(m) {
+    if (found || m.role !== "assistant" || !m.quizData || (m.quizData._id || "") !== qid) return;
+    m.quizState = {
+      answers: qz.answers,
+      submitted: !!qz.submitted,
+      score: qz.score,
+      autoTotal: qz.autoTotal,
+      essayCount: qz.essayCount
+    };
+    found = true;
+  });
+  if (found) upsertConv(conv);
+}
+/* ── Re-render a quiz widget from in-memory state (restores previous
+   selections and, if completed, the graded/explanation view). ─────── */
+function _quizRestoreState(qid) {
+  const qz = (window._quizzes || {})[qid];
+  if (!qz || !qz.data) return;
+  qz.data.questions.forEach((q, qi) => {
+    const type = q.type || "mcq";
+    const a = qz.answers[qi];
+    const questionEl = document.getElementById(`${qid}_q${qi}`);
+    if (!questionEl || a == null) return;
+    if (type === "mcq" && typeof a === "number") {
+      questionEl.querySelectorAll(".quiz-opt").forEach((btn, i) => btn.classList.toggle("selected", i === a));
+    } else if (type === "multi" && Array.isArray(a) && a.length) {
+      questionEl.querySelectorAll(".quiz-opt--multi").forEach((btn) => {
+        const oi2 = parseInt(btn.getAttribute("data-oi") || btn.id.split("_o")[1], 10);
+        btn.classList.toggle("selected", a.includes(oi2));
+      });
+    } else if ((type === "fill" || type === "essay") && !Array.isArray(a)) {
+      const el = document.getElementById(`${qid}_q${qi}` + (type === "fill" ? "_fill" : "_essay"));
+      if (el) el.value = a;
+    } else if (type === "matching" && Array.isArray(a)) {
+      a.forEach((d, li) => {
+        if (typeof d !== "number") return;
+        const wrapper = document.getElementById(`${qid}_q${qi}_dd${li}`);
+        if (!wrapper) return;
+        wrapper.querySelectorAll(".quiz-match-dd-item").forEach((item) => {
+          item.classList.toggle("selected", parseInt(item.getAttribute("data-d"), 10) === d);
+        });
+        const chosenItem = wrapper.querySelector(`.quiz-match-dd-item[data-d="${d}"]`);
+        const label = chosenItem ? (chosenItem.querySelector(".quiz-match-dd-text")?.textContent || "").trim() : "\u2014";
+        const btn = wrapper.querySelector(".quiz-match-dd-btn");
+        if (btn) { btn.textContent = label; btn.title = label; }
+      });
+    }
+  });
+  _quizUpdateProgress(qid);
+  if (qz.submitted) _quizApplyGrades(qid);
+}
 window._quizAskAI = function(qid) {
   const qz = (window._quizzes || {})[qid];
   if (!qz) return;
@@ -5673,7 +5751,15 @@ function appendStoredAIMessage(m) {
     quizData._id = qid;
     window._quizzes = window._quizzes || {};
     if (!window._quizzes[qid]) {
-      window._quizzes[qid] = { data: quizData, answers: {}, submitted: false };
+      const _st = m.quizState || null;
+      window._quizzes[qid] = {
+        data: quizData,
+        answers: (_st && _st.answers && typeof _st.answers === "object") ? _st.answers : {},
+        submitted: !!(_st && _st.submitted),
+        score: _st && typeof _st.score === "number" ? _st.score : 0,
+        autoTotal: _st && typeof _st.autoTotal === "number" ? _st.autoTotal : 0,
+        essayCount: _st && typeof _st.essayCount === "number" ? _st.essayCount : 0
+      };
     }
     const cardEl = document.createElement("div");
     cardEl.innerHTML = quizCardHTML(qid, quizData);
@@ -6684,6 +6770,7 @@ function openQuizPanel(qid) {
   if (count) count.textContent = n + " question" + (n !== 1 ? "s" : "");
   _recordPanelState({ type: "quiz", qid });
   body.innerHTML = renderQuizWidget(qid, qz.data);
+  _quizRestoreState(qid);
   const widgetHeader = body.querySelector(".quiz-header");
   if (widgetHeader) widgetHeader.style.display = "none";
   panel.classList.add("open");
