@@ -11,7 +11,7 @@
         notes:  { label: 'EmeraldNotes',  file: 'notes.html',  color: '#a21caf' },
         docs:   { label: 'EmeraldDocs',   file: 'docs.html',   color: '#0891b2' },
         slides: { label: 'EmeraldSlides', file: 'slides.html', color: '#f97316' },
-        sheets: { label: 'EmeraldSheets', file: 'sheets.html', color: '#84cc16' }
+        sheets: { label: 'EmeraldSheets', file: 'sheets.html', color: '#16a34a' }
     };
 
     /* Open the chat page with a file attached. Relative to the app pages,

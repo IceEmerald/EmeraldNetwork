@@ -5924,7 +5924,7 @@ const _ES_APPS = {
   notes:  { label: "EmeraldNotes",  action: "Open in Notes",  file: "notes.html",  color: "#a21caf", soft: "rgba(162,28,175,0.15)" },
   docs:   { label: "EmeraldDocs",   action: "Open in Docs",   file: "docs.html",   color: "#0891b2", soft: "rgba(8,145,178,0.15)" },
   slides: { label: "EmeraldSlides", action: "Open in Slides", file: "slides.html", color: "#f97316", soft: "rgba(249,115,22,0.15)" },
-  sheets: { label: "EmeraldSheets", action: "Open in Sheets", file: "sheets.html", color: "#84cc16", soft: "rgba(132,204,22,0.15)" }
+  sheets: { label: "EmeraldSheets", action: "Open in Sheets", file: "sheets.html", color: "#16a34a", soft: "rgba(22,163,74,0.15)" }
 };
 /* App accent detected from the streaming <es-edit>/<es-app> payload, so the
    in-progress loading cards and pills get the right per-app color. */
