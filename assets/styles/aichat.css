@@ -5726,9 +5726,9 @@ body.light-mode .esapp-card:hover {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    background: rgba(8, 145, 178, 0.12);
-    border: 1px solid rgba(8, 145, 178, 0.32);
-    color: rgb(8, 145, 178);
+    color: var(--esaccent, #0891b2);
+    background: color-mix(in srgb, var(--esaccent, #0891b2) 13%, transparent);
+    border: 1px solid color-mix(in srgb, var(--esaccent, #0891b2) 40%, transparent);
     font-size: 11px;
     padding: 3px 9px;
     border-radius: 20px;
@@ -6016,6 +6016,18 @@ body.light-mode .sett-store-meta {
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    color: rgb(76, 175, 125);
+}
+
+/* EmeraldSuite loading cards (generating / updating a file) pick up the
+   app's accent color (notes purple, docs cyan, slides orange, sheets lime). */
+.es-loading-card .quiz-loading-icon {
+    background: color-mix(in srgb, var(--esaccent, #0891b2) 14%, transparent);
+    color: var(--esaccent, #0891b2);
+}
+
+.es-loading-card .quiz-loading-dot {
+    background: var(--esaccent, #0891b2);
 }
 
 .quiz-loading-dots {

@@ -1128,6 +1128,9 @@ function _streamDisplayText(raw) {
   t = t.replace(/\[IMAGE:\s*[^\]]+\]/g, "");
   t = t.replace(/\[IMAGE_SEARCH:\s*[^\]]+\]/g, "");
   t = _stripThinkingPreamble(t);
+  const _peeked = _esPeekApp(t);
+  if (_peeked) { _esStreamApp = _peeked; }
+  else if (t.indexOf("<es-edit") >= 0 || t.indexOf("<es-app") >= 0) { _esStreamApp = null; }
   const editIdx = t.indexOf("<es-edit>");
   if (editIdx >= 0) {
     return { text: t.slice(0, editIdx), quizStarted: false, appStarted: false, editStarted: true };
@@ -5921,8 +5924,18 @@ const _ES_APPS = {
   notes:  { label: "EmeraldNotes",  action: "Open in Notes",  file: "notes.html",  color: "#a21caf", soft: "rgba(162,28,175,0.15)" },
   docs:   { label: "EmeraldDocs",   action: "Open in Docs",   file: "docs.html",   color: "#0891b2", soft: "rgba(8,145,178,0.15)" },
   slides: { label: "EmeraldSlides", action: "Open in Slides", file: "slides.html", color: "#f97316", soft: "rgba(249,115,22,0.15)" },
-  sheets: { label: "EmeraldSheets", action: "Open in Sheets", file: "sheets.html", color: "#217346", soft: "rgba(33,115,70,0.15)" }
+  sheets: { label: "EmeraldSheets", action: "Open in Sheets", file: "sheets.html", color: "#84cc16", soft: "rgba(132,204,22,0.15)" }
 };
+/* App accent detected from the streaming <es-edit>/<es-app> payload, so the
+   in-progress loading cards and pills get the right per-app color. */
+let _esStreamApp = null;
+function _esPeekApp(text) {
+  const m = String(text || "").match(/"app"\s*:\s*"([a-z]+)"/i);
+  return (m && _ES_APPS[m[1]]) ? m[1] : null;
+}
+function _esAccent(app) {
+  return (app && _ES_APPS[app] && _ES_APPS[app].color) || "#0891b2";
+}
 const _ES_ANIM_TYPES = ["appear", "fade", "fly", "zoom", "spin", "bounce"];
 function _esAppKind(data) {
   const a = String((data && data.app) || "").toLowerCase().trim();
@@ -5972,9 +5985,10 @@ function _esAppIconSvg(kind) {
   return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7"/></svg>';
 }
 function esAppLoadingCardHTML() {
-  return `<div class="quiz-loading-card">
+  const acc = _esAccent(_esStreamApp);
+  return `<div class="quiz-loading-card es-loading-card" style="--esaccent:${acc}">
     <div class="quiz-loading-icon">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4caf7d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7"/></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7"/></svg>
     </div>
     <div>
       <div style="font-size:13.5px;font-weight:600;color:var(--text);margin-bottom:4px">Preparing import\u2026</div>
@@ -6469,9 +6483,10 @@ function _extractFileEdit(text) {
 }
 
 function esEditLoadingCardHTML() {
-  return `<div class="quiz-loading-card">
+  const acc = _esAccent(_esStreamApp);
+  return `<div class="quiz-loading-card es-loading-card" style="--esaccent:${acc}">
     <div class="quiz-loading-icon">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0891b2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
     </div>
     <div>
       <div style="font-size:13.5px;font-weight:600;color:var(--text);margin-bottom:4px">Updating file\u2026</div>
@@ -6568,6 +6583,8 @@ function renderFileEditBadge(aiDiv, outcome) {
   const ok = !!(outcome && outcome.ok);
   const b = document.createElement("div");
   b.className = "file-edit-badge" + (ok ? "" : " file-edit-badge--error");
+  const accent = _esAccent(outcome && outcome.app);
+  if (ok) b.style.setProperty("--esaccent", accent);
   const icon = ok
     ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>'
     : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
