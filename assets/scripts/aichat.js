@@ -2912,16 +2912,14 @@ async function handleSend(opts) {
   const history = buildHistory(conv);
   const fileParts = buildFileParts(files);
   if (fileParts.length) history[history.length - 1].parts.push(...fileParts);
-  // Attach the live EmeraldSuite file the agent is editing, if any. Re-read
-  // from storage every send so the AI always sees the latest user edits.
-  if (_aiFile) {
-    try {
-      const fileCtx = await _efBuildContext(_aiFile.app, _aiFile.id);
-      if (fileCtx && history.length && history[history.length - 1]?.parts?.length) {
-        history[history.length - 1].parts.unshift({ text: fileCtx });
-      }
-    } catch (e) { console.warn("File context failed:", e); }
-  }
+  // Inject the user's EmeraldSuite file catalog + latest contents (auto-read
+  // from storage every send) so the AI can pick the right file to edit.
+  try {
+    const fileCtx = await _suiteAutoContext();
+    if (fileCtx && history.length && history[history.length - 1]?.parts?.length) {
+      history[history.length - 1].parts.unshift({ text: fileCtx });
+    }
+  } catch (e) { console.warn("File context failed:", e); }
   const urlsInMsg = extractUrls(text);
   const _wsNeeded = detectWebSearchIntent(text) || urlsInMsg.length > 0;
   state.isStreaming = true;
@@ -3526,14 +3524,12 @@ async function regenerateMessage(msgEl) {
       }
     }
   }
-  if (_aiFile) {
-    try {
-      const fileCtx = await _efBuildContext(_aiFile.app, _aiFile.id);
-      if (fileCtx && history.length && history[history.length - 1]?.parts?.length) {
-        history[history.length - 1].parts.unshift({ text: fileCtx });
-      }
-    } catch (e) { console.warn("File context failed:", e); }
-  }
+  try {
+    const fileCtx = await _suiteAutoContext();
+    if (fileCtx && history.length && history[history.length - 1]?.parts?.length) {
+      history[history.length - 1].parts.unshift({ text: fileCtx });
+    }
+  } catch (e) { console.warn("File context failed:", e); }
   state.isStreaming = true;
   state.abortCtrl = new AbortController();
   state.streamConvId = conv ? conv.id : null;
@@ -6298,16 +6294,18 @@ document.addEventListener("click", function(e) {
   if (card) openEsAppImport(card.dataset.esapp);
 });
 
-/* ── EmeraldSuite file agent (es-edit) ─────────────────────────
-   The chat can be attached to one file (Notes/Docs/Slides/Sheets). On every
-   send the file's LIVE content is attached as [EMERALDSUITE FILE CONTEXT] so
-   the agent always sees the user's latest edits. When the user asks for a
-   change, the agent responds with <es-edit>{json}</es-edit> (the FULL new
-   file content); we write it back to the same storage the app reads and show
-   an "Updated File" pill (mirrors the memory badge). The open app tab syncs
-   automatically via the storage layer's BroadcastChannel (Sheets via the
-   es-ai agent channel). */
-let _aiFile = null; // { app, id, title }
+/* ── EmeraldSuite file agent (auto-read + direct edit) ──────────
+   No attachment UI: on every send the user's EmeraldSuite file catalog and
+   the latest contents are auto-read from storage and injected as
+   [EMERALDSUITE FILES] context, so the AI picks the right file itself. When
+   the user asks for a change, the agent responds with <es-edit>{json}</es-edit>
+   (the FULL new file content, including "app" and "id" of the target file);
+   we write it back to the same storage the app reads and show an
+   "Updated File" pill. The open app tab syncs via the storage layer's
+   BroadcastChannel (Sheets via the es-ai agent channel). Creating NEW files
+   stays on the <es-app> import card. */
+
+function _efLabel(app) { return (_ES_APPS[app] && _ES_APPS[app].label) || app; }
 
 function _efLabel(app) { return (_ES_APPS[app] && _ES_APPS[app].label) || app; }
 
@@ -6378,19 +6376,54 @@ function _efSheetToMd(sheet) {
   return lines.join("\n");
 }
 
-async function _efBuildContext(app, id) {
-  if (!app || !id) return null;
-  const r = await _efRead(app, id);
-  if (!r || !r.exists) return null;
-  let body = r.text || "(empty)";
-  if (body.length > 16000) body = body.slice(0, 16000) + "\n[...truncated...]";
-  return "[EMERALDSUITE FILE CONTEXT]\n" +
-    "App: " + _efLabel(app) + "\n" +
-    "File ID: " + id + "\n" +
-    "Title: " + r.title + "\n" +
-    (app === "slides" ? "Canvas: 960x540\n" : "") +
-    "This is the file attached to this chat. The user may ask you to edit it — if so, respond with your normal text and <es-edit>{json}</es-edit> containing the FULL new file content (per the EMERALDSUITE FILE EDIT INSTRUCTIONS).\n\n" +
-    body;
+/* Auto-read every EmeraldSuite file (catalog + latest contents) from storage.
+   Injected into each send so the AI can pick the file the user means. */
+async function _suiteAutoContext() {
+  const items = [];
+  const note = async (app, id, title, upd) => {
+    const r = await _efRead(app, id);
+    return { app, id, title: (r && r.title) || title || "Untitled", text: (r && r.text) || "", updatedAt: upd || 0 };
+  };
+  try {
+    const notes = await _esStoreGet("emeraldcore.storage.suite.notes");
+    if (Array.isArray(notes)) {
+      for (const n of notes) items.push(await note("notes", n.id, n.title, Date.parse(n.modifiedAt) || 0));
+    }
+  } catch (e) {}
+  try {
+    const idx = await _esStoreGet("emeraldcore.storage.suite.docs");
+    if (Array.isArray(idx)) {
+      for (const m of idx) items.push(await note("docs", m.id, m.title, m.updatedAt || 0));
+    }
+  } catch (e) {}
+  try {
+    const idx = await _esStoreGet("emeraldcore.storage.suite.slides");
+    if (Array.isArray(idx)) {
+      for (const m of idx) items.push(await note("slides", m.id, m.title, m.updatedAt || 0));
+    }
+  } catch (e) {}
+  try {
+    const sheets = await _efSheetsAll();
+    for (const s of sheets) items.push(await note("sheets", s.id, s.title, s.updatedAt || 0));
+  } catch (e) {}
+  if (!items.length) return null;
+  items.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  const CATALOG = items.slice(0, 30);
+  const DETAIL = items.slice(0, 6);
+  let block = "[EMERALDSUITE FILES]\nFiles in the user's EmeraldSuite storage (App | File ID | Title):\n";
+  for (const it of CATALOG) block += "- " + _efLabel(it.app) + " | " + it.id + " | " + it.title.replace(/\n/g, " ") + "\n";
+  block += "\n[FILE CONTENTS] latest files, so you can edit them directly:\n";
+  for (const it of DETAIL) {
+    let body = it.text || "(empty)";
+    if (body.length > 5000) body = body.slice(0, 5000) + "\n[...truncated...]";
+    block += "\n### " + _efLabel(it.app) + " — \"" + it.title.replace(/\n/g, " ") + "\" (ID: " + it.id + ")\n" + body + "\n";
+  }
+  block += "\nYou may EDIT any file above by responding with your normal text plus <es-edit>{\"app\":\"the-app\",\"id\":\"the-file-id\",\"title\":\"...\",\"content\":\"full new content (markdown)\"}</es-edit>" +
+    " — the FULL new file content, with the same \"app\" and \"id\" from the catalog. For slides: {\"app\":\"slides\",\"id\":\"...\",\"title\":\"...\",\"slides\":[...]} — for sheets: {\"app\":\"sheets\",\"id\":\"...\",\"title\":\"...\",\"rows\":[[...]],\"sheetName\":\"Sheet1\"}." +
+    " Change ONLY what the user asked; keep the rest intact." +
+    " To CREATE a brand-new file instead, use <es-app>{...}</es-app> (the import card, no id needed).";
+  if (block.length > 28000) block = block.slice(0, 28000) + "\n[...truncated...]";
+  return block;
 }
 
 function _extractFileEdit(text) {
@@ -6453,22 +6486,23 @@ function esEditLoadingCardHTML() {
 
 async function _efApplyEdit(fEditRes, msgId) {
   if (!fEditRes) return { ok: false };
-  if (!_aiFile || !_aiFile.app || !_aiFile.id) return { ok: false, error: "no-file" };
-  const app = _aiFile.app;
-  const id = _aiFile.id;
-  if (!fEditRes.edit && fEditRes.parseFailed) return { app, id, ok: false };
+  if (!fEditRes.edit && fEditRes.parseFailed) return { ok: false };
   const edit = fEditRes.edit;
+  const app = String((edit && edit.app) || "").toLowerCase().trim();
+  const id = String((edit && edit.id) || "").trim();
+  if (!app || !_ES_APPS[app]) return { ok: false, error: "no-app" };
+  if (!id) return { ok: false, error: "no-id" };
   try {
     if (app === "notes") {
       const key = "emeraldcore.storage.suite.notes";
       let arr = await _esStoreGet(key);
       arr = Array.isArray(arr) ? arr : [];
+      const note = arr.find((n) => n.id === id);
+      if (!note) return { app, id, ok: false, error: "not-found" };
       const now = new Date().toISOString();
       const title = _esPlainText(edit.title) || "Imported Note";
       const content = _esHtml(edit.content) || "";
-      let note = arr.find((n) => n.id === id);
-      if (note) { note.title = title; note.content = content; note.modifiedAt = now; }
-      else arr.unshift({ id, title, content, createdAt: now, modifiedAt: now });
+      note.title = title; note.content = content; note.modifiedAt = now;
       await _esStoreSet(key, arr);
       return { app, id, ok: true, title };
     }
@@ -6480,8 +6514,8 @@ async function _efApplyEdit(fEditRes, msgId) {
       let idx = await _esStoreGet("emeraldcore.storage.suite.docs");
       idx = Array.isArray(idx) ? idx : [];
       let meta = idx.find((m) => m.id === id);
-      if (meta) { meta.title = title; meta.updatedAt = now; meta.wordCount = _esWordCount(edit.content); }
-      else idx.unshift({ id, title, updatedAt: now, wordCount: _esWordCount(edit.content) });
+      if (!meta) return { app, id, ok: false, error: "not-found" };
+      meta.title = title; meta.updatedAt = now; meta.wordCount = _esWordCount(edit.content);
       await _esStoreSet("emeraldcore.storage.suite.docs", idx);
       await _esStoreSet("emeraldcore.storage.suite.docs." + id, { id, title, content, savedAt: now, theme: edit.theme === "dark" ? "dark" : "light", header: "", footer: "", footnotes: [], endnotes: [], comments: [] });
       return { app, id, ok: true, title };
@@ -6498,8 +6532,8 @@ async function _efApplyEdit(fEditRes, msgId) {
       const slides = srcSlides.map((s) => _esBuildSlide(s, edit));
       const pres = { id, title, createdAt: (prev && prev.createdAt) || now, updatedAt: now, slides };
       let meta = idx.find((m) => m.id === id);
-      if (meta) { meta.title = title; meta.updatedAt = now; meta.slideCount = slides.length; }
-      else idx.unshift({ id, title, updatedAt: now, slideCount: slides.length });
+      if (!meta) return { app, id, ok: false, error: "not-found" };
+      meta.title = title; meta.updatedAt = now; meta.slideCount = slides.length;
       await _esStoreSet("emeraldcore.storage.suite.slides", idx);
       await _esStoreSet("emeraldcore.storage.suite.slides." + id, pres);
       return { app, id, ok: true, title };
@@ -6510,13 +6544,14 @@ async function _efApplyEdit(fEditRes, msgId) {
       const sheet = _esBuildSheetData(Object.assign({ title }, edit));
       const prev = await _efSheetsGet(id);
       const prevData = (prev && prev.data) || null;
+      if (!prev || !prevData) return { app, id, ok: false, error: "not-found" };
       const wbData = {
-        v: 1, id, title, createdAt: (prevData && prevData.createdAt) || now,
+        v: 1, id, title, createdAt: prevData.createdAt || now,
         sheets: [sheet], activeSheetId: sheet.id, names: {},
         calcMode: "auto", view: { zoom: 1, showFormulaBar: true, showHeadings: true, showFormulas: false }
       };
       await _esSheetsPut(id, { id, data: wbData, savedAt: now });
-      try { if (window.emeraldsuiteAgent && window.emeraldsuiteAgent.postSync) window.emeraldsuiteAgent.postSync({ type: "es-edit", app: "sheets", id }); } catch (e) {}
+      _esAgentPostSync({ type: "es-edit", app: "sheets", id });
       return { app, id, ok: true, title };
     }
   } catch (e2) {
@@ -6536,88 +6571,26 @@ function renderFileEditBadge(aiDiv, outcome) {
   const icon = ok
     ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>'
     : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
-  b.innerHTML = icon + " " + (ok ? "Updated File" : (outcome && outcome.error === "no-file" ? "No file attached to edit" : "Edit not applied"));
+  let label = ok ? "Updated File" : "Edit not applied";
+  if (!ok && outcome) {
+    if (outcome.error === "no-app" || outcome.error === "no-id") label = "Which file? — the AI must target the exact file";
+    else if (outcome.error === "not-found") label = "File not found to edit";
+  }
+  b.innerHTML = icon + " " + label;
   sender.insertAdjacentElement("afterend", b);
 }
 
-function _efUpdateChipTitle(title) {
-  if (!_aiFile) return;
-  if (title) { _aiFile.title = title; _aiFile.updatedTitle = true; }
-  _efRenderChip();
+/* Broadcast to the emeraldsuite-agent channel (Sheets pages listen for this
+   via es-ai.js onSync so an open workbook reloads after an AI edit). */
+function _esAgentPostSync(msg) {
+  try {
+    if (typeof BroadcastChannel === "undefined") return;
+    const ch = new BroadcastChannel("emeraldsuite-agent");
+    ch.postMessage(Object.assign({}, msg, { at: Date.now() }));
+    try { ch.close(); } catch (e) {}
+  } catch (e) {}
 }
 
-function _efRenderChip() {
-  const chip = document.getElementById("suiteFileChip");
-  if (!chip) return;
-  if (!_aiFile) { chip.style.display = "none"; chip.innerHTML = ""; return; }
-  const app = _ES_APPS[_aiFile.app];
-  chip.style.display = "flex";
-  chip.style.setProperty("--chip-accent", app ? app.color : "#0891b2");
-  chip.innerHTML =
-    '<div class="suite-chip-icon">' + _esAppIconSvg(_aiFile.app) + '</div>' +
-    '<div class="suite-chip-info">' +
-      '<div class="suite-chip-meta">' + escapeHtml(_efLabel(_aiFile.app)) + '</div>' +
-      '<button type="button" class="suite-chip-open" onclick="openAttachedAI()" title="Open in ' + escapeHtmlAttr(_efLabel(_aiFile.app)) + '">' + escapeHtml(_aiFile.title || "Untitled") + '</button>' +
-    '</div>' +
-    '<button type="button" class="suite-chip-x" title="Detach file" onclick="detachAIFile()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>';
-}
-function openAttachedAI() {
-  if (!_aiFile) return;
-  const app = _ES_APPS[_aiFile.app];
-  if (!app) return;
-  try { window.open(app.file + "?owned=" + encodeURIComponent(_aiFile.id), "_blank"); } catch (e) {}
-}
-function attachAIFile(app, id) {
-  _aiFile = { app, id, title: "…" };
-  _efRenderChip();
-  const pp = document.getElementById("suiteFilePicker");
-  if (pp) pp.style.display = "none";
-  _efRead(app, id).then((r) => { if (r && r.exists) { _aiFile.title = r.title || _aiFile.title; _aiFile.updatedTitle = true; _efRenderChip(); } }).catch(() => {});
-  showToast('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:-2px;margin-right:5px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> File attached — the AI can now edit it.', "success");
-}
-function detachAIFile() {
-  _aiFile = null;
-  _efRenderChip();
-  const pp = document.getElementById("suiteFilePicker");
-  if (pp) pp.style.display = "none";
-}
-function openSuiteFilePicker() {
-  const pp = document.getElementById("suiteFilePicker");
-  if (!pp) return;
-  if (pp.style.display === "block") { pp.style.display = "none"; return; }
-  _efPopulatePicker();
-  pp.style.display = "block";
-}
-async function _efPopulatePicker() {
-  const list = document.getElementById("suiteFileList");
-  if (!list) return;
-  list.innerHTML = '<div class="suite-file-loading">Loading files\u2026</div>';
-  const groups = [];
-  const mount = (app, items) => { if (items && items.length) groups.push({ app, items }); };
-  try {
-    const notes = await _esStoreGet("emeraldcore.storage.suite.notes");
-    mount("notes", Array.isArray(notes) ? notes.map((n) => ({ id: n.id, title: n.title || "Untitled Note", updatedAt: Date.parse(n.modifiedAt) || 0 })) : []);
-    const docsIdx = await _esStoreGet("emeraldcore.storage.suite.docs");
-    mount("docs", Array.isArray(docsIdx) ? docsIdx.map((m) => ({ id: m.id, title: m.title || "Untitled Document", updatedAt: m.updatedAt || 0 })) : []);
-    const slidesIdx = await _esStoreGet("emeraldcore.storage.suite.slides");
-    mount("slides", Array.isArray(slidesIdx) ? slidesIdx.map((m) => ({ id: m.id, title: m.title || "Untitled Presentation", updatedAt: m.updatedAt || 0 })) : []);
-    const sheets = await _efSheetsAll();
-    mount("sheets", sheets);
-  } catch (e) { console.warn("File picker failed:", e); }
-  if (!groups.length) { list.innerHTML = '<div class="suite-file-loading">No EmeraldSuite files found yet.</div>'; return; }
-  let html = "";
-  groups.forEach((g) => {
-    html += '<div class="suite-file-group"><div class="suite-file-group-label">' + escapeHtml(_efLabel(g.app)) + '</div>';
-    g.items.slice(0, 24).forEach((it) => {
-      html += '<button type="button" class="suite-file-row" data-app="' + escapeHtmlAttr(g.app) + '" data-id="' + escapeHtmlAttr(String(it.id)) + '">' +
-        '<span class="suite-file-row-icon">' + _esAppIconSvg(g.app) + '</span>' +
-        '<span class="suite-file-row-title">' + escapeHtml(it.title || it.id || "Untitled") + '</span>' +
-        '<span class="suite-file-row-arrow">\u203A</span></button>';
-    });
-    html += '</div>';
-  });
-  list.innerHTML = html;
-}
 function _efSheetsGet(id) {
   return new Promise((resolve) => {
     if (typeof indexedDB === "undefined") { resolve(null); return; }
@@ -6671,31 +6644,6 @@ function _efSheetsAll() {
     };
   });
 }
-function _efInitFromUrl() {
-  try {
-    const p = new URLSearchParams(location.search);
-    const app = String(p.get("file") || "").toLowerCase().trim();
-    const id = String(p.get("owned") || "");
-    if (app && id && _ES_APPS[app]) attachAIFile(app, id);
-  } catch (e) {}
-}
-function _efWire() {
-  try {
-    const btn = document.getElementById("suiteFileBtn");
-    if (btn) btn.addEventListener("click", openSuiteFilePicker);
-    _efInitFromUrl();
-  } catch (e) {}
-}
-document.addEventListener("click", function(e) {
-  const row = e.target.closest(".suite-file-row[data-app][data-id]");
-  if (row) { attachAIFile(row.dataset.app, row.dataset.id); return; }
-  const picker = document.getElementById("suiteFilePicker");
-  if (picker && picker.style.display === "block" && !picker.contains(e.target)) {
-    const btn = document.getElementById("suiteFileBtn");
-    if (!btn || !btn.contains(e.target)) picker.style.display = "none";
-  }
-});
-document.addEventListener("DOMContentLoaded", _efWire, { once: true });
 
 // Event delegation: .quiz-card[data-qid] clicks → openQuizPanel
 document.addEventListener("click", function(e) {
@@ -6912,6 +6860,14 @@ async function submitUserMsgEdit(msgId) {
       if (fileParts.length) last.parts.push(...fileParts);
     }
   }
+  // Inject the user's EmeraldSuite file catalog + latest contents (auto-read
+  // from storage) so the AI knows which file to edit on resubmit too.
+  try {
+    const fileCtx = await _suiteAutoContext();
+    if (fileCtx && history.length && history[history.length - 1]?.parts?.length) {
+      history[history.length - 1].parts.unshift({ text: fileCtx });
+    }
+  } catch (e) { console.warn("File context failed:", e); }
   state.isStreaming = true;
   state.abortCtrl = new AbortController();
   state.streamConvId = conv ? conv.id : null;

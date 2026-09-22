@@ -162,18 +162,9 @@
         <!-- ─── Input ─────────────────────────── -->
         <div class="chat-input-wrap">
             <div class="chat-input-box">
-                <!-- Attached EmeraldSuite file (agent-edit target) -->
-                <div class="suite-chip" id="suiteFileChip" style="display:none;"></div>
                 <!-- File attachment preview -->
                 <div class="attach-preview" id="attachPreview" style="display:none;"></div>
                 <div class="input-container">
-                    <button class="input-attach-btn" id="suiteFileBtn" title="Attach an EmeraldSuite file for AI to edit">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <path d="M14 2v6h6"></path>
-                            <path d="M9 13h6M9 17h3"></path>
-                        </svg>
-                    </button>
                     <button class="input-attach-btn" title="Attach file" onclick="document.getElementById('fileInput').click()">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M12 5v14M5 12h14"></path>
@@ -193,14 +184,6 @@
                 </div>
                 <p class="input-footer-note">EmeraldBot may produce inaccurate information. Verify important details.</p>
             </div>
-        </div>
-        <!-- Attach EmeraldSuite file for the AI agent to edit -->
-        <div class="suite-file-picker" id="suiteFilePicker" style="display:none;">
-            <div class="suite-file-picker-head">
-                <span>Attach a file for the AI to edit</span>
-                <button type="button" class="suite-file-picker-close" id="suiteFilePickerClose" title="Close" onclick="document.getElementById('suiteFilePicker').style.display='none'">×</button>
-            </div>
-            <div class="suite-file-list" id="suiteFileList"></div>
         </div>
         <!-- Spacer for centering input on welcome screen (height set by JS) -->
         <div class="chat-input-spacer" id="chatInputSpacer"></div>
@@ -383,7 +366,6 @@
     <script src="https://cdn.jsdelivr.net/npm/marked@18.0.5/lib/marked.umd.js" integrity="sha384-ZD0fTOwPMHi7zM6WTVIWJR21I07lq0ccnqz3J6WMvQKG9thh4y7TA1QE6PJu0Af8" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js" integrity="sha384-hIoBPJpTUs74ddyc4bFZSM1TVlQDA60VBbJS0oA934VSz82sBx1X7kSx2ATBDIyd" crossorigin="anonymous"></script>
     <script src="/assets/scripts/idb-storage.js"></script>
-    <script src="/assets/scripts/es-ai.js"></script>
     <script src="/assets/scripts/zipreader.js"></script>
     <script src="/assets/scripts/aichat.js"></script>
 
