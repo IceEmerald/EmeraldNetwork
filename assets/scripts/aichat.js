@@ -3936,8 +3936,8 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
       const lines = buffer.split("\n");
       buffer = lines.pop();
       for (const line of lines) {
-        if (!line.startsWith("data: ")) continue;
-        const data = line.slice(6).trim();
+        if (!line.startsWith("data:")) continue;
+        const data = line.slice(5).trim();
         if (data === "[DONE]") {
           streamDone = true;
           break;
