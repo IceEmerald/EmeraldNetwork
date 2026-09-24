@@ -6464,7 +6464,7 @@ function _efSheetToMd(sheet) {
     const cells = [];
     let empty = true;
     for (let c = 0; c <= maxC; c++) {
-      const s = val(r, c).replace(/\|/g, "\\|").replace(/[\t\r\n]+/g, " ").replace(/ +/g, " ");
+      const s = val(r, c).replace(/[\\|]/g, (m) => "\\" + m).replace(/[\t\r\n]+/g, " ").replace(/ +/g, " ");
       if (s) empty = false;
       cells.push(s.slice(0, 120));
     }
