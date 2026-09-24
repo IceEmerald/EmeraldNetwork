@@ -1176,6 +1176,7 @@
   var resizeStartH = 0;
   var resizeMode = null; // 'nw','ne','sw','se','n','s','e','w'
   var resizeBodyCursorSet = false;
+  var selectedImgObserver = null; // watches for the selected image leaving the DOM
 
   function initImageResize() {
     // Delegated click listener on the document
@@ -1184,8 +1185,13 @@
       if (img) {
         e.preventDefault();
         attachImageResize(img);
-      } else if (resizeOverlay && !e.target.closest(".img-resize-wrap")) {
+      } else if (resizeOverlay && e.target &&
+                 (!e.target.closest || !e.target.closest(".img-resize-wrap, .ribbon, .ribbon-tabs, .ms-dropdown, .ms-dropdown-menu"))) {
+        // Clicks on ribbon chrome (incl. the contextual Image Format tab's
+        // programmatic clicks) and portal dropdowns must NOT deselect the
+        // current image.
         detachImageResize();
+        syncImageFormatRibbonState();
       }
     });
 
@@ -1240,6 +1246,19 @@
     activeResizeImg = img;
     img.setAttribute("data-selected", "true");
 
+    // Watch for the selected image leaving the DOM (delete/backspace/cut) so
+    // the resize overlay and Image Format tab clean up automatically.
+    if (window.MutationObserver) {
+      selectedImgObserver = new MutationObserver(function () {
+        if (!activeResizeImg || !activeResizeImg.isConnected) {
+          detachImageResize();
+          syncImageFormatRibbonState();
+        }
+      });
+      selectedImgObserver.observe(document.getElementById(PAGES_WRAPPER_ID) || document.body, { childList: true, subtree: true });
+    }
+    syncImageFormatRibbonState();
+
     resizeOverlay = document.createElement("div");
     resizeOverlay.className = "img-resize-overlay";
     resizeHandles = [];
@@ -1283,6 +1302,10 @@
   }
 
   function detachImageResize() {
+    if (selectedImgObserver) {
+      selectedImgObserver.disconnect();
+      selectedImgObserver = null;
+    }
     if (activeResizeImg) activeResizeImg.removeAttribute("data-selected");
     activeResizeImg = null;
     if (resizeOverlay) {
@@ -2209,6 +2232,7 @@ function startAutosaveSnapshots() {
     paginate();
     canUndo = false;
     canRedo = false;
+    syncImageFormatRibbonState();
     updateRibbonAvailability();
     updateStatus();
     history.replaceState({}, document.title, location.pathname);
@@ -4040,6 +4064,10 @@ function startAutosaveSnapshots() {
      `absolute; left:0` — causing a brief flash on the left edge of the
      ribbon before the new panel appeared in the center. */
   /* ---------------- Ribbon tab indicator helpers ---------------- */
+  // Currently-active ribbon tab name + the regular tab to return to when an
+  // image is deselected (drives the contextual Image Format tab, Slides-style).
+  var activeRibbonTab = "home";
+  var docsImagePreviousTab = "home";
   // Position the sliding underline under a tab. No-ops safely when the
   // ribbon is hidden (welcome screen) — the rect is just 0×0 then.
   function moveRibbonIndicatorTo(tab) {
@@ -4126,6 +4154,10 @@ function startAutosaveSnapshots() {
         // already active?
         if (tab.classList.contains("active") && target !== "file") return;
 
+        // Track the last user-chosen regular tab (used to restore after the
+        // contextual Image Format tab auto-hides when the image is deselected).
+        if (target !== "file") activeRibbonTab = target;
+
         // FILE TAB → Backstage-style File modal (Slides behaviour).
         // The File tab has no inline ribbon panel; clicking it opens the
         // file modal overlay over the editor instead.
@@ -4157,6 +4189,7 @@ function startAutosaveSnapshots() {
   function switchRibbonTab(name) {
     var tab = document.querySelector('.ribbon-tab[data-tab="' + name + '"]');
     if (!tab) return;
+    if (name !== "file") activeRibbonTab = name;
     var active = document.querySelector(".ribbon-tab.active");
     if (active === tab) return;
     var panels = document.querySelectorAll(".ribbon-panel");
@@ -4169,6 +4202,259 @@ function startAutosaveSnapshots() {
     for (var t = 0; t < tabsAll.length; t++) tabsAll[t].classList.toggle("active", tabsAll[t] === tab);
     if (targetPanel) targetPanel.classList.add("active");
     moveRibbonIndicatorTo(tab);
+  }
+
+  /* ---------------- Image Format contextual tab (Slides parity) ----------------
+   Images are inline <img> elements whose adjustments are persisted as
+   data-imgfx (filter params) + data-imgborder attributes plus inline styles,
+   all of which survive serialize()/sanitizeStoredHtml(). */
+  var DEFAULT_IMG_FX = { brightness: 100, contrast: 100, saturate: 100, hue: 0, grayscale: 0, sepia: 0, invert: 0, blur: 0 };
+
+  function parseImageFx(img) {
+    var out = Object.assign({}, DEFAULT_IMG_FX);
+    if (!img) return out;
+    try {
+      var raw = img.getAttribute("data-imgfx");
+      if (raw) out = Object.assign(out, JSON.parse(raw));
+    } catch (e) {}
+    return out;
+  }
+
+  function parseImageBorder(img) {
+    var b = { w: 0, c: "" };
+    if (!img) return b;
+    try {
+      var raw = img.getAttribute("data-imgborder");
+      if (raw) b = Object.assign(b, JSON.parse(raw));
+    } catch (e) {}
+    return b;
+  }
+
+  function imageFormatFilterCSS(fx) {
+    var parts = [];
+    if (fx.grayscale) parts.push("grayscale(" + fx.grayscale + ")");
+    if (fx.sepia) parts.push("sepia(" + fx.sepia + ")");
+    if (fx.invert) parts.push("invert(" + fx.invert + ")");
+    if (fx.blur) parts.push("blur(" + fx.blur + "px)");
+    if (fx.brightness != null && fx.brightness !== 100) parts.push("brightness(" + (fx.brightness / 100).toFixed(2) + ")");
+    if (fx.contrast != null && fx.contrast !== 100) parts.push("contrast(" + (fx.contrast / 100).toFixed(2) + ")");
+    if (fx.saturate != null && fx.saturate !== 100) parts.push("saturate(" + (fx.saturate / 100).toFixed(2) + ")");
+    if (fx.hue) parts.push("hue-rotate(" + fx.hue + "deg)");
+    return parts.join(" ");
+  }
+
+  function imageFormatFilterLabel(fx) {
+    if (fx.grayscale) return "Grayscale";
+    if (fx.sepia) return "Sepia";
+    if (fx.invert) return "Invert";
+    if (fx.blur) return "Blur";
+    return "Original";
+  }
+
+  function imageFormatFilterPreset(name) {
+    var presets = {
+      none: { grayscale: 0, sepia: 0, invert: 0, blur: 0 },
+      grayscale: { grayscale: 1, sepia: 0, invert: 0, blur: 0 },
+      sepia: { grayscale: 0, sepia: 1, invert: 0, blur: 0 },
+      invert: { grayscale: 0, sepia: 0, invert: 1, blur: 0 },
+      blur: { grayscale: 0, sepia: 0, invert: 0, blur: 3 },
+    };
+    return presets[name] || presets.none;
+  }
+
+  function currentImage() {
+    return (activeResizeImg && activeResizeImg.isConnected) ? activeResizeImg : null;
+  }
+
+  // Mirror the selected image's current values onto the Image Format panel.
+  function syncImageFormatControls(img) {
+    if (!img) return;
+    var fx = parseImageFx(img);
+    var set = function (id, v) {
+      var el = $(id);
+      if (el) el.value = v;
+    };
+    set("imgBrightness", fx.brightness);
+    set("imgContrast", fx.contrast);
+    set("imgSaturation", fx.saturate);
+    set("imgHue", fx.hue);
+    var label = $("imageFilterLabel");
+    if (label) label.textContent = imageFormatFilterLabel(fx);
+    var bs = $("imageBorderSwatch");
+    var border = parseImageBorder(img);
+    if (bs) {
+      if (border.w > 0 && border.c) {
+        bs.style.background = border.c;
+        bs.style.border = "2px solid " + border.c;
+      } else {
+        bs.style.background = "transparent";
+        bs.style.border = "2px dashed #999";
+      }
+    }
+    var bwL = $("imageBorderWidthLabel");
+    if (bwL) bwL.textContent = border.w ? border.w + " pt" : "None";
+    var op = $("imageOpacity");
+    if (op) op.value = img.style.opacity ? Math.round(parseFloat(img.style.opacity) * 100) : 100;
+  }
+
+  // Write a parsed fx object + stored border/opacity onto the <img> and persist.
+  function applyImageFormat(img, fx) {
+    if (!img) return;
+    img.setAttribute("data-imgfx", JSON.stringify(fx));
+    var filter = imageFormatFilterCSS(fx);
+    if (filter) img.style.filter = filter;
+    else img.style.removeProperty("filter");
+    var border = parseImageBorder(img);
+    img.style.border = border.w > 0 && border.c ? (border.w + "px solid " + border.c) : "";
+    img.style.boxSizing = border.w > 0 ? "border-box" : "";
+    syncImageFormatControls(img);
+    schedulePaginate();
+    scheduleAutosave();
+  }
+
+  function onImageFxChange(changes) {
+    var img = currentImage();
+    if (!img) return;
+    applyImageFormat(img, Object.assign({}, parseImageFx(img), changes));
+  }
+
+  function onImageBorderChange(next) {
+    var img = currentImage();
+    if (!img) return;
+    var b = parseImageBorder(img);
+    if (next.w != null) b.w = next.w;
+    if (next.c != null) b.c = next.c;
+    if (b.w <= 0) b.c = "";
+    if (b.w > 0 && !b.c) b.c = "#1a1a1a";
+    img.setAttribute("data-imgborder", JSON.stringify(b));
+    applyImageFormat(img, parseImageFx(img));
+  }
+
+  function onImageOpacityChange(v) {
+    var img = currentImage();
+    if (!img) return;
+    if (v >= 100) img.style.removeProperty("opacity");
+    else img.style.opacity = (v / 100).toFixed(2);
+    syncImageFormatControls(img);
+    schedulePaginate();
+    scheduleAutosave();
+  }
+
+  // Show/hide the contextual Image Format tab + auto-switch/restore the ribbon.
+  function syncImageFormatRibbonState() {
+    var tab = $("imageFormatTab");
+    if (!tab) return;
+    var img = currentImage();
+    if (img) {
+      var wasHidden = tab.hasAttribute("hidden");
+      tab.removeAttribute("hidden");
+      if (wasHidden && activeRibbonTab !== "image-format") {
+        docsImagePreviousTab = activeRibbonTab;
+        tab.click();
+      }
+      syncImageFormatControls(img);
+    } else {
+      if (activeRibbonTab === "image-format") {
+        var restoreName = (docsImagePreviousTab && docsImagePreviousTab !== "image-format") ? docsImagePreviousTab : "home";
+        var restoreBtn = document.querySelector('.ribbon-tab[data-tab="' + restoreName + '"]');
+        if (restoreBtn) restoreBtn.click();
+      }
+      tab.setAttribute("hidden", "");
+    }
+  }
+
+  // Wire the Image Format panel controls (Slides parity). Idempotent.
+  function setupImageFormatTab() {
+    var panel = document.querySelector('.ribbon-panel[data-panel="image-format"]');
+    if (!panel || panel.__imgFormatBound) return;
+    panel.__imgFormatBound = true;
+
+    // Stepper buttons ([−] / [+]) adjust their data-target input + fire change.
+    panel.querySelectorAll(".tr-num-step").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var target = document.getElementById(btn.dataset.target);
+        if (!target) return;
+        var step = parseFloat(btn.dataset.step) || 0;
+        var min = parseFloat(target.min);
+        var max = parseFloat(target.max);
+        var val = parseFloat(target.value) || 0;
+        val += step;
+        if (!Number.isNaN(min)) val = Math.max(min, val);
+        if (!Number.isNaN(max)) val = Math.min(max, val);
+        target.value = Math.round(val * 10) / 10;
+        target.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+    });
+
+    // Filters — preset dropdown
+    panel.querySelectorAll("#imageFilterDropdown .ms-dropdown-item").forEach(function (item) {
+      item.addEventListener("click", function () {
+        closePortalDropdown(false);
+        var preset = item.dataset.filter || "none";
+        var label = $("imageFilterLabel");
+        if (label) label.textContent = item.dataset.label || "Original";
+        onImageFxChange(imageFormatFilterPreset(preset));
+      });
+    });
+
+    // Color corrections — inputs
+    var fxInputs = [
+      { id: "imgBrightness", key: "brightness" },
+      { id: "imgContrast", key: "contrast" },
+      { id: "imgSaturation", key: "saturate" },
+      { id: "imgHue", key: "hue" },
+    ];
+    fxInputs.forEach(function (cfg) {
+      var input = document.getElementById(cfg.id);
+      if (!input) return;
+      input.addEventListener("change", function () {
+        var min = parseFloat(input.min);
+        var max = parseFloat(input.max);
+        var v = parseInt(input.value);
+        if (!Number.isFinite(v)) v = DEFAULT_IMG_FX[cfg.key];
+        if (!Number.isNaN(min)) v = Math.max(min, v);
+        if (!Number.isNaN(max)) v = Math.min(max, v);
+        input.value = v;
+        onImageFxChange({ [cfg.key]: v });
+      });
+    });
+
+    // Border color
+    panel.querySelectorAll("#imageBorderColorDropdown .ms-dropdown-item").forEach(function (item) {
+      item.addEventListener("click", function () {
+        closePortalDropdown(false);
+        var color = item.dataset.value;
+        var img = currentImage();
+        if (color === "none") onImageBorderChange({ w: 0, c: "" });
+        else onImageBorderChange({ c: color, w: img ? (parseImageBorder(img).w || 2) : 2 });
+      });
+    });
+
+    // Border width
+    panel.querySelectorAll("#imageBorderWidthDropdown .ms-dropdown-item").forEach(function (item) {
+      item.addEventListener("click", function () {
+        closePortalDropdown(false);
+        var val = parseInt(item.dataset.value) || 0;
+        var img = currentImage();
+        if (val === 0) onImageBorderChange({ w: 0, c: "" });
+        else onImageBorderChange({ w: val, c: img ? (parseImageBorder(img).c || "#1a1a1a") : "#1a1a1a" });
+      });
+    });
+
+    // Transparency — opacity stepper input
+    var opInput = document.getElementById("imageOpacity");
+    if (opInput) {
+      opInput.addEventListener("change", function () {
+        var min = parseFloat(opInput.min);
+        var max = parseFloat(opInput.max);
+        var v = parseInt(opInput.value);
+        if (!Number.isFinite(v)) v = 100;
+        if (!Number.isNaN(min)) v = Math.max(min, v);
+        if (!Number.isNaN(max)) v = Math.min(max, v);
+        opInput.value = v;
+        onImageOpacityChange(v);
+      });
+    }
   }
 
   /* ---------------- Page margins (drag to resize via ruler) ---------------- */
@@ -6158,6 +6444,67 @@ function startAutosaveSnapshots() {
     toastTimer = setTimeout(function () { el.className = "toast"; }, 3000);
   }
 
+  /* ---------------- Slides-style ms-dropdowns (portal-based) ----------------
+     Ported from slides.js: menus are appended to <body> while open so they
+     escape the ribbon's overflow, with the same open/close animations.
+     Defined at the closure scope (not inside init) because Image Format tab
+     handlers also close the portal after picking a filter/color. */
+  var _portalDropdown = null, _portalMenu = null, _portalBtn = null;
+
+  function closePortalDropdown(animate) {
+    if (!_portalMenu) return;
+    var menu = _portalMenu, dropdown = _portalDropdown, btn = _portalBtn;
+    _portalMenu = null; _portalDropdown = null; _portalBtn = null;
+    if (dropdown) dropdown.classList.remove("active");
+    if (btn) btn.setAttribute("aria-expanded", "false");
+
+    var done = false;
+    var cleanup = function () {
+      if (done) return;
+      done = true;
+      menu.removeEventListener("animationend", cleanup);
+      menu.classList.remove("ms-portal-closing");
+      menu.style.cssText = "";
+      if (dropdown) dropdown.appendChild(menu);
+    };
+    if (animate === false) {
+      cleanup();
+    } else {
+      menu.classList.add("ms-portal-closing");
+      menu.addEventListener("animationend", cleanup);
+      setTimeout(cleanup, 220);
+    }
+  }
+
+  function openPortalDropdown(dropdown, btn, menu) {
+    closePortalDropdown(false);
+    document.body.appendChild(menu);
+    _portalMenu = menu;
+    _portalDropdown = dropdown;
+    _portalBtn = btn;
+    dropdown.classList.add("active");
+    btn.setAttribute("aria-expanded", "true");
+
+    var isColorList = menu.classList && menu.classList.contains("color-list-menu");
+    var isColorGrid = menu.classList && menu.classList.contains("color-grid-menu");
+    var cap = isColorList ? 240 : (isColorGrid ? 320 : 320);
+    var maxH = Math.min(cap, window.innerHeight * 0.6);
+    // First, measure invisibly
+    menu.style.cssText = "position:fixed;visibility:hidden;display:block;z-index:999999;margin:0;max-height:" + maxH + "px;overflow-y:auto;";
+    var btnRect = btn.getBoundingClientRect();
+    var mW = menu.offsetWidth || 200;
+    var mH = menu.offsetHeight || 280;
+    var vW = window.innerWidth;
+    var vH = window.innerHeight;
+    var top = btnRect.bottom + 4;
+    if (top + mH > vH - 8) top = btnRect.top - mH - 4;
+    if (top < 8) top = btnRect.bottom + 4;
+    var left = btnRect.left;
+    if (left + mW > vW - 8) left = vW - mW - 8;
+    if (left < 8) left = 8;
+    menu.style.cssText = "position:fixed;display:block;visibility:visible;z-index:999999;margin:0;left:" + left + "px;top:" + top + "px;max-height:" + maxH + "px;overflow-y:auto;animation:dropdownFadeIn 0.18s ease;";
+  }
+
   /* ---------------- Init ---------------- */
   async function init() {
     // Initialize IDB storage
@@ -6234,65 +6581,6 @@ function startAutosaveSnapshots() {
     // dropdown lists below drive them)
     if ($("textColor")) $("textColor").addEventListener("input", function (e) { applyTextColor(e.target.value); });
     if ($("hiliteColor")) $("hiliteColor").addEventListener("input", function (e) { applyHiliteColor(e.target.value); });
-
-    /* ---------------- Slides-style ms-dropdowns (portal-based) ----------------
-       Ported from slides.js: menus are appended to <body> while open so they
-       escape the ribbon's overflow, with the same open/close animations. */
-    var _portalDropdown = null, _portalMenu = null, _portalBtn = null;
-
-    function closePortalDropdown(animate) {
-      if (!_portalMenu) return;
-      var menu = _portalMenu, dropdown = _portalDropdown, btn = _portalBtn;
-      _portalMenu = null; _portalDropdown = null; _portalBtn = null;
-      if (dropdown) dropdown.classList.remove("active");
-      if (btn) btn.setAttribute("aria-expanded", "false");
-
-      var done = false;
-      var cleanup = function () {
-        if (done) return;
-        done = true;
-        menu.removeEventListener("animationend", cleanup);
-        menu.classList.remove("ms-portal-closing");
-        menu.style.cssText = "";
-        if (dropdown) dropdown.appendChild(menu);
-      };
-      if (animate === false) {
-        cleanup();
-      } else {
-        menu.classList.add("ms-portal-closing");
-        menu.addEventListener("animationend", cleanup);
-        setTimeout(cleanup, 220);
-      }
-    }
-
-    function openPortalDropdown(dropdown, btn, menu) {
-      closePortalDropdown(false);
-      document.body.appendChild(menu);
-      _portalMenu = menu;
-      _portalDropdown = dropdown;
-      _portalBtn = btn;
-      dropdown.classList.add("active");
-      btn.setAttribute("aria-expanded", "true");
-
-      var isColorList = menu.classList && menu.classList.contains("color-list-menu");
-      var isColorGrid = menu.classList && menu.classList.contains("color-grid-menu");
-      var cap = isColorList ? 240 : (isColorGrid ? 320 : 320);
-      var maxH = Math.min(cap, window.innerHeight * 0.6);
-      // First, measure invisibly
-      menu.style.cssText = "position:fixed;visibility:hidden;display:block;z-index:999999;margin:0;max-height:" + maxH + "px;overflow-y:auto;";
-      var btnRect = btn.getBoundingClientRect();
-      var mW = menu.offsetWidth || 200;
-      var mH = menu.offsetHeight || 280;
-      var vW = window.innerWidth;
-      var vH = window.innerHeight;
-      var top = btnRect.bottom + 4;
-      if (top + mH > vH - 8) top = btnRect.top - mH - 4;
-      if (top < 8) top = btnRect.bottom + 4;
-      var left = btnRect.left;
-      if (left + mW > vW - 8) left = vW - mW - 8;
-      if (left < 8) left = 8;
-      menu.style.cssText = "position:fixed;display:block;visibility:visible;z-index:999999;margin:0;left:" + left + "px;top:" + top + "px;max-height:" + maxH + "px;overflow-y:auto;animation:dropdownFadeIn 0.18s ease;";
-    }
 
     function storeEditorSelectionFromContext() {
       var s = window.getSelection();
@@ -6531,6 +6819,7 @@ function startAutosaveSnapshots() {
 
     // Ribbon tabs — switching with sliding indicator + blur/fade panel transition
     initRibbonTabs();
+    setupImageFormatTab();
 
     // Export dropdown (guarded — may not exist if moved)
     var exportToggle = $("btnExportToggle");

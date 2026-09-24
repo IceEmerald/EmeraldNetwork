@@ -451,6 +451,7 @@ class SlidesApp {
         this.setupRibbonTabs();
         this.setupTransitionsTab();
         this.setupAnimationsTab();
+        this.setupImageFormatTab();
         this.setupViewTab();
         this.setupExtraTabs();
         this.setupSidebarToggle();
@@ -1085,6 +1086,91 @@ class SlidesApp {
         Object.assign(el, changes);
         this.renderElementDOM(id);
         this.scheduleSave();
+    }
+
+    // ── Image Format helpers ────────────────────────────────────
+
+    // Update an image element's fx (filter) object, merging with existing values.
+    _setImageFx(id, changes, noHistory = false) {
+        const el = this.getElement(id);
+        if (!el) return;
+        el.fx = Object.assign({}, el.fx || {}, changes);
+        this.updateElement(id, { fx: el.fx }, noHistory);
+    }
+
+    // Build the CSS filter string for an image element from its fx values,
+    // or '' when no adjustments are applied.
+    _imageFilterCSS(el) {
+        const fx = el.fx || {};
+        const parts = [];
+        if (fx.grayscale) parts.push(`grayscale(${fx.grayscale})`);
+        if (fx.sepia) parts.push(`sepia(${fx.sepia})`);
+        if (fx.invert) parts.push(`invert(${fx.invert})`);
+        if (fx.blur) parts.push(`blur(${fx.blur}px)`);
+        if (fx.brightness != null && fx.brightness !== 100) parts.push(`brightness(${(fx.brightness / 100).toFixed(2)})`);
+        if (fx.contrast != null && fx.contrast !== 100) parts.push(`contrast(${(fx.contrast / 100).toFixed(2)})`);
+        if (fx.saturate != null && fx.saturate !== 100) parts.push(`saturate(${(fx.saturate / 100).toFixed(2)})`);
+        if (fx.hue) parts.push(`hue-rotate(${fx.hue}deg)`);
+        return parts.join(' ');
+    }
+
+    // Label shown in the Filters dropdown, derived from the named presets.
+    _imageFilterLabel(el) {
+        const fx = el.fx || {};
+        if (fx.grayscale) return 'Grayscale';
+        if (fx.sepia) return 'Sepia';
+        if (fx.invert) return 'Invert';
+        if (fx.blur) return 'Blur';
+        return 'Original';
+    }
+
+    // Maps an image fx preset to the values applied to the element.
+    _imageFilterPreset(name) {
+        const presets = {
+            none:       { grayscale: 0, sepia: 0, invert: 0, blur: 0 },
+            grayscale:  { grayscale: 1, sepia: 0, invert: 0, blur: 0 },
+            sepia:      { grayscale: 0, sepia: 1, invert: 0, blur: 0 },
+            invert:     { grayscale: 0, sepia: 0, invert: 1, blur: 0 },
+            blur:       { grayscale: 0, sepia: 0, invert: 0, blur: 3 },
+        };
+        return presets[name] || presets.none;
+    }
+
+    // Safe tab to restore when a contextual tab is hidden: never restore to
+    // another contextual tab (they are selection-driven, not user-chosen).
+    _ribbonRestoreTab() {
+        const t = this._previousTab;
+        return t && t !== 'shape-format' && t !== 'image-format' ? t : 'home';
+    }
+
+    // Reflect the selected image element's values onto the Image Format panel.
+    _syncImageFormatControls(el) {
+        if (!el) return;
+        const fx = el.fx || {};
+        const setInput = (id, val) => {
+            const input = document.getElementById(id);
+            if (input) input.value = val;
+        };
+        setInput('imgBrightness', fx.brightness ?? 100);
+        setInput('imgContrast', fx.contrast ?? 100);
+        setInput('imgSaturation', fx.saturate ?? 100);
+        setInput('imgHue', fx.hue ?? 0);
+        const label = document.getElementById('imageFilterLabel');
+        if (label) label.textContent = this._imageFilterLabel(el);
+        const bs = document.getElementById('imageBorderSwatch');
+        if (bs) {
+            if (el.borderWidth && el.borderColor && el.borderColor !== 'none') {
+                bs.style.background = el.borderColor;
+                bs.style.border = '2px solid ' + el.borderColor;
+            } else {
+                bs.style.background = 'transparent';
+                bs.style.border = '2px dashed #999';
+            }
+        }
+        const bwL = document.getElementById('imageBorderWidthLabel');
+        if (bwL) bwL.textContent = el.borderWidth ? el.borderWidth + ' pt' : 'None';
+        const op = document.getElementById('imageOpacity');
+        if (op) op.value = Math.round((el.opacity != null ? el.opacity : 1) * 100);
     }
 
     bringToFront() {
@@ -1765,6 +1851,14 @@ class SlidesApp {
             } else {
                 img.style.cssText = 'width:100%;height:100%;display:block;pointer-events:none;object-fit:contain;';
             }
+            // Apply image filter (color corrections + filter presets)
+            const filterStyle = this._imageFilterCSS(el);
+            if (filterStyle) img.style.filter = filterStyle;
+            // Apply border (drawn inside the element bounds so it never shifts layout)
+            if (el.borderWidth && el.borderColor && el.borderColor !== 'none') {
+                imgWrap.style.border = `${el.borderWidth}px solid ${el.borderColor}`;
+                imgWrap.style.boxSizing = 'border-box';
+            }
             imgWrap.appendChild(img);
             div.appendChild(imgWrap);
         } else if (el.type === 'video') {
@@ -2013,6 +2107,14 @@ class SlidesApp {
             } else {
                 img.style.cssText = 'width:100%;height:100%;display:block;pointer-events:none;object-fit:contain;';
             }
+            // Apply image filter (color corrections + filter presets) live
+            const filterStyle = this._imageFilterCSS(el);
+            if (filterStyle) img.style.filter = filterStyle;
+            // Apply border (drawn inside the element bounds so it never shifts layout)
+            if (el.borderWidth && el.borderColor && el.borderColor !== 'none') {
+                imgWrap.style.border = `${el.borderWidth}px solid ${el.borderColor}`;
+                imgWrap.style.boxSizing = 'border-box';
+            }
             imgWrap.appendChild(img);
             domEl.appendChild(imgWrap);
         }
@@ -2067,7 +2169,9 @@ class SlidesApp {
         const el = this.getElement(id);
         if (!el) return;
 
-        this.pushHistory();
+        // History capture is deferred until the first real movement (see
+        // _onDragMove) so pointer-down never does a full synchronous deep
+        // clone of the presentation.
         const isCorner = handle && handle.length === 2; // nw, ne, se, sw
         const shiftHeld = e.shiftKey;
         const canCrop = el.type === 'image' || el.type === 'shape';
@@ -2090,6 +2194,8 @@ class SlidesApp {
             // (corner AND side) so the box always matches the image
             // and the image always fills the box without letterboxing.
             aspect: (el.type === 'image' && !cropMode) ? (el.w / el.h) : null,
+            // History is captured lazily on first movement (see _onDragMove).
+            pendingHistory: true,
         };
 
         if (type === 'rotate') {
@@ -2107,6 +2213,12 @@ class SlidesApp {
             if (domEl) domEl.classList.add('crop-mode');
         }
 
+        // Mark the element as being dragged so it is promoted to its own
+        // compositor layer (will-change) and transform-driven — this keeps
+        // movement on the GPU instead of forcing layout+repaint each frame.
+        const dragEl = document.getElementById(`el-${id}`);
+        if (dragEl) dragEl.classList.add('slide-el-dragging');
+
         document.addEventListener('mousemove', this._onDragMove, { passive: false });
         document.addEventListener('mouseup', this._onDragEnd);
         document.body.style.userSelect = 'none';
@@ -2120,6 +2232,16 @@ class SlidesApp {
 
         const dx = (e.clientX - this.drag.startMX) / this.scale;
         const dy = (e.clientY - this.drag.startMY) / this.scale;
+
+        // Lazily snapshot the pre-drag state on the FIRST real movement
+        // (before any mutation). Cloning the whole presentation at pointer-down
+        // is a synchronous deep copy that hitches the drag start — especially
+        // with images/video/drawings on the slide — and also created an undo
+        // entry for plain clicks that never moved.
+        if (this.drag.pendingHistory && (Math.abs(dx) > 1 || Math.abs(dy) > 1)) {
+            this.pushHistory();
+            this.drag.pendingHistory = false;
+        }
 
         // Flag that a real drag occurred so the media player's click
         // handlers know to suppress play/pause toggling.
@@ -2222,14 +2344,41 @@ class SlidesApp {
             }
         }
 
-        this.renderElementDOM(this.drag.id);
-        // Update linked comment pin positions during drag
-        this._updateLinkedCommentPins(this.drag.id);
-        // Update link badge position during drag (real-time)
-        this._updateLinkBadge(this.drag.id);
-        this.updateThumbnail(this.slideIdx);
-        this.updateStatusBar();
+        // Apply geometry WITHOUT rebuilding the element's children.
+        // Move/rotate only change the box/transform, so we drive the element
+        // through a single compositor transform (translate + rotate) instead
+        // of left/top + optional re-render. translate3d + will-change puts the
+        // element on its own GPU layer, so dragging costs zero layout/repaint
+        // and stays buttery at any refresh rate.
+        const domEl = document.getElementById(`el-${this.drag.id}`);
+        if ((this.drag.type === 'move' || this.drag.type === 'rotate') && domEl) {
+            domEl.style.left = '0px';
+            domEl.style.top = '0px';
+            domEl.style.transform = `translate3d(${el.x}px, ${el.y}px, 0) rotate(${el.r || 0}deg)`;
+        } else {
+            this.renderElementDOM(this.drag.id);
+        }
+        // Coalesce the drag UI side-effects (comment pins, link badge, status
+        // bar) into a single animation frame so we never do more than one
+        // frame's worth of work per frame.
+        this._scheduleDragUI();
     };
+
+    // Runs the drag-time UI updates (linked comment pins, link badge, status
+    // bar) at most once per animation frame. The sidebar thumbnail is NOT
+    // refreshed per-frame — it's the priciest update (it rebuilds the slide
+    // copy) and it's refetched on mouseup anyway by renderCanvas(), so
+    // rebuilding it mid-drag only steals frames.
+    _scheduleDragUI() {
+        if (this._dragUiRaf) return;
+        this._dragUiRaf = requestAnimationFrame(() => {
+            this._dragUiRaf = null;
+            if (!this.drag) return;
+            this._updateLinkedCommentPins(this.drag.id);
+            this._updateLinkBadge(this.drag.id);
+            this.updateStatusBar();
+        });
+    }
 
     _updateLinkBadge(elementId) {
         const canvas = document.getElementById('slideCanvas');
@@ -2287,6 +2436,9 @@ class SlidesApp {
             // Track whether a drag occurred for link click detection
             this._lastDragHadMoved = this.drag ? !!this.drag.hasMoved : false;
             this.scheduleSave();
+            // Release the compositor layer / dragging styling; renderCanvas()
+            // recreates the element with proper left/top from the data model.
+            if (domEl) domEl.classList.remove('slide-el-dragging');
             this.renderCanvas(); // Re-render to update comment pins & link badges
             this.drag = null;
             this._cropMode = false;
@@ -4211,6 +4363,97 @@ class SlidesApp {
             });
             body.appendChild(item);
         });
+    }
+
+    // ── Image Format Tab ────────────────────────────────────────
+    setupImageFormatTab() {
+        // Filters — preset dropdown
+        document.querySelectorAll('#imageFilterDropdown .ms-dropdown-item').forEach(item => {
+            item.addEventListener('click', () => {
+                this._closePortal(false);
+                const preset = item.dataset.filter || 'none';
+                const label = document.getElementById('imageFilterLabel');
+                if (label) label.textContent = item.dataset.label || 'Original';
+                if (this.selectedId) {
+                    this._setImageFx(this.selectedId, this._imageFilterPreset(preset));
+                }
+            });
+        });
+
+        // Color corrections — steppers (buttons use .tr-num-step + data-target,
+        // already wired generically; inputs apply their value to el.fx).
+        const fxInputs = {
+            imgBrightness: 'brightness',
+            imgContrast: 'contrast',
+            imgSaturation: 'saturate',
+            imgHue: 'hue',
+        };
+        for (const [inputId, fxKey] of Object.entries(fxInputs)) {
+            const input = document.getElementById(inputId);
+            if (!input || input.__imgFxBound) continue;
+            input.__imgFxBound = true;
+            input.addEventListener('change', () => {
+                const min = parseFloat(input.min);
+                const max = parseFloat(input.max);
+                let v = parseInt(input.value);
+                if (!Number.isFinite(v)) v = 100;
+                if (!Number.isNaN(min)) v = Math.max(min, v);
+                if (!Number.isNaN(max)) v = Math.min(max, v);
+                input.value = v;
+                if (this.selectedId) this._setImageFx(this.selectedId, { [fxKey]: v });
+            });
+        }
+
+        // Border color
+        document.querySelectorAll('#imageBorderColorDropdown .ms-dropdown-item').forEach(item => {
+            item.addEventListener('click', () => {
+                this._closePortal(false);
+                const color = item.dataset.value;
+                const label = document.getElementById('imageBorderWidthLabel');
+                if (this.selectedId) {
+                    if (color === 'none') {
+                        this.updateElement(this.selectedId, { borderColor: '', borderWidth: 0 });
+                    } else {
+                        const el = this.getElement(this.selectedId);
+                        this.updateElement(this.selectedId, { borderColor: color, borderWidth: el?.borderWidth || 2 });
+                    }
+                }
+                this._syncImageFormatControls(this.selectedId ? this.getElement(this.selectedId) : null);
+            });
+        });
+
+        // Border width
+        document.querySelectorAll('#imageBorderWidthDropdown .ms-dropdown-item').forEach(item => {
+            item.addEventListener('click', () => {
+                this._closePortal(false);
+                const val = parseInt(item.dataset.value) || 0;
+                const el = this.selectedId ? this.getElement(this.selectedId) : null;
+                if (this.selectedId) {
+                    if (val === 0) {
+                        this.updateElement(this.selectedId, { borderWidth: 0, borderColor: '' });
+                    } else {
+                        this.updateElement(this.selectedId, { borderWidth: val, borderColor: el?.borderColor && el.borderColor !== 'none' ? el.borderColor : '#1a1a1a' });
+                    }
+                }
+                this._syncImageFormatControls(this.selectedId ? this.getElement(this.selectedId) : null);
+            });
+        });
+
+        // Transparency — opacity stepper
+        const opInput = document.getElementById('imageOpacity');
+        if (opInput && !opInput.__imgOpBound) {
+            opInput.__imgOpBound = true;
+            opInput.addEventListener('change', () => {
+                const min = parseFloat(opInput.min);
+                const max = parseFloat(opInput.max);
+                let v = parseInt(opInput.value);
+                if (!Number.isFinite(v)) v = 100;
+                if (!Number.isNaN(min)) v = Math.max(min, v);
+                if (!Number.isNaN(max)) v = Math.min(max, v);
+                opInput.value = v;
+                if (this.selectedId) this.updateElement(this.selectedId, { opacity: v / 100 });
+            });
+        }
     }
 
     // ── View Tab ──────────────────────────────────────────────────
@@ -6496,7 +6739,9 @@ class SlidesApp {
             setRibbonGroupEnabled(pg, isText);
         }
 
-        // Shape Format contextual tab — show only when a shape is selected
+        // Contextual tabs (Shape Format / Image Format) — show only when the
+        // matching element type is selected. Only one contextual tab is ever
+        // visible/active; hiding one restores the previous regular tab.
         const shapeTab = document.getElementById('shapeFormatTab');
         if (shapeTab) {
             const wasHidden = shapeTab.hasAttribute('hidden');
@@ -6510,13 +6755,31 @@ class SlidesApp {
             } else {
                 // Hide tab — if it was active, return to the previous tab (or Home)
                 if (this._activeTab === 'shape-format') {
-                    const restoreTab = this._previousTab && this._previousTab !== 'shape-format'
-                        ? this._previousTab
-                        : 'home';
-                    const restoreBtn = document.querySelector(`.ribbon-tab[data-tab="${restoreTab}"]`);
+                    const restoreBtn = document.querySelector(`.ribbon-tab[data-tab="${this._ribbonRestoreTab()}"]`);
                     restoreBtn?.click();
                 }
                 shapeTab.setAttribute('hidden', '');
+            }
+        }
+
+        const imageTab = document.getElementById('imageFormatTab');
+        if (imageTab) {
+            const wasHidden = imageTab.hasAttribute('hidden');
+            if (isImg) {
+                imageTab.removeAttribute('hidden');
+                // Auto-switch to Image Format tab when an image is first selected
+                if (wasHidden && this._activeTab !== 'image-format') {
+                    this._previousTab = this._activeTab;
+                    imageTab.click();
+                }
+                this._syncImageFormatControls(el);
+            } else {
+                // Hide tab — if it was active, return to the previous tab (or Home)
+                if (this._activeTab === 'image-format') {
+                    const restoreBtn = document.querySelector(`.ribbon-tab[data-tab="${this._ribbonRestoreTab()}"]`);
+                    restoreBtn?.click();
+                }
+                imageTab.setAttribute('hidden', '');
             }
         }
 

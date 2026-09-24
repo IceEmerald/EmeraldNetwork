@@ -4285,6 +4285,14 @@ body.no-active-note .ribbon {
     -webkit-user-drag: none;
 }
 
+/* While dragging, promote the element to its own GPU compositor layer so
+   movement (driven via transform) never triggers layout or repaint of the
+   scaled canvas — this is what makes drags smooth. */
+.slide-el-dragging {
+    will-change: transform;
+    transition: none !important;
+}
+
 .slide-el:hover:not(.selected):not(.editing) {
     outline: rgba(249, 115, 22, 0.5) dashed 1.5px;
 }
@@ -5273,6 +5281,15 @@ body.no-active-note .editor-header, body.no-active-note .editor-content, body.no
         filter: none !important;
         transform: none !important;
         pointer-events: auto !important;
+    }
+
+    /* Contextual panels (Shape Format / Image Format) are selection-driven and
+       tabbed, so they must NOT flow into the stacked panel list on small screens. */
+    .ribbon-panel[data-panel="shape-format"],
+    .ribbon-panel[data-panel="image-format"] {
+        display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
     }
 
     .ribbon-content {

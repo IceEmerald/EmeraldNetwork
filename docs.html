@@ -68,6 +68,7 @@
         <button class="ribbon-tab" data-tab="references">References</button>
         <button class="ribbon-tab" data-tab="review">Review</button>
         <button class="ribbon-tab" data-tab="view">View</button>
+        <button class="ribbon-tab ribbon-tab-contextual" data-tab="image-format" id="imageFormatTab" hidden>Image Format</button>
         <span class="ribbon-tab-indicator visible" id="ribbonTabIndicator" aria-hidden="true"></span>
       </div>
       <div class="ribbon-tabs-right">
@@ -668,6 +669,130 @@
             </div>
           </div>
         </div>
+
+        <!-- ============ IMAGE FORMAT PANEL (contextual — shown when an image is selected) ============ -->
+        <div class="ribbon-panel" data-panel="image-format">
+
+          <!-- FILTERS — list-style dropdown -->
+          <div class="ribbon-group" id="imageFormatGroup">
+            <div class="group-label">Filters</div>
+            <div class="ribbon-controls">
+              <div class="ms-dropdown" id="imageFilterDropdown">
+                <button class="ms-dropdown-btn" type="button" style="min-width:92px;">
+                  <span class="dropdown-value" id="imageFilterLabel">Original</span>
+                </button>
+                <div class="ms-dropdown-menu">
+                  <div class="ms-dropdown-item" data-filter="none" data-label="Original">Original</div>
+                  <div class="ms-dropdown-item" data-filter="grayscale" data-label="Grayscale">Grayscale</div>
+                  <div class="ms-dropdown-item" data-filter="sepia" data-label="Sepia">Sepia</div>
+                  <div class="ms-dropdown-item" data-filter="invert" data-label="Invert">Invert</div>
+                  <div class="ms-dropdown-item" data-filter="blur" data-label="Blur">Blur</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- COLOR — steppers -->
+          <div class="ribbon-group">
+            <div class="group-label">Color</div>
+            <div class="tr-timing-panel">
+              <div class="tr-timing-row">
+                <span class="tr-timing-label">Brightness</span>
+                <div class="tr-num-field">
+                  <button type="button" class="tr-num-step" data-target="imgBrightness" data-step="-10" aria-label="Decrease brightness">−</button>
+                  <input type="number" id="imgBrightness" class="tr-num-input" min="0" max="200" step="10" value="100">
+                  <button type="button" class="tr-num-step" data-target="imgBrightness" data-step="10" aria-label="Increase brightness">+</button>
+                  <span class="tr-num-unit">%</span>
+                </div>
+              </div>
+              <div class="tr-timing-row">
+                <span class="tr-timing-label">Contrast</span>
+                <div class="tr-num-field">
+                  <button type="button" class="tr-num-step" data-target="imgContrast" data-step="-10" aria-label="Decrease contrast">−</button>
+                  <input type="number" id="imgContrast" class="tr-num-input" min="0" max="200" step="10" value="100">
+                  <button type="button" class="tr-num-step" data-target="imgContrast" data-step="10" aria-label="Increase contrast">+</button>
+                  <span class="tr-num-unit">%</span>
+                </div>
+              </div>
+              <div class="tr-timing-row">
+                <span class="tr-timing-label">Saturation</span>
+                <div class="tr-num-field">
+                  <button type="button" class="tr-num-step" data-target="imgSaturation" data-step="-10" aria-label="Decrease saturation">−</button>
+                  <input type="number" id="imgSaturation" class="tr-num-input" min="0" max="200" step="10" value="100">
+                  <button type="button" class="tr-num-step" data-target="imgSaturation" data-step="10" aria-label="Increase saturation">+</button>
+                  <span class="tr-num-unit">%</span>
+                </div>
+              </div>
+              <div class="tr-timing-row">
+                <span class="tr-timing-label">Hue</span>
+                <div class="tr-num-field">
+                  <button type="button" class="tr-num-step" data-target="imgHue" data-step="-15" aria-label="Rotate hue left">−</button>
+                  <input type="number" id="imgHue" class="tr-num-input" min="0" max="360" step="15" value="0">
+                  <button type="button" class="tr-num-step" data-target="imgHue" data-step="15" aria-label="Rotate hue right">+</button>
+                  <span class="tr-num-unit">°</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- BORDER — color + width -->
+          <div class="ribbon-group" id="imageBorderGroup">
+            <div class="group-label">Border</div>
+            <div class="ribbon-controls">
+              <div class="ms-dropdown" id="imageBorderColorDropdown">
+                <button class="ms-dropdown-btn" type="button" style="min-width:80px;">
+                  <span id="imageBorderSwatch" class="color-preview" style="background:transparent;border:2px solid #666;"></span>
+                  <span class="dropdown-value">Color</span>
+                </button>
+                <div class="ms-dropdown-menu color-list-menu">
+                  <div class="ms-dropdown-item" data-value="none" data-label="No Border"><span class="color-preview" style="background:linear-gradient(to bottom right,#fff 45%,#f00 45%,#f00 55%,#fff 55%);border:1px solid #ccc;"></span>No Border</div>
+                  <div class="ms-dropdown-item" data-value="#1a1a1a" data-label="Black"><span class="color-preview" style="background:#1a1a1a;"></span>Black</div>
+                  <div class="ms-dropdown-item" data-value="#ffffff" data-label="White"><span class="color-preview" style="background:#ffffff;border:1px solid #ccc;"></span>White</div>
+                  <div class="ms-dropdown-item" data-value="#6b7280" data-label="Gray"><span class="color-preview" style="background:#6b7280;"></span>Gray</div>
+                  <div class="ms-dropdown-item" data-value="#ef4444" data-label="Red"><span class="color-preview" style="background:#ef4444;"></span>Red</div>
+                  <div class="ms-dropdown-item" data-value="#f97316" data-label="Orange"><span class="color-preview" style="background:#f97316;"></span>Orange</div>
+                  <div class="ms-dropdown-item" data-value="#eab308" data-label="Yellow"><span class="color-preview" style="background:#eab308;"></span>Yellow</div>
+                  <div class="ms-dropdown-item" data-value="#22c55e" data-label="Green"><span class="color-preview" style="background:#22c55e;"></span>Green</div>
+                  <div class="ms-dropdown-item" data-value="#3b82f6" data-label="Blue"><span class="color-preview" style="background:#3b82f6;"></span>Blue</div>
+                  <div class="ms-dropdown-item" data-value="#8b5cf6" data-label="Violet"><span class="color-preview" style="background:#8b5cf6;"></span>Violet</div>
+                </div>
+              </div>
+              <div class="ms-dropdown" id="imageBorderWidthDropdown">
+                <button class="ms-dropdown-btn" type="button" style="min-width:58px;">
+                  <span class="dropdown-value" id="imageBorderWidthLabel">None</span>
+                </button>
+                <div class="ms-dropdown-menu">
+                  <div class="ms-dropdown-item" data-value="0" data-label="None">None</div>
+                  <div class="ms-dropdown-item" data-value="1" data-label="1 pt">1 pt</div>
+                  <div class="ms-dropdown-item" data-value="2" data-label="2 pt">2 pt</div>
+                  <div class="ms-dropdown-item" data-value="3" data-label="3 pt">3 pt</div>
+                  <div class="ms-dropdown-item" data-value="4" data-label="4 pt">4 pt</div>
+                  <div class="ms-dropdown-item" data-value="5" data-label="5 pt">5 pt</div>
+                  <div class="ms-dropdown-item" data-value="6" data-label="6 pt">6 pt</div>
+                  <div class="ms-dropdown-item" data-value="8" data-label="8 pt">8 pt</div>
+                  <div class="ms-dropdown-item" data-value="10" data-label="10 pt">10 pt</div>
+                  <div class="ms-dropdown-item" data-value="12" data-label="12 pt">12 pt</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TRANSPARENCY — stepper -->
+          <div class="ribbon-group" id="imageOpacityGroup">
+            <div class="group-label">Transparency</div>
+            <div class="ribbon-controls">
+              <div class="tr-timing-row">
+                <div class="tr-num-field">
+                  <button type="button" class="tr-num-step" data-target="imageOpacity" data-step="-10" aria-label="More transparent">−</button>
+                  <input type="number" id="imageOpacity" class="tr-num-input" min="0" max="100" step="10" value="100">
+                  <button type="button" class="tr-num-step" data-target="imageOpacity" data-step="10" aria-label="Less transparent">+</button>
+                  <span class="tr-num-unit">%</span>
+              </div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- end IMAGE-FORMAT panel -->
 
       </div>
     </div>
