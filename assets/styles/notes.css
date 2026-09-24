@@ -279,6 +279,12 @@
     .ribbon-btn svg {
         width: 16px;
         height: 16px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        flex-shrink: 0;
     }
     .ribbon-btn span {
         white-space: nowrap;
@@ -2043,7 +2049,7 @@
     .table-modal-header { text-align: center; margin-bottom: 20px; }
     .table-modal-icon {
         width: 48px; height: 48px;
-        background: #239a4d;
+        background: var(--ui-accent);
         border-radius: 50%;
         display: flex;
         align-items: center;
@@ -2060,6 +2066,39 @@
         font-family: 'DM Sans', sans-serif;
     }
     .table-modal-body { margin-bottom: 24px; }
+    .table-grid-group label {
+        display: block;
+        font-size: 14px;
+        font-weight: 500;
+        color: rgba(44, 62, 80, 0.8);
+        margin-bottom: 10px;
+        font-family: 'DM Sans', sans-serif;
+    }
+    .table-grid {
+        display: grid;
+        grid-template-columns: repeat(8, 1fr);
+        gap: 3px;
+        margin-bottom: 8px;
+        user-select: none;
+    }
+    .table-grid-cell {
+        aspect-ratio: 1;
+        border: 1px solid rgba(0, 0, 0, 0.15);
+        border-radius: 3px;
+        background: rgba(255, 255, 255, 0.8);
+        cursor: pointer;
+        transition: background 0.1s ease, border-color 0.1s ease;
+    }
+    .table-grid-cell.hover {
+        background: var(--ui-accent-soft);
+        border-color: var(--ui-accent);
+    }
+    .table-grid-label {
+        font-size: 13px;
+        color: rgba(44, 62, 80, 0.7);
+        text-align: center;
+        font-family: 'DM Sans', sans-serif;
+    }
     .table-input-group { margin-bottom: 16px; }
     .table-input-group label {
         display: block;
@@ -2083,8 +2122,8 @@
     }
     .table-input:focus {
         outline: none;
-        border-color: rgba(35, 154, 77, 0.5);
-        box-shadow: 0 0 0 3px rgba(35, 154, 77, 0.1);
+        border-color: var(--ui-accent-border);
+        box-shadow: 0 0 0 3px var(--ui-accent-ring);
         background: rgba(255, 255, 255, 0.95);
     }
     .table-modal-actions {
@@ -2113,13 +2152,13 @@
         color: rgba(108, 117, 125, 1);
     }
     .table-modal-btn-create {
-        background: #239a4d;
+        background: var(--ui-accent);
         color: white;
-        border: 1px solid rgba(30, 142, 62, 0.3);
+        border: 1px solid var(--ui-accent-border);
     }
     .table-modal-btn-create:hover {
-        background: #1e8e3e;
-        box-shadow: 0 4px 12px rgba(35, 154, 77, 0.4);
+        background: var(--ui-accent-hover);
+        box-shadow: 0 4px 12px var(--ui-accent-ring);
     }
     .link-modal {
         position: fixed;
@@ -2681,38 +2720,69 @@
         display: none;
         position: fixed;
         z-index: 8000;
-        background: #fff;
-        border: 1px solid #d1d5db;
-        border-radius: 6px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-        padding: 4px 6px;
-        gap: 3px;
+        background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        border: 1px solid var(--ui-accent-border);
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+        padding: 6px;
+    }
+    .tbl-groups {
+        display: flex;
         align-items: center;
-        font-size: 12px;
+        gap: 6px;
+    }
+    .tbl-group {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        padding: 3px;
+        background: rgba(162, 28, 175, 0.05);
+        border-radius: 8px;
+    }
+    .tbl-group-label {
+        font-size: 9px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #9ca3af;
+        padding: 0 5px;
+        user-select: none;
+    }
+    .tbl-divider {
+        width: 1px;
+        align-self: stretch;
+        background: #e5e7eb;
+        margin: 4px 0;
     }
     .tbl-btn {
-        background: #f3f4f6;
-        border: 1px solid #d1d5db;
-        border-radius: 4px;
-        padding: 3px 8px;
-        font-size: 11px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        background: transparent;
+        border: none;
+        border-radius: 8px;
+        color: #4b5563;
         cursor: pointer;
-        color: #374151;
-        white-space: nowrap;
-        transition: background 0.15s;
+        transition: background 0.15s, color 0.15s, transform 0.1s;
     }
+    .tbl-btn svg { display: block; }
     .tbl-btn:hover {
-        background: #e5e7eb;
-        border-color: #9ca3af;
+        background: var(--ui-accent-soft);
+        color: var(--ui-accent);
+    }
+    .tbl-btn:active {
+        transform: scale(0.94);
     }
     .tbl-btn-danger {
         color: #dc2626;
-        border-color: #fca5a5;
-        background: #fef2f2;
     }
     .tbl-btn-danger:hover {
-        background: #fee2e2;
-        border-color: #f87171;
+        background: rgba(220, 38, 38, 0.1);
+        color: #dc2626;
     }
     .text-editor img {
         max-width: 100%;

@@ -1017,7 +1017,7 @@ body {
 .page-content i, .page-content em { font-style: italic; }
 .page-content u { text-decoration: underline; }
 .page-content s, .page-content strike { text-decoration: line-through; }
-.page-content sup, .page-content sub { font-size: 0.75em; }
+.page-content sup, .page-content sub { font-size: smaller; }
 
 /* Images */
 .page-content img {
@@ -1317,7 +1317,10 @@ body {
 
 /* Body — generous padding, matches Slides' .link-modal-content (24px). */
 .modal-body {
-  padding: 20px 24px;
+  padding-left: 24px;
+  padding-right: 24px;
+  padding-top: 16px;
+  padding-bottom: 24px;
   overflow-y: auto;
   flex: 1;
 }
@@ -1328,7 +1331,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 16px 24px 24px;
+  padding: 0px 16px 24px 24px;
   border-top: none;
 }
 
@@ -3269,21 +3272,6 @@ body {
   user-select: none;
 }
 
-/* ===================== Track changes ===================== */
-.tc-insert {
-  background: rgba(43, 208, 89, 0.18);
-  text-decoration: underline;
-  text-decoration-color: var(--ui-accent);
-  text-underline-offset: 2px;
-}
-
-.tc-delete {
-  text-decoration: line-through;
-  text-decoration-color: #e74c3c;
-  color: #e74c3c;
-  opacity: 0.7;
-}
-
 /* ===================== Toast (matching Slides design) ===================== */
 /* Always the white glass pill — Slides has no colored toast variants.
    Success/error meaning is carried by the monochrome SVG icon that JS
@@ -3386,9 +3374,7 @@ body {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  /* Preserve colors for tracked changes, highlights, etc. */
-ins.emdocs-ins,
-  del.emdocs-del,
+  /* Preserve colors for highlights, equations, etc. */
   mark,
   .equation,
   .smartart,
@@ -3872,32 +3858,6 @@ sup.footnote-ref:hover, sup.endnote-ref:hover { text-decoration: underline; }
   margin: 0px 4px;
 }
 
-/* ---- Track changes marks (inline) ---- */
-ins.emdocs-ins {
-  background: rgba(35, 154, 77, 0.16);
-  color: #1a7d3d;
-  text-decoration: none;
-  border-bottom: 1px solid rgba(35, 154, 77, 0.4);
-}
-del.emdocs-del {
-  background: rgba(217, 48, 37, 0.14);
-  color: #b91c1c;
-  text-decoration: line-through;
-}
-ins.emdocs-ins,
-del.emdocs-del { border-radius: 2px; padding: 0 1px; }
-.emdocs-change-marker {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--ui-accent);
-  margin: 0 2px;
-  vertical-align: middle;
-  cursor: pointer;
-}
-.emdocs-change-marker.del { background: #b91c1c; }
-
 /* ---- Bookmark anchors (invisible markers in text) ---- */
 a.emdocs-bookmark {
   display: inline;
@@ -4048,7 +4008,6 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
   padding: 12px;
   border: 1px solid var(--border-chrome);
   border-radius: var(--radius-sm);
-  margin-bottom: 8px;
   background: var(--bg-app);
 }
 .a11y-issue.severity-error { border-left: 4px solid #d93025; }
@@ -5245,7 +5204,7 @@ body.no-active-doc .print-preview-bar {
   flex: 1 1 0%;
   width: 100%;
   min-height: 0;
-  background: linear-gradient(135deg, #ffffff 0%, #f6feff 100%);
+  background: #FFF;
   position: relative;
   overflow: hidden;
 }
@@ -5831,6 +5790,13 @@ body.no-active-doc .print-preview-bar {
   background: rgba(255, 255, 255, 0.95);
 }
 
+/* Footnote/endnote textareas match Slides modal min/max height behavior */
+#footnoteText,
+#endnoteText {
+  min-height: 72px;
+  max-height: 40vh;
+}
+
 /* End-of-document endnotes section (mirrors .footnotes-section) */
 .endnotes-section {
   margin-top: 24px;
@@ -5861,8 +5827,7 @@ body.no-active-doc .print-preview-bar {
    docs.js for features this file never had:
      1. Statistics modal layout (.modal-stats ...)
      2. Comments: pins, bubbles, floating popup (Slides-style)
-     3. Track-changes thin green/red marks while tracking is ON (.track-on ...)
-     4. Find & Replace / Go-To bar (bottom-right) + custom Go-to dropdown
+     3. Find & Replace / Go-To bar (bottom-right) + custom Go-to dropdown
    Deleting this whole section only unstyles those features.
    ===================================================================== */
 
@@ -5872,6 +5837,7 @@ body.no-active-doc .print-preview-bar {
   display: grid;
   grid-template-columns: 1fr 1fr;
   column-gap: 20px;
+  padding-bottom: 20px;
   align-items: start;
 }
 .modal-stats .stats-grid { grid-column: 1 / -1; }
@@ -6047,23 +6013,6 @@ sup.comment-ref.resolved .comment-bubble {
 .comment-resolve-btn { background: var(--ui-accent-soft); color: var(--ui-accent); }
 .comment-resolve-btn:hover { background: var(--ui-accent-selected); }
 .comment-delete-btn { background: rgba(220, 38, 38, 0.08); color: #dc2626; }
-
-/* Word/Google-Docs style marks: colored TEXT + a thin 1px underline, no
-   background block — the old filled background made tracked text render
-   as a thick green band. */
-.track-on ins.emdocs-ins {
-  background: transparent;
-  color: #1a7d3d;
-  text-decoration: underline;
-  text-decoration-color: rgba(35, 154, 77, 0.55);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 2px;
-}
-.track-on del.emdocs-del {
-  background: transparent;
-  color: #b91c1c;
-  text-decoration: line-through;
-}
 
 /* ===================== Find & Replace / Go To bar (bottom-right) =====================
    Same compact design as the Notes app's findReplaceBar, with the Docs teal

@@ -3320,11 +3320,10 @@ class NotesApp {
         const modal = document.getElementById('tableModal');
         const cancelBtn = document.getElementById('tableModalCancel');
         const createBtn = document.getElementById('tableModalCreate');
-        const rowsInput = document.getElementById('tableRows');
-        const colsInput = document.getElementById('tableCols');
-        if (!modal) return;
-        modal.classList.add('show');
-        setTimeout(() => rowsInput.focus(), 100);
+        const grid = document.getElementById('tableGrid');
+        const label = document.getElementById('tableGridLabel');
+        if (!modal || !cancelBtn || !createBtn) return;
+        this._tableDims = { rows: 2, cols: 2 };
         const cleanup = () => {
             modal.classList.remove('show');
             cancelBtn.removeEventListener('click', cleanup);
@@ -3332,20 +3331,49 @@ class NotesApp {
             modal.removeEventListener('click', handleBackdrop);
             document.removeEventListener('keydown', handleEscape);
         };
+        const insertAt = (rows, cols) => { this.createTable(rows, cols); cleanup(); };
         const handleCreate = () => {
-            const rows = parseInt(rowsInput.value);
-            const cols = parseInt(colsInput.value);
-            if (rows && cols && rows > 0 && cols > 0) { this.createTable(rows, cols); cleanup(); }
+            if (this._tableDims && this._tableDims.rows > 0 && this._tableDims.cols > 0) {
+                insertAt(this._tableDims.rows, this._tableDims.cols);
+            }
         };
+        const updateHover = () => {
+            if (!grid) return;
+            for (let i = 0; i < grid.children.length; i++) {
+                const r = parseInt(grid.children[i].dataset.r, 10);
+                const c = parseInt(grid.children[i].dataset.c, 10);
+                grid.children[i].classList.toggle('hover', r <= this._tableDims.rows && c <= this._tableDims.cols);
+            }
+            if (label) label.textContent = this._tableDims.rows + ' × ' + this._tableDims.cols;
+        };
+        // Docs-style grid-of-boxes picker: hover to highlight a rows×cols area,
+        // click a cell (or press Insert) to create the table with that size.
+        if (grid) {
+            grid.innerHTML = '';
+            const MAX = 8;
+            for (let r = 1; r <= MAX; r++) {
+                for (let c = 1; c <= MAX; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'table-grid-cell';
+                    cell.dataset.r = r;
+                    cell.dataset.c = c;
+                    cell.addEventListener('mouseenter', () => {
+                        this._tableDims = { rows: r, cols: c };
+                        updateHover();
+                    });
+                    cell.addEventListener('click', () => insertAt(r, c));
+                    grid.appendChild(cell);
+                }
+            }
+        }
+        updateHover();
+        modal.classList.add('show');
         const handleBackdrop = (e) => { if (e.target === modal) cleanup(); };
         const handleEscape = (e) => { if (e.key === 'Escape') cleanup(); };
-        const handleEnter = (e) => { if (e.key === 'Enter') handleCreate(); };
         cancelBtn.addEventListener('click', cleanup);
         createBtn.addEventListener('click', handleCreate);
         modal.addEventListener('click', handleBackdrop);
         document.addEventListener('keydown', handleEscape);
-        rowsInput.addEventListener('keydown', handleEnter);
-        colsInput.addEventListener('keydown', handleEnter);
     }
     createTable(rows, cols) {
         let tableHTML = '<table>';
@@ -4095,11 +4123,14 @@ class NotesApp {
                 toolbar.style.display = 'flex';
                 const table = cell.closest('table');
                 const tableRect = table.getBoundingClientRect();
-                const tbH = 36;
-                let top = tableRect.top - tbH - 6;
-                if (top < 4) top = tableRect.bottom + 6;
+                const tbH = 48;
+                let top = tableRect.top - tbH - 8;
+                if (top < 4) top = tableRect.bottom + 8;
                 toolbar.style.top = top + 'px';
-                toolbar.style.left = Math.max(4, tableRect.left) + 'px';
+                const toolbarW = toolbar.offsetWidth;
+                let left = Math.max(4, tableRect.left);
+                if (left + toolbarW > window.innerWidth - 4) left = window.innerWidth - toolbarW - 4;
+                toolbar.style.left = left + 'px';
             } else {
                 if (!toolbar.contains(e.target)) { toolbar.style.display = 'none'; activeCell = null; }
             }
@@ -4390,7 +4421,12 @@ class NotesApp {
             const span = document.createElement('span');
             span.style.color = color;
             try {
-                span.appendChild(range.extractContents());
+                const fragment = range.extractContents();
+                // Strip every existing explicit text color inside the selection
+                // so the chosen color applies to the ENTIRE selection — not just
+                // the part that previously had the default color.
+                this._stripInlineFormat(fragment, 'color');
+                span.appendChild(fragment);
                 range.insertNode(span);
                 range.selectNodeContents(span);
                 selection.removeAllRanges();
@@ -4444,7 +4480,13 @@ class NotesApp {
                 const span = document.createElement('span');
                 span.style.backgroundColor = color;
                 try {
-                    span.appendChild(range.extractContents());
+                    const fragment = range.extractContents();
+                    // Strip existing background colors inside the selection so
+                    // the highlight applies uniformly to the whole selection —
+                    // including text that already had a text color or a
+                    // different highlight color.
+                    this._stripInlineFormat(fragment, 'background');
+                    span.appendChild(fragment);
                     range.insertNode(span);
                     range.selectNodeContents(span);
                     selection.removeAllRanges();
@@ -4459,6 +4501,61 @@ class NotesApp {
             }
         }
         this.updateNoteContent();
+    }
+    /**
+     * Remove inline color (kind === 'color') or background (kind === 'background')
+     * formatting from every element inside an extracted DocumentFragment.
+     *
+     * Without this, wrapping a selection that mixes already-colored text in a new
+     * <span> leaves the nested spans' explicit colors intact, so the new color only
+     * reaches the text that previously had the default color. Walking the fragment
+     * and clearing the conflicting inline style (plus legacy <font color>/<bgcolor>
+     * attributes) first makes the selected color apply to every character.
+     *
+     * Elements that end up with no remaining style/attribute are unwrapped so the
+     * saved note HTML stays clean (no leftover empty <span>/<font> wrappers).
+     */
+    _stripInlineFormat(root, kind) {
+        const elements = [];
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+        while (walker.nextNode()) elements.push(walker.currentNode);
+        // Process deepest-first so unwrapping an outer element never invalidates
+        // references to inner ones.
+        for (let i = elements.length - 1; i >= 0; i--) {
+            const el = elements[i];
+            if (kind === 'color') {
+                if (el.style) el.style.removeProperty('color');
+                if (el.tagName === 'FONT') el.removeAttribute('color');
+            } else {
+                if (el.style) el.style.removeProperty('background-color');
+                if (el.tagName === 'FONT') el.removeAttribute('bgcolor');
+            }
+            if (this._isInlineFormattingEmpty(el)) {
+                this._unwrapInlineFormattingElement(el);
+            }
+        }
+    }
+    _isInlineFormattingEmpty(el) {
+        if (!el) return false;
+        const style = el.getAttribute('style');
+        const hasStyle = style && style.trim() !== '';
+        const hasClass = !!el.className;
+        if (el.tagName === 'SPAN') return !hasStyle && !hasClass;
+        if (el.tagName === 'FONT') {
+            return !hasStyle &&
+                !el.getAttribute('color') &&
+                !el.getAttribute('bgcolor') &&
+                !el.getAttribute('size') &&
+                !el.getAttribute('face');
+        }
+        return false;
+    }
+    _unwrapInlineFormattingElement(el) {
+        const parent = el.parentNode;
+        if (!parent) return;
+        while (el.firstChild) parent.insertBefore(el.firstChild, el);
+        parent.removeChild(el);
+        if (parent.normalize) parent.normalize();
     }
     /**
      * Strip background-color from every element that intersects the given range.

@@ -9030,15 +9030,6 @@ function fileNew() {
     Persistence.flush();
   });
 }
-function fileSaveAs() {
-  promptDialog('Save As', 'Workbook name:', WB.title || 'Untitled workbook', v => {
-    if (!v.trim()) return 'Enter a name.';
-    WB.title = v.trim();
-    Persistence.markDirty();
-    Persistence.flush();
-    toast('Saved "' + WB.title + '" to browser storage', 'success');
-  });
-}
 /* ---------------- Welcome screen (home / workbook overview) ---------------- */
 function flushIfDirty() {
   if (Persistence.state === 'dirty') { try { return Persistence.flush(); } catch (e) {} }
@@ -11747,13 +11738,10 @@ function setupChrome() {
   $('#fileModal').addEventListener('click', e => { if (e.target.id === 'fileModal') closeFileModal(); });
   $('#fileCloseBtn').addEventListener('click', () => { closeFileModal(); closeWorkbookToWelcome(); });
   $('#fileDeleteBtn').addEventListener('click', () => { closeFileModal(); deleteCurrentWorkbook(); });
-  $('#fileNewBtn').addEventListener('click', () => { closeFileModal(); fileNew(); });
-  $('#fileOpenBtn').addEventListener('click', () => { closeFileModal(); openDocumentsDialog(); });
   $('#fileImportBtn').addEventListener('click', () => { closeFileModal(); importFileDialog(); });
   $('#fileExportXlsxBtn').addEventListener('click', () => { closeFileModal(); exportXlsx(); });
   $('#fileExportCsvBtn').addEventListener('click', () => { closeFileModal(); exportCsv(); });
   $('#filePrintBtn').addEventListener('click', () => { closeFileModal(); printWorksheet(); });
-  $('#fileSaveAsBtn').addEventListener('click', () => { closeFileModal(); fileSaveAs(); });
   const welcomeNewBtn = $('#welcomeNewBtn');
   if (welcomeNewBtn) welcomeNewBtn.addEventListener('click', welcomeNew);
   const welcomeImportBtn = $('#welcomeImportBtn');

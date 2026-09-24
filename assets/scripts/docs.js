@@ -203,10 +203,21 @@
     var start = range.startContainer;
     var block = start;
     if (block.nodeType !== Node.ELEMENT_NODE) block = block.parentElement;
+
+    // When the caret sits inside a list item or table cell, that element is
+    // the true caret anchor. Marking the outer <ul>/<table> instead would
+    // collapse the caret to a character offset, so a caret in a brand-new
+    // EMPTY <li> (created by pressing Enter) restores to the end of the
+    // previous item — forcing the user to click the new bullet a second time.
+    var startNode = start.nodeType === Node.ELEMENT_NODE ? start : start.parentElement;
+    var listOrCell = startNode ? startNode.closest("li, td, th") : null;
+
     while (block && block.parentElement && !block.parentElement.classList.contains("page-content")) {
       block = block.parentElement;
     }
     if (!block || !block.parentElement || !block.parentElement.classList.contains("page-content")) return;
+
+    if (listOrCell && block.contains(listOrCell)) block = listOrCell;
 
     var offset = editableCaretOffset(block, range.startContainer, range.startOffset);
 
@@ -270,7 +281,11 @@
     }
     var range = document.createRange();
     range.selectNodeContents(block);
-    range.collapse(false);
+    // Place the caret at the START for an empty list item / table cell so it
+    // lands before the <br> (matching the browser's Enter-in-list position)
+    // instead of after it, which would make a quick second Enter misfire.
+    var wantStart = !block.textContent.trim() && block.closest("li, td, th");
+    range.collapse(wantStart);
     var sel = window.getSelection();
     sel.removeAllRanges();
     sel.addRange(range);
@@ -1132,7 +1147,7 @@
     var text = a.textContent || "";
     linkPreviewEl.innerHTML =
       '<div class="lp-url">' + escapeHtml(href) + "</div>" +
-      '<div class="lp-hint">' + (text ? "“" + escapeHtml(text) + "” · " : "") + "Ctrl+click to open</div>";
+      '<div class="lp-hint">' + (text ? "“" + escapeHtml(text) + "” · " : "") + "Click to open</div>";
     positionLinkPreview(e);
     linkPreviewEl.classList.add("show");
   }
@@ -1636,7 +1651,7 @@ function startAutosaveSnapshots() {
   }
 
   function updateToolbarStates() {
-    var cmds = ["bold", "italic", "underline", "strikeThrough", "justifyLeft", "justifyCenter", "justifyRight", "justifyFull"];
+    var cmds = ["bold", "italic", "underline", "strikeThrough", "subscript", "superscript", "justifyLeft", "justifyCenter", "justifyRight", "justifyFull"];
     for (var i = 0; i < cmds.length; i++) {
       var btn = document.querySelector('[data-cmd="' + cmds[i] + '"]');
       if (!btn) continue;
@@ -1727,7 +1742,7 @@ function startAutosaveSnapshots() {
       "btnEquation", "btnSmartArt", "btnScreenshot", "btnDraw", "btnMargins",
       "btnOrientation", "btnHeader", "btnFooter", "btnTocRef", "btnFootnote",
       "btnEndnote", "btnCitation", "btnBibliography", "btnIndexEntry",
-      "btnInsertIndex", "btnComment", "btnPageNum", "btnTrackChanges"];
+      "btnInsertIndex", "btnComment", "btnPageNum"];
     for (var i = 0; i < docOnly.length; i++) {
       setRibbonControlDisabled($(docOnly[i]), !state.activeDoc);
     }
@@ -3212,9 +3227,14 @@ function startAutosaveSnapshots() {
     var savedWrapperZoom = wrapper ? wrapper.style.zoom : "";
     if (wrapper) { wrapper.style.transform = "none"; wrapper.style.zoom = "1"; }
 
-    var pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-    var pageWmm = 210;
-    var pageHmm = 297;
+    // Build the PDF sheet from the CURRENT page size (A4, Letter, Legal, ...)
+    // so the exported file matches the on-screen paper. mm derived at 96dpi.
+    var sheetW = (curPageW || PAGE_WIDTH) / 96 * 25.4;
+    var sheetH = (curPageH || PAGE_HEIGHT) / 96 * 25.4;
+    var isLandscape = sheetW >= sheetH;
+    var pdf = new jsPDF({ orientation: isLandscape ? "landscape" : "portrait", unit: "mm", format: [sheetW, sheetH] });
+    var pageWmm = sheetW;
+    var pageHmm = sheetH;
     var idx = 0;
 
     function next() {
@@ -4988,20 +5008,9 @@ function startAutosaveSnapshots() {
     var pw = Math.round(w) || PAGE_WIDTH;
     var ph = Math.round(h) || PAGE_HEIGHT;
     if (portrait === false) { var tmp = pw; pw = ph; ph = tmp; }
-    curPageW = pw; curPageH = ph;
-    // Drive both the CSS variables (base .page rule + print) and the inline
-    // sizes (so getBasePageSize / zoom-fit still work for arbitrary sizes).
-    var root = document.documentElement;
-    root.style.setProperty("--emu-pw", pw + "px");
-    root.style.setProperty("--emu-ph", ph + "px");
-    root.style.setProperty("--emu-ppw", (pw / 96 * 25.4).toFixed(2) + "mm");
-    root.style.setProperty("--emu-pph", (ph / 96 * 25.4).toFixed(2) + "mm");
-    var pages = getPages();
-    for (var i = 0; i < pages.length; i++) {
-      pages[i].style.width = pw + "px";
-      pages[i].style.height = ph + "px";
-      pages[i].classList.toggle("landscape", portrait === false);
-    }
+    // Single source of truth: keeps .page elements, CSS vars (+ @page sheet
+    // for print) and the View -> Pages thumbnails all in sync.
+    applyPageDimensions(pw, ph, portrait === false);
   }
 
   function applyDocPageLayout(data) {
@@ -5368,18 +5377,14 @@ function startAutosaveSnapshots() {
 
   function toggleOrientation() {
     var pages = getPages();
+    if (!pages.length) return;
     var isLandscape = pages[0].classList.contains("landscape");
-    for (var i = 0; i < pages.length; i++) {
-      if (isLandscape) {
-        pages[i].classList.remove("landscape");
-        pages[i].style.width = "";
-        pages[i].style.height = "";
-      } else {
-        pages[i].classList.add("landscape");
-        pages[i].style.width = "1123px";
-        pages[i].style.height = "794px";
-      }
-    }
+    var w = parseFloat(pages[0].style.width) || curPageW;
+    var h = parseFloat(pages[0].style.height) || curPageH;
+    // Rotate the CURRENT sheet dimensions (Legal stays Legal, just sideways)
+    // and keep the CSS vars / @page sheet / thumbnails in sync.
+    applyPageDimensions(h, w, !isLandscape);
+    syncPageSizeUI();
     schedulePaginate();
     scheduleAutosave();
     toast(isLandscape ? "Portrait" : "Landscape", "success");
@@ -5417,17 +5422,47 @@ function startAutosaveSnapshots() {
   function setPageSize(name) {
     var dim = PAGE_SIZES[name];
     if (!dim) return;
-    var pages = getPages();
-    for (var i = 0; i < pages.length; i++) {
-      pages[i].style.width = dim.w + "px";
-      pages[i].style.height = dim.h + "px";
-      pages[i].classList.remove("landscape"); // a named size is always portrait
-    }
     currentPageSizeName = name;
+    // A named size is always portrait. applyPageDimensions keeps the CSS
+    // variables used by the base .page rule, print preview and @page sheet
+    // (so the browser prints at the true paper size), and refreshes the
+    // View -> Pages thumbnails — in sync with the real pages.
+    applyPageDimensions(dim.w, dim.h, false);
     syncPageSizeUI();
     schedulePaginate();
     scheduleAutosave();
     toast("Page size: " + name, "success");
+  }
+
+  /* Central page-size application. Updates the real .page elements, the
+     on-screen dims, the CSS variables that drive the base .page rule, print
+     preview and the browser-print @page sheet (so A4 / Letter / Legal / ...
+     all print at their true size), and refreshes the View -> Pages
+     thumbnails. */
+  function applyPageDimensions(pw, ph, isLandscape) {
+    curPageW = pw;
+    curPageH = ph;
+    var root = document.documentElement;
+    root.style.setProperty("--emu-pw", pw + "px");
+    root.style.setProperty("--emu-ph", ph + "px");
+    root.style.setProperty("--emu-ppw", (pw / 96 * 25.4).toFixed(2) + "mm");
+    root.style.setProperty("--emu-pph", (ph / 96 * 25.4).toFixed(2) + "mm");
+    // Size the browser-print sheet to the actual paper. Injected after the
+    // stylesheet so it overrides the static `@page { size: A4 }` in docs.css.
+    var sheetStyle = $("emuPageSizeStyle");
+    if (!sheetStyle) {
+      sheetStyle = document.createElement("style");
+      sheetStyle.id = "emuPageSizeStyle";
+      document.head.appendChild(sheetStyle);
+    }
+    sheetStyle.textContent = "@page { size: " + (pw / 96 * 25.4).toFixed(2) + "mm " + (ph / 96 * 25.4).toFixed(2) + "mm; margin: 0; }";
+    var pages = getPages();
+    for (var i = 0; i < pages.length; i++) {
+      pages[i].style.width = pw + "px";
+      pages[i].style.height = ph + "px";
+      pages[i].classList.toggle("landscape", !!isLandscape);
+    }
+    scheduleThumbnailsUpdate();
   }
 
   /* ---------------- Header / Footer / Page Number ---------------- */
@@ -5727,22 +5762,6 @@ function startAutosaveSnapshots() {
       sel.removeAllRanges();
       sel.addRange(range);
     }
-  }
-
-  /* ---------------- Track Changes ---------------- */
-  var trackChangesOn = false;
-
-  function toggleTrackChanges() {
-    trackChangesOn = !trackChangesOn;
-    var btn = $("btnTrackChanges");
-    if (btn) {
-      if (trackChangesOn) btn.classList.add("active");
-      else btn.classList.remove("active");
-    }
-    // The green/red tracked-change marks only render while tracking is ON;
-    // turning it off shows every <ins>/<del> as normal text again.
-    document.body.classList.toggle("track-on", trackChangesOn);
-    toast(trackChangesOn ? "Track Changes ON" : "Track Changes OFF", "success");
   }
 
   /* ---------------- Comments (Slides-style pins + popup) ----------------
@@ -6082,7 +6101,7 @@ function startAutosaveSnapshots() {
     if (m.indexOf("must have") !== -1 || m.indexOf("must be") !== -1 || m.indexOf("select ") !== -1 ||
         m.indexOf("place cursor") !== -1 || m.indexOf("no headings") !== -1 || m.indexOf("no captions") !== -1 ||
         m.indexOf("no text") !== -1 || m.indexOf("no image") !== -1 || m.indexOf("no comments") !== -1 ||
-        m.indexOf("no bookmarks") !== -1 || m.indexOf("no footnote") !== -1 || m.indexOf("no tracked") !== -1 ||
+        m.indexOf("no bookmarks") !== -1 || m.indexOf("no footnote") !== -1 ||
         m.indexOf("no quick parts") !== -1 || m.indexOf("no captions") !== -1 ||
         m.indexOf("enter a ") !== -1 || m.indexOf("provide a url") !== -1 || m.indexOf("coming soon") !== -1) {
       return { icon: svg('<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>'), msg: msg };
@@ -6098,8 +6117,8 @@ function startAutosaveSnapshots() {
       return { icon: svg('<circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>'), msg: msg };
     }
 
-    // 7. Modes toggled (focus / zen / draw / track changes / read-only)
-    if (m.indexOf("mode") !== -1 || m.indexOf("track changes") !== -1 || m.indexOf("read-only") !== -1 || m.indexOf("final") !== -1) {
+    // 7. Modes toggled (focus / zen / draw / read-only)
+    if (m.indexOf("mode") !== -1 || m.indexOf("read-only") !== -1 || m.indexOf("final") !== -1) {
       return { icon: svg('<circle cx="12" cy="12" r="3"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/><path d="M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/>'), msg: msg };
     }
 
@@ -6655,10 +6674,6 @@ function startAutosaveSnapshots() {
     $("btnReadAloud").addEventListener("mousedown", function (e) { e.preventDefault(); });
     $("btnReadAloud").addEventListener("click", readAloud);
 
-    // Track Changes
-    $("btnTrackChanges").addEventListener("mousedown", function (e) { e.preventDefault(); });
-    $("btnTrackChanges").addEventListener("click", toggleTrackChanges);
-
     // Comments (Slides-style pins + popup)
     $("btnComment").addEventListener("mousedown", function (e) { e.preventDefault(); });
     $("btnComment").addEventListener("click", addComment);
@@ -7068,7 +7083,7 @@ function startAutosaveSnapshots() {
      EmeraldSuite: Docs — Feature additions
      (cover pages, equations, smartart, screenshot, draw mode,
       spellcheck, footnotes, table of figures,
-      real track changes, threaded comments)
+      threaded comments)
      ========================================================= */
 
   /* ---------------- State ---------------- */
@@ -7097,6 +7112,31 @@ function startAutosaveSnapshots() {
       el.style.background = "var(--ui-accent-selected)";
       setTimeout(function () { el.style.background = oldBg; }, 1200);
     }
+  }
+
+  /* TOC anchor jumps: any click — plain, Ctrl/Cmd+click, or middle-click —
+     scrolls to the referenced heading instead of navigating to "#" or trying
+     to open a new tab. The anchor's data-toc index maps to the live heading
+     list (same order TOC generated it from). */
+  function jumpToHeadingByTOC(tocLink) {
+    var index = parseInt(tocLink.getAttribute("data-toc"), 10);
+    if (isNaN(index) || index < 0) return;
+    var headings = document.querySelectorAll(".page-content h1, .page-content h2, .page-content h3, .page-content h4");
+    if (index >= headings.length) return;
+    var h = headings[index];
+    h.scrollIntoView({ behavior: "smooth", block: "center" });
+    var range = document.createRange();
+    range.selectNodeContents(h);
+    range.collapse(true);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    var content = h.closest(".page-content");
+    if (content) content.focus();
+    h.style.transition = "background 0.4s";
+    var prevBg = h.style.background;
+    h.style.background = "var(--ui-accent-soft)";
+    setTimeout(function () { h.style.background = prevBg; }, 800);
   }
 
   /* ---------------- Cover pages ---------------- */
@@ -8134,8 +8174,7 @@ function startAutosaveSnapshots() {
      marker the native split drags the marker DOWN onto the new line. Both
      feel like "Enter is broken next to footnotes/endnotes". findProblemMarker()
      detects the stuck positions; reAnchorCaretPastMarker() moves the caret to
-     just AFTER the marker so a real paragraph split can happen there. Both
-     normal mode (setupMarkerEnterFix) and track-changes mode use these. */
+     just AFTER the marker so a real paragraph split can happen there. */
   function findProblemMarker(range) {
     function inMarker(node) {
       var el = node && (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement);
@@ -8175,73 +8214,6 @@ function startAutosaveSnapshots() {
     }
   }
 
-  /* ---------------- Real track changes ---------------- */
-  function setupTrackChangesInterceptor() {
-    var pagesWrap = $(PAGES_WRAPPER_ID);
-    if (!pagesWrap) return;
-    // Use keydown for character insertion — preventDefault on keydown is
-    // reliably honored by browsers (unlike beforeinput insertText).
-    pagesWrap.addEventListener("keydown", function (e) {
-      if (!trackChangesOn) return;
-      // Only act when the caret is inside the document
-      var sel = window.getSelection();
-      if (!sel || !sel.rangeCount) return;
-      var node = sel.anchorNode;
-      if (!node) return;
-      var el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
-      if (!el || !el.closest || !el.closest(".page-content")) return;
-
-      var key = e.key;
-
-      // Printable single character (incl. space)
-      if (key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        e.preventDefault();
-        insertTrackedNode("ins", key);
-        scheduleMergeTracked();
-        return;
-      }
-      // Enter — a REAL paragraph split. (The old behavior inserted a tracked
-      // "¶" glyph instead of breaking the line, so the caret never moved
-      // down.) Marker-safe: Chrome cannot split while the caret is stuck on
-      // a non-editable footnote/endnote marker, so re-anchor first.
-      if (key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        var enterMarker = findProblemMarker(sel.getRangeAt(0));
-        if (enterMarker) reAnchorCaretPastMarker(enterMarker, sel);
-        try { document.execCommand("insertParagraph"); } catch (errEnter) {}
-        schedulePaginate();
-        scheduleAutosave();
-        return;
-      }
-      // Backspace / Delete with a non-collapsed selection → wrap in <del>
-      if ((key === "Backspace" || key === "Delete") && !sel.isCollapsed) {
-        var deleted = sel.toString();
-        if (deleted) {
-          e.preventDefault();
-          sel.deleteFromDocument();
-          insertTrackedNode("del", deleted);
-        }
-      }
-    });
-    // Paste: wrap inserted plain text in <ins> when track changes is on
-    pagesWrap.addEventListener("paste", function (e) {
-      if (!trackChangesOn) return;
-      var sel = window.getSelection();
-      if (!sel || !sel.rangeCount) return;
-      var node = sel.anchorNode;
-      var el = node ? (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement) : null;
-      if (!el || !el.closest || !el.closest(".page-content")) return;
-      var text = e.clipboardData ? e.clipboardData.getData("text/plain") : "";
-      if (text) {
-        e.preventDefault();
-        if (!sel.isCollapsed) sel.deleteFromDocument();
-        insertTrackedNode("ins", text);
-        schedulePaginate();
-        scheduleAutosave();
-      }
-    });
-  }
-
   /* Enter around footnote/endnote markers (normal editing mode):
      see findProblemMarker()/reAnchorCaretPastMarker() above for the details. */
   function setupMarkerEnterFix() {
@@ -8250,7 +8222,6 @@ function startAutosaveSnapshots() {
 
     pagesWrap.addEventListener("keydown", function (e) {
       if (e.key !== "Enter" || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
-      if (trackChangesOn) return; // handled by the track-changes interceptor
       var sel = window.getSelection();
       if (!sel || !sel.rangeCount) return;
       var marker = findProblemMarker(sel.getRangeAt(0));
@@ -8264,67 +8235,33 @@ function startAutosaveSnapshots() {
     });
   }
 
-  // Insert a tracked-change node (ins/del) at the caret using direct DOM
-  // manipulation — bypasses execCommand/styleWithCSS which would otherwise
-  // convert semantic tags into inline-styled spans.
-  function insertTrackedNode(tag, text) {
-    var sel = window.getSelection();
-    if (!sel || !sel.rangeCount) return;
-    var range = sel.getRangeAt(0);
-    if (!sel.isCollapsed) range.deleteContents();
-    var node = document.createElement(tag);
-    node.className = "emdocs-" + (tag === "ins" ? "ins" : "del");
-    node.textContent = text;
-    range.insertNode(node);
-    // move caret after the inserted node
-    var after = document.createRange();
-    after.setStartAfter(node);
-    after.collapse(true);
-    sel.removeAllRanges();
-    sel.addRange(after);
-    schedulePaginate();
-    scheduleAutosave();
-  }
-
-  // Merge all consecutive <ins class="emdocs-ins"> (and <del class="emdocs-del">)
-  // siblings into single elements. Called on a debounce after typing stops,
-  // to keep the DOM clean without risking caret corruption mid-keystroke.
-  function mergeConsecutiveTrackedChanges() {
-    try {
-      var pages = getPages();
-      for (var pi = 0; pi < pages.length; pi++) {
-        var content = getContent(pages[pi]);
-        var all = content.querySelectorAll("ins.emdocs-ins, del.emdocs-del");
-        for (var i = 0; i < all.length; i++) {
-          var node = all[i];
-          var prev = node.previousSibling;
-          if (prev && prev.nodeType === Node.ELEMENT_NODE && prev.tagName === node.tagName && prev.className === node.className) {
-            // move all children of node into prev
-            while (node.firstChild) prev.appendChild(node.firstChild);
-            node.parentNode && node.parentNode.removeChild(node);
-          }
-        }
-      }
-    } catch (e) {}
-  }
-
-  var mergeTrackedTimer = null;
-  function scheduleMergeTracked() {
-    if (mergeTrackedTimer) clearTimeout(mergeTrackedTimer);
-    mergeTrackedTimer = setTimeout(function () {
-      mergeTrackedTimer = null;
-      mergeConsecutiveTrackedChanges();
-    }, 800);
-  }
-
   /* ---------------- Wire up new buttons in init ---------------- */
   // (called from init() via initNewFeatures below)
   function initNewFeatures() {
 
-    // Click handler for internal links + footnote refs (delegated)
-    var scrollEl = $("documentScroll");
-    if (scrollEl) {
-      scrollEl.addEventListener("click", handleInternalLinkClick);
+// Click handler for internal links + footnote refs (delegated)
+      var scrollEl = $("documentScroll");
+      if (scrollEl) {
+        scrollEl.addEventListener("click", handleInternalLinkClick);
+        // TOC anchors: a plain LEFT click (no Ctrl/Cmd modifier) jumps to the
+        // heading in-document. Ctrl/Cmd+click is just prevented so it can't
+        // open the href in a new tab — the user jumps with a plain click or
+        // a plain RIGHT click (auxclick below), no Control needed.
+        scrollEl.addEventListener("click", function (e) {
+          var tocLink = e.target.closest("a[data-toc]");
+          if (!tocLink) return;
+          e.preventDefault();
+          if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+          jumpToHeadingByTOC(tocLink);
+        });
+        // Plain right-click / middle-click (no Control modifier) also jumps
+        // to the heading instead of opening a new tab.
+        scrollEl.addEventListener("auxclick", function (e) {
+          var tocLink = e.target.closest("a[data-toc]");
+          if (!tocLink) return;
+          e.preventDefault();
+          jumpToHeadingByTOC(tocLink);
+        });
       // External links: Ctrl/Cmd+click opens in a NEW TAB (links inside a
       // contenteditable never navigate on their own — without this handler
       // Ctrl+click did nothing at all).
@@ -8451,9 +8388,6 @@ function startAutosaveSnapshots() {
     if (bEnPanel) bEnPanel.addEventListener("click", openEndnoteModal);
     var bFnClose = $("footnotesClose");
     if (bFnClose) bFnClose.addEventListener("click", function () { toggleFootnotes(false); });
-
-    // setup track changes interceptor
-    setupTrackChangesInterceptor();
 
     // Enter key must keep working when the caret/selection sits on a
     // footnote/endnote marker (Chrome deadlocks inside <sup contenteditable="false">)

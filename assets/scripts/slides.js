@@ -1608,6 +1608,8 @@ class SlidesApp {
 
         // Clear
         canvas.innerHTML = '';
+        // Popup is body-anchored now — drop it on re-render like the old canvas child
+        document.querySelector('.comment-popup')?.remove();
 
         const slide = this.currentSlide;
         if (!slide) return;
@@ -1670,7 +1672,7 @@ class SlidesApp {
                     }
                 }
                 const pin = document.createElement('div');
-                pin.className = 'comment-pin';
+                pin.className = 'comment-pin' + (comment.resolved ? ' resolved' : '');
                 pin.dataset.commentIdx = ci;
                 pin.title = `${comment.author}: ${comment.text}`;
                 pin.style.cssText = `position:absolute;left:${pinX}px;top:${pinY}px;z-index:${999 + ci};`;
@@ -1678,7 +1680,7 @@ class SlidesApp {
                 // Click to show comment popup
                 pin.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    this.showCommentPopup(comment, ci);
+                    this.showCommentPopup(comment, ci, pin);
                 });
                 canvas.appendChild(pin);
             });
@@ -2256,10 +2258,9 @@ class SlidesApp {
                     pinEl.style.top = el.y + 'px';
                 }
                 // Also update any open popup for this comment
-                const popupEl = canvas.querySelector('.comment-popup');
+                const popupEl = document.querySelector('.comment-popup');
                 if (popupEl) {
-                    popupEl.style.left = (el.x + el.w + 40) + 'px'; // Next to the pin
-                    popupEl.style.top = (el.y - 6) + 'px';
+                    this._positionCommentPopup(pinEl, popupEl);
                 }
             }
         });
@@ -2351,6 +2352,7 @@ class SlidesApp {
     renderSlideList() {
         const list = document.getElementById('slidesList');
         if (!list || !this.pres) return;
+        const prevCount = list.children.length;
         list.innerHTML = '';
 
         this.pres.slides.forEach((slide, idx) => {
@@ -2405,6 +2407,14 @@ class SlidesApp {
             });
 
             list.appendChild(item);
+
+            // Entrance fade — only when the list is first built (was empty).
+            // Adding/removing/reordering slides rebuilds the list, so animating
+            // there would make every existing thumbnail blink.
+            if (prevCount === 0) {
+                item.style.animation = '0.3s cubic-bezier(0.4, 0, 0.2, 1) noteItemFadeIn';
+                item.addEventListener('animationend', () => { item.style.animation = ''; }, { once: true });
+            }
         });
     }
 
@@ -2481,7 +2491,7 @@ class SlidesApp {
                     if (linkedEl) { px = linkedEl.x + linkedEl.w; py = linkedEl.y; }
                 }
                 const pin = document.createElement('div');
-                pin.style.cssText = `position:absolute;left:${px}px;top:${py}px;width:6px;height:6px;background:#f97316;border-radius:50% 50% 50% 1px;z-index:999;transform:rotate(-45deg);`;
+                pin.style.cssText = `position:absolute;left:${px}px;top:${py}px;width:6px;height:6px;background:${comment.resolved ? '#9c9c9c' : '#f97316'};border-radius:50% 50% 50% 1px;z-index:999;transform:rotate(-45deg);`;
                 inner.appendChild(pin);
             });
         }
@@ -2501,6 +2511,80 @@ class SlidesApp {
         const slide = this.pres.slides[idx];
         const inner = document.getElementById(`thumb-inner-${slide.id}`);
         if (inner) this.renderThumbContent(inner, slide);
+    }
+
+    // Recompute thumbnail scale for the current sidebar cell widths.
+    // Needed when toggling Normal <-> Sorter and on window resize.
+    relayoutThumbs() {
+        document.querySelectorAll('.slide-thumb-item').forEach(item => {
+            const wrap = item.querySelector('.slide-thumb-canvas-wrap');
+            const inner = item.querySelector('.slide-thumb-inner');
+            if (!wrap || !inner) return;
+            const w = wrap.clientWidth || 276;
+            const scale = w / 960;
+            inner.style.transform = `scale(${scale})`;
+            inner.style.transformOrigin = 'top left';
+            wrap.style.height = `${Math.round(540 * scale)}px`;
+        });
+    }
+
+    // Switch between Normal and Slide Sorter views without layout jitter.
+    // The sorter overlays the editor (absolute fill), so only opacity and
+    // visibility ever animate — flex/width/margins are never transitioned
+    // mid-switch, which is what made it bounce and glitch before. Thumbnail
+    // scales are recalculated right after the class flip so grid cells are
+    // correctly sized under the crossfade.
+    switchView(mode) {
+        if (!this.pres) return;
+        const sorter = mode === 'sorter';
+        const body = document.body;
+        // Notes can't be used in sorter view: close it if open, disable toggles.
+        this._setNotesEnabled(!sorter);
+        if (sorter) this.toggleNotes(false);
+        const btnIds = ['viewSorterBtn', 'viewNotesBtn', 'immersiveReaderBtn', 'viewNormalBtn'];
+        btnIds.forEach(id => {
+            document.getElementById(id)?.classList.toggle('active', id === (sorter ? 'viewSorterBtn' : 'viewNormalBtn'));
+        });
+        body.classList.toggle('view-sorter', sorter);
+        body.classList.remove('view-notes');
+        // Re-size thumbs for their new cell widths BEFORE the crossfade shows.
+        this.relayoutThumbs();
+        this.showToast(sorter ? 'Slide sorter view.' : 'Normal view.');
+        // Fade is 0.18s; wait for it to finish before touching zoom.
+        if (this._viewTimer) clearTimeout(this._viewTimer);
+        this._viewTimer = setTimeout(() => {
+            this._viewTimer = null;
+            if (!sorter) this.fitZoom();
+        }, 260);
+    }
+
+    // Toggle the Presenter Notes panel. Syncs the active state on both the
+    // ribbon button (viewNotesBtn) and the statusbar toggle (notesToggleBtn).
+    // Notes cannot be opened while the slide sorter is enabled.
+    toggleNotes(force) {
+        if (document.body.classList.contains('view-sorter')) return false;
+        const panel = document.getElementById('presenterNotesPanel');
+        const ribBtn = document.getElementById('viewNotesBtn');
+        const notesBtn = document.getElementById('notesToggleBtn');
+        if (!panel) return false;
+        const willShow = (force !== undefined) ? !!force : !panel.classList.contains('visible');
+        panel.classList.toggle('visible', willShow);
+        ribBtn?.classList.toggle('active', willShow);
+        notesBtn?.classList.toggle('active', willShow);
+        if (notesBtn) notesBtn.title = willShow ? 'Hide Presenter Notes' : 'Show Presenter Notes';
+        if (willShow) setTimeout(() => document.getElementById('presenterNotesInput')?.focus(), 50);
+        // Re-render rulers after the layout change settles.
+        this._scheduleRulerRender();
+        setTimeout(() => this._scheduleRulerRender(), 260);
+        return willShow;
+    }
+
+    // Enable/disable the notes toggles (disabled while in slide sorter view).
+    _setNotesEnabled(enabled) {
+        const ribBtn = document.getElementById('viewNotesBtn');
+        const notesBtn = document.getElementById('notesToggleBtn');
+        if (ribBtn) ribBtn.disabled = !enabled;
+        if (notesBtn) notesBtn.disabled = !enabled;
     }
 
     reorderSlide(from, to) {
@@ -2898,24 +2982,7 @@ class SlidesApp {
         document.getElementById('deleteSlideBtn')?.addEventListener('click', () => this.deleteSlide());
 
         // Presenter Notes toggle (status bar button)
-        const notesBtn = document.getElementById('notesToggleBtn');
-        const notesPanel = document.getElementById('presenterNotesPanel');
-        if (notesBtn && notesPanel) {
-            notesBtn.addEventListener('click', () => {
-                const willShow = !notesPanel.classList.contains('visible');
-                notesPanel.classList.toggle('visible', willShow);
-                notesBtn.classList.toggle('active', willShow);
-                notesBtn.title = willShow ? 'Hide Presenter Notes' : 'Show Presenter Notes';
-                if (willShow) {
-                    // Focus the textarea for immediate editing
-                    setTimeout(() => document.getElementById('presenterNotesInput')?.focus(), 50);
-                }
-                // Re-render rulers — the notes panel changes editor height,
-                // which shifts the canvas vertical position.
-                this._scheduleRulerRender();
-                setTimeout(() => this._scheduleRulerRender(), 260);
-            });
-        }
+        document.getElementById('notesToggleBtn')?.addEventListener('click', () => this.toggleNotes());
 
         // Welcome screen
         document.getElementById('welcomeNewBtn')?.addEventListener('click', () => this.newPresentation());
@@ -3105,6 +3172,8 @@ class SlidesApp {
             this._updateRibbonTabIndicator();
             // Re-render rulers on resize so tick marks stay aligned with the canvas.
             this.renderRulers();
+            // Keep thumbnails matched to their (possibly resized) sidebar cells.
+            this.relayoutThumbs();
         });
         // Re-align when fonts finish loading (tab widths can shift)
         if (document.fonts && document.fonts.ready) {
@@ -4154,56 +4223,10 @@ class SlidesApp {
 
         // View modes — Normal and Sorter are mutually exclusive (radio-style:
         // one is always active). Notes Page is independent (toggle panel).
-        document.getElementById('viewNormalBtn')?.addEventListener('click', () => {
-            // Fade back in editor and notes
-            const editorArea = document.getElementById('editorArea');
-            const notesPanel = document.getElementById('presenterNotesPanel');
-            if (editorArea) { editorArea.style.opacity = ''; editorArea.style.visibility = ''; }
-            if (notesPanel) { notesPanel.style.opacity = ''; notesPanel.style.visibility = ''; }
-
-            document.body.classList.remove('view-sorter', 'view-notes');
-            this.showToast('Normal view.');
-            // Normal on, Sorter off, Notes/Reader off
-            ['viewSorterBtn', 'viewNotesBtn', 'immersiveReaderBtn', 'viewNormalBtn'].forEach(id => {
-                document.getElementById(id)?.classList.toggle('active', id === 'viewNormalBtn');
-            });
-            // Re-fit zoom after returning to normal view
-            setTimeout(() => this.fitZoom(), 400);
-        });
-        document.getElementById('viewSorterBtn')?.addEventListener('click', () => {
-            // Fade out editor and notes before adding sorter class
-            const editorArea = document.getElementById('editorArea');
-            const notesPanel = document.getElementById('presenterNotesPanel');
-            if (editorArea) { editorArea.style.opacity = '0'; }
-            if (notesPanel) { notesPanel.style.opacity = '0'; }
-
-            // Small delay to let the fade-out start, then add sorter
-            setTimeout(() => {
-                document.body.classList.add('view-sorter');
-                document.body.classList.remove('view-notes');
-                if (editorArea) { editorArea.style.visibility = 'hidden'; }
-                if (notesPanel) { notesPanel.style.visibility = 'hidden'; }
-                this.showToast('Slide sorter view.');
-            }, 50);
-
-            // Sorter on, Normal off, Notes/Reader off
-            ['viewSorterBtn', 'viewNotesBtn', 'immersiveReaderBtn', 'viewNormalBtn'].forEach(id => {
-                document.getElementById(id)?.classList.toggle('active', id === 'viewSorterBtn');
-            });
-        });
+        document.getElementById('viewNormalBtn')?.addEventListener('click', () => this.switchView('normal'));
+        document.getElementById('viewSorterBtn')?.addEventListener('click', () => this.switchView('sorter'));
         document.getElementById('viewNotesBtn')?.addEventListener('click', () => {
-            const panel = document.getElementById('presenterNotesPanel');
-            const btn = document.getElementById('notesToggleBtn');
-            if (panel) {
-                const willShow = !panel.classList.contains('visible');
-                panel.classList.toggle('visible', willShow);
-                btn?.classList.toggle('active', willShow);
-                if (btn) btn.title = willShow ? 'Hide Presenter Notes' : 'Show Presenter Notes';
-                if (willShow) setTimeout(() => document.getElementById('presenterNotesInput')?.focus(), 50);
-                // Re-render rulers after the layout change settles.
-                this._scheduleRulerRender();
-                setTimeout(() => this._scheduleRulerRender(), 260);
-            }
+            this.toggleNotes();
         });
 
         // Show toggles
@@ -6024,25 +6047,47 @@ class SlidesApp {
         if (!this.pres) return;
         const slide = this.pres.slides[this.slideIdx];
         const el = this.selectedId ? this.getElement(this.selectedId) : null;
+        // If an element is selected, stick the comment pin to the element.
+        // Otherwise, place it outside the slide boundary (top-right, beyond right edge).
+        const cx = el ? el.x + el.w + 10 : 970;
+        const cy = el ? el.y : 10;
 
+        this._openCommentComposer({
+            title: 'New Comment',
+            saveLabel: 'Add Comment',
+            placeholder: 'Write a comment...',
+            onSubmit: (text) => {
+                if (!slide.comments) slide.comments = [];
+                slide.comments.push({ id: uid(), text, author: 'You', ts: Date.now(), resolved: false, replies: [], x: cx, y: cy, elementId: el ? el.id : null });
+                this.scheduleSave();
+                this.renderCanvas();
+                this.showToast('Comment added.');
+            }
+        });
+    }
+
+    // Docs-style composer modal (Slides orange accent). Used for both new
+    // comments and replies — never the native browser prompt().
+    _openCommentComposer({ title, saveLabel, placeholder, onSubmit }) {
+        document.querySelector('.comment-popup')?.remove();
         const overlay = document.createElement('div');
         overlay.className = 'delete-modal';
         overlay.innerHTML = `
-            <div class="delete-modal-content">
-                <div class="delete-modal-header">
-                    <div class="delete-modal-icon" style="background:#f97316;">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-                        </svg>
+            <div class="comment-modal" role="dialog" aria-label="${escapeHtml(title)}">
+                <div class="modal-head">
+                    <div class="modal-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                     </div>
-                    <h3 class="delete-modal-title">New Comment</h3>
+                    <h3>${escapeHtml(title)}</h3>
                 </div>
-                <div class="delete-modal-body" style="padding-top:0;">
-                    <textarea id="commentInput" rows="3" placeholder="Write a comment..."></textarea>
+                <div class="modal-body">
+                    <div class="field">
+                        <textarea id="commentInput" rows="3" placeholder="${escapeHtml(placeholder || 'Write a comment...')}"></textarea>
+                    </div>
                 </div>
-                <div class="delete-modal-actions">
-                    <button class="delete-modal-btn delete-modal-btn-cancel" id="commentCancelBtn">Cancel</button>
-                    <button class="delete-modal-btn" id="commentSaveBtn" style="background:#f97316;color:#fff;border:1px solid rgba(249,115,22,.3);">Add Comment</button>
+                <div class="modal-foot">
+                    <button class="btn ghost" id="commentCancelBtn">Cancel</button>
+                    <button class="btn primary" id="commentSaveBtn">${escapeHtml(saveLabel || 'Save')}</button>
                 </div>
             </div>`;
         document.body.appendChild(overlay);
@@ -6058,64 +6103,73 @@ class SlidesApp {
 
         overlay.querySelector('#commentSaveBtn').addEventListener('click', () => {
             const text = textarea.value.trim();
-            if (!text) return;
-            if (!slide.comments) slide.comments = [];
-            // If an element is selected, stick the comment pin to the element
-            // Otherwise, place it outside the slide boundary (top-right, beyond right edge)
-            const cx = el ? el.x + el.w + 10 : 970;
-            const cy = el ? el.y : 10;
-            slide.comments.push({ id: uid(), text, author: 'You', ts: Date.now(), x: cx, y: cy, elementId: el ? el.id : null });
-            this.scheduleSave();
-            this.renderCanvas();
-            this.showToast('Comment added.');
+            if (!text) { textarea.focus(); this.showToast('Write a comment first.'); return; }
+            onSubmit(text);
             close();
         });
     }
 
-    showCommentPopup(comment, ci) {
-        // Remove any existing popup
-        const existing = document.querySelector('.comment-popup');
-        if (existing) existing.remove();
-
-        // Compute popup position — stick to element if linked, use stored coords otherwise
-        const slide = this.pres.slides[this.slideIdx];
-        let pinX = comment.x;
-        let pinY = comment.y;
-        if (comment.elementId) {
-            const linkedEl = slide.elements.find(e => e.id === comment.elementId);
-            if (linkedEl) {
-                pinX = linkedEl.x + linkedEl.w + 10; // Stick to the element
-                pinY = linkedEl.y;
+    // Docs-style reply composer — custom modal instead of the native prompt().
+    _openReplyComposer(comment, ci) {
+        this._openCommentComposer({
+            title: 'Reply',
+            saveLabel: 'Reply',
+            placeholder: 'Write a reply...',
+            onSubmit: (text) => {
+                if (!comment.replies) comment.replies = [];
+                comment.replies.push({ id: uid(), text, author: 'You', ts: Date.now() });
+                this.scheduleSave();
+                this.renderCanvas();
+                const newPin = document.getElementById('slideCanvas')?.querySelector(`[data-comment-idx="${ci}"]`);
+                if (newPin) this.showCommentPopup(comment, ci, newPin);
+                this.showToast('Reply added.');
             }
-        }
+        });
+    }
+
+    showCommentPopup(comment, ci, pinEl) {
+        // Remove any existing popup
+        document.querySelector('.comment-popup')?.remove();
 
         const popup = document.createElement('div');
         popup.className = 'comment-popup';
-        popup.style.cssText = `position:absolute;left:${pinX + 24}px;top:${pinY - 4}px;`;
-        popup.innerHTML = `
-            <div class="comment-popup-header">
-                <div class="comment-popup-avatar">${escapeHtml(comment.author.charAt(0))}</div>
-                <span class="comment-popup-author">${escapeHtml(comment.author)}</span>
-                <span class="comment-popup-time">${formatDate(comment.ts)}</span>
-                <button class="comment-popup-close">&times;</button>
-            </div>
-            <div class="comment-popup-body">${escapeHtml(comment.text)}</div>
-            <div class="comment-popup-actions">
-                <button class="comment-reply-btn">Reply</button>
-                <button class="comment-delete-btn">Delete</button>
-            </div>`;
-        const canvas = document.getElementById('slideCanvas');
-        if (canvas) canvas.appendChild(popup);
+        popup.dataset.commentIdx = ci;
+        let html = '';
+        html += '<div class="comment-popup-header">';
+        html += `<div class="comment-popup-avatar">${escapeHtml((comment.author || 'Y').charAt(0))}</div>`;
+        html += `<span class="comment-popup-author">${escapeHtml(comment.author || 'You')}</span>`;
+        html += `<span class="comment-popup-time">${formatDate(comment.ts)}</span>`;
+        html += '<button class="comment-popup-close" aria-label="Close">&times;</button>';
+        html += '</div>';
+        html += `<div class="comment-popup-body">${escapeHtml(comment.text)}</div>`;
+        if (comment.quote) html += `<div class="comment-popup-quote">&ldquo;${escapeHtml(comment.quote)}&rdquo;</div>`;
+        if (comment.replies && comment.replies.length) {
+            html += '<div class="comment-popup-replies">';
+            comment.replies.forEach(r => {
+                html += `<div class="comment-popup-reply"><strong>${escapeHtml(r.author || 'You')}</strong> ${escapeHtml(r.text)}`;
+                html += `<span class="reply-time">${formatDate(r.ts)}</span></div>`;
+            });
+            html += '</div>';
+        }
+        html += '<div class="comment-popup-actions">';
+        html += '<button class="comment-reply-btn">Reply</button>';
+        html += `<button class="comment-resolve-btn">${comment.resolved ? 'Unresolve' : 'Resolve'}</button>`;
+        html += '<button class="comment-delete-btn">Delete</button>';
+        html += '</div>';
+        popup.innerHTML = html;
+        // Body-anchored + fixed so the popup stays Docs-sized regardless of canvas zoom
+        document.body.appendChild(popup);
+        this._positionCommentPopup(pinEl, popup);
 
         popup.querySelector('.comment-popup-close').addEventListener('click', () => popup.remove());
-        popup.querySelector('.comment-reply-btn').addEventListener('click', () => {
-            const reply = prompt('Reply:');
-            if (!reply || !reply.trim()) return;
-            if (!comment.replies) comment.replies = [];
-            comment.replies.push({ id: uid(), text: reply.trim(), author: 'You', ts: Date.now() });
+        popup.querySelector('.comment-reply-btn').addEventListener('click', () => this._openReplyComposer(comment, ci));
+        popup.querySelector('.comment-resolve-btn').addEventListener('click', () => {
+            comment.resolved = !comment.resolved;
             this.scheduleSave();
-            popup.remove();
             this.renderCanvas();
+            const newPin = document.getElementById('slideCanvas')?.querySelector(`[data-comment-idx="${ci}"]`);
+            if (newPin) this.showCommentPopup(comment, ci, newPin);
+            this.showToast(comment.resolved ? 'Comment resolved.' : 'Comment unresolved.');
         });
         popup.querySelector('.comment-delete-btn').addEventListener('click', () => {
             const slide = this.pres.slides[this.slideIdx];
@@ -6124,6 +6178,27 @@ class SlidesApp {
             popup.remove();
             this.renderCanvas();
             this.showToast('Comment deleted.');
+        });
+    }
+
+    // Position the comment popup next to its pin in screen space (fixed),
+    // clamped to the viewport so it behaves like the Docs popup.
+    _positionCommentPopup(pinEl, popupEl) {
+        let anchor = pinEl;
+        if (!anchor) {
+            anchor = document.getElementById('slideCanvas')?.querySelector(`[data-comment-idx="${popupEl.dataset.commentIdx}"]`);
+        }
+        if (!anchor) return;
+        const r = anchor.getBoundingClientRect();
+        popupEl.style.left = `${r.right + 8}px`;
+        popupEl.style.top = `${r.top - 4}px`;
+        requestAnimationFrame(() => {
+            const pr = popupEl.getBoundingClientRect();
+            const m = 8;
+            if (pr.left < m) popupEl.style.left = `${m}px`;
+            if (pr.top < m) popupEl.style.top = `${m}px`;
+            if (pr.right > window.innerWidth - m) popupEl.style.left = `${Math.max(m, window.innerWidth - pr.width - m)}px`;
+            if (pr.bottom > window.innerHeight - m) popupEl.style.top = `${Math.max(m, window.innerHeight - pr.height - m)}px`;
         });
     }
 
@@ -6737,6 +6812,9 @@ class SlidesApp {
             if (es) es.style.display = 'none';
             // Presenter notes panel: just remove .visible to collapse
             if (pn) pn.classList.remove('visible');
+            // Animation pane: collapse it too so it doesn't stay open when
+            // leaving the editor for the welcome screen.
+            this.toggleAnimationPane(false);
             this.renderWelcomeCards();
         } else {
             ws.style.display = 'none';

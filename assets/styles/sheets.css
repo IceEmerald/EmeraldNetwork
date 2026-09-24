@@ -2678,7 +2678,7 @@ body.no-active-wb #status-bar { display: none; }
   flex: 1 1 0%;
   width: 100%;
   min-height: 0;
-  background: linear-gradient(135deg, #ffffff 0%, #f4fcf7 100%);
+  background: #FFF;
   position: relative;
   overflow: hidden;
 }
