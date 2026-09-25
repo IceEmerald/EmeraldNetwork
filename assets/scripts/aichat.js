@@ -4686,6 +4686,12 @@ function toggleModelDropdown(e) {
     e.stopPropagation();
     e.preventDefault();
   }
+  // On mobile (< 640px) the inline dropdown is hidden; a full modal picker
+  // is shown instead, matching the settings/library modal pattern.
+  if (window.matchMedia && window.matchMedia("(max-width: 640px)").matches) {
+    openModelModal();
+    return;
+  }
   const sel = $("modelSelector");
   if (!sel) return;
   const willOpen = !sel.classList.contains("open");
@@ -4698,11 +4704,31 @@ function closeModelDropdown() {
   if (sel) sel.classList.remove("open");
 }
 
+function openModelModal() {
+  renderModelModal();
+  openModal("modelModal");
+}
+
+function closeModelModal() {
+  closeModal("modelModal");
+}
+
+function renderModelModal() {
+  const body = $("modelModalBody");
+  if (!body) return;
+  const selectedId = getSelectedModelId();
+  const primary = [AUTO_OPTION, ...PRIMARY_MODEL_IDS.map(getModelById).filter(Boolean)];
+  const other = OTHER_MODEL_IDS.map(getModelById).filter(Boolean);
+  const options = [...primary, ...other].map((opt) => _modelDropdownItemHTML(opt, selectedId)).join("");
+  body.innerHTML = `<div class="model-modal-list">${options}</div>`;
+}
+
 function selectModel(id) {
   const valid = id === "auto" || MODELS.some((m) => m.id === id);
   if (!valid) return;
   setSelectedModelId(id);
   closeModelDropdown();
+  closeModelModal();
   refreshModelSelectorUI();
   const opt = id === "auto" ? AUTO_OPTION : getModelById(id);
   if (opt) {
@@ -4736,7 +4762,10 @@ document.addEventListener("click", (e) => {
   if (!sel.contains(e.target)) closeModelDropdown();
 });
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") closeModelDropdown();
+  if (e.key === "Escape") {
+    closeModelDropdown();
+    closeModelModal();
+  }
 });
 function escapeHtml(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
@@ -8150,6 +8179,7 @@ try {
   if (typeof closeMobileSidebar !== "undefined" && typeof window.closeMobileSidebar === "undefined") window.closeMobileSidebar = closeMobileSidebar;
   if (typeof closeModal !== "undefined" && typeof window.closeModal === "undefined") window.closeModal = closeModal;
   if (typeof closeModelDropdown !== "undefined" && typeof window.closeModelDropdown === "undefined") window.closeModelDropdown = closeModelDropdown;
+  if (typeof closeModelModal !== "undefined" && typeof window.closeModelModal === "undefined") window.closeModelModal = closeModelModal;
   if (typeof closeQuizPanel !== "undefined" && typeof window.closeQuizPanel === "undefined") window.closeQuizPanel = closeQuizPanel;
   if (typeof codeBlockMeta !== "undefined" && typeof window.codeBlockMeta === "undefined") window.codeBlockMeta = codeBlockMeta;
   if (typeof confirmClearAllChats !== "undefined" && typeof window.confirmClearAllChats === "undefined") window.confirmClearAllChats = confirmClearAllChats;
@@ -8210,6 +8240,7 @@ try {
   if (typeof openMemoriesModal !== "undefined" && typeof window.openMemoriesModal === "undefined") window.openMemoriesModal = openMemoriesModal;
   if (typeof openMobileSidebar !== "undefined" && typeof window.openMobileSidebar === "undefined") window.openMobileSidebar = openMobileSidebar;
   if (typeof openModal !== "undefined" && typeof window.openModal === "undefined") window.openModal = openModal;
+  if (typeof openModelModal !== "undefined" && typeof window.openModelModal === "undefined") window.openModelModal = openModelModal;
   if (typeof openQuizPanel !== "undefined" && typeof window.openQuizPanel === "undefined") window.openQuizPanel = openQuizPanel;
   if (typeof openSearch !== "undefined" && typeof window.openSearch === "undefined") window.openSearch = openSearch;
   if (typeof openSettings !== "undefined" && typeof window.openSettings === "undefined") window.openSettings = openSettings;

@@ -461,7 +461,7 @@ body.light-mode .sidebar-time-group {
     top: calc(100% + 4px);
     left: 0px;
     min-width: 248px;
-    max-width: 320px;
+    max-width: calc(100vw - 24px);
     background: rgb(30, 30, 30);
     border: 1px solid rgb(44, 44, 44);
     border-radius: 10px;
@@ -502,7 +502,7 @@ body.light-mode .sidebar-time-group {
 
 .model-dropdown-text {
     flex: 1 1 0%;
-    min-width: 0px;
+    min-width: max-content;
 }
 
 .model-dropdown-title {
@@ -511,8 +511,6 @@ body.light-mode .sidebar-time-group {
     color: rgb(210, 210, 210);
     line-height: 1.25;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 .model-dropdown-item:hover .model-dropdown-title {
@@ -529,8 +527,6 @@ body.light-mode .sidebar-time-group {
     margin-top: 2px;
     line-height: 1.3;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 .model-dropdown-item.active .model-dropdown-desc {
@@ -616,7 +612,7 @@ body.light-mode .sidebar-time-group {
     top: 0px;
     left: calc(100% + 6px);
     min-width: 248px;
-    max-width: 320px;
+    max-width: calc(100vw - 24px);
     background: rgb(30, 30, 30);
     border: 1px solid rgb(44, 44, 44);
     border-radius: 10px;
@@ -724,56 +720,10 @@ body.light-mode .model-dropdown-other-list {
         max-width: 180px;
     }
 
+    /* Mobile now opens a full modal picker (#modelModal) when the selector
+       is tapped, so the inline dropdown is hidden entirely on small screens. */
     .model-dropdown {
-        min-width: 230px;
-        max-width: calc(-24px + 100vw);
-    }
-
-    /* Mobile-only: drop the 'Other Models' hover trigger entirely and
-       render the secondary models inline below the primary list. Touch
-       devices cannot hover, so the desktop flyout pattern leaves a big
-       blank gap below 'Other Models' until the user taps it. Showing the
-       other models directly removes that gap with no expansion state.
-       PC (hover-flyout) behaviour is untouched because this whole block
-       is scoped to max-width: 640px. */
-    .model-dropdown-other {
-        position: static;
-    }
-
-    .model-dropdown-other-btn {
         display: none;
-    }
-
-    .model-dropdown-other-list {
-        position: static;
-        margin-top: 0;
-        min-width: 0;
-        max-width: none;
-        box-shadow: none;
-        border-width: medium;
-        border-style: none;
-        border-color: currentcolor;
-        border-image: none;
-        padding: 0px;
-        background: transparent;
-        /* Force visible - overrides the default opacity:0 / visibility:hidden
-           that powers the desktop hover-flyout. Without this, the list still
-           occupies layout space on mobile while staying invisible, which is
-           exactly the blank-gap bug users see. */
-        opacity: 1;
-        visibility: visible;
-        transform: none;
-        transition: none;
-    }
-
-    /* Neutralise the hover/focus/expanded pseudo-states on mobile so they
-       cannot re-hide or transform the now-always-visible list. */
-    .model-dropdown-other:hover > .model-dropdown-other-list,
-    .model-dropdown-other:focus-within > .model-dropdown-other-list,
-    .model-dropdown-other.is-expanded > .model-dropdown-other-list {
-        opacity: 1;
-        visibility: visible;
-        transform: none;
     }
 }
 
@@ -4744,6 +4694,42 @@ body.light-mode .fp-text-code {
     max-height: 84vh;
     display: flex;
     flex-direction: column;
+}
+
+.ai-modal--model {
+    max-width: 440px;
+    max-height: 84vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.model-modal-body {
+    padding: 12px;
+}
+
+.model-modal-list {
+    padding: 2px;
+}
+
+.model-modal-list .model-dropdown-item {
+    padding: 12px;
+    margin-bottom: 4px;
+    border-radius: 10px;
+}
+
+.model-modal-list .model-dropdown-text {
+    min-width: 0;
+}
+
+.model-modal-list .model-dropdown-title,
+.model-modal-list .model-dropdown-desc {
+    white-space: normal;
+    overflow-wrap: break-word;
+}
+
+body.light-mode .ai-modal--model {
+    background: rgb(255, 255, 255);
+    border-color: rgb(224, 224, 224);
 }
 
 .ai-modal-header {

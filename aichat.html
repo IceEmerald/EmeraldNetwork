@@ -361,6 +361,20 @@
         </div>
     </div>
 
+    <!-- ─── Model Picker Modal (mobile) ─────────── -->
+    <div class="ai-modal-overlay" id="modelModal" onclick="if(event.target===this)closeModelModal()">
+        <div class="ai-modal ai-modal--model">
+            <div class="ai-modal-header">
+                <div class="ai-modal-header-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                </div>
+                <span class="ai-modal-header-title">Choose model</span>
+                <button class="ai-modal-close ai-modal-close--abs" onclick="closeModelModal()" title="Close">×</button>
+            </div>
+            <div class="ai-modal-body ai-modal-body--scroll model-modal-body" id="modelModalBody"></div>
+        </div>
+    </div>
+
     <!-- ─── Scripts ────────────────────────────── -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" integrity="sha384-F/bZzf7p3Joyp5psL90p/p89AZJsndkSoGwRpXcZhleCWhd8SnRuoYo4d0yirjJp" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked@18.0.5/lib/marked.umd.js" integrity="sha384-ZD0fTOwPMHi7zM6WTVIWJR21I07lq0ccnqz3J6WMvQKG9thh4y7TA1QE6PJu0Af8" crossorigin="anonymous"></script>
