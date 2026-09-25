@@ -461,7 +461,7 @@ body.light-mode .sidebar-time-group {
     top: calc(100% + 4px);
     left: 0px;
     min-width: 248px;
-    max-width: calc(100vw - 24px);
+    max-width: 320px;
     background: rgb(30, 30, 30);
     border: 1px solid rgb(44, 44, 44);
     border-radius: 10px;
@@ -502,7 +502,7 @@ body.light-mode .sidebar-time-group {
 
 .model-dropdown-text {
     flex: 1 1 0%;
-    min-width: max-content;
+    min-width: 0px;
 }
 
 .model-dropdown-title {
@@ -511,6 +511,8 @@ body.light-mode .sidebar-time-group {
     color: rgb(210, 210, 210);
     line-height: 1.25;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .model-dropdown-item:hover .model-dropdown-title {
@@ -527,6 +529,8 @@ body.light-mode .sidebar-time-group {
     margin-top: 2px;
     line-height: 1.3;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .model-dropdown-item.active .model-dropdown-desc {
@@ -612,7 +616,7 @@ body.light-mode .sidebar-time-group {
     top: 0px;
     left: calc(100% + 6px);
     min-width: 248px;
-    max-width: calc(100vw - 24px);
+    max-width: 320px;
     background: rgb(30, 30, 30);
     border: 1px solid rgb(44, 44, 44);
     border-radius: 10px;
@@ -5098,7 +5102,7 @@ body.light-mode .ai-modal--model {
 
 .quiz-match-dd-btn {
     min-width: 180px;
-    max-width: 260px;
+    max-width: calc(100vw - 24px);
     display: block;
     padding: 6px 30px 6px 12px;
     background: rgba(255, 255, 255, 0.04);
@@ -5111,8 +5115,6 @@ body.light-mode .ai-modal--model {
     text-align: left;
     position: relative;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     transition: border-color 0.15s, background 0.15s, color 0.15s;
 }
 
@@ -5146,7 +5148,7 @@ body.light-mode .ai-modal--model {
     left: auto;
     right: 0px;
     min-width: 240px;
-    max-width: min(320px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
     max-height: 230px;
     overflow-y: auto;
     background: rgb(30, 30, 30);
@@ -5203,10 +5205,8 @@ body.light-mode .ai-modal--model {
 
 .quiz-match-dd-text {
     flex: 1;
-    min-width: 0;
+    min-width: max-content;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 .quiz-match-dd-check {
