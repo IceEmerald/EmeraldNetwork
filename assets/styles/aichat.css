@@ -470,6 +470,7 @@ body.light-mode .sidebar-time-group {
     z-index: 1000;
     opacity: 0;
     visibility: hidden;
+    pointer-events: none;
     transform: translateY(-4px);
     transform-origin: left top;
     transition: opacity 0.14s, transform 0.14s, visibility 0.14s;
@@ -478,6 +479,7 @@ body.light-mode .sidebar-time-group {
 .model-selector.open .model-dropdown {
     opacity: 1;
     visibility: visible;
+    pointer-events: auto;
     transform: translateY(0px);
 }
 
