@@ -2695,7 +2695,7 @@ function _setSearchingLabel(block, verb) {
   if (!label) return;
   const start = Number(block.dataset.startedAt || 0);
   if (!start) {
-    label.textContent = verb === "Searched" ? "Searched" : "Searching";
+    label.textContent = verb === "Worked" ? "Worked" : "Working";
     return;
   }
   const sec = Math.max(1, Math.round((Date.now() - start) / 1000));
@@ -2706,7 +2706,7 @@ function searchingBlockHTML(isDone) {
   return `<div class="searching-block${isDone ? " is-done" : ""}" data-state="${isDone ? "done" : "searching"}">
     <div class="searching-header" role="button" tabindex="0" aria-expanded="${isDone ? "false" : "true"}" onclick="toggleSearchingBlock(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSearchingBlock(this);}">
       <div class="searching-title">
-        <span class="searching-label">${isDone ? "Searched" : "Searching"}</span>
+        <span class="searching-label">${isDone ? "Worked" : "Working"}</span>
       </div>
       <svg class="searching-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
@@ -2726,12 +2726,134 @@ function createSearchingBlock(aiDiv) {
   sender.insertAdjacentElement("afterend", block);
   block.classList.add("is-expanded");
   block.dataset.startedAt = String(Date.now());
-  _setSearchingLabel(block, "Searching");
+  _setSearchingLabel(block, "Working");
   const timer = setInterval(() => {
-    if (!block.classList.contains("is-done")) _setSearchingLabel(block, "Searching");
+    if (!block.classList.contains("is-done")) _setSearchingLabel(block, "Working");
   }, 1000);
   _searchingTimers.set(block, timer);
   return block;
+}
+
+function _searchingFileChipHTML(item) {
+  let raw = String(item || "").trim().replace(/^[-*·\s]+/, "");
+  if (!raw) return "";
+  let label = raw;
+  let url = "";
+  const mdLink = raw.match(/^\[([^\]]*)\]\(([^)\s]+)\)$/s);
+  if (mdLink) {
+    label = (mdLink[1] || "").trim() || mdLink[2];
+    url = mdLink[2];
+  } else if (/\.(?:pdf|docx?|xlsx?|pptx?|zip|tar|gz|txt|md|jpe?g|png|gif|webp|svg|mp4|mp3)$/i.test(raw)) {
+    return `<span class="searching-file-chip">${escapeHtml(label)}</span>`;
+  } else {
+    const titled = raw.match(/^([^()]+)\s*\(([^()\s]+)\)$/);
+    if (titled && /^https?:\/\//i.test(titled[2])) {
+      label = titled[1].trim();
+      url = titled[2].trim();
+    } else if (/^https?:\/\/\S+$/i.test(raw)) {
+      url = raw;
+      label = raw.replace(/^https?:\/\/(?:www\.)?/i, "").replace(/\/+$/, "");
+    } else if (/^[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?\.[a-z]{2,}(?:\/[^\s]*)?$/i.test(raw)) {
+      url = "https://" + raw;
+      label = raw.replace(/\/+$/, "");
+    }
+  }
+  if (!url) return `<span class="searching-file-chip" title="${escapeHtmlAttr(label)}">${escapeHtml(label)}</span>`;
+  return `<a class="searching-file-chip" href="${escapeHtmlAttr(_uriClean(url))}" target="_blank" rel="noopener noreferrer" title="${escapeHtmlAttr(label)}">${escapeHtml(label)}<svg class="searching-file-chip-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></a>`;
+}
+
+function _searchingFileChipsHTML(items) {
+  const chips = [];
+  items.forEach((it) => {
+    const t = String(it || "").trim().replace(/^[-*·\s]+/, "");
+    if (!t) return;
+    const linkish = /^\[[^\]]*\]\([^)\s]+\)$/s.test(t) || /^https?:\/\/\S+$/i.test(t) || /^[^()]+\([^()\s]+\)$/.test(t);
+    const parts = linkish ? [t] : t.split(/[,;]\s+/);
+    parts.forEach((p) => {
+      const c = _searchingFileChipHTML(p);
+      if (c) chips.push(c);
+    });
+  });
+  return chips.join("");
+}
+
+function _searchingItemLike(t) {
+  const x = String(t || "").trim();
+  if (/^\[[^\]]*\]\([^)\s]+\)/s.test(x)) return true;
+  if (/^https?:\/\//i.test(x)) return true;
+  if (/^[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?\.[a-z]{2,}(?:\/[^\s]*)?$/i.test(x)) return true;
+  if (/\.(?:pdf|docx?|xlsx?|pptx?|zip|tar|gz|txt|md|jpe?g|png|gif|webp|svg|mp4|mp3)$/i.test(x)) return true;
+  return false;
+}
+
+function _searchingStripCodeTicks(line) {
+  return String(line)
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/^[\s*`]+|[\s*`]+$/g, "");
+}
+
+function _searchingPretty(raw) {
+  const lines = String(raw || "").split(/\n/);
+  const fromRe = /^\s*(files|images|photos|pictures|sources|pages|documents|docs|websites|domains|devices|attachments|references)\s*from\s*[:.]?\s*(.*)$/i;
+  const fromPrefRe = /^from\s*[:.]?\s*(.*)$/i;
+  const out = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    const m = fromRe.exec(line);
+    if (m && m[1]) {
+      const items = [];
+      const first = _searchingStripCodeTicks(m[2]).trim();
+      if (first) {
+        if (_searchingItemLike(first)) {
+          items.push(first);
+        } else {
+          first.split(/[,;]\s+/).forEach((p) => { if (_searchingItemLike(p)) items.push(p); });
+        }
+      }
+      let j = i + 1;
+      while (j < lines.length) {
+        const next = lines[j];
+        if (!next.trim() || fromRe.test(next) || fromPrefRe.test(next)) break;
+        const t = _searchingStripCodeTicks(next).trim().replace(/^[-*·]+/, "");
+        if (_searchingItemLike(t)) {
+          items.push(t);
+          j++;
+          continue;
+        }
+        break;
+      }
+      const chips = items.length ? _searchingFileChipsHTML(items) : "";
+      if (chips) {
+        out.push(`<span class="searching-file-chips">${chips}</span>`);
+      } else {
+        out.push(line);
+      }
+      i = Math.max(i + 1, j);
+      continue;
+    }
+    const cleaned = _searchingStripCodeTicks(line);
+    const fp = fromPrefRe.exec(cleaned);
+    if (fp && fp[1].trim() && _searchingItemLike(fp[1].trim())) {
+      const chips = _searchingFileChipsHTML([fp[1].trim()]);
+      if (chips) {
+        out.push(`<span class="searching-file-chips">${chips}</span>`);
+        i++;
+        continue;
+      }
+    }
+    if (_searchingItemLike(cleaned)) {
+      const chips = _searchingFileChipsHTML([cleaned]);
+      if (chips) {
+        out.push(chips);
+        i++;
+        continue;
+      }
+    }
+    out.push(line);
+    i++;
+  }
+  return renderMarkdown(out.join("\n"));
 }
 
 function appendSearchingToBlock(block, chunk) {
@@ -2741,7 +2863,7 @@ function appendSearchingToBlock(block, chunk) {
   let acc = block.dataset.searchingRaw || "";
   acc += chunk;
   block.dataset.searchingRaw = acc;
-  textEl.innerHTML = renderMarkdown(acc);
+  textEl.innerHTML = _searchingPretty(acc);
   const body = block.querySelector(".searching-body");
   if (body && _autoScrollSticky) body.scrollTop = body.scrollHeight;
 }
@@ -2752,7 +2874,7 @@ function markSearchingDone(block) {
   block.dataset.state = "done";
   const timer = _searchingTimers.get(block);
   if (timer) { clearInterval(timer); _searchingTimers.delete(block); }
-  _setSearchingLabel(block, "Searched");
+  _setSearchingLabel(block, "Worked");
   const header = block.querySelector(".searching-header");
   if (header) header.setAttribute("aria-expanded", "false");
   if (!block.classList.contains("is-user-toggled")) {
@@ -5317,14 +5439,67 @@ window._quizToggleMulti = function(qid, qi, oi) {
   _quizUpdateProgress(qid);
   _quizPersist(qid);
 };
+let _quizMatchCtx = null;
 window._quizMatchOpen = function(qid, qi, li, evt) {
   evt && evt.stopPropagation();
   const wrapper = document.getElementById(`${qid}_q${qi}_dd${li}`);
   if (!wrapper || wrapper.classList.contains("locked")) return;
   const wasOpen = wrapper.classList.contains("open");
   document.querySelectorAll(".quiz-match-dd.open").forEach((w) => w.classList.remove("open"));
-  if (!wasOpen) wrapper.classList.add("open");
+  if (!wasOpen) {
+    wrapper.classList.add("open");
+    _quizMatchShowOverlay(wrapper, qid, qi, li);
+  } else {
+    _quizMatchCloseOverlay();
+  }
 };
+function _quizMatchShowOverlay(wrapper, qid, qi, li) {
+  _quizMatchCloseOverlay();
+  const srcMenu = wrapper.querySelector(".quiz-match-dd-menu");
+  if (!srcMenu) return;
+  const overlay = document.createElement("div");
+  overlay.className = "quiz-match-dd-overlay";
+  overlay.setAttribute("role", "listbox");
+  overlay.id = "quizMatchOverlay";
+  srcMenu.querySelectorAll(".quiz-match-dd-item").forEach((item) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "quiz-match-dd-item" + (item.classList.contains("selected") ? " selected" : "");
+    btn.setAttribute("role", "option");
+    btn.setAttribute("data-d", item.getAttribute("data-d"));
+    btn.innerHTML = item.innerHTML;
+    btn.addEventListener("click", (e) => _quizMatchPick(qid, qi, li, parseInt(btn.getAttribute("data-d"), 10), e));
+    overlay.appendChild(btn);
+  });
+  _quizMatchCtx = { qid, qi, li };
+  document.body.appendChild(overlay);
+  const btn = wrapper.querySelector(".quiz-match-dd-btn");
+  const r = btn ? btn.getBoundingClientRect() : null;
+  if (!r) return;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const gap = 6;
+  const margin = 8;
+  const mw = overlay.offsetWidth;
+  const mh = overlay.offsetHeight;
+  let top = r.bottom + gap;
+  if (top + mh > vh - margin) {
+    if (r.top - mh - gap >= margin) top = r.top - mh - gap;
+    else top = Math.max(margin, vh - mh - margin);
+  }
+  let left = r.right - mw;
+  if (left < margin) left = r.left;
+  if (left < margin) left = margin;
+  if (left + mw > vw - margin) left = vw - mw - margin;
+  overlay.style.top = `${Math.round(top)}px`;
+  overlay.style.left = `${Math.round(left)}px`;
+}
+function _quizMatchCloseOverlay() {
+  if (!_quizMatchCtx) return;
+  _quizMatchCtx = null;
+  const o = document.getElementById("quizMatchOverlay");
+  if (o) o.remove();
+}
 window._quizMatchPick = function(qid, qi, li, d, evt) {
   evt && evt.stopPropagation();
   const qz = (window._quizzes || {})[qid];
@@ -5346,6 +5521,7 @@ window._quizMatchPick = function(qid, qi, li, d, evt) {
   a[li] = typeof d === "number" ? d : null;
   qz.answers[qi] = a;
   wrapper.classList.remove("open");
+  _quizMatchCloseOverlay();
   _quizUpdateProgress(qid);
   _quizPersist(qid);
 };
@@ -5353,9 +5529,16 @@ document.addEventListener("click", (e) => {
   document.querySelectorAll(".quiz-match-dd.open").forEach((w) => {
     if (!w.contains(e.target)) w.classList.remove("open");
   });
+  if (_quizMatchCtx) {
+    const o = document.getElementById("quizMatchOverlay");
+    if (o && !o.contains(e.target)) _quizMatchCloseOverlay();
+  }
 });
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") document.querySelectorAll(".quiz-match-dd.open").forEach((w) => w.classList.remove("open"));
+  if (e.key === "Escape") {
+    document.querySelectorAll(".quiz-match-dd.open").forEach((w) => w.classList.remove("open"));
+    _quizMatchCloseOverlay();
+  }
 });
 window._quizFillInput = function(qid, qi, value) {
   const qz = (window._quizzes || {})[qid];
@@ -5843,6 +6026,10 @@ function appendStoredAIMessage(m) {
   // ── Restore citations from persisted sources ──
   if (m.sources && Array.isArray(m.sources) && m.sources.length) {
     renderCitations(div, m.sources);
+    // Mirror the live streaming path: when real sources exist, drop the
+    // raw "Sources"/"Source:" block the model wrote so it doesn't come
+    // back with literal brackets after a reload.
+    _stripSourcesFromHTML(div.querySelector(".message-text"));
   }
   return div;
 }
@@ -7690,6 +7877,39 @@ function _stripSourcesFromHTML(textEl) {
         lists[i].remove();
         return;
       }
+    }
+  }
+  // Handle a trailing "From:" / "From" header that introduces a link list
+  // (e.g. "From: [Title](url)"). Only strip when the region after the
+  // header actually contains a link, so prose like "From the start…" that
+  // happens to be bolded is never cut off.
+  for (let i = strongs.length - 1; i >= 0; i--) {
+    const txt = strongs[i].textContent.trim().replace(/[\s:：]/g, "").toLowerCase();
+    if (txt !== "from") continue;
+    const parent = strongs[i].closest("h1,h2,h3,h4,h5,h6,p,li");
+    const node = parent || strongs[i];
+    if (!node.nextSibling) {
+      node.remove();
+      return;
+    }
+    const hasLink = (() => {
+      let n = node.nextSibling;
+      let acc = "";
+      while (n) {
+        if (n.nodeType === Node.TEXT_NODE) acc += n.textContent;
+        else if (n.nodeType === Node.ELEMENT_NODE) {
+          if (n.querySelector?.("a[href^='http']")) return true;
+          acc += n.textContent;
+        }
+        n = n.nextSibling;
+      }
+      return /https?:\/\/|\[[^\]]*\]\([^)\s]+\)/.test(acc);
+    })();
+    if (hasLink) {
+      let n = node;
+      while (n.nextSibling) n.nextSibling.remove();
+      n.remove();
+      return;
     }
   }
 }

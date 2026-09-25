@@ -1309,7 +1309,7 @@ body.light-mode .message-avatar-user {
 }
 
 .chat-input-wrap {
-    padding: 0px 20px 18px;
+    padding: 0px 20px 22px;
     transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -4702,6 +4702,11 @@ body.light-mode .fp-text-code {
     flex-direction: column;
 }
 
+.ai-modal--memories .ai-modal-footer {
+    justify-content: center;
+    border-top: none;
+}
+
 .ai-modal--model {
     max-width: 440px;
     max-height: 84vh;
@@ -4710,7 +4715,7 @@ body.light-mode .fp-text-code {
 }
 
 .model-modal-body {
-    padding: 12px;
+    padding: 16px 18px;
 }
 
 .model-modal-list {
@@ -4747,25 +4752,27 @@ body.light-mode .ai-modal--model {
     flex-shrink: 0;
 }
 
-.ai-modal-header-icon {
-    width: 32px;
-    height: 32px;
-    background: rgb(1, 145, 0);
-    border-radius: 20px;
-    padding-bottom: 1px;
-    padding-left: 1px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: rgb(255, 255, 255);
-    flex-shrink: 0;
-}
-
 .ai-modal-header-title {
     font-size: 15px;
     font-weight: 600;
     justify-content: center;
     align-items: center;
+    color: rgb(232, 232, 232);
+}
+
+body.light-mode .ai-modal-header-title {
+    color: rgb(26, 26, 26);
+}
+
+.ai-modal-header--clean {
+    justify-content: center;
+    gap: 8px;
+    padding: 16px 20px;
+    border-bottom: none;
+}
+
+body.light-mode .ai-modal-header--clean {
+    border-bottom-color: transparent;
 }
 
 .ai-modal-close {
@@ -5103,8 +5110,7 @@ body.light-mode .ai-modal--model {
 }
 
 .quiz-match-dd-btn {
-    min-width: 180px;
-    max-width: calc(100vw - 24px);
+    width: min(220px, 44vw);
     display: block;
     padding: 6px 30px 6px 12px;
     background: rgba(255, 255, 255, 0.04);
@@ -5117,6 +5123,8 @@ body.light-mode .ai-modal--model {
     text-align: left;
     position: relative;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     transition: border-color 0.15s, background 0.15s, color 0.15s;
 }
 
@@ -5145,23 +5153,26 @@ body.light-mode .ai-modal--model {
 }
 
 .quiz-match-dd-menu {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: auto;
-    right: 0px;
-    min-width: 240px;
-    max-width: calc(100vw - 24px);
-    max-height: 230px;
+    display: none;
+}
+
+.quiz-match-dd-overlay {
+    position: fixed;
+    top: 0px;
+    left: 0px;
+    transform: none;
+    min-width: min(240px, calc(50vw - 12px));
+    width: max-content;
+    max-width: calc(50vw - 12px);
+    max-height: calc(100vh - 24px);
+    overflow-x: auto;
     overflow-y: auto;
+    box-sizing: border-box;
     background: rgb(30, 30, 30);
     border: 1px solid rgba(255, 255, 255, 0.09);
     border-radius: 9px;
     box-shadow: rgba(0, 0, 0, 0.5) 0px 8px 30px;
     z-index: 10001;
-    display: none;
-}
-
-.quiz-match-dd.open .quiz-match-dd-menu {
     display: flex;
     flex-direction: column;
     animation: quizDdIn 0.16s ease-out;
@@ -5170,12 +5181,10 @@ body.light-mode .ai-modal--model {
 @keyframes quizDdIn {
     0% {
         opacity: 0;
-        transform: translateY(-5px);
     }
 
     100% {
         opacity: 1;
-        transform: translateY(0px);
     }
 }
 
@@ -5207,8 +5216,10 @@ body.light-mode .ai-modal--model {
 
 .quiz-match-dd-text {
     flex: 1;
-    min-width: max-content;
-    white-space: nowrap;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: break-word;
+    line-height: 1.35;
 }
 
 .quiz-match-dd-check {
@@ -5268,7 +5279,8 @@ body.light-mode .quiz-match-dd.open .quiz-match-dd-btn {
     color: rgb(0, 0, 0);
 }
 
-body.light-mode .quiz-match-dd-menu {
+body.light-mode .quiz-match-dd-menu,
+body.light-mode .quiz-match-dd-overlay {
     background: rgb(255, 255, 255);
     border-color: rgb(232, 232, 232);
     box-shadow: rgba(0, 0, 0, 0.14) 0px 10px 28px, rgba(0, 0, 0, 0.06) 0px 2px 6px;
@@ -7689,6 +7701,82 @@ body.light-mode .reasoning-text pre {
 .searching-text pre code {
     background: none;
     padding: 0px;
+}
+
+.searching-text a {
+    color: rgb(90, 205, 130);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(90, 205, 130, 0.35);
+    overflow-wrap: break-word;
+}
+
+.searching-text a:hover {
+    border-bottom-color: rgba(90, 205, 130, 0.9);
+}
+
+.searching-file-group {
+    display: flex;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    margin: 2px 0px 10px;
+}
+
+.searching-file-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--ss-label);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding-top: 3px;
+    flex-shrink: 0;
+}
+
+.searching-file-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.searching-file-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 100%;
+    padding: 3px 9px;
+    border-radius: 20px;
+    background: rgba(80, 200, 120, 0.12);
+    border: 1px solid rgba(80, 200, 120, 0.28);
+    color: rgb(110, 215, 150);
+    font-size: 0.75rem;
+    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-decoration: none;
+}
+
+a.searching-file-chip:hover {
+    background: rgba(80, 200, 120, 0.2);
+    border-color: rgba(80, 200, 120, 0.45);
+    color: rgb(140, 235, 175);
+}
+
+.searching-file-chip-icon {
+    flex-shrink: 0;
+    opacity: 0.8;
+}
+
+body.light-mode .searching-file-chip {
+    background: rgba(42, 157, 84, 0.08);
+    border-color: rgba(42, 157, 84, 0.3);
+    color: rgb(24, 130, 68);
+}
+
+body.light-mode a.searching-file-chip:hover {
+    background: rgba(42, 157, 84, 0.16);
+    border-color: rgba(42, 157, 84, 0.5);
+    color: rgb(16, 105, 52);
 }
 
 body.light-mode .searching-block {
