@@ -2218,10 +2218,13 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 
 /* ---------- Formula row (floating card — mirrors the ribbon card, no switcher) ---------- */
 #formula-row {
+  /* height of the collapsed bar; the side controls are pinned to this band so
+     expanding/collapsing never shifts them — only the chevron rotates. */
+  --fx-band-h: 36px;
   height: auto;
   min-height: 30px;
   display: flex;
-  align-items: stretch;
+  align-items: flex-start;
   gap: 6px;
   background: rgba(255, 255, 255, .97);
   border: 1px solid rgba(0, 0, 0, .08);
@@ -2234,7 +2237,7 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
   z-index: 45;
 }
 #formula-row.expanded #formula-bar-wrap { align-items: flex-start; }
-#name-box-wrap { border-right: 1px solid rgba(0, 0, 0, .08); padding: 3px 10px 3px 0; }
+#name-box-wrap { height: var(--fx-band-h); border-right: 1px solid rgba(0, 0, 0, .08); padding: 3px 10px 3px 0; }
 #name-box {
   width: 88px;
   height: 100%;
@@ -2250,7 +2253,7 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 #name-box.error { border-color: #ef4444; background: #fef2f2; }
 .namebox-dd { width: 18px; height: 24px; border-radius: 6px; }
 .namebox-dd:hover { background: rgba(0, 0, 0, .06); }
-.fx-group { border-right: 1px solid rgba(0, 0, 0, .08); gap: 2px; padding: 2px 10px 2px 6px; }
+.fx-group { height: var(--fx-band-h); border-right: 1px solid rgba(0, 0, 0, .08); gap: 2px; padding: 2px 10px 2px 6px; }
 .fx-btn { font-size: 15px; color: var(--ui-accent); width: 32px; height: 24px; border-radius: 7px; font-style: italic; }
 .fx-btn:hover { background: rgba(35, 154, 77, .1); color: var(--ui-accent-strong); }
 #fx-cancel, #fx-confirm {
@@ -2267,16 +2270,18 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
   font-family: "SF Mono", "DM Mono", Consolas, "Courier New", monospace;
   font-size: 12.5px;
   line-height: 20px;
-  padding: 0 8px;
+  /* 30px box - 2px border - 8px padding = 20px = exactly one line box,
+     so the collapsed text sits centred instead of riding the top edge. */
+  padding: 4px 8px;
   background: transparent;
   caret-color: var(--ui-accent);
   height: 30px;
   transition: height .18s cubic-bezier(.4, 0, .2, 1);
 }
-#formula-row.expanded #formula-input { height: 92px; }
+#formula-row.expanded #formula-input { height: 90px; }
 #formula-input:hover { background: #fff; border-color: rgba(0, 0, 0, .12); }
 #formula-input:focus { border-color: var(--ui-accent-border); box-shadow: 0 0 0 3px rgba(35, 154, 77, .12); }
-.expand-grip { color: var(--ui-faint); }
+.expand-grip { height: var(--fx-band-h); color: var(--ui-faint); }
 .expand-grip:hover { color: var(--ui-ink); }
 
 /* ---------- Grid canvas backdrop (matches the app surface so transparent headers blend in) ---------- */

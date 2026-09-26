@@ -3038,9 +3038,12 @@ async function handleSend(opts) {
   const fileParts = buildFileParts(files);
   if (fileParts.length) history[history.length - 1].parts.push(...fileParts);
   // Inject the user's EmeraldSuite file catalog + latest contents (auto-read
-  // from storage every send) so the AI can pick the right file to edit.
+  // from storage every send) so the AI can pick the right file to edit. The
+  // user's own message decides whether writing is allowed this turn.
   try {
-    const fileCtx = await _suiteAutoContext();
+    // A silent turn (auto-generated quiz feedback) is text the user never
+    // typed, so it can never authorise a write to their files.
+    const fileCtx = await _suiteAutoContext(_silent ? "" : text);
     if (fileCtx && history.length && history[history.length - 1]?.parts?.length) {
       history[history.length - 1].parts.unshift({ text: fileCtx });
     }
@@ -3325,16 +3328,24 @@ async function handleSend(opts) {
     const afterQuizText = _quizResult.after;
     const _quizParseFailed = _quizResult.parseFailed;
     displayText = _quizResult.before;
-    const _appResult = (quizData || _quizParseFailed) ? { appData: null, parseFailed: false, before: displayText, after: "" } : _extractEmeraldApp(displayText);
-    const appData = _appResult.appData;
-    const beforeAppText = _appResult.before;
-    const afterAppText = _appResult.after;
-    const _appParseFailed = _appResult.parseFailed;
+    const _appRaw = (quizData || _quizParseFailed) ? { appData: null, parseFailed: false, before: displayText, after: "" } : _extractEmeraldApp(displayText);
+    // Write gate: an <es-app> card creates a file, so drop it unless the user
+    // asked for one. The tag is still stripped, so no raw JSON reaches the UI.
+    const _appBlocked = !!_appRaw.appData && !_efWriteRequested;
+    const appData = _appBlocked ? null : _appRaw.appData;
+    const beforeAppText = _appBlocked ? [_appRaw.before, _appRaw.after].filter(Boolean).join("\n\n") : _appRaw.before;
+    const afterAppText = _appBlocked ? "" : _appRaw.after;
+    const _appParseFailed = _appRaw.parseFailed;
     displayText = beforeAppText;
     let _fEditRes = null;
     if (!(quizData || _quizParseFailed || appData || _appParseFailed)) {
       const _fe = _extractFileEdit(fullText);
-      if (_fe.edit || _fe.parseFailed) { _fEditRes = _fe; displayText = _fe.before; }
+      if (_fe.edit || _fe.parseFailed) {
+        displayText = _fe.before;
+        // Write gate: same rule for edits — the payload is discarded unless the
+        // user's own message asked for the change.
+        _fEditRes = (_fe.edit && !_efWriteRequested) ? { blocked: true } : _fe;
+      }
     }
     let _fileEditOutcome = null;
     textEl.classList.remove("stream-reveal");
@@ -3380,6 +3391,8 @@ async function handleSend(opts) {
       renderEsAppCard(textEl, appData, afterAppText, msgId);
     } else if (_appParseFailed) {
       renderEsAppErrorCard(textEl);
+    } else if (_appBlocked) {
+      renderFileEditBadge(aiDiv, { ok: false, error: "not-requested" });
     }
     if (_fEditRes) {
       _fileEditOutcome = await _efApplyEdit(_fEditRes, msgId);
@@ -3649,8 +3662,9 @@ async function regenerateMessage(msgEl) {
       }
     }
   }
+  const regenUserText = (userMsgIdx >= 0 && conv.messages[userMsgIdx] && conv.messages[userMsgIdx].text) || "";
   try {
-    const fileCtx = await _suiteAutoContext();
+    const fileCtx = await _suiteAutoContext(regenUserText);
     if (fileCtx && history.length && history[history.length - 1]?.parts?.length) {
       history[history.length - 1].parts.unshift({ text: fileCtx });
     }
@@ -3801,16 +3815,20 @@ textEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.editStarted
     const afterQuizText = _quizResult.after;
     const _quizParseFailed = _quizResult.parseFailed;
     displayText = _quizResult.before;
-    const _appResult = (quizData || _quizParseFailed) ? { appData: null, parseFailed: false, before: displayText, after: "" } : _extractEmeraldApp(displayText);
-    const appData = _appResult.appData;
-    const beforeAppText = _appResult.before;
-    const afterAppText = _appResult.after;
-    const _appParseFailed = _appResult.parseFailed;
+    const _appRaw = (quizData || _quizParseFailed) ? { appData: null, parseFailed: false, before: displayText, after: "" } : _extractEmeraldApp(displayText);
+    const _appBlocked = !!_appRaw.appData && !_efWriteRequested;
+    const appData = _appBlocked ? null : _appRaw.appData;
+    const beforeAppText = _appBlocked ? [_appRaw.before, _appRaw.after].filter(Boolean).join("\n\n") : _appRaw.before;
+    const afterAppText = _appBlocked ? "" : _appRaw.after;
+    const _appParseFailed = _appRaw.parseFailed;
     displayText = beforeAppText;
     let _fEditRes = null;
     if (!(quizData || _quizParseFailed || appData || _appParseFailed)) {
       const _fe = _extractFileEdit(fullText);
-      if (_fe.edit || _fe.parseFailed) { _fEditRes = _fe; displayText = _fe.before; }
+      if (_fe.edit || _fe.parseFailed) {
+        displayText = _fe.before;
+        _fEditRes = (_fe.edit && !_efWriteRequested) ? { blocked: true } : _fe;
+      }
     }
     let _fileEditOutcome = null;
     textEl.classList.remove("stream-reveal");
@@ -3856,6 +3874,8 @@ textEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.editStarted
       renderEsAppCard(textEl, appData, afterAppText, newId);
     } else if (_appParseFailed) {
       renderEsAppErrorCard(textEl);
+    } else if (_appBlocked) {
+      renderFileEditBadge(aiDiv, { ok: false, error: "not-requested" });
     }
     if (_fEditRes) {
       _fileEditOutcome = await _efApplyEdit(_fEditRes, newId);
@@ -6621,6 +6641,28 @@ document.addEventListener("click", function(e) {
    BroadcastChannel (Sheets via the es-ai agent channel). Creating NEW files
    stays on the <es-app> import card. */
 
+/* ── Write gate ────────────────────────────────────────────────
+   The model can only be trusted loosely, so the user's own message is the
+   authority: a file is written or created ONLY when that message explicitly
+   asks for the change. Merely mentioning a file, asking what is in it, asking
+   for advice, or asking the AI to summarize/compare it stays READ-ONLY, and a
+   stray <es-edit>/<es-app> payload is stripped and thrown away. Set once per
+   request by _suiteAutoContext(), checked before every write. */
+let _efWriteRequested = false;
+
+const _EF_WRITE_VERB = /\b(edit|update|rewrite|revise|fix|change|modify|replace|rename|reword|proofread|correct|improve|expand|shorten|lengthen|reformat|reorder|reorgani[sz]e|organi[sz]e|sort|add|append|prepend|insert|remove|delete|erase|trim|clear|fill|write|save|overwrite|create|draft|compose|generate|apply|convert|translate|continue|finish|complete|tweak|adjust|boost|merge|split|build|make|clean|tidy|polish|redo|revamp|restyle|retheme|redesign|unify|standardi[sz]e|shorter|longer|simpler|clearer|neater|formal|casual|bulleted|bullet\s*point)\b/i;
+const _EF_NEW_FILE = /\b(new|fresh|another|extra|second)\s+(note|notes|doc|docs|document|documents|slide|slides|deck|decks|presentation|presentations|sheet|sheets|spreadsheet|spreadsheets|workbook|workbooks|file|files)\b/i;
+const _EF_WH_QUESTION = /\b(what|why|how|when|where|who|whom|which|whose)\b/i;
+const _EF_DIRECT_ASK = /\b(please|can you|could you|would you|will you|go ahead|do it|do that|make it|try to|try and|i need you to|i want you to|i'?d like you to|help me|now)\b/i;
+
+function _efDetectWriteRequest(userText) {
+  const t = String(userText || "").trim();
+  if (!t) return false;
+  if (_EF_WH_QUESTION.test(t)) return false;
+  if (/\?$/.test(t) && !_EF_DIRECT_ASK.test(t)) return false;
+  return _EF_WRITE_VERB.test(t) || _EF_NEW_FILE.test(t);
+}
+
 function _efLabel(app) { return (_ES_APPS[app] && _ES_APPS[app].label) || app; }
 
 function _efLabel(app) { return (_ES_APPS[app] && _ES_APPS[app].label) || app; }
@@ -6693,8 +6735,12 @@ function _efSheetToMd(sheet) {
 }
 
 /* Auto-read every EmeraldSuite file (catalog + latest contents) from storage.
-   Injected into each send so the AI can pick the file the user means. */
-async function _suiteAutoContext() {
+   Injected into each send so the AI can pick the file the user means.
+   userText = the user's own message this turn; it decides whether the model is
+   allowed to write anything at all (see the write gate above). */
+async function _suiteAutoContext(userText) {
+  // Set first, synchronously, so no request can ever inherit a stale verdict.
+  _efWriteRequested = _efDetectWriteRequest(userText);
   const items = [];
   const note = async (app, id, title, upd) => {
     const r = await _efRead(app, id);
@@ -6734,12 +6780,27 @@ async function _suiteAutoContext() {
     if (body.length > 5000) body = body.slice(0, 5000) + "\n[...truncated...]";
     block += "\n### " + _efLabel(it.app) + " — \"" + it.title.replace(/\n/g, " ") + "\" (ID: " + it.id + ")\n" + body + "\n";
   }
-  block += "\nYou may EDIT any file above by responding with your normal text plus <es-edit>{\"app\":\"the-app\",\"id\":\"the-file-id\",\"title\":\"...\",\"content\":\"full new content (markdown)\"}</es-edit>" +
-    " — the FULL new file content, with the same \"app\" and \"id\" from the catalog. For slides: {\"app\":\"slides\",\"id\":\"...\",\"title\":\"...\",\"slides\":[...]} — for sheets: {\"app\":\"sheets\",\"id\":\"...\",\"title\":\"...\",\"rows\":[[...]],\"sheetName\":\"Sheet1\"}." +
-    " Change ONLY what the user asked; keep the rest intact." +
-    " To CREATE a brand-new file instead, use <es-app>{...}</es-app> (the import card, no id needed).";
-  if (block.length > 28000) block = block.slice(0, 28000) + "\n[...truncated...]";
-  return block;
+  if (_efWriteRequested) {
+    block += "\nThe user EXPLICITLY ASKED you to change something in this turn, so you MAY write ONE file: respond with your normal text plus <es-edit>{\"app\":\"the-app\",\"id\":\"the-file-id\",\"title\":\"...\",\"content\":\"full new content (markdown)\"}</es-edit>" +
+      " — the FULL new file content, with the same \"app\" and \"id\" from the catalog. For slides: {\"app\":\"slides\",\"id\":\"...\",\"title\":\"...\",\"slides\":[...]} — for sheets: {\"app\":\"sheets\",\"id\":\"...\",\"title\":\"...\",\"rows\":[[...]],\"sheetName\":\"Sheet1\"}." +
+      " Change ONLY what the user asked; keep the rest intact." +
+      " To CREATE a brand-new file instead, use <es-app>{...}</es-app> (the import card, no id needed)." +
+      " Still touch nothing else, and emit exactly one payload.";
+  }
+  if (block.length > 26000) block = block.slice(0, 26000) + "\n[...truncated...]";
+  // The directive is prepended, never appended: the catalog above is truncated
+  // for large file sets, and a clipped "read-only" rule would silently reopen
+  // the hole where the model rewrites a file nobody asked it to touch.
+  return _efDirective() + "\n" + block;
+}
+
+/* The permission header sent with every EmeraldSuite context block. Kept as its
+   own function so it is built once, up front, and cannot be truncated away. */
+function _efDirective() {
+  if (_efWriteRequested) {
+    return "[EMERALDSUITE EDIT PERMISSION — GRANTED] The user EXPLICITLY asked you to change something in this message, so you may write a file. Emit AT MOST ONE payload: <es-edit>{\"app\":\"...\",\"id\":\"...\",\"title\":\"...\",\"content\":\"full new content (markdown)\"}</es-edit> — the FULL new content, with the same \"app\" and \"id\" from the catalog below. For slides: {\"app\":\"slides\",\"id\":\"...\",\"title\":\"...\",\"slides\":[...]} — for sheets: {\"app\":\"sheets\",\"id\":\"...\",\"title\":\"...\",\"rows\":[[...]],\"sheetName\":\"Sheet1\"}. To CREATE a brand-new file use <es-app>{...}</es-app> (no id needed). Change ONLY what was asked, keep the rest intact, touch no other file, and never mix the two tags in one response.";
+  }
+  return "[EMERALDSUITE EDIT PERMISSION — DENIED] The user did NOT ask you to change, create, save, rewrite or delete anything. The files below are READ-ONLY reference material. NEVER output <es-edit> or <es-app> in this response, not even partially, and never claim you have changed or saved a file. Naming a file, asking what is in it, asking for a summary, review, comparison, explanation or advice is NOT a request to edit it — answer in plain text only. If the user seems to want a change but never clearly asked for one, describe what you would change and wait for them to confirm.";
 }
 
 function _extractFileEdit(text) {
@@ -6803,6 +6864,8 @@ function esEditLoadingCardHTML() {
 
 async function _efApplyEdit(fEditRes, msgId) {
   if (!fEditRes) return { ok: false };
+  // Payload the write gate rejected: the user never asked for a change.
+  if (fEditRes.blocked) return { ok: false, error: "not-requested" };
   if (!fEditRes.edit && fEditRes.parseFailed) return { ok: false };
   const edit = fEditRes.edit;
   const app = String((edit && edit.app) || "").toLowerCase().trim();
@@ -6892,7 +6955,8 @@ function renderFileEditBadge(aiDiv, outcome) {
     : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
   let label = ok ? "Updated File" : "Edit not applied";
   if (!ok && outcome) {
-    if (outcome.error === "no-app" || outcome.error === "no-id") label = "Which file? — the AI must target the exact file";
+    if (outcome.error === "not-requested") label = "No file changed \u2014 you didn't ask for one";
+    else if (outcome.error === "no-app" || outcome.error === "no-id") label = "Which file? — the AI must target the exact file";
     else if (outcome.error === "not-found") label = "File not found to edit";
   }
   b.innerHTML = icon + " " + label;
@@ -7183,7 +7247,7 @@ async function submitUserMsgEdit(msgId) {
   // Inject the user's EmeraldSuite file catalog + latest contents (auto-read
   // from storage) so the AI knows which file to edit on resubmit too.
   try {
-    const fileCtx = await _suiteAutoContext();
+    const fileCtx = await _suiteAutoContext(newText);
     if (fileCtx && history.length && history[history.length - 1]?.parts?.length) {
       history[history.length - 1].parts.unshift({ text: fileCtx });
     }
@@ -7345,16 +7409,20 @@ async function submitUserMsgEdit(msgId) {
     const afterQuizText = _quizResult.after;
     const _quizParseFailed = _quizResult.parseFailed;
     dispText = _quizResult.before;
-    const _appResult = (quizData || _quizParseFailed) ? { appData: null, parseFailed: false, before: dispText, after: "" } : _extractEmeraldApp(dispText);
-    const appData = _appResult.appData;
-    const beforeAppText = _appResult.before;
-    const afterAppText = _appResult.after;
-    const _appParseFailed = _appResult.parseFailed;
+    const _appRaw = (quizData || _quizParseFailed) ? { appData: null, parseFailed: false, before: dispText, after: "" } : _extractEmeraldApp(dispText);
+    const _appBlocked = !!_appRaw.appData && !_efWriteRequested;
+    const appData = _appBlocked ? null : _appRaw.appData;
+    const beforeAppText = _appBlocked ? [_appRaw.before, _appRaw.after].filter(Boolean).join("\n\n") : _appRaw.before;
+    const afterAppText = _appBlocked ? "" : _appRaw.after;
+    const _appParseFailed = _appRaw.parseFailed;
     dispText = beforeAppText;
     let _fEditRes = null;
     if (!(quizData || _quizParseFailed || appData || _appParseFailed)) {
       const _fe = _extractFileEdit(aiFullText);
-      if (_fe.edit || _fe.parseFailed) { _fEditRes = _fe; dispText = _fe.before; }
+      if (_fe.edit || _fe.parseFailed) {
+        dispText = _fe.before;
+        _fEditRes = (_fe.edit && !_efWriteRequested) ? { blocked: true } : _fe;
+      }
     }
     let _fileEditOutcome = null;
     aiTextEl.classList.remove("stream-reveal");
@@ -7400,6 +7468,8 @@ async function submitUserMsgEdit(msgId) {
       renderEsAppCard(aiTextEl, appData, afterAppText, aiMsgId);
     } else if (_appParseFailed) {
       renderEsAppErrorCard(aiTextEl);
+    } else if (_appBlocked) {
+      renderFileEditBadge(aiDiv, { ok: false, error: "not-requested" });
     }
     if (_fEditRes) {
       _fileEditOutcome = await _efApplyEdit(_fEditRes, aiMsgId);
