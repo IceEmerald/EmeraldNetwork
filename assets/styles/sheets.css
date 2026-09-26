@@ -1521,10 +1521,8 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 .iconbtn:not(:disabled):hover { background: var(--chrome-2); }
 .iconbtn:not(:disabled):active { background: var(--chrome-3); transform: scale(.94); }
 
-/* ---- Name box: value-change flash (address updates feel alive) ---- */
+/* ---- Name box ---- */
 #name-box { transition: border-color .15s ease, box-shadow .15s ease, background .2s ease; }
-#name-box.addr-flash { animation: addrFlash 420ms ease-out; }
-@keyframes addrFlash { 0% { background: var(--accent-tint); } 100% { background: transparent; } }
 
 /* ---- Sheet tabs: new-tab pop ---- */
 .sheet-tab.tab-enter { animation: tabIn 220ms cubic-bezier(.2, .85, .3, 1.15); }
@@ -1551,7 +1549,7 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
   #app, .ribbon-panel, .modal-overlay.closing, .modal-overlay.closing .modal,
   .popup.closing, .chart-frame.ch-enter, .chart-frame.ch-enter .chart-canvas-wrap,
   #sb-zoom-pct.pulse, .filter-chip, .dv-chip,
-  .sheet-tab.tab-enter, #find-panel, #name-box.addr-flash { animation: none !important; }
+  .sheet-tab.tab-enter, #find-panel { animation: none !important; }
   #ribbon-body .ribbon-panel { transition: none !important; will-change: auto; }
   .popup-item .pi-check, .popup-item .pi-icon, .modal-x { transition: none !important; }
 }
