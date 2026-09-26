@@ -2001,7 +2001,7 @@ const R = { canvas: null, ctx: null, dpr: 1, w: 0, h: 0, layout: null }; // rend
 const SEL = { ranges: [], active: { r: 0, c: 0 }, activeIdx: 0, sheetId: null };
 const VIEW = { zoom: 1, showFormulaBar: true, showHeadings: true, showFormulas: false };
 const Clip = { cells: null, cut: null, marquee: null, formats: null, src: null, text: null };   // clipboard state (src = source origin, text = system fingerprint)
-const Edit = { active: false, r: 0, c: 0, cursorMode: false, fromFormulaBar: false, refMode: false, origText: '', lastRef: null };
+const Edit = { active: false, r: 0, c: 0, cursorMode: false, fromFormulaBar: false, refMode: false, lastRef: null, dirty: false };
 const Mouse = { mode: null, startCell: null, anchor: null, baseSel: null, data: null };
 const Hover = { col: -1, row: -1, handle: false, sb: null };   /* header/handle/scrollbar hover highlight */
 const FillState = { last: null };
@@ -4082,10 +4082,17 @@ R.canvas.addEventListener('mousedown', e => {
   /* cross-sheet audit chips are click-to-jump targets */
   if (e.button === 0 && Audit.mode) {
     const chip = auditChipAt(p.x, p.y);
-    if (chip) { jumpToAuditChip(chip); e.preventDefault(); return; }
+    if (chip) { if (Edit.active) finishEdit(); jumpToAuditChip(chip); e.preventDefault(); return; }
   }
   const hit = hitTest(p.x, p.y);
   closePopups();
+  /* A live draft is settled FIRST, before anything else in the grid can
+     invalidate it (fill drag, painting, selection move, sheet filter…): typing
+     is committed, an untouched editor is just dismissed. */
+  if (Edit.active) {
+    if (Edit.refMode && hit.zone === 'grid') { startRefSelect(e, hit.r, hit.c); e.preventDefault(); return; }
+    finishEdit();
+  }
   if (PaintState.active) { startPaint(e, hit); e.preventDefault(); return; }
   if (e.button === 2) { handleRightClick(e, hit); return; }
   if (hit.zone === 'corner') { selectAll(); e.preventDefault(); return; }
@@ -4098,38 +4105,14 @@ R.canvas.addEventListener('mousedown', e => {
     e.preventDefault(); return;
   }
   if (hit.zone !== 'grid') return;
-  const sh = activeSheet();
   const { r, c } = hit;
-  const wasEditing = Edit.active;
   /* fill handle? */
   if (onFillHandle(p.x, p.y)) { startFill(e, p); e.preventDefault(); return; }
-  /* editing? */
-  if (Edit.active) {
-    if (Edit.refMode) { startRefSelect(e, r, c); e.preventDefault(); return; }
-    /* clicking away from an UNTOUCHED editor just dismisses it (no write, no
-       history noise); a modified editor commits — classic behavior */
-    if (UI.editor.value === Edit.origText) cancelEdit(); else commitEditor();
-  }
   /* near selection border → move */
   if (!e.shiftKey && !e.ctrlKey && !e.metaKey && nearSelectionBorder(p.x, p.y)) { startMove(e, p); e.preventDefault(); return; }
-  /* single-click edit: clicking the already-active cell opens the editor right away
-     (inner area only — a narrow strip along the border stays draggable for move) */
-  if (!wasEditing && !e.shiftKey && !e.ctrlKey && !e.metaKey && !PaintState.active &&
-      SEL.sheetId === WB.activeSheetId && SEL.ranges.length === 1) {
-    const act = SEL.active;
-    const mm = mergeAt(sh, r, c);
-    const ar = mm ? mm.r1 : r, ac = mm ? mm.c1 : c;
-    if (ar === act.r && ac === act.c) {
-      const rx = colScreenX(sh, ac), ry = rowScreenY(sh, ar);
-      const rw = colScreenW(sh, ac), rh = rowScreenH(sh, ar);
-      const mg = Math.max(2, Math.min(6, 5 * VIEW.zoom));   /* border strip scales with zoom */
-      if (p.x > rx + mg && p.x < rx + rw - mg && p.y > ry + mg * 0.8 && p.y < ry + rh - mg * 0.8) {
-        beginEdit(ar, ac, { cursorMode: true });
-        e.preventDefault(); return;
-      }
-    }
-  }
-  /* normal selection */
+  /* A plain click only MOVES the selection — it never drops into typing mode.
+     Typing starts the draft (see the document keydown), double-click / F2 /
+     the formula bar are the deliberate formula-editing entries. */
   startSelect(e, r, c);
   e.preventDefault();
 });
@@ -4358,7 +4341,7 @@ function handleRightClick(e, hit) {
   if (hit.zone === 'grid') {
     const inside = SEL.ranges.some(rg => hit.r >= rg.r1 && hit.r <= rg.r2 && hit.c >= rg.c1 && hit.c <= rg.c2);
     if (!inside) {
-      if (Edit.active) commitEditor();
+      if (Edit.active) finishEdit();
       setSelection(hit.r, hit.c, hit.r, hit.c);
     }
     showCellContextMenu(e.clientX, e.clientY);
@@ -4829,11 +4812,13 @@ function beginEdit(r, c, opts = {}) {
   ed.classList.remove('ed-pop'); void ed.offsetWidth; ed.classList.add('ed-pop');
   Edit.refMode = false;
   Edit.lastRef = null;
-  Edit.origText = initial;
-  /* point-reference (click-to-insert) mode is for DELIBERATE formula entry only —
-     typing "=" on the grid. It must NOT engage when the editor auto-opened on a
-     plain click over a cell that already holds a formula: there the next click
-     on another cell has to simply commit and move the selection. */
+  /* Typing mode: the grid seeded the editor with a character, so the draft is
+     already a change and can never be dropped — only Escape discards it. */
+  Edit.dirty = opts.initial != null;
+  /* point-reference (click-to-insert) mode belongs to DELIBERATE formula entry
+     only — typing "=" on the grid. A double-click / F2 / formula-bar open on a
+     cell that already holds a formula must stay normal: the next click there
+     commits and moves the selection instead of inserting a reference. */
   if (opts.initial != null && initial.startsWith('=')) setRefMode(true);
   if (!Edit.cursorMode) { ed.setSelectionRange(initial.length, initial.length); ed.focus(); }
   else { ed.setSelectionRange(initial.length, initial.length); ed.focus(); }
@@ -4887,6 +4872,7 @@ function updateEditorFromRefSelect() {
   ed.value = d.pre + txt + d.post;
   const caret = d.refStart + txt.length;
   ed.setSelectionRange(caret, caret);
+  Edit.dirty = true;
   positionEditor(cellScreenRect(sh, Edit.r, Edit.c), ed.value);
   updateFormulaBarForEdit(ed.value);
   requestPaint();
@@ -4909,11 +4895,13 @@ function finishRefSelect() {
     UI.editor.setSelectionRange(caret, caret);
     /* remember the inserted span so F4 can cycle its absolute forms */
     Edit.lastRef = { start: d.refStart, len: d.refText.length };
+    Edit.dirty = true;
   }
 }
 function cancelEdit() {
   if (!Edit.active) return;
   Edit.active = false;
+  Edit.dirty = false;
   UI.editor.style.display = 'none';
   UI.editor.value = '';
   setRefMode(false);
@@ -4923,18 +4911,27 @@ function cancelEdit() {
   requestPaint();
   if (!Edit.fromFormulaBar) UI.formulaInput.blur();
 }
+/* Leave editing the safe way: a draft the user actually touched is committed,
+   an untouched editor is just dismissed (no write, no history noise). Every
+   focus/selection change routes through here so typed text is never lost. */
+function finishEdit() {
+  if (!Edit.active) return;
+  if (Edit.dirty) commitEditor(); else cancelEdit();
+}
 function commitEditor(move) {
   if (!Edit.active) return;
   const sh = activeSheet();
   const r = Edit.r, c = Edit.c;
   const text = UI.editor.value;
+  const wasDirty = Edit.dirty;
   Edit.active = false;
+  Edit.dirty = false;
   UI.editor.style.display = 'none';
   UI.editor.value = '';
   setRefMode(false);
   hideFormulaAC();
   hideArgTip();
-  commitCellValue(sh, r, c, text);
+  if (wasDirty) commitCellValue(sh, r, c, text);
   if (move === 'down' || move === true) jumpRelative(1, 0);
   else if (move === 'up') jumpRelative(-1, 0);
   else if (move === 'right') jumpRelative(0, 1);
@@ -5097,11 +5094,13 @@ function acceptFormulaAC(i) {
   }
   hideFormulaAC();
   ed.focus();
+  if (Edit.active) Edit.dirty = true;   /* the accepted name is part of the draft */
   if (ed === UI.editor) {
     positionEditor(cellScreenRect(activeSheet(), Edit.r, Edit.c), ed.value);
     updateFormulaBarForEdit(ed.value);
   } else {
     UI.editor.value = ed.value;   /* keep in-cell mirror in sync (no input event on programmatic set) */
+    if (Edit.active) Edit.dirty = true;
   }
 }
 
@@ -5210,6 +5209,7 @@ function setupEditorEvents() {
         const s = ed.selectionStart;
         ed.value = ed.value.slice(0, s) + '\n' + ed.value.slice(ed.selectionEnd);
         ed.setSelectionRange(s + 1, s + 1);
+        Edit.dirty = true;
         return;
       }
       commitEditor(e.shiftKey ? 'up' : 'down');
@@ -5225,11 +5225,12 @@ function setupEditorEvents() {
     } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !Edit.cursorMode) {
       e.preventDefault();
       commitEditor(e.key === 'ArrowUp' ? 'up' : e.key === 'ArrowDown' ? 'down' : e.key === 'ArrowLeft' ? 'left' : 'right');
-    } else if (e.key === 'Delete' && !Edit.cursorMode) {
-      e.preventDefault();
-      cancelEdit();
     }
+    /* Delete / Backspace stay plain text edits here: the cell is only cleared by
+       Delete while the cell is merely SELECTED (see the grid keydown), so a
+       typed draft is never thrown away by them. */
     setTimeout(() => {
+      if (!Edit.active) return;   /* Enter/Tab/arrow already committed — don't clobber the bar */
       positionEditor(cellScreenRect(activeSheet(), Edit.r, Edit.c), ed.value);
       updateFormulaBarForEdit(ed.value);
       /* leaving formula text turns point-reference mode off; engaging it is
@@ -5240,21 +5241,25 @@ function setupEditorEvents() {
     }, 0);
   });
   ed.addEventListener('input', () => {
+    Edit.dirty = true;   /* any real keystroke makes the draft worth committing */
     positionEditor(cellScreenRect(activeSheet(), Edit.r, Edit.c), ed.value);
     updateFormulaBarForEdit(ed.value);
     /* point-reference mode engages as soon as the user actually edits the text
-       into a formula (typed "=" or modified an existing one) — never from the
-       untouched editor that a single click auto-opened */
+       into a formula (typed "=" or modified an existing one) — never from an
+       editor that merely opened on a double-click / F2 / the formula bar */
     if (ed.value.startsWith('=')) setRefMode(true); else if (Edit.refMode) setRefMode(false);
     updateFormulaAC();
     updateFormulaArgTip();
   });
   ed.addEventListener('blur', () => {
-    /* if clicking a popup/dialog let it handle; otherwise commit */
+    /* Focus left the editor without a grid click (window blur, programmatic
+       focus, tabbing away). mousedown already handled the grid case, so this
+       only fires when the draft really would be orphaned — commit it. */
     setTimeout(() => {
-      if (Edit.active && !Edit.refMode && document.activeElement !== ed && !UI.editor.style.display.includes('none') === false) {
-        /* noop — commit is triggered by canvas mousedown */
-      }
+      if (!Edit.active || Edit.refMode) return;
+      const a = document.activeElement;
+      if (a === ed || a === UI.formulaInput) return;
+      finishEdit();
     }, 0);
   });
 }
@@ -5287,6 +5292,7 @@ function cycleRefAbs() {
   ed.value = v.slice(0, tokenStart) + nextToken + v.slice(tokenStart + token.length);
   const caret = tokenStart + nextToken.length;
   ed.setSelectionRange(caret, caret);
+  Edit.dirty = true;
   Edit.lastRef = { start: tokenStart, len: nextToken.length };
 }
 
@@ -5433,6 +5439,9 @@ document.addEventListener('keydown', e => {
     return;
   }
   if (k.length === 1 && !e.altKey) {
+    /* Typing mode: a printable character seeds the in-cell editor, which stays
+       open until Enter/Tab/an arrow, and any focus or selection change commits
+       it (see finishEdit) — the draft is only ever dropped by Escape. */
     e.preventDefault();
     beginEdit(SEL.active.r, SEL.active.c, { initial: k, cursorMode: false });
   }
@@ -6171,6 +6180,7 @@ function parseHtmlTable(html) {
 function doPaste(mode) {
   /* mode: undefined full | 'values' | 'formats' | 'formulas' | 'transpose' */
   if (!Clip.cells) { toast('Clipboard is empty', 'warn'); return; }
+  finishEdit();   /* a pending draft is saved before the paste lands on it */
   const sh = activeSheet();
   const src = Clip.cells;
   const h = src.length, w = Math.max(...src.map(r => r.length));
@@ -7288,7 +7298,7 @@ function renderFilterChips() {
     const chip = el('<button class="filter-chip' + (active ? ' active' : '') + '" title="Filter column ' + colName(c) + '" aria-label="Filter column ' + colName(c) + '">' + icon('filter') + badge + '</button>');
     chip.style.left = x + 'px';
     chip.style.top = y + 'px';
-    chip.addEventListener('mousedown', e => e.stopPropagation());
+    chip.addEventListener('mousedown', e => { e.stopPropagation(); finishEdit(); });
     chip.addEventListener('click', e => { e.stopPropagation(); openFilterMenu(c, chip); });
     layer.appendChild(chip);
   }
@@ -9973,6 +9983,7 @@ function openInsertFunctionDialog() {
     const v = ed.value;
     if (!v.startsWith('=')) ed.value = '=' + curSel.name + '()';
     else ed.value = v + curSel.name + '(';
+    Edit.dirty = true;
     ed.focus();
     ed.setSelectionRange(ed.value.length, ed.value.length);
     updateFormulaBarForEdit(ed.value);
@@ -10236,6 +10247,7 @@ function insertFunctionByName(name) {
   else ed.value = ed.value + name + '(';
   ed.focus();
   ed.setSelectionRange(ed.value.length, ed.value.length);
+  Edit.dirty = true;
   updateFormulaBarForEdit(ed.value);
 }
 function openChartDialogFor(type) {
@@ -10866,7 +10878,7 @@ function zoomToSelection() {
   ensureVisible(rg.r1, rg.c1, { smooth: true });
 }
 function hideEditor() {
-  if (Edit.active) cancelEdit();
+  if (Edit.active) finishEdit();   /* zooming never discards what was typed */
 }
 function updateUndoRedoUI() {
   const u = $('#hdr-undo'), r = $('#hdr-redo');
@@ -11729,7 +11741,7 @@ function setupChrome() {
       UI.formulaInput.focus();
     }
   });
-  UI.formulaInput.addEventListener('input', () => { if (Edit.active) { UI.editor.value = UI.formulaInput.value; } updateFormulaAC(UI.formulaInput); updateFormulaArgTip(UI.formulaInput); });
+  UI.formulaInput.addEventListener('input', () => { if (Edit.active) { UI.editor.value = UI.formulaInput.value; Edit.dirty = true; } updateFormulaAC(UI.formulaInput); updateFormulaArgTip(UI.formulaInput); });
   UI.formulaInput.addEventListener('keydown', () => { if (FxAC.open) FxAC.host = UI.formulaInput; });
   UI.nameBox.addEventListener('focus', () => UI.nameBox.select());
   $('#formula-expand').addEventListener('click', () => $('#formula-row').classList.toggle('expanded'));
@@ -11772,7 +11784,7 @@ function setupChrome() {
     if (Edit.active && !Edit.refMode) {
       const t = e.target;
       if (t !== UI.editor && !t.closest('#formula-row') && !t.closest('.popup') && !t.closest('.modal-overlay') && t.id !== 'grid-canvas') {
-        commitEditor();
+        finishEdit();
       }
     }
   });
