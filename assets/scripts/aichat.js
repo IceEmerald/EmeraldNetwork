@@ -3037,17 +3037,21 @@ async function handleSend(opts) {
   const history = buildHistory(conv);
   const fileParts = buildFileParts(files);
   if (fileParts.length) history[history.length - 1].parts.push(...fileParts);
-  // Inject the user's EmeraldSuite file catalog + latest contents (auto-read
-  // from storage every send) so the AI can pick the right file to edit. The
-  // user's own message decides whether writing is allowed this turn.
-  try {
-    // A silent turn (auto-generated quiz feedback) is text the user never
-    // typed, so it can never authorise a write to their files.
-    const fileCtx = await _suiteAutoContext(_silent ? "" : text);
-    if (fileCtx && history.length && history[history.length - 1]?.parts?.length) {
-      history[history.length - 1].parts.unshift({ text: fileCtx });
-    }
-  } catch (e) { console.warn("File context failed:", e); }
+
+  // Only inject EmeraldSuite context when user explicitly mentions it
+  function _userMentionsSuite(t) {
+    const s = String(t || "").toLowerCase();
+    return /\b(emeraldsuite|emerald suite|my notes?|my docs?|my documents?|my slides?|my presentations?|my sheets?|my spreadsheets?|in (notes?|docs?|documents?|slides?|presentations?|sheets?|spreadsheets?))\b/.test(s);
+  }
+  const needsSuiteCtx = !_silent && _userMentionsSuite(text);
+  if (needsSuiteCtx) {
+    try {
+      const fileCtx = await _suiteAutoContext(text);
+      if (fileCtx && history.length && history[history.length - 1]?.parts?.length) {
+        history[history.length - 1].parts.unshift({ text: fileCtx });
+      }
+    } catch (e) { console.warn("File context failed:", e); }
+  }
   const urlsInMsg = extractUrls(text);
   const _wsNeeded = detectWebSearchIntent(text) || urlsInMsg.length > 0;
   state.isStreaming = true;
@@ -3663,12 +3667,18 @@ async function regenerateMessage(msgEl) {
     }
   }
   const regenUserText = (userMsgIdx >= 0 && conv.messages[userMsgIdx] && conv.messages[userMsgIdx].text) || "";
-  try {
-    const fileCtx = await _suiteAutoContext(regenUserText);
-    if (fileCtx && history.length && history[history.length - 1]?.parts?.length) {
-      history[history.length - 1].parts.unshift({ text: fileCtx });
-    }
-  } catch (e) { console.warn("File context failed:", e); }
+  function _userMentionsSuite(t) {
+    const s = String(t || "").toLowerCase();
+    return /\b(emeraldsuite|emerald suite|my notes?|my docs?|my documents?|my slides?|my presentations?|my sheets?|my spreadsheets?|in (notes?|docs?|documents?|slides?|presentations?|sheets?|spreadsheets?))\b/.test(s);
+  }
+  if (_userMentionsSuite(regenUserText)) {
+    try {
+      const fileCtx = await _suiteAutoContext(regenUserText);
+      if (fileCtx && history.length && history[history.length - 1]?.parts?.length) {
+        history[history.length - 1].parts.unshift({ text: fileCtx });
+      }
+    } catch (e) { console.warn("File context failed:", e); }
+  }
   state.isStreaming = true;
   state.abortCtrl = new AbortController();
   state.streamConvId = conv ? conv.id : null;
@@ -6652,15 +6662,25 @@ let _efWriteRequested = false;
 
 const _EF_WRITE_VERB = /\b(edit|update|rewrite|revise|fix|change|modify|replace|rename|reword|proofread|correct|improve|expand|shorten|lengthen|reformat|reorder|reorgani[sz]e|organi[sz]e|sort|add|append|prepend|insert|remove|delete|erase|trim|clear|fill|write|save|overwrite|create|draft|compose|generate|apply|convert|translate|continue|finish|complete|tweak|adjust|boost|merge|split|build|make|clean|tidy|polish|redo|revamp|restyle|retheme|redesign|unify|standardi[sz]e|shorter|longer|simpler|clearer|neater|formal|casual|bulleted|bullet\s*point)\b/i;
 const _EF_NEW_FILE = /\b(new|fresh|another|extra|second)\s+(note|notes|doc|docs|document|documents|slide|slides|deck|decks|presentation|presentations|sheet|sheets|spreadsheet|spreadsheets|workbook|workbooks|file|files)\b/i;
+const _EF_FILE_REF = /\b(note|notes|doc|docs|document|documents|slide|slides|deck|decks|presentation|presentations|sheet|sheets|spreadsheet|spreadsheets|workbook|workbooks|file|files)\b/i;
 const _EF_WH_QUESTION = /\b(what|why|how|when|where|who|whom|which|whose)\b/i;
 const _EF_DIRECT_ASK = /\b(please|can you|could you|would you|will you|go ahead|do it|do that|make it|try to|try and|i need you to|i want you to|i'?d like you to|help me|now)\b/i;
 
 function _efDetectWriteRequest(userText) {
   const t = String(userText || "").trim();
   if (!t) return false;
-  if (_EF_WH_QUESTION.test(t)) return false;
-  if (/\?$/.test(t) && !_EF_DIRECT_ASK.test(t)) return false;
-  return _EF_WRITE_VERB.test(t) || _EF_NEW_FILE.test(t);
+  const hasWriteVerb = _EF_WRITE_VERB.test(t);
+  const hasNewFile = _EF_NEW_FILE.test(t);
+  const hasFileRef = _EF_FILE_REF.test(t);
+  const isQuestion = /\?$/.test(t);
+  const hasDirectAsk = _EF_DIRECT_ASK.test(t);
+  const isWhQuestion = _EF_WH_QUESTION.test(t);
+
+  if (hasWriteVerb || hasNewFile) return true;
+  if (hasFileRef && (hasDirectAsk || !isWhQuestion)) return true;
+  if (isQuestion && !hasDirectAsk && !hasFileRef) return false;
+  if (isWhQuestion && !hasWriteVerb && !hasNewFile && !hasDirectAsk) return false;
+  return false;
 }
 
 function _efLabel(app) { return (_ES_APPS[app] && _ES_APPS[app].label) || app; }
@@ -7244,14 +7264,19 @@ async function submitUserMsgEdit(msgId) {
       if (fileParts.length) last.parts.push(...fileParts);
     }
   }
-  // Inject the user's EmeraldSuite file catalog + latest contents (auto-read
-  // from storage) so the AI knows which file to edit on resubmit too.
-  try {
-    const fileCtx = await _suiteAutoContext(newText);
-    if (fileCtx && history.length && history[history.length - 1]?.parts?.length) {
-      history[history.length - 1].parts.unshift({ text: fileCtx });
-    }
-  } catch (e) { console.warn("File context failed:", e); }
+  // Only inject EmeraldSuite context when user explicitly mentions it
+  function _userMentionsSuite(t) {
+    const s = String(t || "").toLowerCase();
+    return /\b(emeraldsuite|emerald suite|my notes?|my docs?|my documents?|my slides?|my presentations?|my sheets?|my spreadsheets?|in (notes?|docs?|documents?|slides?|presentations?|sheets?|spreadsheets?))\b/.test(s);
+  }
+  if (_userMentionsSuite(newText)) {
+    try {
+      const fileCtx = await _suiteAutoContext(newText);
+      if (fileCtx && history.length && history[history.length - 1]?.parts?.length) {
+        history[history.length - 1].parts.unshift({ text: fileCtx });
+      }
+    } catch (e) { console.warn("File context failed:", e); }
+  }
   state.isStreaming = true;
   state.abortCtrl = new AbortController();
   state.streamConvId = conv ? conv.id : null;
