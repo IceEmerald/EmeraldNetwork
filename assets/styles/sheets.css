@@ -400,12 +400,40 @@ button { cursor: default; }
 .list-row.selected { background: var(--accent-tint); }
 .list-row .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .list-row .sub { color: var(--ink-4); font-size: 11px; }
-.cat-list { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 3px; max-height: 300px; overflow: auto; }
-.cat-row { padding: 6px 10px; font-size: 12.5px; border-bottom: 1px solid var(--line-soft); cursor: default; }
-.cat-row:hover { background: var(--chrome); }
-.cat-row.selected { background: var(--accent-tint); color: var(--accent-darker); font-weight: 600; }
-.func-sig { font-family: Consolas, monospace; font-size: 12px; color: var(--accent-dark); margin: 8px 0 4px; }
-.func-desc { font-size: 12.5px; color: var(--ink-2); }
+/* ---- Insert Function dialog: search, category rail, function list, detail ---- */
+.fn { display: flex; gap: 14px; height: max(200px, min(372px, calc(100vh - 260px))); }
+.fn-side { width: 172px; flex: none; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.fn-search { width: 100%; height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); font-size: 12.5px; color: var(--ink); }
+.fn-search::placeholder { color: var(--ink-4); }
+.fn-search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--sel-fill); }
+.fn-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
+/* Gutter math: 1px border + 13px padding puts the capsule at x 10–14 — a roomy 9px
+   off the frame — and the content edge at 14. The row's 7px padding starts the label
+   at 21, so the capsule-to-label gap is 7px, matched on the right (1px border + 6px
+   padding, no row padding). One value to tune the frame gap: .fn-pill/.fn-hov `left`. */
+.fn-cats, .fn-list { position: relative; display: flex; flex-direction: column; gap: 1px; padding: 4px 6px 4px 13px; background: var(--paper); border: 1px solid var(--line-soft); border-radius: 8px; overflow-y: auto; }
+.fn-cats { flex: 1; min-height: 0; }
+.fn-list { flex: 1; min-height: 0; }
+/* Active = one vertical capsule per list, accent, parked on the active row. It never
+   reacts to hover. height + translateY are driven from JS. easeOutCubic: quick start,
+   long settle, no overshoot (a control point >1 reads as a bounce). */
+.fn-pill { position: absolute; top: 0; left: 9px; width: 4px; height: 18px; border-radius: 999px; background: var(--accent); z-index: 1; pointer-events: none; opacity: 0; will-change: transform; transition: transform .3s cubic-bezier(.32,.72,0,1), height .3s cubic-bezier(.32,.72,0,1), opacity .18s ease; }
+.fn-pill.on { opacity: 1; }
+/* Hover = the same vertical capsule in neutral grey, following the pointer. Identical
+   shape so the gutter reads as one column; only the colour says which is which. */
+.fn-hov { position: absolute; top: 0; left: 9px; width: 4px; height: 18px; border-radius: 999px; background: var(--line-strong); z-index: 1; pointer-events: none; opacity: 0; will-change: transform; transition: transform .3s cubic-bezier(.32,.72,0,1), height .3s cubic-bezier(.32,.72,0,1), opacity .18s ease; }
+.fn-hov.on { opacity: 1; }
+.fn-cat { padding: 6px 0 6px 7px; border-radius: 5px; font-size: 12.5px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fn-cat.selected { color: var(--accent-darker); font-weight: 600; }
+.fn-item { display: flex; align-items: baseline; gap: 8px; padding: 6px 0 6px 7px; border-radius: 5px; }
+.fn-nm { flex: none; font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.fn-item.selected .fn-nm { color: var(--accent-darker); }
+.fn-arg { flex: 1; min-width: 0; font-family: Consolas, monospace; font-size: 11.5px; color: var(--ink-4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fn-empty { padding: 20px 10px; text-align: center; font-size: 12.5px; color: var(--ink-4); }
+.fn-detail { flex: none; min-height: 88px; padding: 11px 13px; border: 1px solid var(--line-soft); border-radius: 8px; background: var(--chrome); }
+.fn-name { margin-bottom: 3px; font-size: 13px; font-weight: 600; color: var(--ink); }
+.fn-sig { font-family: Consolas, monospace; font-size: 12px; color: var(--accent-dark); word-break: break-word; }
+.fn-desc { margin-top: 5px; font-size: 12.5px; color: var(--ink-2); }
 .chart-type-grid { display: grid; grid-template-columns: repeat(5, 64px); gap: 6px; margin-bottom: 12px; }
 .chart-type-cell { height: 58px; border: 1px solid var(--line); border-radius: 4px; background: var(--paper); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 10.5px; color: var(--ink-3); }
 .chart-type-cell svg { width: 26px; height: 26px; color: var(--accent); }
@@ -622,7 +650,7 @@ button { cursor: default; }
 #wb-title:hover { background: rgba(255,255,255,.08); }
 
 /* Ribbon tabs: ink underline grows in */
-.ribbon-tab { position: relative; transition: background .12s, color .12s; }
+.ribbon-tab { position: relative; transition: background .12s, color .12s, opacity .12s; }
 .ribbon-tab::after { content: ""; position: absolute; left: 50%; right: 50%; bottom: 0; height: 2.5px; background: var(--accent); border-radius: 2px 2px 0 0; opacity: 0; transition: left .16s ease-out, right .16s ease-out, opacity .12s; }
 .ribbon-tab:hover::after { left: 10px; right: 10px; opacity: .35; }
 .ribbon-tab.active::after { left: 8px; right: 8px; opacity: 1; }
@@ -682,6 +710,8 @@ button { cursor: default; }
 @media (prefers-reduced-motion: reduce) {
   .toast, .popup, .modal, .modal-overlay, .note-pop, .note-editor { animation: none !important; }
   .ribbon-tab::after { transition: none; }
+  /* open/close now run on transitions rather than a one-shot keyframe */
+  .ms-dropdown-menu, .ms-dropdown-menu.open, .ms-dropdown-menu.closing { transition: none !important; }
 }
 
 /* ==========================================================================
@@ -1427,7 +1457,7 @@ mark.nt-hl { color: #4a3a05; }
 .sheet-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 4px 4px 0 0; }
 
 /* ---- Global micro-transitions on controls ---- */
-.btn, .iconbtn, .rb-btn, .sheet-tab, .cat-row, .menu-item, .popup .item,
+.btn, .iconbtn, .rb-btn, .sheet-tab, .fn-cat, .fn-item, .menu-item, .popup .item,
 .filter-chip, .dv-chip, #add-sheet { transition: background .12s ease, color .12s ease,
   border-color .12s ease, box-shadow .12s ease, opacity .12s ease; }
 .btn:active, .iconbtn:active, .rb-btn:active { transform: translateY(0.5px); }
@@ -1460,16 +1490,16 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 /* ---- Chart head buttons: always reachable with one click on hover ---- */
 .chart-head .iconbtn { border-radius: 3px; }
 
-/* ---- Insert Function rows: selected state reads instantly ---- */
-.cat-row.selected { background: var(--accent-tint); box-shadow: inset 2px 0 0 var(--accent); }
-.cat-row { cursor: pointer; }
+/* ---- Insert Function rows: the pill is the selection indicator ---- */
+.fn-cat, .fn-item { cursor: pointer; }
 
 /* ---- Reduced motion: disable the new animations ---- */
 @media (prefers-reduced-motion: reduce) {
   #cell-editor, #cell-editor.ed-pop { animation: none !important; transition: none !important; }
   #grid-area.sheet-fade { animation: none !important; }
   .modal, .modal-overlay, .popup { animation: none !important; }
-  .btn, .iconbtn, .rb-btn, .sheet-tab, .cat-row { transition: none !important; }
+  .btn, .iconbtn, .rb-btn, .sheet-tab, .fn-cat, .fn-item { transition: none !important; }
+  .fn-pill { transition: none !important; }
 }
 
 /* ==========================================================================
@@ -2039,10 +2069,14 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
   cursor: pointer;
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
-  transition: background .2s, border-color .2s, color .2s, box-shadow .2s;
+  /* opacity is in the list on purpose: the availability rules dim via
+     opacity: .35, and the others reach it through the `all` shorthand
+     (docs.css:627, slides.css:463, notes.css:246). Without it here the
+     gray/un-gray snapped instead of fading. */
+  transition: background .2s, border-color .2s, color .2s, box-shadow .2s, opacity .2s;
 }
 .ribbon-btn:hover { background: rgba(255, 255, 255, .9); border-color: var(--ui-accent-border); color: rgb(44, 62, 80); box-shadow: rgba(0, 0, 0, .08) 0 2px 6px; }
-.ribbon-btn:active { transform: translateY(1px); }
+.ribbon-btn:active { background: rgba(255, 255, 255, .95); }
 .ribbon-btn.active { background: rgba(35, 154, 77, .15); color: var(--ui-accent-strong); border-color: var(--ui-accent-border); box-shadow: inset 0 0 0 1px var(--ui-accent-border), rgba(35, 154, 77, .25) 0 2px 8px; }
 .ribbon-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
 .ribbon-btn span { font: 500 10px/1.2 "DM Sans", sans-serif; color: inherit; white-space: nowrap; }
@@ -2057,8 +2091,56 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 .ribbon-btn-icon svg { width: 16px; height: 16px; }
 .ribbon-btn-icon span { font-size: 12px; }
 .ribbon-btn.tall-narrow { padding: 6px 8px; min-width: 34px; }
-.ribbon-btn.split::after { content: "▾"; font-size: 9px; margin-top: -2px; color: var(--ui-faint); }
+/* Split-button caret (Borders, Merge, Delete, Format, AutoSum, Clear, ...).
+   Matched glyph, size, colour and motion to the dropdown caret in
+   .ms-dropdown-btn::after below, so the one ribbon reads as one set: same
+   "▼" (U+25BC) rather than the smaller "▾", same 10px, same
+   rgba(44,62,80,.6), same .2s rotate into the accent when the menu opens. */
+.ribbon-btn.split::after {
+  content: "▼";
+  font-size: 10px;
+  margin-top: -2px;
+  color: rgba(44, 62, 80, .6);
+  font-family: "Segoe UI Symbol", "Arial Unicode MS", "DejaVu Sans", sans-serif;
+  transition: transform .2s;
+}
+.ribbon-btn.split[aria-expanded="true"]::after { transform: rotate(180deg); color: var(--ui-accent); }
 .ribbon-btn-icon.split::after { margin-top: 0; margin-left: 3px; }
+/* --- ribbon availability (Notes/Slides/Docs parity) ---
+   updateRibbonAvailability() flips [disabled] on any ribbon control whose
+   precondition isn't met, so it greys out instead of running into a dead end.
+   Same values as docs.css:4896 so all four apps dim identically. Group labels
+   keep full strength — Notes and Slides dim controls only, never the label.
+   .ms-dropdown-btn needs no opacity entry of its own: it already carries the
+   `transition: .2s` shorthand (sheets.css:2136), same as docs.css:5037. */
+.ribbon-btn[disabled], .ms-dropdown-btn[disabled] {
+  opacity: .35;
+  cursor: not-allowed;
+  pointer-events: none;
+  box-shadow: none;
+}
+.ribbon-btn[disabled]:hover, .ms-dropdown-btn[disabled]:hover {
+  background: rgba(255, 255, 255, .6);
+  border-color: rgba(0, 0, 0, .08);
+  color: rgba(44, 62, 80, .8);
+  box-shadow: none;
+}
+/* While the window or tab isn't focused, the whole ribbon greys out — including
+   Font, Alignment and Clipboard, which have no other reason to go unavailable.
+   The cells those groups act on are no longer what the user is looking at.
+   Driven by a body class instead of [disabled] on purpose: that keeps it out of
+   the way of updateRibbonAvailability() (nothing has to be recomputed, and the
+   two states compose rather than overwrite each other), and it restores by
+   itself the moment focus comes back. Same .35 and the same transitions the
+   [disabled] rules above rely on, so both directions fade rather than snap. */
+body.win-blurred #ribbon-body .ribbon-btn,
+body.win-blurred #ribbon-body .ms-dropdown-btn,
+body.win-blurred #ribbon-tabs .ribbon-tab,
+body.win-blurred #ribbon-tabs .ribbon-tab-action {
+  opacity: .35;
+  cursor: default;
+  pointer-events: none;
+}
 .rbtn-col {
   display: inline-flex;
   align-items: center;
@@ -2135,9 +2217,41 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
   z-index: 10000;
   display: none;
   overflow: hidden;
+  /* Long menus scroll (overflow-y is set inline by portalMsMenu). Contain the
+     scroll chain, or hitting the end of the list chains the scroll to the
+     document and the "close menus on scroll" handler fires on us. */
+  overscroll-behavior: contain;
   margin-top: 4px;
+  /* Open/close as transitions, mirroring the .show pattern in style.css, so both
+     directions animate. The previous one-shot dropdownFadeIn keyframe only ever
+     played on open — closing was an instant DOM removal. Shaped like docs.css's
+     dropdownIn (scale .95 + 4px lift) but on a non-overshooting curve, since the
+     bouncy var(--ease-bouncy) read as springy here. */
+  transform-origin: top left;
+  opacity: 0;
+  transform: scale(.97) translateY(-4px);
+  pointer-events: none;
+  transition: opacity .14s ease, transform .14s ease;
 }
-.ms-dropdown-menu.open { display: block; animation: dropdownFadeIn .2s ease; }
+.ms-dropdown-menu.open {
+  display: block;
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  pointer-events: auto;
+  transition: opacity .18s ease, transform .18s ease;
+}
+/* Stays in the DOM (and displayed) so the exit transition can actually play.
+   Owns its own display because closeMsMenus drops .open when it starts the exit
+   — without this the element would hit display:none and vanish instead of fading.
+   Inert while it fades so it cannot swallow a click meant for the grid. */
+.ms-dropdown-menu.closing {
+  display: block;
+  opacity: 0;
+  transform: scale(.97) translateY(-4px);
+  pointer-events: none;
+  z-index: 999998;
+  transition: opacity .14s ease, transform .14s ease;
+}
 .ms-dropdown-item {
   display: flex;
   align-items: center;
@@ -2164,10 +2278,6 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 .ms-dropdown-section-label { padding: 6px 14px 4px; font-size: 10px; color: rgb(156, 163, 175); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid rgba(0, 0, 0, .05); }
 .ms-dropdown-section-label:first-child { border-top: none; }
 .ms-dropdown-menu .style-chip { width: auto; min-width: 120px; border: none; margin: 2px 4px; }
-@keyframes dropdownFadeIn {
-  0% { opacity: 0; transform: translateY(-8px); }
-  100% { opacity: 1; transform: translateY(0); }
-}
 .color-grid-menu { min-width: 200px !important; padding: 10px !important; }
 .color-list-menu { min-width: 180px !important; max-height: 240px !important; overflow-y: auto !important; padding: 0 !important; }
 .color-list-menu .ms-dropdown-item { padding: 10px 16px; font-size: 13px; }
@@ -2623,6 +2733,7 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
   border-radius: 0 0 12px 12px;
 }
 #modal-root .modal.confirm .modal-foot { justify-content: center; }
+#modal-root .modal-foot.center { justify-content: center; }
 #modal-root .modal.confirm .modal-body {
   text-align: center;
   font-size: 14px;
@@ -2663,7 +2774,7 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 #modal-root .form-row textarea, #modal-root textarea { min-height: 54px; }
 #modal-root .form-row label { color: rgba(44, 62, 80, 0.8); font-size: 13px; }
 #modal-root .hint { font-size: 12px; }
-#modal-root .listbox, #modal-root .cat-list { border-radius: 8px; }
+#modal-root .listbox { border-radius: 8px; }
 #modal-root .progressbar { border-radius: 6px; height: 6px; }
 
 /* ==========================================================================

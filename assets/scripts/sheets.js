@@ -101,8 +101,6 @@ const ICONS = {
   alignTop: '<path d="M4 4h16M12 20V9M8.5 12.5 12 9l3.5 3.5"/>',
   alignMiddle: '<path d="M4 12h16M12 4v5M12 19v-5M9.5 7 12 4.5 14.5 7M9.5 17l2.5 2.5L14.5 17"/>',
   alignBottom: '<path d="M4 20h16M12 4v11M8.5 11.5 12 15l3.5-3.5"/>',
-  indentInc: '<path d="M4 6h16M10 12h10M10 18h10M4 10l4 2-4 2z"/>',
-  indentDec: '<path d="M4 6h16M10 12h10M10 18h10M8 10 4 12l4 2z"/>',
   wrap: '<path d="M4 6h16M4 12h12a3 3 0 0 1 0 6h-4M10 15l-3 3 3 3"/>',
   merge: '<rect x="3" y="6" width="6" height="12" rx="1"/><rect x="15" y="6" width="6" height="12" rx="1"/><path d="M10.5 12h3M12 10.5 13.5 12 12 13.5"/>',
   unmerge: '<rect x="3" y="6" width="8" height="12" rx="1"/><rect x="13" y="6" width="8" height="12" rx="1"/>',
@@ -197,6 +195,39 @@ function icon(name, cls) {
   const p = ICONS[name] || ICONS.dots;
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="' + (cls || '') + '">' + p + '</svg>';
 }
+/* Borders gallery previews. The menu used to point every entry at one shared dashed
+   glyph (and some entries had no icon at all, so labels lost their gutter and
+   misaligned), which made the rows indistinguishable. Draw the actual edges. */
+function borderIcon(edges, style) {
+  const X0 = 3.5, Y0 = 5, X1 = 20.5, Y1 = 19, MX = 12, MY = 12;
+  let g = '<rect x="' + X0 + '" y="' + Y0 + '" width="' + (X1 - X0) + '" height="' + (Y1 - Y0) + '" rx="1" stroke-dasharray="1.5 1.6" opacity=".38"/>' +
+          '<path d="M' + MX + ' ' + Y0 + 'v' + (Y1 - Y0) + 'M' + X0 + ' ' + MY + 'h' + (X1 - X0) + '" stroke-dasharray="1.5 1.6" opacity=".38"/>';
+  if (style === 'none') return g + '<path d="m6.5 6.5 11 11M17.5 6.5l-11 11" stroke-width="1.6" opacity=".75"/>';
+  const put = d => '<path d="' + d + '" stroke-width="' + (style === 'thick' ? 3.2 : style === 'medium' ? 2.2 : 1.5) + '" stroke-linecap="butt"/>';
+  let s = '';
+  if (style === 'double') {
+    const o = 1.7;
+    if (edges.includes('t')) s += put('M' + X0 + ' ' + (Y0 - o) + 'h' + (X1 - X0)) + put('M' + X0 + ' ' + (Y0 + o) + 'h' + (X1 - X0));
+    if (edges.includes('b')) s += put('M' + X0 + ' ' + (Y1 - o) + 'h' + (X1 - X0)) + put('M' + X0 + ' ' + (Y1 + o) + 'h' + (X1 - X0));
+    if (edges.includes('l')) s += put('M' + (X0 - o) + ' ' + Y0 + 'v' + (Y1 - Y0)) + put('M' + (X0 + o) + ' ' + Y0 + 'v' + (Y1 - Y0));
+    if (edges.includes('r')) s += put('M' + (X1 - o) + ' ' + Y0 + 'v' + (Y1 - Y0)) + put('M' + (X1 + o) + ' ' + Y0 + 'v' + (Y1 - Y0));
+  } else {
+    if (edges.includes('t')) s += put('M' + X0 + ' ' + Y0 + 'h' + (X1 - X0));
+    if (edges.includes('b')) s += put('M' + X0 + ' ' + Y1 + 'h' + (X1 - X0));
+    if (edges.includes('l')) s += put('M' + X0 + ' ' + Y0 + 'v' + (Y1 - Y0));
+    if (edges.includes('r')) s += put('M' + X1 + ' ' + Y0 + 'v' + (Y1 - Y0));
+  }
+  return g + s;
+}
+ICONS.bdAll = borderIcon('trbl', 'thin');
+ICONS.bdOut = borderIcon('trbl', 'medium');
+ICONS.bdThick = borderIcon('trbl', 'thick');
+ICONS.bdTop = borderIcon('t', 'thin');
+ICONS.bdBottom = borderIcon('b', 'thin');
+ICONS.bdDblBottom = borderIcon('b', 'double');
+ICONS.bdLeft = borderIcon('l', 'thin');
+ICONS.bdRight = borderIcon('r', 'thin');
+ICONS.bdNone = borderIcon('', 'none');
 function setIcon(elm, name) { if (elm) elm.innerHTML = icon(name); }
 
 /* ==========================================================================
@@ -1999,6 +2030,9 @@ let WB = null;
 const UI = {};            // DOM refs (populated in boot)
 const R = { canvas: null, ctx: null, dpr: 1, w: 0, h: 0, layout: null }; // renderer
 const SEL = { ranges: [], active: { r: 0, c: 0 }, activeIdx: 0, sheetId: null };
+/* Zoom limits live here so the wheel, the ribbon buttons, the status-bar reset and
+   a restored view all clamp to the same pair. */
+const ZOOM_MIN = 0.3, ZOOM_MAX = 4;
 const VIEW = { zoom: 1, showFormulaBar: true, showHeadings: true, showFormulas: false };
 const Clip = { cells: null, cut: null, marquee: null, formats: null, src: null, text: null };   // clipboard state (src = source origin, text = system fingerprint)
 const Edit = { active: false, r: 0, c: 0, cursorMode: false, fromFormulaBar: false, refMode: false, lastRef: null, dirty: false };
@@ -2648,7 +2682,7 @@ function deserializeWorkbook(d) {
   };
   Calc.mode = d.calcMode === 'manual' ? 'manual' : 'auto';
   const v = d.view || {};
-  VIEW.zoom = clamp(v.zoom || 1, 0.1, 4);
+  VIEW.zoom = clamp(v.zoom || 1, ZOOM_MIN, ZOOM_MAX);
   VIEW.showFormulaBar = v.showFormulaBar !== false;
   VIEW.showHeadings = v.showHeadings !== false;
   VIEW.showFormulas = !!v.showFormulas;
@@ -3004,6 +3038,12 @@ function sideStrength(b) { return b ? (BORDER_W[b.style || 'thin'] || 1) : 0; }
    as an animated GREEN DOTTED outline (marching round dots) with a soft glow + tint. */
 const DRAG_DOT = '#2f9e63';                       /* vivid spreadsheet green for drag indicators */
 const DRAG_GLOW = a => 'rgba(47,158,99,' + a + ')';
+/* Formula references get their own treatment: diagonal hatching crawling around the
+   edge of the range. Green, so it speaks the same colour language as the selection
+   border (SEL_COLOR) and the fill handle, but the stripes keep it distinguishable. */
+const REF_STRIPE = '#239a4d';
+const REF_GLOW = a => 'rgba(35,154,77,' + a + ')';
+const REF_CRAWL = 62;                            /* ms per px of stripe drift — deliberately unhurried */
 const DragGhost = { kind: null, rect: null, alpha: 0, last: 0, raf: 0 };
 function dragGhostStep() { DragGhost.raf = 0; requestPaint(); }
 function stepDragGhost(tx, ty, tw, th, active, now) {
@@ -3039,6 +3079,42 @@ function drawDragDots(ctx, r, now, alpha, opts) {
   ctx.setLineDash([0.1, period - 0.1]);
   ctx.lineDashOffset = reduced ? 0 : -((now / 18) % period);
   ctx.strokeRect(Math.round(r.x) + 1, Math.round(r.y) + 1, Math.round(r.w) - 2, Math.round(r.h) - 2);
+  ctx.restore();
+}
+
+/* striped border for a range being dragged into a formula. Built once from an 8px
+   tile of diagonal hatching, so the "stripes" are real strokes rather than a dash
+   pattern; the tile is then slid along the diagonal to make them crawl, slowly. */
+let refStripePat = null;
+function refStripePattern(c) {
+  if (refStripePat) return refStripePat;
+  const t = document.createElement('canvas');
+  t.width = t.height = 8;
+  const g = t.getContext('2d');
+  g.fillStyle = REF_STRIPE;
+  g.fillRect(0, 0, 8, 8);
+  g.strokeStyle = 'rgba(255,255,255,0.9)';
+  g.lineWidth = 3;
+  g.beginPath();
+  g.moveTo(-2, 10); g.lineTo(10, -2);
+  g.moveTo(2, 14); g.lineTo(14, 2);
+  g.stroke();
+  refStripePat = c.createPattern(t, 'repeat');
+  return refStripePat;
+}
+function drawRefStripes(ctx, r, now, alpha) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = REF_GLOW(0.09 * alpha);       /* faint wash so the range reads as "captured" */
+  ctx.fillRect(r.x, r.y, r.w, r.h);
+  const pat = refStripePattern(ctx);
+  if (pat && pat.setTransform && !SmoothScroll.reduced) {
+    const o = (now / REF_CRAWL) % 8;
+    pat.setTransform(new DOMMatrix().translateSelf(o, o));
+  }
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = pat || REF_STRIPE;          /* pattern-null fallback stays a plain line */
+  ctx.strokeRect(Math.round(r.x) + 1.5, Math.round(r.y) + 1.5, Math.round(r.w) - 3, Math.round(r.h) - 3);
   ctx.restore();
 }
 
@@ -3186,6 +3262,17 @@ function paint() {
       rc = { x: colScreenX(sh, t.c1), y: rowScreenY(sh, t.r1),
              w: (sh.cols.offsetOf(t.c2 + 1) - sh.cols.offsetOf(t.c1)) * zm,
              h: (sh.rows.offsetOf(t.r2 + 1) - sh.rows.offsetOf(t.r1)) * zm };
+    } else if (Mouse.mode === 'refSel' && Mouse.data && Mouse.data.anchor) {
+      /* typing a formula and dragging out a reference — striped outline, green with
+         diagonal hatching. Cross-sheet picks have no on-screen range. */
+      const d = Mouse.data;
+      if (d.baseSheet === sh.id && d.cur) {
+        kind = 'ref';
+        const a = d.anchor;
+        rc = { x: colScreenX(sh, Math.min(a.c, d.cur.c)), y: rowScreenY(sh, Math.min(a.r, d.cur.r)),
+               w: (sh.cols.offsetOf(Math.max(a.c, d.cur.c) + 1) - sh.cols.offsetOf(Math.min(a.c, d.cur.c))) * zm,
+               h: (sh.rows.offsetOf(Math.max(a.r, d.cur.r) + 1) - sh.rows.offsetOf(Math.min(a.r, d.cur.r))) * zm };
+      }
     } else if (PaintState.active && Mouse.mode === 'paint' && Mouse.data && Mouse.data.target) {
       kind = 'paint';
       const t = Mouse.data.target;
@@ -3201,8 +3288,23 @@ function paint() {
       stepDragGhost(DragGhost.rect.x, DragGhost.rect.y, DragGhost.rect.w, DragGhost.rect.h, false, now);
     } else { DragGhost.kind = null; DragGhost.rect = null; }
     if (DragGhost.rect && DragGhost.alpha > 0.01) {
-      drawDragDots(ctx, DragGhost.rect, now, DragGhost.alpha,
+      if (DragGhost.kind === 'ref') drawRefStripes(ctx, DragGhost.rect, now, DragGhost.alpha);
+      else drawDragDots(ctx, DragGhost.rect, now, DragGhost.alpha,
         DragGhost.kind === 'move' ? { lw: 2.6, tint: 0.09 } : { lw: 2.2, tint: 0.07 });
+    }
+  }
+
+  /* a reference text-selected in the formula is outlined at full strength and stays
+     outlined until the selection changes — the drag ghost above is the transient hint
+     during the drag itself, this is the durable one afterwards */
+  if (Mouse.mode !== 'refSel') {
+    const selRef = selectedRefRange();
+    if (selRef) {
+      drawRefStripes(ctx, {
+        x: colScreenX(sh, selRef.c1), y: rowScreenY(sh, selRef.r1),
+        w: (sh.cols.offsetOf(selRef.c2 + 1) - sh.cols.offsetOf(selRef.c1)) * zm,
+        h: (sh.rows.offsetOf(selRef.r2 + 1) - sh.rows.offsetOf(selRef.r1)) * zm
+      }, performance.now(), 1);
     }
   }
 
@@ -4323,7 +4425,7 @@ R.canvas.addEventListener('dblclick', e => {
 R.canvas.addEventListener('wheel', e => {
   e.preventDefault();
   if (e.ctrlKey || e.metaKey) {
-    const zm = clamp(VIEW.zoom * (e.deltaY < 0 ? 1.1 : 0.9), 0.1, 4);
+    const zm = clamp(VIEW.zoom * (e.deltaY < 0 ? 1.1 : 0.9), ZOOM_MIN, ZOOM_MAX);
     setZoom(zm);
     return;
   }
@@ -4824,6 +4926,7 @@ function beginEdit(r, c, opts = {}) {
   else { ed.setSelectionRange(initial.length, initial.length); ed.focus(); }
   updateFormulaBarForEdit(initial);
   requestPaint();
+  updateRibbonState();   /* Edit.active flipped, so ribbon availability is stale */
 }
 function rawValueText(cell) {
   if (!cell) return '';
@@ -4858,6 +4961,48 @@ function setRefMode(on) {
   Edit.refMode = on;
   UI.editor.classList.toggle('ref-mode', on);
 }
+
+/* ---------------- auto parentheses ----------------
+   A forgotten paren is the easiest way to leave a cell showing a formula error, so:
+     typing "("  -> the ")" is supplied for you, caret parked between the pair
+     typing ")"  -> steps over the auto-supplied one instead of doubling it up
+   Formulas only — a "(" typed into a plain text cell is just a character. Guarded on
+   inputType so paste, IME composition, undo and drop all pass through untouched, and
+   skipped inside "quoted strings" where a paren is literal text. The browser has
+   already inserted the char by the time this runs, so the caret sits just past it.
+   Returns true when it changed the value, so callers know to refresh the chrome. */
+function inStringLiteral(v, upTo) {
+  let open = false;
+  for (let i = 0; i < upTo; i++) {
+    if (v[i] !== '"') continue;
+    if (open && v[i + 1] === '"') { i++; continue; }   /* "" is an escaped quote */
+    open = !open;
+  }
+  return open;
+}
+function autoParen(ed, e) {
+  if (!e || e.inputType !== 'insertText' || !e.data) return false;
+  const v = ed.value;
+  if (v.charAt(0) !== '=') return false;               /* not a formula */
+  const s = ed.selectionStart;
+  if (s != null && s !== ed.selectionEnd) return false; /* caret lost track of the field */
+  if (inStringLiteral(v, s == null ? v.length : s)) return false;
+  if (e.data === '(') {
+    /* the browser already put the "(" in; drop the matching ")" in behind the caret */
+    const at = s == null ? v.length : s;
+    ed.value = v.slice(0, at) + ')' + v.slice(at);
+    ed.setSelectionRange(at, at);
+    return true;
+  }
+  if (e.data === ')') {
+    const at = s == null ? v.length : s;
+    if (v.charAt(at) !== ')') return false;            /* unbalanced: keep the one just typed */
+    ed.value = v.slice(0, at) + v.slice(at + 1);       /* drop the duplicate, caret lands after the pair */
+    ed.setSelectionRange(at, at);
+    return true;
+  }
+  return false;
+}
 function updateEditorFromRefSelect() {
   const d = Mouse.data;
   const a = d.anchor, cur = d.cur;
@@ -4877,13 +5022,98 @@ function updateEditorFromRefSelect() {
   updateFormulaBarForEdit(ed.value);
   requestPaint();
 }
+/* The reference token sitting against the caret, so re-dragging replaces the previous
+   range instead of appending to it (a pick leaves the caret collapsed at the end of
+   the token it just wrote, which is why a plain text selection is not enough).
+   Covers the bare A1 / $A$1 / A1:B2 forms the picker itself writes, plus a sheet
+   prefix. Returns null when there is nothing to replace. */
+function refTokenAt(text, caret) {
+  const re = /(?:(?:'[^']*'|[A-Za-z_][A-Za-z0-9_.]*)!)?\$?[A-Za-z]{1,3}\$?\d{1,7}(?::\$?[A-Za-z]{1,3}\$?\d{1,7})?/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const s = m.index, e = s + m[0].length;
+    if (caret <= s || caret > e) continue;              /* inside it, or touching its right edge */
+    /* "LOG10" reads as the address LOG10 but is really a function name mid-call:
+       replacing it would eat the function. Spelled addresses that collide with a
+       function name have to be typed rather than re-picked — a fair trade, since
+       mistaking a hand-typed "=LOG10" for a reference is the far likelier mistake. */
+    if (m[0].indexOf('!') < 0 && FUNCS[m[0].toUpperCase()]) continue;
+    return { start: s, len: m[0].length };
+  }
+  return null;
+}
+/* The reference exactly covered by the current text selection in the formula, so
+   selecting "A3:B2" outlines those cells and keeps outlining them until the selection
+   moves — it behaves like a selection, not a transient drag hint. Anything that is not
+   precisely one reference (a function name, a partial token, a whole argument list, a
+   cross-sheet reference) yields null. */
+function selectedRefRange() {
+  if (!Edit.active) return null;
+  const ed = document.activeElement === UI.formulaInput ? UI.formulaInput : UI.editor;
+  if (ed !== UI.editor && ed !== UI.formulaInput) return null;
+  /* gated on "editing a formula", NOT on Edit.refMode: a formula opened with F2 or a
+     double-click deliberately leaves refMode off, yet the user can still select a
+     reference in it and expect to see where it points */
+  if (!ed.value.startsWith('=')) return null;
+  const s = ed.selectionStart, t = ed.selectionEnd;
+  if (s == null || t == null || s === t) return null;          /* collapsed: no selection */
+  const txt = ed.value.slice(s, t).trim();
+  if (!txt || txt.indexOf('\n') >= 0) return null;
+  if (txt.indexOf('!') >= 0) return null;                      /* lives on another sheet */
+  const parts = txt.split(':');
+  if (parts.length > 2) return null;
+  const a = parseAddr(parts[0]);
+  if (!a) return null;
+  if (parts.length === 1) return { r1: a.r, c1: a.c, r2: a.r, c2: a.c };
+  const b = parseAddr(parts[1]);
+  if (!b) return null;
+  return normRange(a.r, a.c, b.r, b.c);
+}
+/* any caret move or selection drag re-evaluates the outline. The stripes crawl, so a
+   frame pump has to keep running for as long as the outline is on screen — a single
+   requestPaint() would freeze the animation on the first frame. */
+let refSelRaf = 0;
+function refSelStep() {
+  refSelRaf = 0;
+  if (Edit.active && selectedRefRange() && !SmoothScroll.reduced) {
+    requestPaint();
+    refSelRaf = requestAnimationFrame(refSelStep);
+  }
+}
+function watchRefSelection() {
+  for (const fld of [UI.editor, UI.formulaInput]) {
+    for (const ev of ['keyup', 'mouseup', 'click', 'select', 'input']) {
+      fld.addEventListener(ev, () => {
+        if (!Edit.active) return;
+        requestPaint();
+        if (!refSelRaf && selectedRefRange() && !SmoothScroll.reduced) refSelRaf = requestAnimationFrame(refSelStep);
+      });
+    }
+  }
+}
 function startRefSelect(e, r, c) {
   const ed = UI.editor;
-  const pos = ed.selectionStart == null ? ed.value.length : ed.selectionStart;
-  const end = ed.selectionEnd == null ? pos : ed.selectionEnd;
+  let pos = ed.selectionStart == null ? ed.value.length : ed.selectionStart;
+  let end = ed.selectionEnd == null ? pos : ed.selectionEnd;
   Mouse.mode = 'refSel';
+  if (pos === end) {
+    const tok = refTokenAt(ed.value, pos);
+    if (tok) { pos = tok.start; end = tok.start + tok.len; }   /* re-drag: replace the old range */
+  }
+  let pre = ed.value.slice(0, pos), post = ed.value.slice(end);
+  /* Dragging a range straight after a bare function name supplies the argument list
+     too, so "=SUM" + drag lands on "=SUM(A1)" rather than the error "=SUMA1".
+     Autocomplete already does this (acceptFormulaAC), so this only fires for a
+     hand-typed name. The parens go on either side of pre/post, never into refText,
+     so F4 still cycles the reference alone and not the brackets. */
+  const tok = currentFnToken(pre, pre.length);
+  if (tok && FUNCS[tok.token.toUpperCase()] && post.charAt(0) !== '(') {
+    pre += '(';
+    const cp = closeParenPos(post);
+    if (!cp.already) post = post.slice(0, cp.at) + ')' + post.slice(cp.at);
+  }
   /* insert the picked reference at the caret, replacing any selected text */
-  Mouse.data = { pre: ed.value.slice(0, pos), post: ed.value.slice(end), anchor: { r, c }, cur: { r, c }, baseSheet: WB.activeSheetId, refText: '', refStart: pos };
+  Mouse.data = { pre, post, anchor: { r, c }, cur: { r, c }, baseSheet: WB.activeSheetId, refText: '', refStart: pos };
   updateEditorFromRefSelect();
 }
 function finishRefSelect() {
@@ -4910,6 +5140,7 @@ function cancelEdit() {
   updateFormulaBar();
   requestPaint();
   if (!Edit.fromFormulaBar) UI.formulaInput.blur();
+  updateRibbonState();   /* editor closed, so the selection-scoped controls come back */
 }
 /* Leave editing the safe way: a draft the user actually touched is committed,
    an untouched editor is just dismissed (no write, no history noise). Every
@@ -4918,11 +5149,55 @@ function finishEdit() {
   if (!Edit.active) return;
   if (Edit.dirty) commitEditor(); else cancelEdit();
 }
+/* Where does a call opened at the caret actually close? Scan the text that follows and
+   look for, in order: a ")" that closes the paren we are about to insert (the call is
+   already finished, so no extra one is needed), a depth-0 operator that ends the
+   argument list (the ")" belongs just before it), or nothing at all (the call runs to
+   the end). A comma is deliberately NOT a terminator — it means another argument is
+   still coming. Without this, dragging into "=LOG10*2" left an unbalanced
+   "=LOG10(A1*2" instead of "=LOG10(A1)*2". */
+function closeParenPos(post) {
+  let depth = 0, opAt = -1;
+  for (let i = 0; i < post.length; i++) {
+    const ch = post.charAt(i);
+    if (ch === '(') { depth++; continue; }
+    if (ch === ')') {
+      if (depth === 0) return { at: i, already: true };
+      depth--; continue;
+    }
+    if (depth === 0 && opAt < 0 && '+-*/^&<>='.indexOf(ch) >= 0) opAt = i;
+  }
+  return { at: opAt >= 0 ? opAt : post.length, already: false };
+}
+/* Close any parens the user left open, so "=SUM(A1" commits as "=SUM(A1)" instead of a
+   formula error. Surplus closing parens are dropped too, which is the other half of
+   "forgot the ( or the )". Formulas only, and a half-typed "quoted string" is left
+   strictly alone — that is a different kind of incomplete. */
+function balanceParens(text) {
+  if (text.charAt(0) !== '=') return text;
+  const drop = [];
+  let depth = 0, inStr = false;
+  for (let i = 1; i < text.length; i++) {
+    const ch = text.charAt(i);
+    if (ch === '"') {
+      if (inStr && text.charAt(i + 1) === '"') { i++; continue; }   /* "" is an escaped quote */
+      inStr = !inStr; continue;
+    }
+    if (inStr) continue;
+    if (ch === '(') depth++;
+    else if (ch === ')') { if (depth > 0) depth--; else drop.push(i); }
+  }
+  if (inStr || (!drop.length && depth === 0)) return text;          /* balanced, or not a paren problem */
+  let out = '';
+  for (let i = 0; i < text.length; i++) if (drop.indexOf(i) < 0) out += text.charAt(i);
+  if (depth > 0) out += ')'.repeat(depth);
+  return out;
+}
 function commitEditor(move) {
   if (!Edit.active) return;
   const sh = activeSheet();
   const r = Edit.r, c = Edit.c;
-  const text = UI.editor.value;
+  const text = balanceParens(UI.editor.value);   /* a forgotten ")" can no longer commit broken */
   const wasDirty = Edit.dirty;
   Edit.active = false;
   Edit.dirty = false;
@@ -4931,6 +5206,7 @@ function commitEditor(move) {
   setRefMode(false);
   hideFormulaAC();
   hideArgTip();
+  updateRibbonState();   /* Edit.active is false from here on */
   if (wasDirty) commitCellValue(sh, r, c, text);
   if (move === 'down' || move === true) jumpRelative(1, 0);
   else if (move === 'up') jumpRelative(-1, 0);
@@ -4985,11 +5261,18 @@ function ensureFormulaAC() {
   const el = document.createElement('div');
   el.id = 'formula-ac';
   el.setAttribute('role', 'listbox');
-  el.setAttribute('aria-label', 'Formula suggestions');
+  el.setAttribute('aria-label', 'Formula suggestions — Ctrl+click to insert');
   document.getElementById('grid-area').appendChild(el);
   el.addEventListener('mousedown', e => {
     const it = e.target.closest('.fx-ac-item');
-    if (it) { e.preventDefault(); e.stopPropagation(); acceptFormulaAC(+it.dataset.i); }
+    if (!it) return;
+    /* A plain click must NEVER rewrite what the user typed — the list is only ever
+       browsable. Applying a suggestion is an explicit Ctrl/Cmd+click, so a stray
+       click cannot silently turn "=SU" into "=SUM(". The mousedown is swallowed
+       either way, or the editor would blur and drop the draft. */
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.ctrlKey || e.metaKey) acceptFormulaAC(+it.dataset.i);
   });
   FxAC.el = el;
   return el;
@@ -5044,7 +5327,7 @@ function renderFormulaAC() {
   el.innerHTML = FxAC.items.map((f, i) => {
     const argsTxt = f.kind === 'fn' ? f.args.split('(').slice(1).join('(').replace(/\)$/, '') : f.args;
     const badge = f.kind === 'name' ? '<span class="fx-ac-badge">Name</span>' : '';
-    return '<div class="fx-ac-item' + (i === FxAC.idx ? ' active' : '') + (f.kind === 'name' ? ' is-name' : '') + '" role="option" aria-selected="' + (i === FxAC.idx) + '" data-i="' + i + '">' +
+    return '<div class="fx-ac-item' + (i === FxAC.idx ? ' active' : '') + (f.kind === 'name' ? ' is-name' : '') + '" role="option" aria-selected="' + (i === FxAC.idx) + '" data-i="' + i + '" title="Ctrl+click to insert">' +
       '<span class="fx-ac-name">' + badge + esc(f.name) + '</span>' +
       '<span class="fx-ac-args">' + esc(argsTxt) + '</span>' +
       '<span class="fx-ac-desc">' + esc(f.desc) + '</span>' +
@@ -5186,11 +5469,14 @@ function updateFormulaArgTip(host) {
 function setupEditorEvents() {
   const ed = UI.editor;
   ed.addEventListener('keydown', e => {
-    /* Formula AutoComplete interception (before everything else) */
+    /* Formula AutoComplete interception (before everything else). Enter and Tab are
+       deliberately NOT here: they fall through to the normal commit below, so typing
+       "=SU" + Enter commits "=SU" and does not silently become "=SUM(". Only
+       Ctrl/Cmd+click applies a suggestion. */
     if (FxAC.open) {
       if (e.key === 'ArrowDown') { e.preventDefault(); moveFormulaAC(1); return; }
       if (e.key === 'ArrowUp') { e.preventDefault(); moveFormulaAC(-1); return; }
-      if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); acceptFormulaAC(FxAC.idx); return; }
+      if (e.key === 'Enter' || e.key === 'Tab') { hideFormulaAC(); /* fall through and commit */ }
       if (e.key === 'Escape') { e.preventDefault(); hideFormulaAC(); return; }
     }
     if (Edit.refMode) {
@@ -5240,7 +5526,8 @@ function setupEditorEvents() {
       updateFormulaArgTip();
     }, 0);
   });
-  ed.addEventListener('input', () => {
+  ed.addEventListener('input', e => {
+    autoParen(ed, e);           /* supply the ")" before anything reads the value */
     Edit.dirty = true;   /* any real keystroke makes the draft worth committing */
     positionEditor(cellScreenRect(activeSheet(), Edit.r, Edit.c), ed.value);
     updateFormulaBarForEdit(ed.value);
@@ -5259,6 +5546,10 @@ function setupEditorEvents() {
       if (!Edit.active || Edit.refMode) return;
       const a = document.activeElement;
       if (a === ed || a === UI.formulaInput) return;
+      /* focus landed on formula-bar chrome (X / check / fx / grip). Those buttons
+         own the decision — committing here would fire first (this task ends before
+         the click) and make X behave like the check. */
+      if (a && a.closest && a.closest('#formula-row')) return;
       finishEdit();
     }, 0);
   });
@@ -5338,7 +5629,8 @@ document.addEventListener('keydown', e => {
   if (FxAC.open && document.activeElement === UI.formulaInput) {
     if (e.key === 'ArrowDown') { e.preventDefault(); moveFormulaAC(1); return; }
     if (e.key === 'ArrowUp') { e.preventDefault(); moveFormulaAC(-1); return; }
-    if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab') { e.preventDefault(); acceptFormulaAC(FxAC.idx); return; }
+    /* Enter/Tab fall through to the commit below instead of applying a suggestion */
+    if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab') hideFormulaAC();
     if (e.key === 'Escape') { e.preventDefault(); hideFormulaAC(); return; }
   }
   if (inInput && document.activeElement.id === 'name-box') {
@@ -5815,18 +6107,21 @@ function tracePrecedents() {
   requestPaint();
   updateStatusBar();
   if (Audit.mode) toast(Audit.mode === 'both' ? 'Tracing precedents and dependents' : 'Tracing precedents', 'info', 1400);
+  updateRibbonState();   /* Audit.mode drives Remove Arrows availability */
 }
 function traceDependents() {
   Audit.mode = Audit.mode === 'dep' ? null : (Audit.mode === 'both' ? 'prec' : (Audit.mode ? 'both' : 'dep'));
   requestPaint();
   updateStatusBar();
   if (Audit.mode) toast(Audit.mode === 'both' ? 'Tracing precedents and dependents' : 'Tracing dependents', 'info', 1400);
+  updateRibbonState();
 }
 function traceAll() {
   Audit.mode = Audit.mode === 'all' ? null : 'all';
   requestPaint();
   updateStatusBar();
   toast(Audit.mode ? 'Tracing full dependency chain (multi-level)' : 'Arrows removed', 'info', 1500);
+  updateRibbonState();
 }
 function removeAuditArrows() {
   if (!Audit.mode) return;
@@ -5834,6 +6129,7 @@ function removeAuditArrows() {
   requestPaint();
   updateStatusBar();
   toast('Arrows removed', 'info', 1100);
+  updateRibbonState();
 }
 function auditChipAt(x, y) {
   if (!Audit.mode || !Audit.chipRects) return null;
@@ -6051,6 +6347,7 @@ function doCopy(cut) {
   copyToSystemClipboard(text, html);
   if (!Edit.active) UI.canvasFocus();
   requestPaint();
+  updateRibbonState();   /* Clip.cells is filled, so Paste becomes available */
   toast(cut ? 'Cut — press Ctrl+V to paste' : 'Copied to clipboard', 'info', 1400);
 }
 function selMatrixHtml() {
@@ -6354,6 +6651,7 @@ function commitNameBox() {
   const txt = UI.nameBox.value.trim();
   const sh = activeSheet();
   const gotoSel = (sid, rg) => {
+    if (Edit.active) finishEdit();   /* never orphan a pending draft on a cell we are leaving */
     if (sid && sid !== WB.activeSheetId) setActiveSheet(sid);
     SEL.ranges = [rg]; SEL.active = { r: rg.r1, c: rg.c1 }; SEL.activeIdx = 0;
     ensureVisible(rg.r1, rg.c1, { smooth: true });
@@ -9572,7 +9870,7 @@ function modalIconFor(title) {
   for (const [k, v] of map) if (t.indexOf(k) !== -1) return v;
   return null;
 }
-function openModal({ title, width, content, buttons, onClose, icon: iconOverride = null, confirm = false }) {
+function openModal({ title, width, content, buttons, onClose, icon: iconOverride = null, confirm = false, noCloseX = false, centerFoot = false }) {
   const overlay = el('<div class="modal-overlay"><div class="modal" role="dialog" aria-modal="true" aria-label="' + esc(title) + '"></div></div>');
   const modal = overlay.querySelector('.modal');
   if (width) modal.style.width = width + 'px';
@@ -9580,12 +9878,13 @@ function openModal({ title, width, content, buttons, onClose, icon: iconOverride
   const danger = (buttons || []).some(b => b.danger) || iconName === 'trash';
   modal.classList.add(confirm ? 'confirm' : 'form');
   if (danger) modal.classList.add('danger');
-  const head = el('<div class="modal-head"><div class="modal-icon">' + icon(iconName) + '</div><div class="modal-title">' + esc(title) + '</div>' + (confirm ? '' : '<button class="modal-x" aria-label="Close dialog">' + icon('x') + '</button>') + '</div>');
+  /* noCloseX: the dialog carries a footer "Close" instead of a header X. */
+  const head = el('<div class="modal-head"><div class="modal-icon">' + icon(iconName) + '</div><div class="modal-title">' + esc(title) + '</div>' + ((confirm || noCloseX) ? '' : '<button class="modal-x" aria-label="Close dialog">' + icon('x') + '</button>') + '</div>');
   if (danger) head.querySelector('.modal-icon').classList.add('danger');
   const body = el('<div class="modal-body"></div>');
   if (typeof content === 'string') body.innerHTML = content;
   else if (content instanceof Element) body.appendChild(content);
-  const foot = el('<div class="modal-foot"></div>');
+  const foot = el('<div class="modal-foot' + (centerFoot ? ' center' : '') + '"></div>');
   (buttons || [{ label: 'Close' }]).forEach(b => {
     if (!confirm && !b.onClick && (b.label === 'Cancel' || b.label === 'Close') && !b.primary && !b.danger) return;
     const btn = el('<button class="btn' + (b.primary ? ' primary' : '') + (b.danger ? ' danger' : '') + '">' + esc(b.label) + '</button>');
@@ -9930,54 +10229,145 @@ for (const [head, names] of RIBBON_FONT_GROUPS) {
 }
 
 /* ---------------- Insert Function dialog ---------------- */
-const RECENT_FUNCS = [];
 function openInsertFunctionDialog() {
-  const cats = ['All', 'Recently Used', ...[...new Set(FUNC_META.map(f => f.cat))]];
-  let curCat = 'All', curSel = FUNC_META.find(f => f.name === 'SUM');
-  const content = el('<div style="display:flex;gap:12px;min-height:340px"><div style="width:170px"><input type="search" id="fn-search" placeholder="Search functions" style="width:100%;height:26px;border:1px solid #d4d4d4;border-radius:3px;padding:0 8px;margin-bottom:8px"><div class="cat-list" id="fn-cats"></div></div><div style="flex:1;min-width:0"><div class="listbox" id="fn-list" style="max-height:180px"></div><div class="func-sig" id="fn-sig"></div><div class="func-desc" id="fn-desc"></div></div></div>');
+  const cats = ['All', ...[...new Set(FUNC_META.map(f => f.cat))]];
+  let curCat = 'All', curSel = FUNC_META.find(f => f.name === 'SUM'), lastInsert = 0, items = [];
+  const content = el(
+    '<div class="fn">' +
+      '<div class="fn-side">' +
+        '<input type="search" id="fn-search" class="fn-search" placeholder="Search functions" spellcheck="false" autocomplete="off" aria-label="Search functions">' +
+        '<div class="fn-cats" id="fn-cats" role="listbox" aria-label="Function categories"></div>' +
+      '</div>' +
+      '<div class="fn-main">' +
+        '<div class="fn-list" id="fn-list" role="listbox" aria-label="Functions"></div>' +
+        '<div class="fn-detail">' +
+          '<div class="fn-name" id="fn-name"></div>' +
+          '<div class="fn-sig" id="fn-sig"></div>' +
+          '<div class="fn-desc" id="fn-desc"></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>'
+  );
   const catBox = content.querySelector('#fn-cats');
   const listBox = content.querySelector('#fn-list');
-  function renderCats() {
-    catBox.innerHTML = '';
-    for (const c of cats) {
-      const row = el('<div class="cat-row' + (c === curCat ? ' selected' : '') + '">' + esc(c) + '</div>');
-      row.addEventListener('click', () => { curCat = c; renderCats(); renderList(); });
-      catBox.appendChild(row);
-    }
+  const search = content.querySelector('#fn-search');
+  const nameEl = content.querySelector('#fn-name');
+  const sigEl = content.querySelector('#fn-sig');
+  const descEl = content.querySelector('#fn-desc');
+  /* FUNC_META.args already reads "NAME(a, b)" — the list row shows the bare arg list */
+  const argList = f => f.args.slice(f.name.length + 1, -1);
+  /* Two independent indicators share the gutter: one accent capsule parked on the
+     active row and one neutral capsule that follows the pointer. Same shape, different
+     colour, and the active one never moves for hover. Both survive re-renders so they
+     glide, and both read offsetTop (transform-immune, so the modal entrance can't
+     skew them). */
+  const catPill = el('<div class="fn-pill" aria-hidden="true"></div>');
+  const listPill = el('<div class="fn-pill" aria-hidden="true"></div>');
+  const catHov = el('<div class="fn-hov" aria-hidden="true"></div>');
+  const listHov = el('<div class="fn-hov" aria-hidden="true"></div>');
+  catBox.append(catHov, catPill);
+  listBox.append(listHov, listPill);
+  let hoverRow = null;
+  function syncPill(box, pill) {
+    const on = box.querySelector('.selected');
+    if (!on) { pill.classList.remove('on'); return; }
+    pill.classList.add('on');
+    pill.style.height = Math.max(8, on.offsetHeight - 10) + 'px';
+    pill.style.transform = 'translateY(' + (on.offsetTop + 5) + 'px)';
   }
-  function renderList() {
-    const q = content.querySelector('#fn-search').value.toLowerCase();
-    listBox.innerHTML = '';
-    let items = FUNC_META;
-    if (curCat === 'Recently Used') items = RECENT_FUNCS.map(n => FUNC_META.find(f => f.name === n)).filter(Boolean);
-    else if (curCat !== 'All') items = FUNC_META.filter(f => f.cat === curCat);
-    if (q) items = FUNC_META.filter(f => f.name.toLowerCase().includes(q) || f.desc.toLowerCase().includes(q));
+  function syncHov(box, hov) {
+    const active = box.querySelector('.selected');
+    const on = hoverRow && hoverRow.parentElement === box ? hoverRow : null;
+    /* the active row already owns its capsule — don't stack a second marker on it */
+    if (!on || on === active) { hov.classList.remove('on'); return; }
+    hov.classList.add('on');
+    hov.style.height = Math.max(8, on.offsetHeight - 10) + 'px';
+    hov.style.transform = 'translateY(' + (on.offsetTop + 5) + 'px)';
+  }
+  function syncAll() { syncPill(catBox, catPill); syncHov(catBox, catHov); syncPill(listBox, listPill); syncHov(listBox, listHov); }
+  function trackHover(box) {
+    box.addEventListener('mouseover', e => {
+      const r = e.target.closest('.fn-cat, .fn-item');
+      if (r === hoverRow) return;
+      hoverRow = r;
+      syncAll();
+    });
+    box.addEventListener('mouseleave', () => {
+      if (!hoverRow) return;
+      hoverRow = null;
+      syncAll();
+    });
+  }
+
+  function renderCats() {
+    if (!catBox.querySelector('.fn-cat')) {
+      for (const c of cats) {
+        const row = el('<div class="fn-cat" role="option">' + esc(c) + '</div>');
+        row.addEventListener('click', () => { if (curCat === c) return; curCat = c; renderCats(); renderList(true); });
+        catBox.appendChild(row);
+      }
+    }
+    /* classes only — rebuilding the rail would reset the pill and kill the glide */
+    let i = 0;
+    for (const row of catBox.querySelectorAll('.fn-cat')) {
+      const on = cats[i++] === curCat;
+      row.classList.toggle('selected', on);
+      row.setAttribute('aria-selected', on ? 'true' : 'false');
+    }
+    syncAll();
+  }
+  function renderList(resetScroll) {
+    let list = FUNC_META;
+    if (curCat !== 'All') list = FUNC_META.filter(f => f.cat === curCat);
+    const q = search.value.trim().toLowerCase();
+    if (q) list = list.filter(f => f.name.toLowerCase().includes(q) || f.desc.toLowerCase().includes(q));
+    items = list;
+    for (const n of Array.from(listBox.children)) if (n !== listHov && n !== listPill) n.remove();
     for (const f of items) {
-      const row = el('<div class="cat-row' + (curSel && f.name === curSel.name ? ' selected' : '') + '"><b>' + f.name + '</b> <span style="color:#8a8886;font-size:11px">' + esc(f.args.slice(0, 34)) + '</span></div>');
-      /* 1-click flow: first click selects + shows detail, clicking the already-selected row inserts right away.
-         (no dblclick handler here — a physical second click fires BOTH click and dblclick, which would insert twice) */
-      row.addEventListener('click', () => {
-        if (curSel && curSel.name === f.name) { insertFunction(); return; }
-        curSel = f; renderList(); showDetail();
-      });
+      const row = el('<div class="fn-item" role="option" title="' + esc(f.args) + '">' +
+        '<span class="fn-nm">' + esc(f.name) + '</span><span class="fn-arg">' + esc(argList(f)) + '</span></div>');
+      /* 1-click flow: first click selects + shows detail, clicking the already-selected
+         row inserts right away. (no dblclick handler — a physical second click fires
+         BOTH click and dblclick, which would insert twice) */
+      row.addEventListener('click', () => { if (curSel && curSel.name === f.name) { insertFunction(); return; } curSel = f; syncSelection(); });
       listBox.appendChild(row);
     }
-    if (!items.length) listBox.innerHTML = '<div class="cat-row">No matching functions</div>';
+    if (!items.length) listBox.insertBefore(el('<div class="fn-empty">No matching functions</div>'), listHov);
+    /* rows were just replaced — a hovered node is gone, so the group falls back
+       to the active row until the pointer moves again */
+    if (hoverRow && !hoverRow.isConnected) hoverRow = null;
+    /* keep a valid selection so the detail card is never blank/stale */
+    if (!curSel || !items.some(f => f.name === curSel.name)) curSel = items[0] || null;
+    if (resetScroll) listBox.scrollTop = 0;
+    syncSelection();
   }
-  function showDetail() {
-    if (!curSel) return;
-    content.querySelector('#fn-sig').textContent = curSel.args;
-    content.querySelector('#fn-desc').textContent = curSel.desc;
+  function syncSelection() {
+    const rows = listBox.querySelectorAll('.fn-item');
+    for (let i = 0; i < rows.length; i++) {
+      const on = !!(curSel && items[i] && items[i].name === curSel.name);
+      rows[i].classList.toggle('selected', on);
+      rows[i].setAttribute('aria-selected', on ? 'true' : 'false');
+      if (on) rows[i].scrollIntoView({ block: 'nearest' });
+    }
+    syncAll();
+    if (!curSel) { nameEl.textContent = ''; sigEl.textContent = ''; descEl.textContent = ''; return; }
+    nameEl.textContent = curSel.name;
+    sigEl.textContent = curSel.args;
+    descEl.textContent = curSel.desc;
   }
-  content.querySelector('#fn-search').addEventListener('input', renderList);
-  renderCats(); renderList(); showDetail();
-  let lastInsert = 0;
+  function moveSelection(dir) {
+    if (!items.length) return;
+    const i = items.findIndex(f => curSel && f.name === curSel.name);
+    const j = Math.max(0, Math.min(items.length - 1, i < 0 ? (dir > 0 ? 0 : items.length - 1) : i + dir));
+    if (items[j] === curSel) return;
+    curSel = items[j];
+    syncSelection();
+  }
   function insertFunction() {
     const now = Date.now();
     if (now - lastInsert < 450) return;   /* swallow the second click of an accidental double-click */
     lastInsert = now;
     if (!curSel) return;
-    if (!RECENT_FUNCS.includes(curSel.name)) { RECENT_FUNCS.unshift(curSel.name); if (RECENT_FUNCS.length > 8) RECENT_FUNCS.pop(); }
     if (!Edit.active) beginEdit(SEL.active.r, SEL.active.c, { cursorMode: true });
     const ed = UI.editor;
     const v = ed.value;
@@ -9988,10 +10378,22 @@ function openInsertFunctionDialog() {
     ed.setSelectionRange(ed.value.length, ed.value.length);
     updateFormulaBarForEdit(ed.value);
   }
-  openModal({
-    title: 'Insert Function', width: 700, content,
-    buttons: [{ label: 'Cancel' }, { label: 'Insert', primary: true, onClick: () => { insertFunction(); return true; } }]
+  search.addEventListener('input', () => renderList(true));
+  search.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); moveSelection(1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); moveSelection(-1); }
+    else if (e.key === 'Enter') { e.preventDefault(); insertFunction(); }
   });
+  openModal({
+    title: 'Insert Function', width: 700, content, noCloseX: true, centerFoot: true,
+    buttons: [{ label: 'Close', onClick: () => true }, { label: 'Insert', primary: true, onClick: () => { insertFunction(); return true; } }]
+  });
+  /* first paint must wait until the dialog is in the document — offsetTop/offsetHeight
+     are all 0 while detached, which would park the indicators at the very top */
+  trackHover(catBox);
+  trackHover(listBox);
+  renderCats();
+  renderList(true);
 }
 
 /* ==========================================================================
@@ -10034,71 +10436,49 @@ function ribbonConfig() {
         cmd('redo', 'Redo', () => redo(), { id: 'rbn-redo', title: 'Redo (Ctrl+Y)' })
       ]},
       { label: 'Clipboard', items: [
-        cmd('cut', 'Cut', () => doCopy(true), { title: 'Cut (Ctrl+X)' }),
-        cmd('copy', 'Copy', () => doCopy(false), { title: 'Copy (Ctrl+C)' }),
-        cmd('paste', 'Paste', () => doPaste(), { title: 'Paste (Ctrl+V)' })
+        cmd('cut', 'Cut', () => doCopy(true), { cmd: 'cut', title: 'Cut (Ctrl+X)' }),
+        cmd('copy', 'Copy', () => doCopy(false), { cmd: 'copy', title: 'Copy (Ctrl+C)' }),
+        cmd('paste', 'Paste', () => doPaste(), { cmd: 'paste', title: 'Paste (Ctrl+V)' })
       ]},
       { label: 'Font', items: [
         { custom: 'fontFamily' }, { custom: 'fontSize' },
         { custom: 'fontChips', items: [
-          cmd('bold', '', () => toggleStyle('bold'), { small: true, toggleKey: 'bold', title: 'Bold (Ctrl+B)' }),
-          cmd('italic', '', () => toggleStyle('italic'), { small: true, toggleKey: 'italic', title: 'Italic (Ctrl+I)' }),
-          cmd('underline', '', () => toggleStyleUnderline(), { small: true, toggleFn: () => { const sh = activeSheet(); let on = false; forEachSelectedCell((r, c) => { const cell = sh.cells.get(key(r, c)); if (cell && cell.s && cell.s.underline) on = true; }); return on; }, title: 'Underline (Ctrl+U)' }),
-          cmd('strike', '', () => toggleStyle('strike'), { small: true, toggleKey: 'strike', title: 'Strikethrough' })
+          cmd('bold', '', () => toggleStyle('bold'), { small: true, toggleKey: 'bold', cmd: 'bold', title: 'Bold (Ctrl+B)' }),
+          cmd('italic', '', () => toggleStyle('italic'), { small: true, toggleKey: 'italic', cmd: 'italic', title: 'Italic (Ctrl+I)' }),
+          cmd('underline', '', () => toggleStyleUnderline(), { small: true, cmd: 'underline', toggleFn: () => { const sh = activeSheet(); let on = false; forEachSelectedCell((r, c) => { const cell = sh.cells.get(key(r, c)); if (cell && cell.s && cell.s.underline) on = true; }); return on; }, title: 'Underline (Ctrl+U)' }),
+          cmd('strike', '', () => toggleStyle('strike'), { small: true, toggleKey: 'strike', cmd: 'strike', title: 'Strikethrough' })
         ]},
         { custom: 'fontColor' }, { custom: 'fillColor' },
-        cmd('borders', 'Borders', null, { small: true, split: true, menu: [
-          { label: 'All Borders', icon: 'borders', action: () => applyBorders('all') },
-          { label: 'Outside Borders', icon: 'borders', action: () => applyBorders('out') },
-          { label: 'Thick Outside Border', icon: 'borders', action: () => applyBorders('thick') },
+        cmd('borders', 'Borders', null, { small: true, split: true, cmd: 'borders', menu: [
+          { label: 'All Borders', icon: 'bdAll', action: () => applyBorders('all') },
+          { label: 'Outside Borders', icon: 'bdOut', action: () => applyBorders('out') },
+          { label: 'Thick Outside Border', icon: 'bdThick', action: () => applyBorders('thick') },
           { sep: true },
-          { label: 'Top Border', action: () => applyBorders('top') },
-          { label: 'Bottom Border', action: () => applyBorders('bottom') },
-          { label: 'Double Bottom Border', action: () => applyBorders('dblbottom') },
-          { label: 'Left Border', action: () => applyBorders('left') },
-          { label: 'Right Border', action: () => applyBorders('right') },
+          { label: 'Top Border', icon: 'bdTop', action: () => applyBorders('top') },
+          { label: 'Bottom Border', icon: 'bdBottom', action: () => applyBorders('bottom') },
+          { label: 'Double Bottom Border', icon: 'bdDblBottom', action: () => applyBorders('dblbottom') },
+          { label: 'Left Border', icon: 'bdLeft', action: () => applyBorders('left') },
+          { label: 'Right Border', icon: 'bdRight', action: () => applyBorders('right') },
           { sep: true },
-          { label: 'No Border', icon: 'x', action: () => applyBorders('none') }
+          { label: 'No Border', icon: 'bdNone', action: () => applyBorders('none') }
         ] })
       ]},
-      { label: 'Alignment', items: [
+      { label: 'Arrange', items: [
         { custom: 'stack', items: [
-          cmd('alignTop', '', () => applyStyleToSelection({ valign: 'top' }), { title: 'Align top' }),
-          cmd('alignMiddle', '', () => applyStyleToSelection({ valign: 'middle' }), { title: 'Align middle' }),
-          cmd('alignBottom', '', () => applyStyleToSelection({ valign: 'bottom' }), { title: 'Align bottom' })
+          cmd('alignTop', '', () => applyStyleToSelection({ valign: 'top' }), { cmd: 'align', title: 'Align top' }),
+          cmd('alignMiddle', '', () => applyStyleToSelection({ valign: 'middle' }), { cmd: 'align', title: 'Align middle' }),
+          cmd('alignBottom', '', () => applyStyleToSelection({ valign: 'bottom' }), { cmd: 'align', title: 'Align bottom' })
         ]},
         { custom: 'stack', items: [
-          cmd('alignLeft', '', () => applyStyleToSelection({ halign: 'left' }), { title: 'Align left' }),
-          cmd('alignCenter', '', () => applyStyleToSelection({ halign: 'center' }), { title: 'Align center' }),
-          cmd('alignRight', '', () => applyStyleToSelection({ halign: 'right' }), { title: 'Align right' })
+          cmd('alignLeft', '', () => applyStyleToSelection({ halign: 'left' }), { cmd: 'align', title: 'Align left' }),
+          cmd('alignCenter', '', () => applyStyleToSelection({ halign: 'center' }), { cmd: 'align', title: 'Align center' }),
+          cmd('alignRight', '', () => applyStyleToSelection({ halign: 'right' }), { cmd: 'align', title: 'Align right' })
         ]},
-        { custom: 'stack', items: [
-          cmd('indentInc', '', () => adjustIndent(1), { title: 'Increase indent' }),
-          cmd('indentDec', '', () => adjustIndent(-1), { title: 'Decrease indent' })
-        ]},
-        cmd('wrap', 'Wrap Text', () => { const sh = activeSheet(); let on = false; forEachSelectedCell((r, c) => { const cell = sh.cells.get(key(r, c)); if (cell && cell.s && cell.s.wrap) on = true; }); applyStyleToSelection({ wrap: !on }); }, { small: true, toggleFn: () => { const sh = activeSheet(); let on = false; forEachSelectedCell((r, c) => { const cell = sh.cells.get(key(r, c)); if (cell && cell.s && cell.s.wrap) on = true; }); return on; }, title: 'Wrap text' }),
-        cmd('merge', 'Merge', () => mergeSelection('center'), { small: true, split: true, menu: [
+        cmd('merge', 'Merge', () => mergeSelection('center'), { small: true, split: true, cmd: 'merge', menu: [
           { label: 'Merge & Center', icon: 'merge', action: () => mergeSelection('center') },
           { label: 'Merge Across', action: () => mergeSelection('across') },
           { label: 'Unmerge', icon: 'unmerge', action: () => mergeSelection('unmerge') }
         ] })
-      ]},
-      { label: 'Number', items: [
-        { custom: 'numFmt' },
-        { custom: 'stack', items: [
-          cmd('currency', '', () => applyStyleToSelection({ numberFormat: NUMCAT.currency(2), numFmtCat: 'currency' }), { title: 'Currency format' }),
-          cmd('percent', '', () => applyStyleToSelection({ numberFormat: NUMCAT.percent(0), numFmtCat: 'percent' }), { title: 'Percent format' }),
-          cmd('comma', '', () => applyStyleToSelection({ numberFormat: NUMCAT.number(2), numFmtCat: 'number' }), { title: 'Comma style' })
-        ]},
-        { custom: 'stack', items: [
-          cmd('decInc', '', () => changeDecimals(1), { title: 'Increase decimals' }),
-          cmd('decDec', '', () => changeDecimals(-1), { title: 'Decrease decimals' })
-        ]}
-      ]},
-      { label: 'Styles', items: [
-        cmd('styles', 'Conditional', () => openConditionalFormattingDialog(), { small: true, title: 'Conditional Formatting' }),
-        cmd('table', 'Format as Table', () => formatAsTable(), { small: true }),
-        cmd('grid', 'Cell Styles', null, { split: true, menu: CELL_STYLES.map(p => ({ custom: 'styleChip', preset: p })) })
       ]}
     ],
     Insert: [
@@ -10133,6 +10513,25 @@ function ribbonConfig() {
         cmd('nameBox', 'Define Name', () => openDefineNameDialog(), { small: true })
       ]}
     ],
+    Layout: [
+      { label: 'Number', items: [
+        { custom: 'numFmt' },
+        { custom: 'stack', items: [
+          cmd('currency', '', () => applyStyleToSelection({ numberFormat: NUMCAT.currency(2), numFmtCat: 'currency' }), { cmd: 'numfmt', title: 'Currency format' }),
+          cmd('percent', '', () => applyStyleToSelection({ numberFormat: NUMCAT.percent(0), numFmtCat: 'percent' }), { cmd: 'numfmt', title: 'Percent format' }),
+          cmd('comma', '', () => applyStyleToSelection({ numberFormat: NUMCAT.number(2), numFmtCat: 'number' }), { cmd: 'numfmt', title: 'Comma style' })
+        ]},
+        { custom: 'stack', items: [
+          cmd('decInc', '', () => changeDecimals(1), { cmd: 'decimals', title: 'Increase decimals' }),
+          cmd('decDec', '', () => changeDecimals(-1), { cmd: 'decimals', title: 'Decrease decimals' })
+        ]}
+      ]},
+      { label: 'Styles', items: [
+        cmd('styles', 'Conditional', () => openConditionalFormattingDialog(), { small: true, title: 'Conditional Formatting' }),
+        cmd('table', 'Format as Table', () => formatAsTable(), { small: true, cmd: 'asTable' }),
+        cmd('grid', 'Cell Styles', null, { split: true, menu: CELL_STYLES.map(p => ({ custom: 'styleChip', preset: p })) })
+      ]}
+    ],
     Formulas: [
       { label: 'Function Library', items: [
         cmd('fx', 'Insert Function', () => openInsertFunctionDialog(), { small: true, title: 'Insert Function' }),
@@ -10143,7 +10542,6 @@ function ribbonConfig() {
           { label: 'Max', action: () => autoSum('MAX') },
           { label: 'Min', action: () => autoSum('MIN') }
         ] }),
-        cmd('calculate', 'Recently Used', null, { split: true, menu: () => RECENT_FUNCS.length ? RECENT_FUNCS.map(n => ({ label: n, action: () => insertFunctionByName(n) })) : [{ label: '(none yet)', disabled: true }] }),
         cmd('file', 'Financial', null, { split: true, menu: catFunctions('Financial') }),
         cmd('validate', 'Logical', null, { split: true, menu: catFunctions('Logical') }),
         cmd('text', 'Text', null, { split: true, menu: catFunctions('Text') }),
@@ -10164,17 +10562,17 @@ function ribbonConfig() {
         cmd('datamodel', 'Rebuild Deps', () => { rebuildAllDeps(); toast('Dependency graph rebuilt for ' + DepGraph.fDeps.size + ' formula(s)', 'success'); }, { small: true, title: 'Rebuild the dependency graph for all names and formulas' })
       ]},
       { label: 'Formula Auditing', items: [
-        cmd('auditPrec', 'Trace Precedents', () => tracePrecedents(), { small: true, toggleFn: () => Audit.mode === 'prec' || Audit.mode === 'both', title: 'Trace Precedents — arrows from cells used by this formula' }),
-        cmd('auditDep', 'Trace Dependents', () => traceDependents(), { small: true, toggleFn: () => Audit.mode === 'dep' || Audit.mode === 'both', title: 'Trace Dependents — arrows to formulas that use this cell' }),
-        cmd('auditAll', 'Trace All', () => traceAll(), { small: true, toggleFn: () => Audit.mode === 'all', title: 'Trace All — multi-level dependency chain across the whole graph, with cross-sheet connectors' }),
-        cmd('auditOff', 'Remove Arrows', () => removeAuditArrows(), { small: true, title: 'Remove all tracer arrows' })
+        cmd('auditPrec', 'Trace Precedents', () => tracePrecedents(), { small: true, cmd: 'trace', toggleFn: () => Audit.mode === 'prec' || Audit.mode === 'both', title: 'Trace Precedents — arrows from cells used by this formula' }),
+        cmd('auditDep', 'Trace Dependents', () => traceDependents(), { small: true, cmd: 'trace', toggleFn: () => Audit.mode === 'dep' || Audit.mode === 'both', title: 'Trace Dependents — arrows to formulas that use this cell' }),
+        cmd('auditAll', 'Trace All', () => traceAll(), { small: true, cmd: 'traceAll', toggleFn: () => Audit.mode === 'all', title: 'Trace All — multi-level dependency chain across the whole graph, with cross-sheet connectors' }),
+        cmd('auditOff', 'Remove Arrows', () => removeAuditArrows(), { small: true, cmd: 'auditOff', title: 'Remove all tracer arrows' })
       ]}
     ],
     Data: [
       { label: 'Sort & Filter', items: [
-        cmd('sortAsc', 'Sort A→Z', () => quickSort(false), { small: true }),
-        cmd('sortDesc', 'Sort Z→A', () => quickSort(true), { small: true }),
-        cmd('sort', 'Custom Sort', () => openSortDialog(), { small: true }),
+        cmd('sortAsc', 'Sort A→Z', () => quickSort(false), { small: true, cmd: 'sort' }),
+        cmd('sortDesc', 'Sort Z→A', () => quickSort(true), { small: true, cmd: 'sort' }),
+        cmd('sort', 'Custom Sort', () => openSortDialog(), { small: true, cmd: 'sort' }),
         cmd('filter', 'Filter', () => toggleFilter(), { toggleFn: () => !!activeSheet().filter, title: 'Toggle filter' }),
         cmd('refresh', 'Reapply', () => applyFilter(), { small: true, title: 'Reapply the current filter' })
       ]},
@@ -10211,7 +10609,8 @@ function ribbonConfig() {
         cmd('grid', 'Gridlines', () => toggleGridlines(), { toggleFn: () => activeSheet().showGridlines, small: true }),
         cmd('grid', 'Formula Bar', () => toggleFormulaBar(), { toggleFn: () => VIEW.showFormulaBar, small: true }),
         cmd('grid', 'Headings', () => toggleHeadings(), { toggleFn: () => VIEW.showHeadings, small: true }),
-        cmd('fx', 'Show Formulas', () => { VIEW.showFormulas = !VIEW.showFormulas; requestPaint(); }, { toggleFn: () => VIEW.showFormulas, small: true, title: 'Show formulas instead of results (Ctrl+`)' })
+        cmd('fx', 'Show Formulas', () => { VIEW.showFormulas = !VIEW.showFormulas; requestPaint(); }, { toggleFn: () => VIEW.showFormulas, small: true, title: 'Show formulas instead of results (Ctrl+`)' }),
+        cmd('wrap', 'Wrap Text', () => toggleWrapText(), { toggleFn: () => wrapTextActive(), small: true, title: 'Wrap text — re-fits the row height so wrapped lines are visible' })
       ]},
       { label: 'Freeze Panes', items: [
         cmd('freeze', 'Freeze Top Row', () => setFreeze(1, 0), { small: true }),
@@ -10240,7 +10639,6 @@ function catFunctions(cat) {
   return items.map(f => ({ label: f.name, sub: '', action: () => insertFunctionByName(f.name) }));
 }
 function insertFunctionByName(name) {
-  if (!RECENT_FUNCS.includes(name)) { RECENT_FUNCS.unshift(name); if (RECENT_FUNCS.length > 8) RECENT_FUNCS.pop(); }
   if (!Edit.active) beginEdit(SEL.active.r, SEL.active.c, { cursorMode: true });
   const ed = UI.editor;
   if (!ed.value.startsWith('=')) ed.value = '=' + name + '()';
@@ -10264,11 +10662,19 @@ function changeFontSize(delta) {
   const cur = cell && cell.s && cell.s.fontSize ? cell.s.fontSize : DEF.fontPt;
   applyStyleToSelection({ fontSize: clamp(cur + delta * 2, 6, 96) });
 }
-function adjustIndent(delta) {
+function wrapTextActive() {
   const sh = activeSheet();
-  const cell = sh.cells.get(key(SEL.active.r, SEL.active.c));
-  const cur = cell && cell.s && cell.s.indent ? cell.s.indent : 0;
-  applyStyleToSelection({ indent: clamp(cur + delta, 0, 15) });
+  let on = false;
+  forEachSelectedCell((r, c) => { const cell = sh.cells.get(key(r, c)); if (cell && cell.s && cell.s.wrap) on = true; });
+  return on;
+}
+function toggleWrapText() {
+  const next = !wrapTextActive();
+  applyStyleToSelection({ wrap: next });
+  /* Wrapping alone only looks like wrapping if the row is tall enough to show the
+     extra lines — the renderer clips to the cell rect, so without re-fitting the
+     row the text was silently cut off. autoFitSize already accounts for wrap. */
+  for (const r of selRows()) autoFitSize('row', r);
 }
 function changeDecimals(delta) {
   const sh = activeSheet();
@@ -10512,34 +10918,64 @@ function buildRibbonItem(item) {
   if (item.custom) return buildCustomRibbonControl(item);
   const big = !item.small;
   const btn = el('<button class="ribbon-btn' + (big ? '' : ' ribbon-btn-icon') + (item.split ? ' split' : '') + '" title="' + esc(item.title || item.label) + '" aria-label="' + esc(item.title || item.label) + '">' + icon(item.icon) + (big ? '<span>' + esc(item.label) + '</span>' : '') + '</button>');
-  if (item.action) {
+  /* One trigger, on click. This used to open on mousedown and then let the
+     click that follows fire a second time, and openRibbonMenu only ever closed
+     before reopening — so re-pressing the button made the menu reappear instead
+     of dismissing it. Click also keeps keyboard (Enter/Space) working, which
+     mousedown never did. */
+  if (item.action || item.menu) {
     btn.addEventListener('click', e => {
-      if (item.menu && e.offsetX > btn.clientWidth - 12 && item.split) { openRibbonMenu(item.menu, btn); return; }
-      item.action();
-      updateRibbonState();
+      if (item.menu && item.split) {
+        /* measure against the button rect, not e.offsetX: pressing the icon makes
+           e.target the inner <path>, so offsetX is relative to the glyph. */
+        const r = btn.getBoundingClientRect();
+        if (e.clientX - r.left > r.width - 12) { toggleRibbonMenu(item.menu, btn); return; }
+      }
+      if (item.action) { item.action(); updateRibbonState(); return; }
+      toggleRibbonMenu(item.menu, btn);
     });
   }
   if (item.dblclick) btn.addEventListener('dblclick', item.dblclick);
-  if (item.menu) {
-    btn.addEventListener('mousedown', e => {
-      if (e.button === 0 && (e.offsetY > btn.clientHeight * 0.6 || !item.action)) {
-        e.preventDefault();
-        openRibbonMenu(item.menu, btn);
-      }
-    });
-  }
   if (item.toggleKey || item.toggleFn) btn.dataset.toggle = item.toggleKey || '';
+  /* data-cmd is the handle updateRibbonAvailability() greys out. Same
+     convention Docs uses on [data-cmd="bold"] (docs.js:1719). */
+  if (item.cmd) btn.dataset.cmd = item.cmd;
   if (item.id) btn.id = item.id;
+  if (item.menu) { btn.setAttribute('aria-haspopup', 'menu'); btn.setAttribute('aria-expanded', 'false'); }
   btn._item = item;
   return btn;
 }
 let _msMenu = null, _msMenuBtn = null;
+const MS_MENU_EXIT_MS = 140;
+/* The menu used to be removed from the DOM the instant it closed, so an exit
+   transition could never play. Defer the removal until the fade-out finishes. */
 function closeMsMenus() {
-  if (_msMenu) { const p = _msMenu.parentNode; if (p) p.removeChild(_msMenu); _msMenu = null; }
+  const p = _msMenu;
+  _msMenu = null;
   if (_msMenuBtn) { _msMenuBtn.setAttribute('aria-expanded', 'false'); _msMenuBtn = null; }
+  if (!p || !p.parentNode) return;
+  const done = () => {
+    if (p._msDone) return;
+    p._msDone = true;
+    clearTimeout(p._msTimer);
+    if (p.parentNode) p.remove();
+  };
+  p._msDone = false;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) { p.classList.remove('open', 'closing'); done(); return; }
+  /* Drop .open as well as adding .closing. Leaving .open on meant the next open
+     removed .closing and re-added .open — a net no-op, so no style change and no
+     transition, and the menu blinked into place instead of animating. */
+  p.classList.remove('open');
+  p.classList.add('closing');
+  p._msTimer = setTimeout(done, MS_MENU_EXIT_MS + 80);
 }
 function portalMsMenu(menu, btn) {
   document.body.appendChild(menu);
+  /* Start from a clean base state: drop any exit state AND .open, so the reflow
+     below always commits opacity 0 and the .open add is a real change. */
+  clearTimeout(menu._msTimer);
+  menu._msDone = false;
+  menu.classList.remove('closing', 'open');
   const r = btn.getBoundingClientRect();
   const presetMax = parseInt(menu.style.maxHeight) || 0;
   if (!presetMax) {
@@ -10557,7 +10993,13 @@ function portalMsMenu(menu, btn) {
   let left = r.left;
   if (left + mW > vW - 8) left = vW - mW - 8;
   if (left < 8) left = 8;
-  menu.style.cssText = 'position:fixed;display:block;visibility:visible;z-index:999999;margin:0;left:' + left + 'px;top:' + top + 'px;max-height:' + (presetMax ? presetMax + 'px' : menu.style.maxHeight) + ';overflow-y:auto;animation:dropdownFadeIn .18s ease;';
+  /* No keyframe animation here: the open/close states are CSS transitions (the
+     .show pattern the rest of the site uses), which animate both directions and
+     stay interruptible. A transition needs a committed start value, hence the
+     forced reflow below — the measuring pass and the .open add otherwise land in
+     the same frame and the browser coalesces them into no animation at all. */
+  menu.style.cssText = 'position:fixed;display:block;visibility:visible;z-index:999999;margin:0;left:' + left + 'px;top:' + top + 'px;max-height:' + (presetMax ? presetMax + 'px' : menu.style.maxHeight) + ';overflow-y:auto;';
+  void menu.offsetHeight;
   menu.classList.add('open');
   _msMenu = menu; _msMenuBtn = btn;
   btn.setAttribute('aria-expanded', 'true');
@@ -10590,16 +11032,35 @@ function openMsMenu(menuItems, btn) {
   }
   return portalMsMenu(menu, btn);
 }
-document.addEventListener('scroll', () => closeMsMenus(), true);
+/* Capture phase so it also sees scrolls that do not bubble. The menu's OWN scrolling
+   is not "the page moved underneath" though — without this guard, wheeling through an
+   overflowing dropdown closed it on the first tick and looked like it would not scroll. */
+document.addEventListener('scroll', e => {
+  if (_msMenu && e.target && _msMenu.contains(e.target)) return;
+  closeMsMenus();
+}, true);
 window.addEventListener('resize', () => closeMsMenus());
 document.addEventListener('mousedown', e => {
-  if (_msMenu && _msMenuBtn && !_msMenu.contains(e.target) && e.target !== _msMenuBtn) closeMsMenus();
+  if (!_msMenu) return;
+  if (_msMenu.contains(e.target)) return;
+  /* containment, not identity: the trigger is an <svg>-bearing button, so pressing the
+     icon itself makes e.target the <path>, not the button. Comparing to _msMenuBtn
+     directly closed the menu on the same press that opened it. */
+  const b = _msMenuBtn;
+  if (b && (b === e.target || b.contains(e.target))) return;
+  closeMsMenus();
 });
 function openRibbonMenu(menu, anchor) {
   openMsMenu(menu, anchor);
 }
+/* Re-pressing the trigger dismisses. openRibbonMenu alone always closed and
+   reopened, so a second click on the same button re-showed the menu. */
+function toggleRibbonMenu(menu, anchor) {
+  if (_msMenuBtn === anchor) { closeMsMenus(); return; }
+  openRibbonMenu(menu, anchor);
+}
 function msDropdownCtrl(opts) {
-  const dd = el('<div class="ms-dropdown" data-rbsync="1"></div>');
+  const dd = el('<div class="ms-dropdown" data-rbsync="1"' + (opts.id ? ' id="' + esc(opts.id) + '"' : '') + '></div>');
   const btn = el('<button type="button" class="ms-dropdown-btn" aria-haspopup="listbox" aria-expanded="false" title="' + esc(opts.title || '') + '" style="' + (opts.minWidth ? 'min-width:' + opts.minWidth + 'px;' : '') + '">' + opts.render(opts.value()) + '</button>');
   const menu = el('<div class="ms-dropdown-menu' + (opts.menuClass ? ' ' + opts.menuClass : '') + '"' + (opts.maxHeight ? ' style="max-height:' + opts.maxHeight + 'px"' : '') + '></div>');
   for (const it of opts.items) {
@@ -10613,6 +11074,9 @@ function msDropdownCtrl(opts) {
   }
   btn.addEventListener('click', () => {
     if (_msMenuBtn === btn) { closeMsMenus(); return; }
+    /* openMsMenu closes first; this path portals a prebuilt menu, so without this
+       opening e.g. the font list while the size list is open left two menus up. */
+    closeMsMenus();
     portalMsMenu(dd._ddMenu, btn);
   });
   dd.appendChild(btn);
@@ -10653,6 +11117,7 @@ function buildCustomRibbonControl(item) {
   switch (item.custom) {
     case 'fontFamily': {
       return msDropdownCtrl({
+        id: 'rbnFontFamily',
         minWidth: 110,
         title: 'Font',
         maxHeight: 280,
@@ -10664,6 +11129,7 @@ function buildCustomRibbonControl(item) {
     }
     case 'fontSize': {
       return msDropdownCtrl({
+        id: 'rbnFontSize',
         minWidth: 60,
         title: 'Font size',
         value: () => { const sh = activeSheet(); const cell = sh.cells.get(key(SEL.active.r, SEL.active.c)); return (cell && cell.s && cell.s.fontSize ? cell.s.fontSize : DEF.fontPt) + ''; },
@@ -10675,6 +11141,7 @@ function buildCustomRibbonControl(item) {
     case 'numFmt': {
       const opts = [['General', 'General'], ['number', 'Number'], ['currency', 'Currency'], ['accounting', 'Accounting'], ['shortDate', 'Short Date'], ['longDate', 'Long Date'], ['time', 'Time'], ['percent', 'Percentage'], ['fraction', 'Fraction'], ['scientific', 'Scientific'], ['text', 'Text']];
       return msDropdownCtrl({
+        id: 'rbnNumFmt',
         minWidth: 100,
         title: 'Number format',
         value: () => {
@@ -10707,6 +11174,7 @@ function buildCustomRibbonControl(item) {
     }
     case 'fontColor': {
       const ctrl = msDropdownCtrl({
+        id: 'rbnFontColor',
         minWidth: 80,
         title: 'Text color',
         menuClass: 'color-list-menu',
@@ -10723,6 +11191,7 @@ function buildCustomRibbonControl(item) {
     }
     case 'fillColor': {
       return msDropdownCtrl({
+        id: 'rbnFillColor',
         minWidth: 90,
         title: 'Highlight color',
         menuClass: 'color-list-menu',
@@ -10788,10 +11257,109 @@ function showColorPalette(x, y, onPick, allowNone) {
   pop.appendChild(more);
   showPopup(pop, null, { x, y });
 }
+/* ---------------- Ribbon availability (Notes/Slides/Docs parity) ----------------
+   Notes, Slides and Docs all grey out a ribbon control whose precondition isn't
+   met instead of letting the click run into a dead end and toast about it. Same
+   contract here: updateRibbonAvailability() sets [disabled] + aria-disabled +
+   .is-unavailable, sheets.css styles .ribbon-btn[disabled] the same way, and
+   updateRibbonState() runs it on every repaint of the ribbon. */
+function getRibbonAvailability() {
+  const sh = WB ? activeSheet() : null;
+  const rg = activeSelRange() || { r1: 0, c1: 0, r2: 0, c2: 0 };
+  /* A selection is live when the renderer draws one — same test the row/column
+     headers use (headerSelected, sheets.js:3732). Loading a workbook doesn't
+     establish one, so on boot SEL.ranges is empty and SEL.sheetId null until
+     the first click; that is the "nothing is selected" state. */
+  const hasSelection = !!sh && SEL.ranges.length > 0 && SEL.sheetId === sh.id;
+  /* Font, Arrange and Number format work on a cell being typed into OR a cell
+     that is simply selected — either one counts. Requiring the editor alone
+     greys the ribbon for nearly every press, since selecting is the common
+     case and typing is the rare one. */
+  const formattingContext = hasSelection || (!!sh && Edit.active);
+  let hasContent = false;
+  if (sh) forEachSelectedCell((r, c) => {
+    const cell = sh.cells.get(key(r, c));
+    if (cell && (cell.v != null || cell.f)) { hasContent = true; return false; }
+  });
+  const active = sh ? sh.cells.get(key(SEL.active.r, SEL.active.c)) : null;
+  /* Sort/table commands fall back to the contiguous region around the active
+     cell when the selection isn't a plain block (quickSort, formatAsTable). */
+  let regionRows = 0;
+  if (sh) {
+    let region;
+    if (SEL.ranges.length === 1 && rg.r2 > rg.r1 && rg.c2 > rg.c1 && !isColSelection(rg) && !isRowSelection(rg)) region = rg;
+    else region = detectRegionAround(SEL.active.r, SEL.active.c);
+    regionRows = region.r2 - region.r1;
+  }
+  return {
+    formattingContext: formattingContext,
+    hasContent: hasContent,
+    multiCell: SEL.ranges.length > 1 || rg.r1 !== rg.r2 || rg.c1 !== rg.c2,
+    hasFormula: !!(active && active.f),
+    clipboard: !!Clip.cells,
+    auditOn: !!Audit.mode,
+    multiRowRegion: regionRows >= 1
+  };
+}
+function setRibbonControlDisabled(control, disabled) {
+  if (!control) return;
+  control.disabled = !!disabled;
+  control.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+  control.classList.toggle('is-unavailable', !!disabled);
+}
+function setRibbonCommandsDisabled(cmd, disabled) {
+  const body = $('#ribbon-body');
+  if (!body) return;
+  body.querySelectorAll('[data-cmd="' + cmd + '"]').forEach(control => setRibbonControlDisabled(control, disabled));
+}
+function setRibbonDropdownDisabled(id, disabled) {
+  const wrap = document.getElementById(id);
+  if (!wrap) return;
+  const btn = wrap.querySelector('.ms-dropdown-btn');
+  if (btn) setRibbonControlDisabled(btn, disabled);
+  wrap.classList.toggle('is-unavailable', !!disabled);
+}
+function updateRibbonAvailability() {
+  const s = getRibbonAvailability();
+
+  /* Clipboard — cut/copy need content under the selection, paste needs an
+     internal copy. Both keep working mid-edit: doCopy() falls through to the
+     system clipboard for the open editor, so it's deliberately not gated. */
+  setRibbonCommandsDisabled('cut', !s.hasContent);
+  setRibbonCommandsDisabled('copy', !s.hasContent);
+  setRibbonCommandsDisabled('paste', !s.clipboard);
+
+  /* Formatting, alignment and number format: a selected cell or an open editor. */
+  ['bold', 'italic', 'underline', 'strike', 'borders', 'align', 'numfmt', 'decimals'].forEach(cmd => {
+    setRibbonCommandsDisabled(cmd, !s.formattingContext);
+  });
+  ['rbnFontFamily', 'rbnFontSize', 'rbnFontColor', 'rbnFillColor', 'rbnNumFmt'].forEach(id => {
+    setRibbonDropdownDisabled(id, !s.formattingContext);
+  });
+
+  /* Merge needs something to merge — mergeSelection() otherwise toasts. Left off
+     the editing gate on purpose: the two can't coexist, so requiring both would
+     disable it for good. */
+  setRibbonCommandsDisabled('merge', !s.multiCell);
+
+  /* Traces resolve from the active cell, so they need a formula there; the
+     whole-graph trace works from any cell. Remove Arrows is a no-op with no
+     tracer mode on (removeAuditArrows, sheets.js:6119). */
+  setRibbonCommandsDisabled('trace', !s.hasFormula);
+  setRibbonCommandsDisabled('traceAll', false);
+  setRibbonCommandsDisabled('auditOff', !s.auditOn);
+
+  /* Sort / format-as-table need a region with a second row. */
+  setRibbonCommandsDisabled('sort', !s.multiRowRegion);
+  setRibbonCommandsDisabled('asTable', !s.multiRowRegion);
+
+  updateUndoRedoUI();
+}
 function updateRibbonState() {
   const body = $('#ribbon-body');
   if (!body) return;
   const sh = activeSheet();
+  updateRibbonAvailability();
   body.querySelectorAll('.ribbon-btn[data-toggle]').forEach(btn => {
     const item = btn._item;
     if (!item) return;
@@ -10834,7 +11402,7 @@ function toggleHeadings() {
   Persistence.markDirty();
 }
 function setZoom(z) {
-  VIEW.zoom = clamp(z, 0.1, 4);
+  VIEW.zoom = clamp(z, ZOOM_MIN, ZOOM_MAX);
   $('#sb-zoom-pct').textContent = Math.round(VIEW.zoom * 100) + '%';
   hideEditor();
   cancelSmoothScroll();
@@ -10846,7 +11414,7 @@ function setZoom(z) {
 /* ease the zoom to a target (buttons, menus, reset, zoom-to-selection) */
 const ZoomAnim = { raf: 0, from: 0, to: 0, t0: 0, dur: 220 };
 function animateZoom(target) {
-  const to = clamp(target, 0.1, 4);
+  const to = clamp(target, ZOOM_MIN, ZOOM_MAX);
   if (SmoothScroll.reduced) { setZoom(to); return; }
   if (ZoomAnim.raf) cancelAnimationFrame(ZoomAnim.raf);
   ZoomAnim.raf = 0;
@@ -10874,7 +11442,7 @@ function zoomToSelection() {
   const h = (sh.rows.offsetOf(rg.r2 + 1) - sh.rows.offsetOf(rg.r1));
   const L = R.layout;
   const target = Math.min((L.gridW - 40) / Math.max(1, w), (L.gridH - 40) / Math.max(1, h));
-  animateZoom(clamp(target, 0.1, 4));
+  animateZoom(clamp(target, ZOOM_MIN, ZOOM_MAX));
   ensureVisible(rg.r1, rg.c1, { smooth: true });
 }
 function hideEditor() {
@@ -11715,6 +12283,7 @@ function resizeCanvas() {
 function setupChrome() {
   R.canvas = $('#grid-canvas');
   R.ctx = R.canvas.getContext('2d');
+  refStripePat = null;                          /* pattern belongs to the old context */
   UI.editor = $('#cell-editor');
   UI.formulaInput = $('#formula-input');
   UI.nameBox = $('#name-box');
@@ -11727,9 +12296,15 @@ function setupChrome() {
   $('#fx-confirm').innerHTML = icon('check');
   $('#name-box-dd').innerHTML = icon('chevDown');
   $('#formula-expand').innerHTML = icon('chevDown');
-  $('#fx-cancel').addEventListener('click', () => { if (Edit.active) cancelEdit(); else cancelFormulaBar(); });
-  $('#fx-confirm').addEventListener('click', () => { if (Edit.active) commitEditor(); else commitFormulaBar(); });
+  $('#fx-cancel').addEventListener('click', () => { if (Edit.active) cancelEdit(); else cancelFormulaBar(); UI.canvasFocus(); });
+  $('#fx-confirm').addEventListener('click', () => { if (Edit.active) commitEditor(); else commitFormulaBar(); UI.canvasFocus(); });
   $('#fx-insert').addEventListener('click', () => openInsertFunctionDialog());
+  /* Chrome must never steal focus from the editor/formula bar: the blur fallback
+     would auto-commit the draft before the button's own click handler runs.
+     preventDefault on mousedown keeps the caret exactly where the user left it. */
+  ['#fx-cancel', '#fx-confirm', '#fx-insert', '#name-box-dd', '#formula-expand'].forEach(sel => {
+    $(sel).addEventListener('mousedown', e => e.preventDefault());
+  });
   $('#name-box-dd').addEventListener('click', e => {
     const names = Object.keys(WB.names);
     const items = names.length ? names.map(n => ({ label: WB.names[n].name, action: () => { UI.nameBox.value = WB.names[n].name; commitNameBox(); } })) : [{ label: '(no named ranges)', disabled: true }];
@@ -11741,9 +12316,10 @@ function setupChrome() {
       UI.formulaInput.focus();
     }
   });
-  UI.formulaInput.addEventListener('input', () => { if (Edit.active) { UI.editor.value = UI.formulaInput.value; Edit.dirty = true; } updateFormulaAC(UI.formulaInput); updateFormulaArgTip(UI.formulaInput); });
+  UI.formulaInput.addEventListener('input', e => { autoParen(UI.formulaInput, e); if (Edit.active) { UI.editor.value = UI.formulaInput.value; /* mirror the caret too, or a reference picked next lands at the stale spot */ UI.editor.setSelectionRange(UI.formulaInput.selectionStart, UI.formulaInput.selectionEnd); Edit.dirty = true; } updateFormulaAC(UI.formulaInput); updateFormulaArgTip(UI.formulaInput); });
   UI.formulaInput.addEventListener('keydown', () => { if (FxAC.open) FxAC.host = UI.formulaInput; });
   UI.nameBox.addEventListener('focus', () => UI.nameBox.select());
+  watchRefSelection();
   $('#formula-expand').addEventListener('click', () => $('#formula-row').classList.toggle('expanded'));
   /* ---- File modal (Backstage) ---- */
   $('#fileModalCloseXBtn').addEventListener('click', closeFileModal);
@@ -11789,7 +12365,23 @@ function setupChrome() {
     }
   });
   window.addEventListener('beforeunload', () => { try { Persistence.flush(); } catch (e) {} });
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') Persistence.flush(); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') Persistence.flush(); syncWindowFocusState(); });
+  /* Ribbon greys out while this window/tab isn't focused. Availability alone
+     can't express that: Font, Alignment and Clipboard have no unmet precondition
+     when you alt-tab away, they just aren't aimed at anything the user can see.
+     Purely a body class, so it composes with the [disabled] state instead of
+     overwriting it and restores on its own. Notes/Docs/Slides keep their own
+     selection-driven rules and don't need this — their ribbon is a text editor
+     whose caret is the only target, so focus loss is implied by the selection. */
+  window.addEventListener('blur', syncWindowFocusState);
+  window.addEventListener('focus', syncWindowFocusState);
+  syncWindowFocusState();
+}
+
+/* hasFocus() is false while the window is blurred, a background tab, or a
+   hidden document — all three are "the user isn't looking at this". */
+function syncWindowFocusState() {
+  document.body.classList.toggle('win-blurred', !document.hasFocus() || document.visibilityState === 'hidden');
 }
 
 let booted = false;
@@ -11878,4 +12470,3 @@ async function boot() {
 document.addEventListener('DOMContentLoaded', () => { boot(); });
 if (document.readyState !== 'loading') { try { boot(); } catch (e) { console.error(e); } }
 })();
-
