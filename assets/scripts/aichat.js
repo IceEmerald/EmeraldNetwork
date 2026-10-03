@@ -6147,14 +6147,6 @@ function shareConversation(id) {
   if (!id) return;
   shareConversations([id]);
 }
-function shareAllChats() {
-  const ids = loadConvs().filter((c) => c && !c.isTemp).map((c) => c.id);
-  if (!ids.length) {
-    showToast("⚠ There are no chats to share yet", "error");
-    return;
-  }
-  shareConversations(ids);
-}
 function _showShareModal(url) {
   const el = $("shareModal");
   const input = $("shareLinkInput");
@@ -9099,7 +9091,6 @@ try {
   if (typeof setupChatStorageSync !== "undefined" && typeof window.setupChatStorageSync === "undefined") window.setupChatStorageSync = setupChatStorageSync;
   if (typeof setupContextMenu !== "undefined" && typeof window.setupContextMenu === "undefined") window.setupContextMenu = setupContextMenu;
   if (typeof setupMarked !== "undefined" && typeof window.setupMarked === "undefined") window.setupMarked = setupMarked;
-  if (typeof shareAllChats !== "undefined" && typeof window.shareAllChats === "undefined") window.shareAllChats = shareAllChats;
   if (typeof shareConversation !== "undefined" && typeof window.shareConversation === "undefined") window.shareConversation = shareConversation;
   if (typeof shareConversations !== "undefined" && typeof window.shareConversations === "undefined") window.shareConversations = shareConversations;
   if (typeof showChatBranchLimitToast !== "undefined" && typeof window.showChatBranchLimitToast === "undefined") window.showChatBranchLimitToast = showChatBranchLimitToast;
