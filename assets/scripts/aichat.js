@@ -481,6 +481,7 @@ function buildContextMenu(type) {
         CHATS
       </div>
       <a onclick="renameConvPrompt('${id}')">Rename</a>
+      <a onclick="shareConversation('${id}')">Share Link</a>
       <a onclick="deleteConvConfirm('${id}')" class="ctx-danger">Delete</a>`;
   } else if (type === "message") {
     const regen = isLatestAIMessage(_ctxTarget) ? '<a onclick="regenFromCtx()">Regenerate</a>' : "";
@@ -5244,6 +5245,9 @@ async function init() {
     if (conv) loadConversation(ownedParam);
     else history.replaceState({}, document.title, location.pathname);
   }
+  /* Deep-link: #import=<payload> carries a shared chat in the fragment.
+     Runs after the ?chat= deep-link so a freshly imported chat wins. */
+  await _shareAutoImportFromHash();
   checkOnboarding();
   try {
     refreshModelSelectorUI();
@@ -5893,6 +5897,491 @@ function clearAllChats() {
   closeModal("clearChatsModal");
   closeModal("settingsModal");
   showToast("\u2713 All chats & memories cleared");
+}
+/* ══════════════════════════════════════════════════════════════════
+   IMPORT / EXPORT  —  portable share links
+   ------------------------------------------------------------
+   A chat export is a self-contained JSON document holding only the
+   persisted conversation objects (text, quizzes, generated images via
+   msg.imageData, and attachments via msg.files[].data). Nothing about
+   the chat ever reaches a server: the document is deflated and
+   base64url-encoded straight into the URL fragment (#import=…), which
+   browsers never transmit to the server or write to access logs.
+
+   The same document can be saved as a .emeraldcore file for links
+   that get too big for a chat app to carry.
+
+   Import is always ADDITIVE. Existing conversations, files and
+   memories are never touched; incoming conversations get fresh ids
+   and are unshifted onto the top of the Recents list.
+   ══════════════════════════════════════════════════════════════════ */
+const SHARE_APP_TAG = "emeraldbotaichat";
+const SHARE_FORMAT_VERSION = 1;
+const SHARE_HASH_PREFIX = "#import=";
+/* Browsers cap total URL length well before a chat can get long (this is
+   the practical ceiling — the same one EmeraldSuite Notes uses). Past it
+   the fragment can't survive a round trip, so we refuse to build a link
+   and offer the .emeraldcore file instead. */
+const _SHARE_BLOCKED_KEYS = /* @__PURE__ */ new Set(["__proto__", "constructor", "prototype"]);
+/* Payload + link kept around so "Copy Link" and "Download File" both act
+   on the export the user just made. */
+let _shareLastURL = "";
+
+/* ---------- base64url (URL-safe, unpadded) ---------- */
+function _shareBytesToB64Url(bytes) {
+  let bin = "";
+  const CHUNK = 32768;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function _shareB64UrlToBytes(str) {
+  const b64 = String(str).replace(/-/g, "+").replace(/_/g, "/");
+  const pad = b64.length % 4 ? "=".repeat(4 - b64.length % 4) : "";
+  const bin = atob(b64 + pad);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+/* ---------- codec: JSON → 'z'<deflate-raw> | 'r'<raw>, base64url ---------- */
+async function _shareCompress(bytes) {
+  if (typeof CompressionStream === "undefined") return null;
+  try {
+    const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream("deflate-raw"));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  } catch (e) {
+    /* deflate-raw unsupported on this browser — fall back to raw bytes.
+       The marker char tells the reader which form it is looking at, so a
+       link made here still opens anywhere. */
+    return null;
+  }
+}
+async function _shareDecompress(bytes) {
+  if (typeof DecompressionStream === "undefined") {
+    throw new Error("This browser can't unpack that share link.");
+  }
+  try {
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  } catch (e) {
+    throw new Error("The share link data is corrupted and could not be read.");
+  }
+}
+async function _shareEncode(obj) {
+  const bytes = new TextEncoder().encode(JSON.stringify(obj));
+  const zipped = await _shareCompress(bytes);
+  /* Only keep the compressed form when it actually helps — tiny chats
+     can deflate slightly larger than their raw JSON. */
+  return zipped && zipped.length < bytes.length
+    ? "z" + _shareBytesToB64Url(zipped)
+    : "r" + _shareBytesToB64Url(bytes);
+}
+async function _shareDecode(encoded) {
+  const s = String(encoded || "").trim();
+  if (!s) throw new Error("That share link is empty.");
+  const marker = s.charAt(0);
+  const body = s.slice(1);
+  let bytes;
+  if (marker === "z") bytes = await _shareDecompress(_shareB64UrlToBytes(body));
+  else if (marker === "r") bytes = _shareB64UrlToBytes(body);
+  else throw new Error("This does not look like an EmeraldBot share link.");
+  let obj;
+  try {
+    obj = JSON.parse(new TextDecoder().decode(bytes));
+  } catch (e) {
+    throw new Error("The share link data is corrupted and could not be read.");
+  }
+  return obj;
+}
+
+/* Accepts a bare payload, a full share URL, or a copy-pasted link that
+   got hard-wrapped with newlines/spaces by a messaging app. */
+function _shareExtractEncoded(raw) {
+  let s = String(raw || "").trim();
+  const at = s.indexOf(SHARE_HASH_PREFIX);
+  if (at >= 0) s = s.slice(at + SHARE_HASH_PREFIX.length);
+  s = s.replace(/\s+/g, "");
+  if (!s) throw new Error("Paste a share link first.");
+  return s;
+}
+function _shareBuildURL(encoded) {
+  const url = new URL(location.origin + location.pathname);
+  url.hash = SHARE_HASH_PREFIX + encoded;
+  return url.toString();
+}
+
+/* ---------- .emeraldcore file form (JSON + comment header) ---------- */
+function stripJsoncComments(text) {
+  /* Walks character-by-character so comment-like sequences inside string
+     literals are never stripped. Mirrors flowchart.js so a file written
+     there still parses here. */
+  let out = "";
+  let i = 0;
+  let inString = false;
+  let stringDelim = "";
+  const len = text.length;
+  while (i < len) {
+    const ch = text[i];
+    const next = text[i + 1];
+    if (inString) {
+      out += ch;
+      if (ch === "\\") {
+        if (i + 1 < len) { out += next; i += 2; continue; }
+      }
+      if (ch === stringDelim) inString = false;
+      i++;
+      continue;
+    }
+    if (ch === "\"" || ch === "'") {
+      inString = true;
+      stringDelim = ch;
+      out += ch;
+      i++;
+      continue;
+    }
+    if (ch === "/" && next === "/") {
+      while (i < len && text[i] !== "\n") i++;
+      continue;
+    }
+    if (ch === "/" && next === "*") {
+      i += 2;
+      while (i < len && !(text[i] === "*" && text[i + 1] === "/")) i++;
+      i += 2;
+      continue;
+    }
+    out += ch;
+    i++;
+  }
+  return out;
+}
+function parseShareFile(text) {
+  let data;
+  try {
+    data = JSON.parse(stripJsoncComments(text));
+  } catch (err) {
+    throw new Error("The file is not a valid .emeraldcore chat file. " + err.message);
+  }
+  if (!data || typeof data !== "object") {
+    throw new Error("The file does not contain a chat object.");
+  }
+  if (data.convs && !Array.isArray(data.convs)) {
+    throw new Error("The file is missing a \"convs\" array — it may be a different kind of file.");
+  }
+  return data;
+}
+
+/* ---------- payload shaping ---------- */
+/* Deep-clones untrusted data, dropping keys that could be used to walk
+   the prototype chain. Reuses safeSetProp so the scrubbed copy is built
+   with the same guard the rest of the app uses. */
+function _shareScrub(value, depth) {
+  if (depth > 40) return null;
+  if (value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.map((v) => _shareScrub(v, depth + 1));
+  const out = {};
+  for (const key of Object.keys(value)) {
+    if (_SHARE_BLOCKED_KEYS.has(key)) continue;
+    safeSetProp(out, key, _shareScrub(value[key], depth + 1));
+  }
+  return out;
+}
+function _shareNormalizeConv(raw) {
+  const now = Date.now();
+  const created = Number(raw.createdAt);
+  const updated = Number(raw.updatedAt);
+  const conv = {
+    id: typeof raw.id === "string" ? raw.id : "",
+    title: typeof raw.title === "string" && raw.title.trim() ? raw.title : "Untitled",
+    createdAt: Number.isFinite(created) && created > 0 ? created : now,
+    updatedAt: Number.isFinite(updated) && updated > 0 ? updated : (Number.isFinite(created) && created > 0 ? created : now),
+    isTemp: false,
+    messages: []
+  };
+  if (Array.isArray(raw.messages)) {
+    for (const m of raw.messages) {
+      if (!m || typeof m !== "object" || (m.role !== "user" && m.role !== "assistant")) continue;
+      conv.messages.push(m);
+    }
+  }
+  /* Branch trees (edit-and-resend / regenerate) are keyed by message id,
+     so they travel with the conversation and need no remapping. */
+  if (raw._editBranches && typeof raw._editBranches === "object") {
+    conv._editBranches = raw._editBranches;
+  }
+  return conv;
+}
+function _shareBuildPayload(convIds) {
+  const wanted = new Set(convIds);
+  const convs = loadConvs()
+    .filter((c) => c && !c.isTemp && wanted.has(c.id))
+    .map(_shareNormalizeConv);
+  return {
+    v: SHARE_FORMAT_VERSION,
+    app: SHARE_APP_TAG,
+    exportedAt: Date.now(),
+    convs
+  };
+}
+
+/* ---------- export ---------- */
+async function shareConversations(ids) {
+  const list = Array.isArray(ids) ? ids.filter((id) => typeof id === "string") : [];
+  if (!list.length) {
+    showToast("⚠ Nothing to share", "error");
+    return;
+  }
+  try {
+    const payload = _shareBuildPayload(list);
+    if (!payload.convs.length) {
+      showToast("⚠ Nothing to share", "error");
+      return;
+    }
+    _showShareModal(_shareBuildURL(await _shareEncode(payload)));
+  } catch (err) {
+    showToast(`⚠ Could not build the share link: ${err.message || "unknown error"}`, "error");
+  }
+}
+function shareConversation(id) {
+  if (!id) return;
+  shareConversations([id]);
+}
+function shareAllChats() {
+  const ids = loadConvs().filter((c) => c && !c.isTemp).map((c) => c.id);
+  if (!ids.length) {
+    showToast("⚠ There are no chats to share yet", "error");
+    return;
+  }
+  shareConversations(ids);
+}
+function _showShareModal(url) {
+  const el = $("shareModal");
+  const input = $("shareLinkInput");
+  if (!el || !input) return;
+  /* No length gate here on purpose. Browsers disagree wildly about how
+     long a fragment they will carry — some reject an 8k link that another
+     one opens without complaint, and a link pasted in by hand frequently
+     arrives intact. Rejecting "too long" links up front just locked people
+     out of chats that would have worked. */
+  _shareLastURL = url;
+  input.value = url;
+  openModal("shareModal");
+  try { input.focus(); input.select(); } catch (e) {}
+}
+async function copyShareLink() {
+  const input = $("shareLinkInput");
+  const url = (input && input.value) || _shareLastURL;
+  if (!url) {
+    showToast("⚠ There is no link to copy", "error");
+    return;
+  }
+  if (await safeCopy(url)) {
+    showToast(`${_aiSvgLink} Link copied to clipboard`);
+    closeModal("shareModal");
+    return;
+  }
+  /* Clipboard blocked (insecure context / denied permission) — the field
+     stays open and selected so it can still be copied by hand. */
+  showToast("⚠ Copy blocked — select the link and copy manually", "error");
+  if (input) { input.focus(); input.select(); }
+}
+
+/* ---------- import ---------- */
+/* Fingerprint of the document itself, so re-opening the same link twice
+   is a no-op instead of creating a second copy of everything. */
+function _shareFingerprint(payload) {
+  let text;
+  try {
+    text = JSON.stringify(payload);
+  } catch (e) {
+    return "";
+  }
+  let h = 5381;
+  for (let i = 0; i < text.length; i++) {
+    h = ((h << 5) + h + text.charCodeAt(i)) >>> 0;
+  }
+  return h.toString(36);
+}
+function _shareImportPayload(payload) {
+  if (!payload || typeof payload !== "object") {
+    throw new Error("That does not contain any chat data.");
+  }
+  if (payload.app && payload.app !== SHARE_APP_TAG) {
+    throw new Error("That link was created by a different EmeraldCore app.");
+  }
+  if (!Array.isArray(payload.convs)) {
+    throw new Error("That file is missing a \"convs\" array — it may be a different kind of file.");
+  }
+  const fp = _shareFingerprint(payload);
+  const existing = loadConvs();
+  /* Never touch what's already here — only ADD. */
+  if (fp && existing.some((c) => c && c._shareKey === fp)) {
+    return { skipped: true, added: 0, firstId: null, titles: [] };
+  }
+  const takenIds = new Set(existing.map((c) => c && c.id).filter(Boolean));
+  const freshId = () => {
+    let id = genChatId();
+    let guard = 0;
+    while (takenIds.has(id) && guard++ < 64) id = genChatId();
+    takenIds.add(id);
+    return id;
+  };
+  const added = [];
+  for (const rawConv of payload.convs) {
+    if (!rawConv || typeof rawConv !== "object") continue;
+    const conv = _shareNormalizeConv(_shareScrub(rawConv, 0));
+    if (!conv.messages.length) continue;
+    conv.id = freshId();
+    if (fp) conv._shareKey = fp;
+    conv._sharedAt = Date.now();
+    added.push(conv);
+  }
+  if (!added.length) {
+    throw new Error("That share link doesn't contain any chats with messages.");
+  }
+  /* Exports are ordered newest-first, so prepending preserves relative
+     order and matches how upsertConv() files new chats. */
+  saveConvs(added.concat(existing));
+  renderSidebar();
+  if (_storeMeterTimer) _refreshStorageMeter();
+  return { skipped: false, added: added.length, firstId: added[0].id, titles: added.map((c) => c.title) };
+}
+async function _shareImportEncoded(encoded) {
+  return _shareImportPayload(await _shareDecode(encoded));
+}
+/* Every import path (hash deep-link, pasted link, file picker) ends here. */
+function _shareFinishImport(res) {
+  closeModal("importModal");
+  if (res.firstId) loadConversation(res.firstId);
+  _showImportedModal(res);
+}
+function _shareReportSkip() {
+  closeModal("importModal");
+  showToast(`${_aiSvgLink} These chats are already in your history`);
+}
+/* Mirrors EmeraldSuite Notes' post-import confirmation. Built with
+   textContent + createElement so a chat title can never reach an HTML
+   sink. */
+function _showImportedModal(res) {
+  const el = $("shareImportedModal");
+  const msg = $("shareImportedMessage");
+  if (!el || !msg) return;
+  msg.textContent = "";
+  if (res.added === 1) {
+    msg.append("Added to your collection: ");
+    const strong = document.createElement("strong");
+    strong.textContent = res.titles[0] || "Untitled";
+    msg.append(strong);
+  } else {
+    msg.textContent = `Added ${res.added} chats to your collection.`;
+  }
+  openModal("shareImportedModal");
+}
+function _shareErrorText(err, fallback) {
+  return err && err.message ? err.message : fallback;
+}
+function _shareClearHash() {
+  try {
+    if (!location.hash) return;
+    history.replaceState({}, document.title, location.pathname + location.search);
+  } catch (e) {}
+}
+async function _shareAutoImportFromHash() {
+  let hash = "";
+  try { hash = location.hash || ""; } catch (e) { return; }
+  if (hash.indexOf(SHARE_HASH_PREFIX) !== 0) return;
+  const encoded = _shareExtractEncoded(hash);
+  /* Drop the payload from the address bar before doing anything else, so
+     a refresh mid-import doesn't re-run it and so the long fragment isn't
+     left sitting in the URL. */
+  _shareClearHash();
+  try {
+    const res = await _shareImportEncoded(encoded);
+    if (res.skipped) {
+      _shareReportSkip();
+      return;
+    }
+    _shareFinishImport(res);
+  } catch (err) {
+    _showImportError(_shareErrorText(err, "That share link could not be opened."), (location.origin + location.pathname) + SHARE_HASH_PREFIX + encoded);
+  }
+}
+function _showImportError(message, rawText) {
+  const el = $("importModal");
+  if (!el) {
+    showToast(`⚠ ${message}`, "error");
+    return;
+  }
+  closeModal("settingsModal");
+  const input = $("importLinkInput");
+  if (input && rawText) input.value = rawText;
+  _setImportStatus(message, true);
+  openModal("importModal");
+}
+function _setImportStatus(message, isError) {
+  const el = $("importStatus");
+  if (!el) return;
+  if (!message) {
+    el.style.display = "none";
+    el.textContent = "";
+    el.classList.remove("share-status--error");
+    return;
+  }
+  el.textContent = message;
+  el.classList.toggle("share-status--error", !!isError);
+  el.style.display = "block";
+}
+function openImportModal() {
+  closeModal("settingsModal");
+  const input = $("importLinkInput");
+  if (input) input.value = "";
+  _setImportStatus("", false);
+  openModal("importModal");
+}
+async function importChatsFromInput() {
+  const input = $("importLinkInput");
+  const raw = input ? input.value : "";
+  _setImportStatus("Importing…", false);
+  try {
+    const res = await _shareImportEncoded(_shareExtractEncoded(raw));
+    if (res.skipped) {
+      _shareReportSkip();
+      return;
+    }
+    _shareFinishImport(res);
+  } catch (err) {
+    _setImportStatus(_shareErrorText(err, "That share link could not be opened."), true);
+  }
+}
+function handleShareFileImport(input) {
+  const file = input.files && input.files[0];
+  /* Reset immediately so picking the same file twice still fires. */
+  input.value = "";
+  if (!file) return;
+  const lower = file.name.toLowerCase();
+  if (!lower.endsWith(".emeraldcore") && !lower.endsWith(".json")) {
+    _setImportStatus("Only .emeraldcore and .json chat files can be imported.", true);
+    return;
+  }
+  _setImportStatus(`Reading ${file.name}…`, false);
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const res = _shareImportPayload(parseShareFile(String(ev.target.result || "")));
+      if (res.skipped) {
+        _shareReportSkip();
+        return;
+      }
+      _shareFinishImport(res);
+    } catch (err) {
+      _setImportStatus(_shareErrorText(err, "That file could not be read."), true);
+    }
+  };
+  reader.onerror = () => {
+    _setImportStatus("Could not read the selected file.", true);
+  };
+  reader.readAsText(file);
 }
 /* ── Render cached image search results (from IndexedDB) without re-fetching ── */
 function _renderCachedImageSearchResults(aiDiv, cacheMap) {
@@ -8500,6 +8989,7 @@ try {
   if (typeof confirmClearAllChats !== "undefined" && typeof window.confirmClearAllChats === "undefined") window.confirmClearAllChats = confirmClearAllChats;
   if (typeof copyCode !== "undefined" && typeof window.copyCode === "undefined") window.copyCode = copyCode;
   if (typeof copyMsgText !== "undefined" && typeof window.copyMsgText === "undefined") window.copyMsgText = copyMsgText;
+  if (typeof copyShareLink !== "undefined" && typeof window.copyShareLink === "undefined") window.copyShareLink = copyShareLink;
   if (typeof copyUserMsgText !== "undefined" && typeof window.copyUserMsgText === "undefined") window.copyUserMsgText = copyUserMsgText;
   if (typeof createPreviewSrcdoc !== "undefined" && typeof window.createPreviewSrcdoc === "undefined") window.createPreviewSrcdoc = createPreviewSrcdoc;
   if (typeof ctxCopyPageLink !== "undefined" && typeof window.ctxCopyPageLink === "undefined") window.ctxCopyPageLink = ctxCopyPageLink;
@@ -8531,10 +9021,13 @@ try {
   if (typeof handleAvatarUpload !== "undefined" && typeof window.handleAvatarUpload === "undefined") window.handleAvatarUpload = handleAvatarUpload;
   if (typeof handleFileSelect !== "undefined" && typeof window.handleFileSelect === "undefined") window.handleFileSelect = handleFileSelect;
   if (typeof handleSend !== "undefined" && typeof window.handleSend === "undefined") window.handleSend = handleSend;
+  if (typeof handleShareFileImport !== "undefined" && typeof window.handleShareFileImport === "undefined") window.handleShareFileImport = handleShareFileImport;
   if (typeof init !== "undefined" && typeof window.init === "undefined") window.init = init;
   if (typeof initTheme !== "undefined" && typeof window.initTheme === "undefined") window.initTheme = initTheme;
+  if (typeof importChatsFromInput !== "undefined" && typeof window.importChatsFromInput === "undefined") window.importChatsFromInput = importChatsFromInput;
   if (typeof insertBeforeMessageActions !== "undefined" && typeof window.insertBeforeMessageActions === "undefined") window.insertBeforeMessageActions = insertBeforeMessageActions;
   if (typeof isLatestAIMessage !== "undefined" && typeof window.isLatestAIMessage === "undefined") window.isLatestAIMessage = isLatestAIMessage;
+  if (typeof openImportModal !== "undefined" && typeof window.openImportModal === "undefined") window.openImportModal = openImportModal;
   if (typeof loadConversation !== "undefined" && typeof window.loadConversation === "undefined") window.loadConversation = loadConversation;
   if (typeof loadConvs !== "undefined" && typeof window.loadConvs === "undefined") window.loadConvs = loadConvs;
   if (typeof loadLib !== "undefined" && typeof window.loadLib === "undefined") window.loadLib = loadLib;
@@ -8606,6 +9099,9 @@ try {
   if (typeof setupChatStorageSync !== "undefined" && typeof window.setupChatStorageSync === "undefined") window.setupChatStorageSync = setupChatStorageSync;
   if (typeof setupContextMenu !== "undefined" && typeof window.setupContextMenu === "undefined") window.setupContextMenu = setupContextMenu;
   if (typeof setupMarked !== "undefined" && typeof window.setupMarked === "undefined") window.setupMarked = setupMarked;
+  if (typeof shareAllChats !== "undefined" && typeof window.shareAllChats === "undefined") window.shareAllChats = shareAllChats;
+  if (typeof shareConversation !== "undefined" && typeof window.shareConversation === "undefined") window.shareConversation = shareConversation;
+  if (typeof shareConversations !== "undefined" && typeof window.shareConversations === "undefined") window.shareConversations = shareConversations;
   if (typeof showChatBranchLimitToast !== "undefined" && typeof window.showChatBranchLimitToast === "undefined") window.showChatBranchLimitToast = showChatBranchLimitToast;
   if (typeof showMessages !== "undefined" && typeof window.showMessages === "undefined") window.showMessages = showMessages;
   if (typeof showToast !== "undefined" && typeof window.showToast === "undefined") window.showToast = showToast;

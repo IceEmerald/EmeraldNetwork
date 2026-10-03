@@ -274,6 +274,20 @@
                     </div>
                 </div>
                 <div class="sett-section">
+                    <div class="sett-section-label">Import &amp; Export</div>
+                    <div class="sett-data-btns">
+                        <button class="sett-data-btn" onclick="shareAllChats()">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                            Share Chats
+                        </button>
+                        <button class="sett-data-btn" onclick="openImportModal()">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            Import Chats
+                        </button>
+                    </div>
+                    <p class="share-hint">Share links carry the chats inside the link itself &mdash; nothing is uploaded. Opening one adds the chats as new conversations.</p>
+                </div>
+                <div class="sett-section">
                     <div class="sett-section-label">Data &amp; Memory</div>
                     <div class="sett-data-btns">
                         <button class="sett-data-btn" onclick="openMemoriesModal()">
@@ -452,6 +466,70 @@
             <div class="ai-modal-actions">
                 <button class="ai-modal-btn secondary" onclick="closeModal('clearChatsModal')">Cancel</button>
                 <button class="ai-modal-btn danger" onclick="clearAllChats()">Clear All Chats</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ─── Share Chat Modal ──────────────────── -->
+    <div class="ai-modal-overlay" id="shareModal" onclick="if(event.target===this)closeModal('shareModal')">
+        <div class="ai-modal ai-modal--lg ai-modal--centered">
+            <div class="ai-modal-body ai-modal-body--centered">
+                <div class="modal-icon modal-icon--info">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                </div>
+                <div class="modal-centered-title">Share Chat</div>
+                <div class="modal-form-body">
+                    <label class="sett-label" for="shareLinkInput">Share Link:</label>
+                    <input type="text" id="shareLinkInput" class="sett-input share-link-input" readonly>
+                </div>
+                <div class="modal-centered-actions">
+                    <button class="ai-modal-btn secondary" onclick="closeModal('shareModal')">Close</button>
+                    <button class="ai-modal-btn primary" onclick="copyShareLink()">Copy Link</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── Import Chat Modal ─────────────────── -->
+    <div class="ai-modal-overlay" id="importModal" onclick="if(event.target===this)closeModal('importModal')">
+        <div class="ai-modal ai-modal--lg ai-modal--centered">
+            <div class="ai-modal-body ai-modal-body--centered">
+                <div class="modal-icon modal-icon--info">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                </div>
+                <div class="modal-centered-title">Import Chat</div>
+                <div class="modal-form-body">
+                    <label class="sett-label" for="importLinkInput">Share Link:</label>
+                    <input type="text" id="importLinkInput" class="sett-input" placeholder="Paste a share link&hellip;" spellcheck="false">
+                    <div class="share-status" id="importStatus" style="display:none"></div>
+                    <input type="file" id="importFileInput" accept=".emeraldcore,.json,application/json" style="display:none" onchange="handleShareFileImport(this)">
+                    <button class="share-file-btn" onclick="document.getElementById('importFileInput').click()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>
+                        Choose a chat file&hellip;
+                    </button>
+                    <p class="share-hint">Imported chats are always added as new conversations &mdash; nothing you already have is replaced.</p>
+                </div>
+                <div class="modal-centered-actions">
+                    <button class="ai-modal-btn secondary" onclick="closeModal('importModal')">Close</button>
+                    <button class="ai-modal-btn primary" onclick="importChatsFromInput()">Import</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── Import Confirmation ───────────────── -->
+    <div class="ai-modal-overlay" id="shareImportedModal" onclick="if(event.target===this)closeModal('shareImportedModal')">
+        <div class="ai-modal ai-modal--sm ai-modal--centered">
+            <div class="ai-modal-body ai-modal-body--centered">
+                <div class="modal-icon modal-icon--info">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                </div>
+                <div class="modal-centered-title">Chat Imported</div>
+                <p class="modal-centered-text" id="shareImportedMessage"></p>
+            </div>
+            <div class="ai-modal-actions">
+                <button class="ai-modal-btn primary" onclick="closeModal('shareImportedModal')">Continue</button>
             </div>
         </div>
     </div>

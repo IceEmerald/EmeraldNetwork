@@ -4707,6 +4707,93 @@ body.light-mode .fp-text-code {
     border-top: none;
 }
 
+/* ── Share / Import modals ───────────────────────
+   Layout mirrors EmeraldSuite Notes' export modal: centred icon +
+   title, a "Share Link:" label over a readonly input, and centred
+   actions. Only the parts Notes doesn't already own are styled here —
+   the shell reuses .ai-modal--centered / .modal-icon / .sett-input.
+   ────────────────────────────────────────────── */
+.share-link-input {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    text-overflow: ellipsis;
+}
+
+.share-status {
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.8rem;
+    line-height: 1.55;
+    color: var(--text-muted);
+    background: rgb(24, 24, 24);
+    border: 1px solid rgb(44, 44, 44);
+    border-radius: 8px;
+    padding: 9px 11px;
+    margin-top: 10px;
+    text-align: left;
+    word-break: break-word;
+}
+
+.share-status--error {
+    color: rgb(224, 110, 110);
+    background: rgb(42, 22, 22);
+    border-color: rgba(224, 85, 85, 0.3);
+}
+
+.share-file-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: 10px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px dashed rgb(52, 52, 52);
+    background: transparent;
+    color: var(--text-muted);
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+
+.share-file-btn:hover {
+    border-color: rgb(80, 200, 120);
+    color: var(--text);
+    background: rgb(26, 26, 26);
+}
+
+body.light-mode .share-status {
+    background: rgb(246, 246, 248);
+    border-color: rgb(226, 226, 228);
+}
+
+body.light-mode .share-status--error {
+    color: rgb(200, 70, 70);
+    background: rgb(255, 240, 241);
+    border-color: rgba(224, 85, 85, 0.28);
+}
+
+body.light-mode .share-file-btn {
+    border-color: rgb(219, 219, 222);
+}
+
+body.light-mode .share-file-btn:hover {
+    border-color: rgb(80, 200, 120);
+    background: rgb(242, 242, 244);
+}
+
+.share-hint {
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.74rem;
+    line-height: 1.55;
+    color: var(--text-muted);
+    opacity: 0.85;
+    text-align: left;
+    margin: 10px 0 0;
+}
+
 .ai-modal--model {
     max-width: 440px;
     max-height: 84vh;
