@@ -6023,7 +6023,7 @@ body.no-active-note .editor-header, body.no-active-note .editor-content, body.no
     border-radius: 0px 12px 12px 0px;
     flex-shrink: 0;
     overflow: hidden;
-    margin-right: 2px;
+    margin: 0;
     font-family: "DM Sans", sans-serif;
     z-index: 10;
     transition: width 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -6046,8 +6046,13 @@ body.no-active-note .editor-header, body.no-active-note .editor-content, body.no
     }
 }
 
+/* Side-panel spacing scale — shared with the Docs Outline/Pages/Footnotes
+   panes and the Sheets chart pane:
+     header  8px 16px   body  8px 16px 12px   foot  8px 16px 12px
+   container margin 0 */
 .animation-pane .ap-header {
-    padding: 4px 12px 1px;
+    padding: 8px 16px;
+    gap: 8px;
     font-size: 14px;
     font-weight: 700;
     display: flex;
@@ -6080,7 +6085,7 @@ body.no-active-note .editor-header, body.no-active-note .editor-content, body.no
 .animation-pane .ap-toolbar {
     display: flex;
     gap: 6px;
-    padding: 12px 16px 4px 12px;
+    padding: 8px 16px;
 }
 
 .animation-pane .ap-toolbar-btn {
@@ -6110,7 +6115,7 @@ body.no-active-note .editor-header, body.no-active-note .editor-content, body.no
 }
 
 .animation-pane .ap-body {
-    padding: 8px 12px 1px 10px;
+    padding: 8px 16px 12px;
     flex: 1 1 0%;
     overflow-y: auto;
 }

@@ -95,18 +95,19 @@ const ICONS = {
   underline: '<path d="M6 4v6a6 6 0 0 0 12 0V4"/><path d="M4 21h16"/>',
   underline2: '<path d="M6 4v6a6 6 0 0 0 12 0V4"/><path d="M4 18h16M4 21.5h16"/>',
   strike: '<path d="M16 4H9a3 3 0 0 0-2.8 4M14 12a4 4 0 0 1 0 8H6"/><path d="M4 12h16"/>',
-  alignLeft: '<path d="M4 6h13M4 12h9M4 18h13"/>',
-  alignCenter: '<path d="M4 6h16M7 12h10M4 18h16"/>',
-  alignRight: '<path d="M7 6h13M11 12h9M7 18h13"/>',
-  alignTop: '<path d="M4 4h16M12 20V9M8.5 12.5 12 9l3.5 3.5"/>',
-  alignMiddle: '<path d="M4 12h16M12 4v5M12 19v-5M9.5 7 12 4.5 14.5 7M9.5 17l2.5 2.5L14.5 17"/>',
-  alignBottom: '<path d="M4 20h16M12 4v11M8.5 11.5 12 15l3.5-3.5"/>',
+  alignLeft: '<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="10" x2="17" y2="10"/><line x1="3" y1="14" x2="21" y2="14"/><line x1="3" y1="18" x2="17" y2="18"/>',
+  alignCenter: '<line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="10" x2="18" y2="10"/><line x1="3" y1="14" x2="21" y2="14"/><line x1="6" y1="18" x2="18" y2="18"/>',
+  alignRight: '<line x1="3" y1="6" x2="21" y2="6"/><line x1="7" y1="10" x2="21" y2="10"/><line x1="3" y1="14" x2="21" y2="14"/><line x1="7" y1="18" x2="21" y2="18"/>',
+  alignTop: '<line x1="6" y1="3" x2="6" y2="17"/><line x1="10" y1="3" x2="10" y2="21"/><line x1="14" y1="3" x2="14" y2="17"/><line x1="18" y1="3" x2="18" y2="21"/>',
+  alignMiddle: '<line x1="6" y1="8" x2="6" y2="16"/><line x1="10" y1="5" x2="10" y2="19"/><line x1="14" y1="8" x2="14" y2="16"/><line x1="18" y1="5" x2="18" y2="19"/>',
+  alignBottom: '<line x1="6" y1="7" x2="6" y2="21"/><line x1="10" y1="3" x2="10" y2="21"/><line x1="14" y1="7" x2="14" y2="21"/><line x1="18" y1="3" x2="18" y2="21"/>',
   wrap: '<path d="M4 6h16M4 12h12a3 3 0 0 1 0 6h-4M10 15l-3 3 3 3"/>',
-  merge: '<rect x="3" y="6" width="6" height="12" rx="1"/><rect x="15" y="6" width="6" height="12" rx="1"/><path d="M10.5 12h3M12 10.5 13.5 12 12 13.5"/>',
-  unmerge: '<rect x="3" y="6" width="8" height="12" rx="1"/><rect x="13" y="6" width="8" height="12" rx="1"/>',
+  merge: '<rect x="3" y="6" width="7" height="12" rx="1.5"/><rect x="14" y="6" width="7" height="12" rx="1.5"/><path d="M11.5 12h1"/>',
+  unmerge: '<rect x="3" y="6" width="8" height="12" rx="1.5"/><rect x="13" y="6" width="8" height="12" rx="1.5"/>',
   currency: '<path d="M12 3v18M16.5 7.2C15.6 6 14 5.4 12 5.4c-2.4 0-4.2 1.1-4.2 2.8 0 3.6 8.4 1.7 8.4 5.3 0 1.8-1.8 2.9-4.2 2.9-2 0-3.6-.7-4.5-1.9"/>',
   percent: '<path d="M19 5 5 19"/><circle cx="6.8" cy="6.8" r="2.3"/><circle cx="17.2" cy="17.2" r="2.3"/>',
   comma: '<ellipse cx="6.4" cy="11.6" rx="2.5" ry="3.9"/><ellipse cx="13.2" cy="11.6" rx="2.5" ry="3.9"/><path d="M19.8 13.2c-.2 2.3-1.3 3.9-3.2 4.9"/>',
+  numfmt: '<path d="M9.2 3.5 7.2 20.5M15.6 3.5l-2 17M3.4 8.8h17.2M2.8 15.4h17.2"/><circle cx="20.2" cy="20.2" r="1.5" fill="currentColor" stroke="none"/>',
   decInc: '<circle cx="4.4" cy="16.4" r="1.1" fill="currentColor" stroke="none"/><ellipse cx="9.3" cy="12" rx="2.4" ry="3.8"/><path d="M14.5 12h6.5m-2.6-2.6L21 12l-2.6 2.6"/>',
   decDec: '<circle cx="4.4" cy="16.4" r="1.1" fill="currentColor" stroke="none"/><ellipse cx="9.3" cy="12" rx="2.4" ry="3.8"/><path d="M21 12h-6.5m2.6-2.6L14.5 12l2.6 2.6"/>',
   sum: '<path d="M17.5 5.5H7l6 6.5-6 6.5h10.5"/>',
@@ -116,11 +117,13 @@ const ICONS = {
   sort: '<path d="M8 5v14M4 9l4-4 4 4M16 19V5M12 15l4 4 4-4"/>',
   filter: '<path d="M3 5h18l-7 8v5.5L10 21v-8z"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.7-4.7"/>',
-  chartCol: '<path d="M3 21h18"/><rect x="5" y="12" width="4" height="8"/><rect x="11" y="7" width="4" height="13"/><rect x="17" y="3" width="4" height="17"/>',
-  chartBar: '<path d="M3 3v18h18"/><rect x="7" y="5" width="13" height="4"/><rect x="9" y="11" width="11" height="4"/><rect x="11" y="17" width="9" height="4"/>',
-  chartLine: '<path d="M3 3v18h18"/><path d="m5 15 4.5-5 3.5 3 6-7"/>',
-  chartPie: '<path d="M21.2 15.9A10 10 0 1 1 8 2.8"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>',
-  chartScatter: '<path d="M3 3v18h18"/><circle cx="8" cy="14" r="1.4"/><circle cx="12" cy="9" r="1.4"/><circle cx="16" cy="12" r="1.4"/><circle cx="14" cy="16" r="1.4"/>',
+  chartCol: '<path d="M4 3v16.5H20"/><rect x="7" y="13" width="3.5" height="6" rx="1"/><rect x="12" y="9" width="3.5" height="10" rx="1"/><rect x="17" y="5" width="3.5" height="14" rx="1"/>',
+  chartBar: '<path d="M4 3v17h17"/><rect x="6" y="5.5" width="12" height="3.5" rx="1"/><rect x="6" y="10.5" width="8" height="3.5" rx="1"/><rect x="6" y="15.5" width="10.5" height="3.5" rx="1"/>',
+  chartLine: '<path d="M4 3v17h17"/><path d="m7 16 3.5-4.5 3 2.5L18 8"/><circle cx="7" cy="16" r="1.3"/><circle cx="18" cy="8" r="1.3"/>',
+  chartPie: '<path d="M12 3.2a8.8 8.8 0 1 0 8.8 8.8H12z"/><path d="M14.6 1.4a1 1 0 0 1 1.4 1.4l-3 3a1 1 0 0 1-1.4-1.4z"/>',
+  chartScatter: '<path d="M4 3v17h17"/><circle cx="8" cy="15" r="1.5"/><circle cx="11.5" cy="10.5" r="1.5"/><circle cx="15.5" cy="13.5" r="1.5"/><circle cx="18.5" cy="6.5" r="1.5"/>',
+  chartPlus: '<path d="M4 3v17h16"/><path d="m7 15.5 3.5-4.5 3 2.5 3-3.5"/><path d="M20.5 2v5M18 4.5h5"/>',
+  crosshair: '<circle cx="12" cy="12" r="7"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>',
   freeze: '<rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M3.5 9.5h17M9.5 4.5v15"/><path d="M3.5 9.5h6v10h-6z" fill="currentColor" stroke="none" opacity=".22"/>',
   rowInsert: '<path d="M3 5h18M3 19h18"/><rect x="3" y="9" width="18" height="6" rx="1" fill="currentColor" stroke="none" opacity=".25"/><path d="M12 8.5v7M8.5 12h7"/>',
   rowDelete: '<path d="M3 5h18M3 19h18"/><rect x="3" y="9" width="18" height="6" rx="1" fill="currentColor" stroke="none" opacity=".25"/><path d="m9 9.5 6 5M15 9.5l-6 5"/>',
@@ -142,6 +145,7 @@ const ICONS = {
   dedupe: '<rect x="3" y="3" width="12" height="12" rx="1.5"/><rect x="9" y="9" width="12" height="12" rx="1.5"/><path d="m12.5 12.5 5 5M17.5 12.5l-5 5"/>',
   split: '<path d="M3 12h5M8 12l4-5h3M8 12l4 5h3M18 4v5M18 15v5"/>',
   check: '<path d="m4 12.5 5 5L20 6.5"/>',
+  unresolve: '<path d="M3 4v6h6"/><path d="M3.6 10a9 9 0 1 1-.1 5"/>',
   x: '<path d="M18 6 6 18M6 6l12 12"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   minus: '<path d="M5 12h14"/>',
@@ -183,7 +187,7 @@ const ICONS = {
   auditPrec: '<rect x="3" y="9" width="7" height="6" rx="1"/><rect x="15" y="9" width="7" height="6" rx="1"/><path d="M10 12h5"/><path d="m13 9.5 2.5 2.5-2.5 2.5"/>',
   auditDep: '<rect x="2" y="9" width="7" height="6" rx="1"/><rect x="14" y="9" width="7" height="6" rx="1"/><path d="M9 12h5"/><path d="m12 9.5 2.5 2.5-2.5 2.5"/>',
   auditOff: '<rect x="3" y="9" width="7" height="6" rx="1"/><rect x="15" y="9" width="7" height="6" rx="1"/><path d="M11 10.5h3" stroke-dasharray="2 2"/><path d="M3 3l18 18" stroke-width="1.4"/>',
-  comment: '<path d="M21 12a8 8 0 0 1-8 8H4l2.3-2.9A8 8 0 1 1 21 12z"/><path d="M8.5 10.5h7M8.5 13.5h4.5"/>',
+  comment: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
   reply: '<path d="M9 14 4 9l5-5"/><path d="M4 9h9a7 7 0 0 1 7 7v4"/>',
   auditAll: '<circle cx="5" cy="12" r="2.2"/><circle cx="12" cy="5.5" r="2.2"/><circle cx="12" cy="18.5" r="2.2"/><circle cx="19" cy="12" r="2.2"/><path d="M7 11l3.2-4M7 13l3.2 4M14.2 6.5 17 10M14.2 17.5 17 14"/>',
   gauge: '<path d="M5 19a9 9 0 1 1 14 0"/><path d="M12 13l3.5-3.5"/><circle cx="12" cy="13" r="1.4"/><path d="M8 19h8"/>',
@@ -2150,6 +2154,9 @@ function sheetById(id) { return WB.sheets.find(s => s.id === id) || null; }
 function sheetByName(name) { const low = name.toLowerCase(); return WB.sheets.find(s => s.name.toLowerCase() === low) || null; }
 function sheetIdByName(name) { const s = sheetByName(name); return s ? s.id : null; }
 function activeSheet() { return sheetById(WB.activeSheetId) || WB.sheets[0]; }
+/* The tab bar only ever renders unhidden sheets (updateSheetTabBar skips the
+   rest), so anything walking tabs has to work off this list too. */
+function visibleSheets() { return WB.sheets.filter(s => !s.hidden); }
 function getRawCell(sid, r, c) {
   const sh = sheetById(sid);
   if (!sh) return undefined;
@@ -2626,7 +2633,7 @@ function serializeSheet(sh) {
     id: sh.id, name: sh.name, tabColor: sh.tabColor, hidden: !!sh.hidden,
     cells, rows, cols,
     merges: sh.merges.map(m => [m.r1, m.c1, m.r2, m.c2]),
-    notes: [...sh.notes.entries()].map(([k, n]) => [k, { t: n.text, a: n.author, ts: n.ts, r: noteReplies(n) }]),
+    notes: [...sh.notes.entries()].map(([k, n]) => [k, { t: n.text, a: n.author, ts: n.ts, r: noteReplies(n), rs: n.resolved ? 1 : 0 }]),
     freeze: sh.freeze, charts: sh.charts, cf: sh.cf, dv: sh.dv,
     filter: sh.filter, showGridlines: sh.showGridlines
   };
@@ -2656,7 +2663,7 @@ function deserializeSheet(d) {
   sh.filterHidden = new Set();
   sh.showGridlines = d.showGridlines !== false;
   sh.notes = new Map();
-  for (const entry of (d.notes || [])) { if (entry && entry[0]) sh.notes.set(entry[0], { text: String(entry[1].t || ''), author: entry[1].a || '', ts: entry[1].ts || null, replies: Array.isArray(entry[1].r) ? entry[1].r.map(rp => ({ a: String(rp.a || 'Me'), t: String(rp.t || ''), ts: rp.ts || null })) : [] }); }
+  for (const entry of (d.notes || [])) { if (entry && entry[0]) sh.notes.set(entry[0], { text: String(entry[1].t || ''), author: entry[1].a || '', ts: entry[1].ts || null, resolved: !!entry[1].rs, replies: Array.isArray(entry[1].r) ? entry[1].r.map(rp => ({ a: String(rp.a || 'Me'), t: String(rp.t || ''), ts: rp.ts || null })) : [] }); }
   /* autogrow: re-materialize the extent around the loaded content, then restore usedMax */
   growExtent(sh, extR + 1, extC + 1);
   sh.usedMax = { r: maxR, c: maxC };
@@ -3177,6 +3184,7 @@ function paint() {
     for (let c = colsFrom; c <= colsTo && drawCols.length < 120; c++) { if (sh.cols.visible(c)) drawCols.push(c); if (c >= MAX_COLS - 1) break; }
     if (!drawRows.length || !drawCols.length) { ctx.restore(); return; }
 
+    drawSelectionFill(ctx, sh, L);
     /* fills + text */
     for (const r of drawRows) {
       const y = rowScreenY(sh, r), hh = rowScreenH(sh, r);
@@ -3273,6 +3281,18 @@ function paint() {
                w: (sh.cols.offsetOf(Math.max(a.c, d.cur.c) + 1) - sh.cols.offsetOf(Math.min(a.c, d.cur.c))) * zm,
                h: (sh.rows.offsetOf(Math.max(a.r, d.cur.r) + 1) - sh.rows.offsetOf(Math.min(a.r, d.cur.r))) * zm };
       }
+    } else if (Mouse.mode === 'chartRef' && Mouse.data && Mouse.data.anchor) {
+      /* dragging the chart pane's data range — same striped outline a formula
+         reference gets, so the gesture reads the same as picking a range in a
+         formula */
+      const d = Mouse.data;
+      if (d.baseSheet === sh.id && d.cur) {
+        kind = 'ref';
+        const a = d.anchor;
+        rc = { x: colScreenX(sh, Math.min(a.c, d.cur.c)), y: rowScreenY(sh, Math.min(a.r, d.cur.r)),
+               w: (sh.cols.offsetOf(Math.max(a.c, d.cur.c) + 1) - sh.cols.offsetOf(Math.min(a.c, d.cur.c))) * zm,
+               h: (sh.rows.offsetOf(Math.max(a.r, d.cur.r) + 1) - sh.rows.offsetOf(Math.min(a.r, d.cur.r))) * zm };
+      }
     } else if (PaintState.active && Mouse.mode === 'paint' && Mouse.data && Mouse.data.target) {
       kind = 'paint';
       const t = Mouse.data.target;
@@ -3304,6 +3324,19 @@ function paint() {
         x: colScreenX(sh, selRef.c1), y: rowScreenY(sh, selRef.r1),
         w: (sh.cols.offsetOf(selRef.c2 + 1) - sh.cols.offsetOf(selRef.c1)) * zm,
         h: (sh.rows.offsetOf(selRef.r2 + 1) - sh.rows.offsetOf(selRef.r1)) * zm
+      }, performance.now(), 1);
+    }
+  }
+
+  /* the chart pane's armed data range stays outlined for as long as the range
+     field holds focus, so you can see what the chart is reading */
+  if (Mouse.mode !== 'chartRef' && ChartPane.picking && ChartPane.draft) {
+    const cpRange = chartPaneRange();
+    if (cpRange && ChartPane.draft.sheetId === sh.id) {
+      drawRefStripes(ctx, {
+        x: colScreenX(sh, cpRange.c1), y: rowScreenY(sh, cpRange.r1),
+        w: (sh.cols.offsetOf(cpRange.c2 + 1) - sh.cols.offsetOf(cpRange.c1)) * zm,
+        h: (sh.rows.offsetOf(cpRange.r2 + 1) - sh.rows.offsetOf(cpRange.r1)) * zm
       }, performance.now(), 1);
     }
   }
@@ -3742,11 +3775,11 @@ function drawColHeaders(ctx, sh, L, c0, c1, r0, r1) {
   ctx.beginPath(); ctx.rect(L.gridX, 0, L.gridW, L.gridY); ctx.clip();
   ctx.font = Math.round(11 * Math.min(L.zoom, 1.4)) + 'px "Segoe UI", sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  let c = c0;
-  let guard = 0;
-  while (c <= c1 && guard++ < 300) {
-    if (!sh.cols.visible(c)) { c++; continue; }
-    const x = colScreenX(sh, c), w = colScreenW(sh, c);
+  const one = c => {
+    if (!sh.cols.visible(c)) return;
+    const w = colScreenW(sh, c);
+    if (w <= 0) return;
+    const x = colScreenX(sh, c);
     const hs = headerSelected(sh, 'col', c);
     if (hs.sel) { ctx.fillStyle = hs.act ? '#9dc3ae' : LHdrSel; ctx.fillRect(x, 0, w, L.gridY); }
     else if (c === Hover.col) { ctx.fillStyle = LHdrHover; ctx.fillRect(x, 0, w, L.gridY); }
@@ -3757,8 +3790,16 @@ function drawColHeaders(ctx, sh, L, c0, c1, r0, r1) {
     ctx.stroke();
     ctx.fillStyle = hs.sel ? '#1c5233' : (c === Hover.col ? '#3b6e52' : HDR_TXT);
     ctx.fillText(colName(c), x + w / 2, L.gridY / 2 + 0.5);
-    c++;
-  }
+  };
+  /* Frozen columns sit *below* c0, because c0 is the first column after the
+     frozen strip (c0 = cols.indexAt(frozenW + Scroll.x)). Looping c0..c1 alone
+     therefore left every frozen column with no letter at all - a column of cells
+     under a blank header. colScreenX already places c < frzC inside the frozen
+     strip, so drawing them here needs no extra offset maths. */
+  for (let c = 0; c < L.frzC; c++) one(c);
+  let c = c0;
+  let guard = 0;
+  while (c <= c1 && guard++ < 300) { one(c); c++; }
   ctx.restore();
 }
 const LHdrSel = '#cde5d7';
@@ -3767,11 +3808,11 @@ function drawRowHeaders(ctx, sh, L, r0, r1, c0, c1) {
   ctx.save();
   ctx.beginPath(); ctx.rect(0, L.gridY, L.gridX, L.gridH); ctx.clip();
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  let r = r0;
-  let guard = 0;
-  while (r <= r1 && guard++ < 400) {
-    if (!sh.rows.visible(r)) { r++; continue; }
-    const y = rowScreenY(sh, r), h = rowScreenH(sh, r);
+  const one = r => {
+    if (!sh.rows.visible(r)) return;
+    const h = rowScreenH(sh, r);
+    if (h <= 0) return;
+    const y = rowScreenY(sh, r);
     const hs = headerSelected(sh, 'row', r);
     if (hs.sel) { ctx.fillStyle = hs.act ? '#9dc3ae' : LHdrSel; ctx.fillRect(0, y, L.gridX, h); }
     else if (r === Hover.row) { ctx.fillStyle = LHdrHover; ctx.fillRect(0, y, L.gridX, h); }
@@ -3783,9 +3824,38 @@ function drawRowHeaders(ctx, sh, L, r0, r1, c0, c1) {
     ctx.fillStyle = hs.sel ? '#1c5233' : (r === Hover.row ? '#3b6e52' : HDR_TXT);
     ctx.font = Math.round(11 * Math.min(L.zoom, 1.4)) + 'px "Segoe UI", sans-serif';
     ctx.fillText(String(r + 1), L.gridX / 2, y + h / 2 + 0.5);
-    r++;
-  }
+  };
+  /* Same story as drawColHeaders: r0 begins after the frozen rows, so frozen
+     rows need their own pass or their numbers are never drawn. */
+  for (let r = 0; r < L.frzR; r++) one(r);
+  let r = r0;
+  let guard = 0;
+  while (r <= r1 && guard++ < 400) { one(r); r++; }
   ctx.restore();
+}
+
+/* selection tint + active-cell wash, drawn UNDER cell text (call inside a
+   translated/clipped band, before drawCellContent) so text is never bleached */
+function drawSelectionFill(ctx, sh, L) {
+  if (SEL.sheetId !== sh.id) return;
+  const zm = L.zoom;
+  const animP = selAnimP();
+  for (let i = 0; i < SEL.ranges.length; i++) {
+    const rg = SEL.ranges[i];
+    const isActive = i === SEL.activeIdx;
+    const multi = SEL.ranges.length > 1 || rg.r1 !== rg.r2 || rg.c1 !== rg.c2;
+    if (!multi || isErrViewport(rg)) continue;
+    ctx.fillStyle = 'rgba(33,115,70,' + (0.10 * (isActive ? animP : 1)).toFixed(3) + ')';
+    ctx.fillRect(colScreenX(sh, rg.c1), rowScreenY(sh, rg.r1),
+      (sh.cols.offsetOf(rg.c2 + 1) - sh.cols.offsetOf(rg.c1)) * zm,
+      (sh.rows.offsetOf(rg.r2 + 1) - sh.rows.offsetOf(rg.r1)) * zm);
+  }
+  const act = SEL.ranges[SEL.activeIdx];
+  if (!act || SEL.ranges.length === 1 && act.r1 === act.r2 && act.c1 === act.c2) return;
+  const am = mergeAt(sh, SEL.active.r, SEL.active.c);
+  const arect = am ? cellScreenRect(sh, SEL.active.r, SEL.active.c) : { x: colScreenX(sh, SEL.active.c), y: rowScreenY(sh, SEL.active.r), w: colScreenW(sh, SEL.active.c), h: rowScreenH(sh, SEL.active.r) };
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.fillRect(arect.x, arect.y, arect.w, arect.h);
 }
 
 /* selection overlay drawing (call inside a translated/clipped band) */
@@ -3801,17 +3871,6 @@ function drawSelection(ctx, sh, L) {
     const w = (sh.cols.offsetOf(rg.c2 + 1) - sh.cols.offsetOf(rg.c1)) * zm;
     const h = (sh.rows.offsetOf(rg.r2 + 1) - sh.rows.offsetOf(rg.r1)) * zm;
     const multi = SEL.ranges.length > 1 || rg.r1 !== rg.r2 || rg.c1 !== rg.c2;
-    if (multi && !isErrViewport(rg)) {
-      ctx.fillStyle = 'rgba(33,115,70,' + (0.10 * (isActive ? animP : 1)).toFixed(3) + ')';
-      ctx.fillRect(x, y, w, h);
-    }
-    /* active cell white wash when part of larger range */
-    if (multi) {
-      const am = mergeAt(sh, SEL.active.r, SEL.active.c);
-      const arect = am ? cellScreenRect(sh, SEL.active.r, SEL.active.c) : { x: colScreenX(sh, SEL.active.c), y: rowScreenY(sh, SEL.active.r), w: colScreenW(sh, SEL.active.c), h: rowScreenH(sh, SEL.active.r) };
-      ctx.fillStyle = 'rgba(255,255,255,0.75)';
-      ctx.fillRect(arect.x, arect.y, arect.w, arect.h);
-    }
     /* border — the active border glides from the previous selection on click */
     let bx = x, by = y, bw = w, bh = h;
     if (isActive && fromRg && animP < 1) {
@@ -3857,13 +3916,13 @@ function drawSelection(ctx, sh, L) {
       ctx.restore();
     }
   }
-  /* copy marquee */
+  /* cut marquee */
   if (Clip.marquee) {
     const rg = Clip.marquee.range;
     const x = colScreenX(sh, rg.c1), y = rowScreenY(sh, rg.r1);
     const w = (sh.cols.offsetOf(rg.c2 + 1) - sh.cols.offsetOf(rg.c1)) * zm;
     const h = (sh.rows.offsetOf(rg.r2 + 1) - sh.rows.offsetOf(rg.r1)) * zm;
-    ctx.strokeStyle = Clip.marquee.cut ? '#e8a33d' : '#217346';
+    ctx.strokeStyle = '#e8a33d';
     ctx.lineWidth = 1.5;
     ctx.setLineDash([5, 4]);
     ctx.lineDashOffset = -(Date.now() / 60 % 9);
@@ -4094,7 +4153,7 @@ function glideTextFor(sh, r, c) {
   return formatValue(val, g.fmt);
 }
 
-/* ---------------- copy marquee marching ants ---------------- */
+/* ---------------- cut marquee marching ants ---------------- */
 const MarqueeAnim = { raf: 0, last: 0 };
 function startMarqueeAnim() {
   if (SmoothScroll.reduced || MarqueeAnim.raf) return;
@@ -4197,6 +4256,12 @@ R.canvas.addEventListener('mousedown', e => {
   }
   if (PaintState.active) { startPaint(e, hit); e.preventDefault(); return; }
   if (e.button === 2) { handleRightClick(e, hit); return; }
+  /* chart pane armed: a click or drag on a cell re-points the data range instead
+     of moving the selection. Same sheet only — a cross-sheet range has no
+     rectangle to pick from. */
+  if (e.button === 0 && ChartPane.picking && ChartPane.draft && hit.zone === 'grid' && activeSheet().id === ChartPane.draft.sheetId) {
+    startChartRefSelect(hit.r, hit.c); e.preventDefault(); return;
+  }
   if (hit.zone === 'corner') { selectAll(); e.preventDefault(); return; }
   if (hit.zone === 'vscroll' || hit.zone === 'hscroll') { startScrollbarDrag(e, hit); e.preventDefault(); return; }
   if (hit.zone === 'colhdr' || hit.zone === 'rowhdr') {
@@ -4238,6 +4303,7 @@ R.canvas.addEventListener('mousemove', e => {
       if (onFillHandle(p.x, p.y)) { cur = 'crosshair'; handleHover = true; }
       else if (!Edit.active && nearSelectionBorder(p.x, p.y)) cur = 'move';
       else if (Edit.active && Edit.refMode) cur = 'crosshair';
+      else if (ChartPane.picking && ChartPane.draft && activeSheet().id === ChartPane.draft.sheetId) cur = 'crosshair';
     }
     R.canvas.style.cursor = cur;
     const sbHover = (hit.zone === 'vscroll' || hit.zone === 'hscroll') ? hit.zone : null;
@@ -4297,6 +4363,13 @@ R.canvas.addEventListener('mousemove', e => {
       const cell = pointToCellPx(p.x + 1, p.y);
       if (!cell) return;
       selectEntireRowRange(Mouse.anchor.r, cell.r, Mouse.extend);
+      break;
+    }
+    case 'chartRef': {
+      const cell = pointToCellPx(p.x, p.y);
+      if (!cell) break;
+      Mouse.data.cur = cell;
+      updateChartRefSelect(true);
       break;
     }
     case 'resizeCol': {
@@ -4400,6 +4473,7 @@ window.addEventListener('mouseup', e => {
     case 'move': finishMove(); break;
     case 'paint': finishPaint(); break;
     case 'refSel': finishRefSelect(); break;
+    case 'chartRef': finishChartRefSelect(); break;
     case 'vscrollDrag': case 'hscrollDrag': break;
   }
   Mouse.mode = null; Mouse.data = null;
@@ -5647,6 +5721,7 @@ document.addEventListener('keydown', e => {
     if (e.key === 'Escape') document.activeElement.blur();
     return;
   }
+  if (e.key === 'Escape' && ChartPane.open) { closeChartPane(); e.preventDefault(); return; }
   if (popupOpen()) {
     if (e.key === 'Escape') { closePopups(); e.preventDefault(); }
     return;
@@ -5675,7 +5750,7 @@ document.addEventListener('keydown', e => {
       case 'n': e.preventDefault(); fileNew(); return;
       case '`': e.preventDefault(); VIEW.showFormulas = !VIEW.showFormulas; requestPaint(); return;
       case 'k': e.preventDefault(); openCommandPalette(); return;
-      case '1': e.preventDefault(); openFormatCellsDialog(); return;
+      case '1': e.preventDefault(); openNumberFormatDialog(); return;
       case 'l': if (e.shiftKey) { e.preventDefault(); toggleFilter(); return; } break;
       case ';': {
         e.preventDefault();
@@ -5708,7 +5783,7 @@ document.addEventListener('keydown', e => {
     case 'End': e.preventDefault(); { const ur = usedRange(sh); jumpTo(e.ctrlKey ? ur.r2 : SEL.active.r, e.ctrlKey ? ur.c2 : ur.c2, e.shiftKey); } return;
     case 'Enter': e.preventDefault(); if (e.shiftKey) moveActive(-1, 0, false); else moveActive(1, 0, false); return;
     case 'Tab': e.preventDefault(); moveActive(0, e.shiftKey ? -1 : 1, false); return;
-    case 'F2': e.preventDefault(); if (e.shiftKey) openNoteEditor(SEL.active.r, SEL.active.c); else beginEdit(SEL.active.r, SEL.active.c, { cursorMode: true }); return;
+    case 'F2': e.preventDefault(); if (e.shiftKey) openCommentDialog(SEL.active.r, SEL.active.c); else beginEdit(SEL.active.r, SEL.active.c, { cursorMode: true }); return;
     case 'F4': e.preventDefault(); repeatLastCmd(); return;
     case 'F9': e.preventDefault(); recalcWorkbook(true); return;
     case 'Delete': case 'Backspace': e.preventDefault(); clearSelectionContents('contents'); return;
@@ -5832,7 +5907,7 @@ function clearSelectionContents(what) {
 function noteAt(sh, r, c) { return sh.notes ? sh.notes.get(key(r, c)) : undefined; }
 function noteReplies(n) { return n && Array.isArray(n.replies) ? n.replies : []; }
 /* note snapshots for undo/redo (deep-cloned so later mutations never alias history) */
-function noteSnap(n) { return n ? deepClone({ text: n.text, author: n.author, ts: n.ts, replies: n.replies }) : null; }
+function noteSnap(n) { return n ? deepClone({ text: n.text, author: n.author, ts: n.ts, replies: n.replies, resolved: !!n.resolved }) : null; }
 function applyNoteSnap(sh, r, c, snap) {
   if (!sh.notes) sh.notes = new Map();
   const k = key(r, c);
@@ -5858,7 +5933,7 @@ function setNote(sh, r, c, text, author) {
   if (!t) { if (sh.notes.delete(k)) { /* removed */ } }
   else {
     const existing = sh.notes.get(k);
-    sh.notes.set(k, { text: t, author: author || (existing && existing.author) || '', ts: (existing && existing.ts) || Date.now(), replies: noteReplies(existing) });
+    sh.notes.set(k, { text: t, author: author || (existing && existing.author) || '', ts: (existing && existing.ts) || Date.now(), replies: noteReplies(existing), resolved: !!(existing && existing.resolved) });
   }
   const entry = noteHistoryEntry(sh, r, c, before, noteSnap(noteAt(sh, r, c)), t ? 'Edit note' : 'Delete note');
   if (entry) pushHistory(entry);
@@ -5886,14 +5961,6 @@ function notePopoverEl() {
   }
   return pop;
 }
-function avatarHtml(name) {
-  const nm = String(name || 'Note');
-  const letter = (nm.trim().charAt(0) || 'N').toUpperCase();
-  const hues = [145, 205, 25, 262, 340, 95, 175, 12];
-  let h = 0; for (let i = 0; i < nm.length; i++) h = (h * 31 + nm.charCodeAt(i)) % 997;
-  const hue = hues[h % hues.length];
-  return '<span class="nt-avatar" style="background:hsl(' + hue + ',42%,40%)">' + esc(letter) + '</span>';
-}
 function fmtNoteTs(ts) {
   if (!ts) return '';
   const d = new Date(ts);
@@ -5908,21 +5975,53 @@ function highlightFindText(text, q) {
   try { qRe = new RegExp('(' + String(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', Find.matchCase ? 'g' : 'gi'); } catch (e) { return escd; }
   return escd.replace(qRe, '<mark class="nt-hl">$1</mark>');
 }
+/* Mirrors the Docs comment popup: header (avatar, author, time), body, replies,
+   then a Reply / Resolve / Delete action row. Sheets' own grid indicator and
+   reply storage stay as they were. */
 function noteThreadHtml(n, hl) {
   const replies = noteReplies(n);
   const hi = t => hl ? highlightFindText(t, hl) : esc(t);
-  let html = '<div class="nt-item">' + avatarHtml(n.author || 'Note') +
-    '<div class="nt-bubble"><div class="nt-meta"><span class="nt-author">' + esc(n.author || 'Note') + '</span><span class="nt-ts">' + esc(fmtNoteTs(n.ts)) + '</span></div>' +
-    '<div class="nt-text">' + hi(n.text) + '</div></div></div>';
-  for (const rp of replies) {
-    html += '<div class="nt-item nt-reply">' + avatarHtml(rp.a || 'Me') +
-      '<div class="nt-bubble"><div class="nt-meta"><span class="nt-author">' + esc(rp.a || 'Me') + '</span><span class="nt-ts">' + esc(fmtNoteTs(rp.ts)) + '</span></div>' +
-      '<div class="nt-text">' + hi(rp.t) + '</div></div></div>';
+  let html = '<div class="nt-head">' +
+    '<div class="nt-avatar">' + esc(avatarLetter(n.author || 'You')) + '</div>' +
+    '<span class="nt-author">' + esc(n.author || 'You') + '</span>' +
+    '<span class="nt-ts">' + esc(fmtNoteTs(n.ts)) + '</span>' +
+    '<button class="nt-close" type="button" aria-label="Close">' + icon('x') + '</button></div>' +
+    '<div class="nt-body">' + hi(n.text) + '</div>';
+  if (replies.length) {
+    html += '<div class="nt-replies">';
+    for (const rp of replies) {
+      html += '<div class="nt-reply"><span class="nt-author">' + esc(rp.a || 'Me') + '</span> ' + hi(rp.t) +
+        '<span class="nt-ts">' + esc(fmtNoteTs(rp.ts)) + '</span></div>';
+    }
+    html += '</div>';
   }
-  if (replies.length) html += '<div class="nt-count">' + replies.length + ' ' + (replies.length === 1 ? 'reply' : 'replies') + '</div>';
-  html += '<div class="nt-replyrow"><input type="text" class="nt-input" placeholder="Reply…" aria-label="Reply to note">' +
+  html += '<div class="nt-actions">' +
+    '<button class="nt-btn nt-reply-btn" type="button">' + icon('reply') + 'Reply</button>' +
+    '<button class="nt-btn nt-resolve-btn' + (n.resolved ? ' on' : '') + '" type="button">' +
+      icon(n.resolved ? 'unresolve' : 'check') + (n.resolved ? 'Unresolve' : 'Resolve') + '</button>' +
+    '<button class="nt-btn nt-delete-btn" type="button">' + icon('trash') + 'Delete</button>' +
+    '</div>' +
+    '<div class="nt-replyrow"><input type="text" class="nt-input" placeholder="Reply…" aria-label="Reply to comment">' +
     '<button class="nt-send" type="button" title="Add reply" aria-label="Add reply">' + icon('reply') + '</button></div>';
   return html;
+}
+function avatarLetter(name) { return (String(name || 'You').trim().charAt(0) || 'Y').toUpperCase(); }
+/* Toggling resolved goes through setNote so undo/redo, persistence and the redraw
+   all fire exactly as they do for an edit. */
+function setNoteResolved(sh, r, c, v) {
+  const n = noteAt(sh, r, c);
+  if (!n || !!n.resolved === !!v) return;
+  const before = noteSnap(n);
+  n.resolved = !!v;
+  pushHistory(noteHistoryEntry(sh, r, c, before, noteSnap(n), v ? 'Resolve comment' : 'Unresolve comment'));
+  Persistence.markDirty();
+  requestPaint();
+}
+function deleteNote(sh, r, c) {
+  if (!noteAt(sh, r, c)) return;
+  setNote(sh, r, c, '');
+  hideNotePopover();
+  toast('Comment deleted', 'success', 1200);
 }
 function showNotePopover(sh, r, c, anchorRect) {
   showNoteThreadPopover(sh, r, c, anchorRect, false);
@@ -5933,6 +6032,7 @@ function showNoteThreadPopover(sh, r, c, anchorRect, focusReply) {
   const pop = notePopoverEl();
   const hl = (Find.hlCell === key(r, c) && Find.text) ? Find.text : null;
   pop.innerHTML = noteThreadHtml(n, hl);
+  pop.classList.toggle('is-resolved', !!n.resolved);
   pop.hidden = false;
   const send = () => {
     const input = pop.querySelector('.nt-input');
@@ -5942,6 +6042,13 @@ function showNoteThreadPopover(sh, r, c, anchorRect, focusReply) {
     }
   };
   pop.querySelector('.nt-send').addEventListener('click', send);
+  pop.querySelector('.nt-close').addEventListener('click', hideNotePopover);
+  pop.querySelector('.nt-reply-btn').addEventListener('click', () => input.focus());
+  pop.querySelector('.nt-resolve-btn').addEventListener('click', () => {
+    setNoteResolved(sh, r, c, !noteAt(sh, r, c).resolved);
+    showNoteThreadPopover(sh, r, c, anchorRect, false);
+  });
+  pop.querySelector('.nt-delete-btn').addEventListener('click', () => deleteNote(sh, r, c));
   const input = pop.querySelector('.nt-input');
   input.addEventListener('keydown', ev => {
     if (ev.key === 'Enter') { ev.preventDefault(); ev.stopPropagation(); send(); }
@@ -5957,35 +6064,37 @@ function showNoteThreadPopover(sh, r, c, anchorRect, focusReply) {
   if (focusReply) setTimeout(() => input.focus(), 0);
 }
 function hideNotePopover() { const pop = document.getElementById('note-pop'); if (pop) pop.hidden = true; }
-function openNoteEditor(r, c) {
+/* Docs/Slides parity: the composer is a modal (same .modal-head/.modal-icon
+   chrome openModal already builds for every other dialog here), not a floating
+   popup. The thread popover next to the cell keeps replies, as in Docs. */
+function openCommentDialog(r, c) {
   const sh = activeSheet();
   const existing = noteAt(sh, r, c);
-  const rect = cellScreenRect(sh, r, c);
-  closePopups();
-  const pop = el('<div class="note-editor popup" role="dialog" aria-label="Note editor"><div class="ne-head"><span class="ne-addr"></span><span class="ne-actions"><button class="ne-del linklike" type="button">Delete note</button></span></div>' +
-    '<textarea class="ne-text" aria-label="Note text" spellcheck="false"></textarea>' +
-    '<div class="ne-foot"><span class="ne-hint">Shift+F2 edits · notes stay with the cell</span><span class="ne-btns"><button class="btn small ne-cancel" type="button">Cancel</button><button class="btn small primary ne-save" type="button">Save</button></span></div></div>');
-  pop.querySelector('.ne-addr').textContent = addr(r, c) + (existing ? ' — edit note' : ' — new note');
-  const ta = pop.querySelector('.ne-text');
+  const body = el('<div class="cmt-body"><div class="field"><textarea class="cmt-text" rows="3" placeholder="Write a comment..." aria-label="Comment text"></textarea></div></div>');
+  const ta = body.querySelector('.cmt-text');
   ta.value = existing ? existing.text : '';
-  $('#grid-area').appendChild(pop);
-  const ga = $('#grid-area').getBoundingClientRect();
-  let x = rect.x + rect.w + 8, y = rect.y;
-  if (x + 280 > ga.width - 8) x = Math.max(8, rect.x - 288);
-  if (y + 160 > ga.height - 8) y = Math.max(8, ga.height - 168);
-  pop.style.left = x + 'px'; pop.style.top = y + 'px';
-  ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
-  const close = () => { pop.remove(); document.removeEventListener('mousedown', outside, true); };
-  const save = () => { setNote(sh, r, c, ta.value); hideNotePopover(); close(); toast(existing ? 'Note updated' : 'Note added', 'success', 1200); };
-  const outside = (ev) => { if (!pop.contains(ev.target)) { if (ta.value.trim() && ta.value !== (existing ? existing.text : '')) save(); else close(); } };
-  pop.querySelector('.ne-save').addEventListener('click', save);
-  pop.querySelector('.ne-cancel').addEventListener('click', close);
-  pop.querySelector('.ne-del').addEventListener('click', () => { setNote(sh, r, c, ''); close(); toast('Note deleted', 'info', 1200); });
-  ta.addEventListener('keydown', ev => {
-    if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); save(); }
-    else if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); close(); }
+  /* Delete lives in the body, not the footer: openModal() paints the entire
+     dialog as a danger confirm when any footer button is marked danger, which
+     would make merely editing an existing comment render as a destructive
+     prompt. Docs keeps delete out of the footer for the same reason. */
+  const dlg = openModal({
+    title: existing ? 'Edit Comment' : 'New Comment',
+    icon: 'comment',
+    width: 440,
+    content: body,
+    buttons: [
+      { label: 'Cancel' },
+      { label: existing ? 'Save' : 'Add Comment', primary: true, onClick: () => {
+          const text = ta.value.trim();
+          if (!text) { toast('Write a comment first', 'error'); return false; }
+          setNote(sh, r, c, text);
+          hideNotePopover();
+          toast(existing ? 'Comment updated' : 'Comment added', 'success', 1200);
+          return true;
+        } }
+    ]
   });
-  setTimeout(() => { document.addEventListener('mousedown', outside, true); }, 0);
+  if (dlg) dlg.modal.classList.add('cmt');   /* Docs-style centred bubble head */
 }
 
 /* ---------------- Formula auditing (trace precedents / dependents) ---------------- */
@@ -6334,8 +6443,8 @@ function buildInternalClipboard(cut) {
   Clip.cells = matrix;
   Clip.src = { r: rg.r1, c: rg.c1 };
   Clip.cut = cut ? { sid: sh.id, range: Object.assign({}, rg) } : null;
-  Clip.marquee = { range: Object.assign({}, rg), cut: !!cut };
-  startMarqueeAnim();
+  Clip.marquee = cut ? { range: Object.assign({}, rg), cut: true } : null;
+  if (cut) startMarqueeAnim();
   Clip.formats = null;
 }
 function doCopy(cut) {
@@ -6749,7 +6858,16 @@ function insertRows(at, count) {
     for (const m of sh.merges) { if (m.r1 >= at) { m.r1 += count; m.r2 += count; } else if (m.r2 >= at) m.r2 += count; }
     const rm = sh.rows.meta; const entries = [...rm.entries()].sort((a, b) => b[0] - a[0]);
     for (const [i, m] of entries) { if (i >= at) { rm.delete(i); rm.set(i + count, m); } }
-    if (sh.freeze.r >= at) sh.freeze.r += count;
+    /* The shift above writes the meta Map directly instead of going through
+       AxisModel.set(), so the cached _sorted/_prefix are still keyed on the old
+       indices. Any paint before something else calls set() would read that stale
+       prefix sum and draw every row at its pre-insert offset, leaving blank gaps
+       where the row numbers belong. */
+    sh.rows.invalidate();
+    /* freeze.r === 0 means "nothing frozen", so it must stay 0. The plain
+       `>= at` test was true for at === 0 and switched on a freeze the user never
+       asked for; every further insert then added another phantom frozen row. */
+    if (sh.freeze.r > 0 && sh.freeze.r >= at) sh.freeze.r += count;
     if (sh.filter) { if (sh.filter.range.r1 >= at) { sh.filter.range.r1 += count; sh.filter.range.r2 += count; } else if (sh.filter.range.r2 >= at) sh.filter.range.r2 += count; }
     for (const cf of sh.cf) { if (cf.range.r1 >= at) { cf.range.r1 += count; cf.range.r2 += count; } else if (cf.range.r2 >= at) cf.range.r2 += count; }
     for (const dv of sh.dv) { if (dv.range.r1 >= at) { dv.range.r1 += count; dv.range.r2 += count; } else if (dv.range.r2 >= at) dv.range.r2 += count; }
@@ -6774,7 +6892,9 @@ function deleteRows(at, count) {
       if (i >= at + count) { rm.delete(i); rm.set(i - count, m); }
       else if (i >= at) rm.delete(i);
     }
-    if (sh.freeze.r >= at) sh.freeze.r = Math.max(0, sh.freeze.r - count);
+    sh.rows.invalidate();
+    /* freeze.r === 0 means "nothing frozen" and must stay 0. */
+    if (sh.freeze.r > 0 && sh.freeze.r >= at) sh.freeze.r = Math.max(0, sh.freeze.r - count);
     if (sh.filter) {
       if (sh.filter.range.r1 >= at + count) { sh.filter.range.r1 -= count; sh.filter.range.r2 -= count; }
       else if (sh.filter.range.r2 >= at) sh.filter.range.r2 = Math.max(sh.filter.range.r1, sh.filter.range.r2 - count);
@@ -6823,7 +6943,10 @@ function insertCols(at, count) {
     for (const m of sh.merges) { if (m.c1 >= at) { m.c1 += count; m.c2 += count; } else if (m.c2 >= at) m.c2 += count; }
     const cm = sh.cols.meta; const entries = [...cm.entries()].sort((a, b) => b[0] - a[0]);
     for (const [i, m] of entries) { if (i >= at) { cm.delete(i); cm.set(i + count, m); } }
-    if (sh.freeze.c >= at) sh.freeze.c += count;
+    /* See insertRows: invalidate the prefix-sum cache after the direct Map shift. */
+    sh.cols.invalidate();
+    /* See insertRows: at === 0 must not turn a 0 (= none) freeze into a real one. */
+    if (sh.freeze.c > 0 && sh.freeze.c >= at) sh.freeze.c += count;
     if (sh.filter) { if (sh.filter.range.c1 >= at) { sh.filter.range.c1 += count; sh.filter.range.c2 += count; } else if (sh.filter.range.c2 >= at) sh.filter.range.c2 += count; }
     for (const cf of sh.cf) { if (cf.range.c1 >= at) { cf.range.c1 += count; cf.range.c2 += count; } else if (cf.range.c2 >= at) cf.range.c2 += count; }
     for (const dv of sh.dv) { if (dv.range.c1 >= at) { dv.range.c1 += count; dv.range.c2 += count; } else if (dv.range.c2 >= at) dv.range.c2 += count; }
@@ -6832,6 +6955,34 @@ function insertCols(at, count) {
     rebuildAllDeps();
   });
   requestPaint(); renderFilterChips(); renderChartsLayer(); updateStatusBar(); updateFormulaBar(); Persistence.markDirty();
+}
+/* insertRows()/insertCols() take an absolute start index, so the direction is
+   just a different index: above/left starts at the first selected index, while
+   below/right starts one past the last.
+
+   A whole-row or whole-column selection is the awkward case. Clicking a row
+   header selects c1=0..MAX_COLS-1 (sheets.js:2389), and selCols() caps its Set at
+   10000 entries, so a top-row selection reported 10000 "selected columns" and
+   Insert Columns Left called insertCols(0, 10000) — shoving every column letter
+   10000 places to the right with no visible new column. Mirrored for a
+   left-column selection and Insert Rows Above. Sheets treats a whole-row/column
+   selection as one row/column at the top of the sheet, so collapse it to a
+   single insert anchored there. */
+function insertRowsAt(dir) {
+  const rows = selRows();
+  if (!rows.length) return;
+  const rg = SEL.ranges[SEL.activeIdx] || SEL.ranges[0];
+  const wholeCol = !!rg && isColSelection(rg);
+  if (wholeCol) { insertRows(dir === 'above' ? 0 : 1, 1); return; }
+  insertRows(dir === 'above' ? rows[0] : rows[rows.length - 1] + 1, rows.length);
+}
+function insertColsAt(dir) {
+  const cols = selCols();
+  if (!cols.length) return;
+  const rg = SEL.ranges[SEL.activeIdx] || SEL.ranges[0];
+  const wholeRow = !!rg && isRowSelection(rg);
+  if (wholeRow) { insertCols(dir === 'left' ? 0 : 1, 1); return; }
+  insertCols(dir === 'left' ? cols[0] : cols[cols.length - 1] + 1, cols.length);
 }
 function deleteCols(at, count) {
   const sh = activeSheet();
@@ -6848,7 +6999,8 @@ function deleteCols(at, count) {
       if (i >= at + count) { cm.delete(i); cm.set(i - count, m); }
       else if (i >= at) cm.delete(i);
     }
-    if (sh.freeze.c >= at) sh.freeze.c = Math.max(0, sh.freeze.c - count);
+    sh.cols.invalidate();
+    if (sh.freeze.c > 0 && sh.freeze.c >= at) sh.freeze.c = Math.max(0, sh.freeze.c - count);
     if (sh.filter) {
       if (sh.filter.range.c1 >= at + count) { sh.filter.range.c1 -= count; sh.filter.range.c2 -= count; }
       else if (sh.filter.range.c2 >= at) sh.filter.range.c2 = Math.max(sh.filter.range.c1, sh.filter.range.c2 - count);
@@ -6901,63 +7053,6 @@ function adjustAllFormulas(targetSheetName, kind, at, count, isDelete, spanFilte
 }
 
 /* Insert/delete cells (partial shift within selection columns/rows) */
-function insertCells(kind) {
-  const sh = activeSheet();
-  const rg = activeSelRange();
-  const count = (rg.r2 - rg.r1 + 1) * (rg.c2 - rg.c1 + 1) ? (kind === 'down' ? rg.r2 - rg.r1 + 1 : rg.c2 - rg.c1 + 1) : 1;
-  const before = snapshotSheet(sh);
-  if (kind === 'down') {
-    for (let c = rg.c1; c <= rg.c2; c++) {
-      for (let r = MAX_ROWS - 1; r >= rg.r1; r--) {
-        const src = (r - count >= 0) ? sh.cells.get(key(r - count, c)) : undefined;
-        if (r >= rg.r1 + count) { if (src) sh.cells.set(key(r, c), src); else sh.cells.delete(key(r, c)); }
-        else sh.cells.delete(key(r, c));
-      }
-    }
-    adjustAllFormulas(sh.name, 'rows', rg.r1, count, false, { c1: rg.c1, c2: rg.c2 });
-  } else {
-    for (let r = rg.r1; r <= rg.r2; r++) {
-      for (let c = MAX_COLS - 1; c >= rg.c1; c--) {
-        const src = (c - count >= 0) ? sh.cells.get(key(r, c - count)) : undefined;
-        if (c >= rg.c1 + count) { if (src) sh.cells.set(key(r, c), src); else sh.cells.delete(key(r, c)); }
-        else sh.cells.delete(key(r, c));
-      }
-    }
-    adjustAllFormulas(sh.name, 'cols', rg.c1, count, false, { r1: rg.r1, r2: rg.r2 });
-  }
-  rebuildAllDeps();
-  const after = snapshotSheet(sh);
-  pushHistory({ label: 'Insert cells', undo: () => restoreSheet(sh, before), redo: () => restoreSheet(sh, after) });
-  requestPaint(); Persistence.markDirty();
-}
-function deleteCells(kind) {
-  const sh = activeSheet();
-  const rg = activeSelRange();
-  const count = kind === 'up' ? rg.r2 - rg.r1 + 1 : rg.c2 - rg.c1 + 1;
-  const before = snapshotSheet(sh);
-  if (kind === 'up') {
-    for (let c = rg.c1; c <= rg.c2; c++) {
-      for (let r = rg.r1; r < MAX_ROWS; r++) {
-        const src = (r + count < MAX_ROWS) ? sh.cells.get(key(r + count, c)) : undefined;
-        if (src) sh.cells.set(key(r, c), src); else sh.cells.delete(key(r, c));
-      }
-    }
-    adjustAllFormulas(sh.name, 'rows', rg.r1, count, true, { c1: rg.c1, c2: rg.c2 });
-  } else {
-    for (let r = rg.r1; r <= rg.r2; r++) {
-      for (let c = rg.c1; c < MAX_COLS; c++) {
-        const src = (c + count < MAX_COLS) ? sh.cells.get(key(r, c + count)) : undefined;
-        if (src) sh.cells.set(key(r, c), src); else sh.cells.delete(key(r, c));
-      }
-    }
-    adjustAllFormulas(sh.name, 'cols', rg.c1, count, true, { r1: rg.r1, r2: rg.r2 });
-  }
-  rebuildAllDeps();
-  const after = snapshotSheet(sh);
-  pushHistory({ label: 'Delete cells', undo: () => restoreSheet(sh, before), redo: () => restoreSheet(sh, after) });
-  requestPaint(); Persistence.markDirty();
-}
-
 /* ---------------- hide / unhide ---------------- */
 function setRowsHidden(rows, hidden) {
   const sh = activeSheet();
@@ -7154,9 +7249,12 @@ function uniqueSheetName(base) {
   while (sheetByName(name)) { i++; name = base + i; }
   return name;
 }
+/* Excel's own cap is 31; this sits 1 under it so a name always survives the
+   .xlsx round-trip intact even after Excel's own trimming. */
+const SHEET_NAME_MAX = 30;
 function validateSheetName(name) {
   if (!name || !name.trim()) return 'Sheet name cannot be empty.';
-  if (name.length > 31) return 'Sheet names are limited to 31 characters.';
+  if (name.length > SHEET_NAME_MAX) return 'Sheet names are limited to ' + SHEET_NAME_MAX + ' characters.';
   if (/[[\]:*?/\\]/.test(name)) return 'Sheet names cannot contain any of: [ ] : * ? / \\';
   if (/^'|'$/.test(name)) return 'Sheet names cannot start or end with an apostrophe.';
   return null;
@@ -7264,6 +7362,24 @@ function moveSheetDelta(id, delta) {
   updateSheetTabBar();
   Persistence.markDirty();
 }
+function activeSheetTabEl() {
+  return document.querySelector('.sheet-tab[data-sheet-id="' + WB.activeSheetId + '"]');
+}
+function renameActiveSheetFromRibbon() {
+  const sh = activeSheet();
+  const tab = activeSheetTabEl();
+  if (sh && tab) beginTabRename(sh, tab);
+}
+/* Single writer for tabColor so the ribbon dropdown, the tab context menu and
+   undo snapshots can never drift apart. 'none' clears it. */
+function setSheetTabColor(id, c) {
+  const sh = sheetById(id);
+  if (!sh) return;
+  sh.tabColor = (c === 'none' || !c) ? null : c;
+  updateSheetTabBar();
+  updateRibbonState();   /* repaints the dropdown swatch, matching applyStyleToSelection */
+  Persistence.markDirty();
+}
 function setActiveSheet(id) {
   if (Edit.active) commitEditor();
   const sh = sheetById(id);
@@ -7285,9 +7401,18 @@ function setActiveSheet(id) {
   Persistence.markDirty();
 }
 function switchSheetDelta(d) {
-  const idx = WB.sheets.findIndex(s => s.id === WB.activeSheetId);
-  const ni = clamp(idx + d, 0, WB.sheets.length - 1);
-  setActiveSheet(WB.sheets[ni].id);
+  const vis = visibleSheets();
+  if (!vis.length) return;
+  const cur = vis.findIndex(s => s.id === WB.activeSheetId);
+  if (cur < 0) { setActiveSheet((d > 0 ? vis[0] : vis[vis.length - 1]).id); return; }
+  const ni = clamp(cur + d, 0, vis.length - 1);
+  if (ni === cur) return;
+  setActiveSheet(vis[ni].id);
+}
+function switchSheetEdge(toEnd) {
+  const vis = visibleSheets();
+  if (!vis.length) return;
+  setActiveSheet((toEnd ? vis[vis.length - 1] : vis[0]).id);
 }
 
 /* ---------------- recalculation controls ---------------- */
@@ -7988,11 +8113,11 @@ function updateDvChips() {
  * 13. FLOATING CHARTS
  * ========================================================================== */
 const CHART_TYPES = [
-  { id: 'column', name: 'Column', icon: 'chartCol' },
-  { id: 'bar', name: 'Bar', icon: 'chartBar' },
-  { id: 'line', name: 'Line', icon: 'chartLine' },
-  { id: 'pie', name: 'Pie', icon: 'chartPie' },
-  { id: 'scatter', name: 'Scatter', icon: 'chartScatter' }
+  { id: 'column', name: 'Column', icon: 'chartCol', hint: 'Compare values across categories' },
+  { id: 'bar', name: 'Bar', icon: 'chartBar', hint: 'Compare values across long labels' },
+  { id: 'line', name: 'Line', icon: 'chartLine', hint: 'Track change over time' },
+  { id: 'pie', name: 'Pie', icon: 'chartPie', hint: 'Show parts of a whole' },
+  { id: 'scatter', name: 'Scatter', icon: 'chartScatter', hint: 'Plot two numeric columns' }
 ];
 /* per-chart series customization: colors[] / seriesNames[] override the defaults */
 function chartColorAt(chart, si) {
@@ -8559,7 +8684,7 @@ function attachChartEvents(chart, frame) {
     const act = e.target.closest('[data-act]');
     if (act) {
       if (act.dataset.act === 'del') deleteChart(chart);
-      else if (act.dataset.act === 'edit') openChartDialog(chart);
+      else if (act.dataset.act === 'edit') openChartPane(chart);
       return;
     }
     if (e.target.classList.contains('chart-resize')) {
@@ -8570,9 +8695,9 @@ function attachChartEvents(chart, frame) {
   });
   frame.addEventListener('contextmenu', e => {
     e.preventDefault(); e.stopPropagation();
-    showPopupMenu([{ label: 'Edit Chart', icon: 'pencil', action: () => openChartDialog(chart) }, { label: 'Delete Chart', icon: 'trash', action: () => deleteChart(chart) }], e.clientX, e.clientY);
+    showPopupMenu([{ label: 'Edit Chart', icon: 'pencil', action: () => openChartPane(chart) }, { label: 'Delete Chart', icon: 'trash', action: () => deleteChart(chart) }], e.clientX, e.clientY);
   });
-  frame.addEventListener('dblclick', e => { e.stopPropagation(); openChartDialog(chart); });
+  frame.addEventListener('dblclick', e => { e.stopPropagation(); openChartPane(chart); });
   /* hover tooltips (value readout) */
   const cvs = frame.querySelector('canvas');
   cvs.addEventListener('mousemove', e => {
@@ -8825,12 +8950,96 @@ function deleteChart(chart) {
   renderChartsLayer();
   Persistence.markDirty();
 }
-function openChartDialog(existing) {
+/* ---------------- chart pane ----------------
+   A right-hand pane, not a modal, matching the Slides animation pane. The grid
+   shrinks instead of being covered, so the data range can be pointed at real
+   cells — focus the range field and the sheet outlines the current range, then a
+   click or drag on the grid re-points it. Same pane for insert and edit. */
+const ChartPane = { open: false, existing: null, picking: false, draft: null };
+function closeChartPane() {
+  const pane = $('#chart-pane');
+  if (!pane || !ChartPane.open) return;
+  if (Mouse.mode === 'chartRef') { Mouse.mode = null; Mouse.data = null; R.canvas.style.cursor = 'default'; }
+  ChartPane.open = false;
+  ChartPane.existing = null;
+  ChartPane.picking = false;
+  ChartPane.draft = null;
+  pane.hidden = true;
+  pane.innerHTML = '';
+  const btn = document.querySelector('[data-cmd="chart"]');
+  if (btn) btn.classList.remove('active');
+  resizeCanvas();
+  requestPaint();
+}
+function toggleChartPane(existing, presetType) {
+  if (ChartPane.open && !(existing && existing !== ChartPane.existing)) { closeChartPane(); return; }
+  if (ChartPane.open) closeChartPane();
+  openChartPane(existing, presetType);
+}
+/* ---- picking the data range off the sheet ----
+   The range field mirrors itself onto the grid: focused, it outlines the range
+   it currently holds (same striped treatment as a formula reference) and a
+   click or drag on any cell re-points it. Cross-sheet ranges have no on-screen
+   rectangle, so they simply do not outline. */
+function chartRangeText(r1, c1, r2, c2) {
+  const body = (r1 === r2 && c1 === c2) ? addr(r1, c1) : addr(r1, c1) + ':' + addr(r2, c2);
+  return activeSheet().name + '!' + body;
+}
+function chartPaneRange() {
+  const d = ChartPane.draft;
+  if (!d) return null;
+  const v = d.rangeInput.value.trim();
+  if (!v) return null;
+  const bang = v.lastIndexOf('!');
+  if (bang > 0) {
+    const sid = sheetByName(v.slice(0, bang).replace(/^'(.*)'$/, '$1'));
+    if (!sid || sid.id !== d.sheetId) return null;
+  }
+  return parseRangeText(v);
+}
+let chartRefRaf = 0;
+function chartPaneStep() {
+  chartRefRaf = 0;
+  if (ChartPane.open && ChartPane.picking && chartPaneRange() && !SmoothScroll.reduced) {
+    requestPaint();
+    chartRefRaf = requestAnimationFrame(chartPaneStep);
+  }
+}
+function kickChartPaneStep() {
+  if (!chartRefRaf && ChartPane.open && ChartPane.picking && chartPaneRange() && !SmoothScroll.reduced) {
+    chartRefRaf = requestAnimationFrame(chartPaneStep);
+  }
+}
+function startChartRefSelect(r, c) {
+  const d = ChartPane.draft;
+  if (!d) return;
+  Mouse.mode = 'chartRef';
+  Mouse.data = { anchor: { r, c }, cur: { r, c }, baseSheet: d.sheetId };
+  d.setRange(chartRangeText(r, c, r, c), false);
+  kickChartPaneStep();
+}
+/* live: only the value + preview follow the pointer. The series editor rebuilds
+   DOM, so it is left for the settle (mouseup) instead of firing every mousemove. */
+function updateChartRefSelect(live) {
+  const d = ChartPane.draft;
+  const a = Mouse.data && Mouse.data.anchor, cur = Mouse.data && Mouse.data.cur;
+  if (!d || !a || !cur) return;
+  d.setRange(chartRangeText(Math.min(a.r, cur.r), Math.min(a.c, cur.c), Math.max(a.r, cur.r), Math.max(a.c, cur.c)), live);
+}
+function finishChartRefSelect() {
+  const d = ChartPane.draft;
+  if (!d) return;
+  updateChartRefSelect(false);
+  /* hand focus back so the field stays armed for the next range */
+  d.rangeInput.focus();
+}
+function openChartPane(existing, presetType) {
   const sh = activeSheet();
   const rg = activeSelRange();
   const defaultRange = (SEL.sheetId === sh.id && (rg.r2 > rg.r1 || rg.c2 > rg.c1)) ? sh.name + '!' + addr(rg.r1, rg.c1) + ':' + addr(rg.r2, rg.c2) : (existing ? existing.range : sh.name + '!A1:B4');
+  const startType = existing ? existing.type : (presetType || 'column');
   const state = {
-    type: existing ? existing.type : 'column',
+    type: startType,
     title: existing ? existing.title : '',
     range: defaultRange,
     seriesInRows: existing ? !!existing.seriesInRows : false,
@@ -8844,24 +9053,48 @@ function openChartDialog(existing) {
     xTitle: existing && existing.axisTitles ? String(existing.axisTitles.x || '') : '',
     yTitle: existing && existing.axisTitles ? String(existing.axisTitles.y || '') : ''
   };
-  const content = el('<div><div class="chart-type-grid"></div>' +
-    '<div class="form-row"><label>Title</label><div class="fr-input"><input type="text" id="ch-title" placeholder="Optional chart title"></div></div>' +
-    '<div class="form-row"><label>Data range</label><div class="fr-input"><input type="text" id="ch-range"></div></div>' +
-    '<div class="form-row"><label></label><div class="fr-input"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="ch-rows"> Series in rows</label></div></div>' +
-    '<div class="form-row" data-cart><label>Data labels</label><div class="fr-input"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="ch-labels"> Show values on bars and points</label></div></div>' +
-    '<div class="form-row" data-lbl style="display:none"><label>Label options</label><div class="fr-input ch-lbl-inputs"><select id="ch-lblpos" aria-label="Data label position"><option value="out">Outside end</option><option value="in">Inside end</option><option value="ctr">Center</option></select><input type="text" id="ch-lblfmt" placeholder="Label format (blank = source cells)" aria-label="Data label number format"></div></div>' +
-    '<div class="form-row" data-cart><label>Axis titles</label><div class="fr-input ch-axis-inputs"><input type="text" id="ch-xt" placeholder="X axis title (optional)" aria-label="X axis title"><input type="text" id="ch-yt" placeholder="Y axis title (optional)" aria-label="Y axis title"></div></div>' +
-    '<div class="form-row"><label>Series</label><div class="fr-input"><div id="ch-series" class="ch-series-list" aria-label="Series colors, names, types and order"></div></div></div>' +
-    '<div class="hint">Include headers in the range: the first row/column becomes series names, the first column becomes category labels. Column/Line/Bar charts accept per-series type overrides (combo) and reordering.</div></div>');
+  ChartPane.open = true;
+  ChartPane.existing = existing || null;
+  const content = el('<div class="chart-pane-in">' +
+    '<div class="cp-head">' +
+      '<div class="cp-head-text"><div class="cp-title">' + (existing ? 'Edit Chart' : 'Create Chart') + '</div></div>' +
+      '<button class="cp-x" title="Close" aria-label="Close chart pane">' + icon('x') + '</button>' +
+    '</div>' +
+    '<div class="cp-body">' +
+      '<div class="cp-sec-title">Chart type</div>' +
+      '<div class="chart-type-grid" role="radiogroup" aria-label="Chart type"></div>' +
+      '<div class="cp-sec-title cp-sec-title-gap">Preview</div>' +
+      '<div class="ch-preview"><canvas id="ch-preview"></canvas><div class="ch-preview-empty" id="ch-preview-empty">Enter a data range to see a preview</div></div>' +
+      '<p class="cp-hint ch-preview-hint">The preview is drawn with the same renderer the sheet uses.</p>' +
+      '<div class="cp-sec-title cp-sec-title-gap">Data</div>' +
+      '<div class="cp-field"><label for="ch-title">Title</label><input type="text" id="ch-title" placeholder="Optional chart title"></div>' +
+      '<div class="cp-field"><label for="ch-range">Data range</label><input type="text" id="ch-range" spellcheck="false" autocomplete="off">' +
+        '<div class="cp-pick-tip" id="ch-pick-tip" hidden>' + icon('crosshair') + 'Click or drag on the sheet to set the range</div></div>' +
+      '<div class="cp-field"><label class="cp-check"><input type="checkbox" id="ch-rows"> Series in rows</label></div>' +
+      '<div class="cp-field" data-cart><label class="cp-check"><input type="checkbox" id="ch-labels"> Show values on bars and points</label></div>' +
+      '<div class="cp-field" data-lbl style="display:none"><label>Label options</label><div class="ch-lbl-inputs"><select id="ch-lblpos" aria-label="Data label position"><option value="out">Outside end</option><option value="in">Inside end</option><option value="ctr">Center</option></select><input type="text" id="ch-lblfmt" placeholder="Blank = source cells" aria-label="Data label number format"></div></div>' +
+      '<div class="cp-field" data-cart><label>Axis titles</label><div class="ch-axis-inputs"><input type="text" id="ch-xt" placeholder="X axis title" aria-label="X axis title"><input type="text" id="ch-yt" placeholder="Y axis title" aria-label="Y axis title"></div></div>' +
+      '<div class="cp-sec-title cp-sec-title-gap">Series</div>' +
+      '<div class="ch-series-list" id="ch-series" aria-label="Series colors, names, types and order"></div>' +
+      '<p class="cp-hint">Include headers in the range: the first row/column becomes series names, the first column becomes category labels. Column, Line and Bar charts accept per-series type overrides and reordering.</p>' +
+    '</div>' +
+    '<div class="cp-foot">' +
+      '<button class="cp-btn" id="ch-cancel">Cancel</button>' +
+      '<button class="cp-btn primary" id="ch-apply">' + (existing ? 'Apply' : 'Insert') + '</button>' +
+    '</div>' +
+  '</div>');
   const grid = content.querySelector('.chart-type-grid');
   CHART_TYPES.forEach(t => {
-    const cell = el('<button class="chart-type-cell' + (t.id === state.type ? ' active' : '') + '" data-t="' + t.id + '" aria-label="' + t.name + ' chart">' + icon(t.icon) + '<span>' + t.name + '</span></button>');
+    const cell = el('<button class="chart-type-cell' + (t.id === state.type ? ' active' : '') + '" data-t="' + t.id + '" role="radio" aria-checked="' + (t.id === state.type) + '" title="' + esc(t.hint) + '">' + icon(t.icon) + '<span>' + t.name + '</span></button>');
     cell.addEventListener('click', () => {
       state.type = t.id;
-      grid.querySelectorAll('.chart-type-cell').forEach(x => x.classList.remove('active'));
-      cell.classList.add('active');
+      grid.querySelectorAll('.chart-type-cell').forEach(x => {
+        const on = x === cell;
+        x.classList.toggle('active', on);
+        x.setAttribute('aria-checked', String(on));
+      });
       updateCartesianVis();
-      if (typeof refreshSeriesEditor === 'function') setTimeout(refreshSeriesEditor, 0);
+      setTimeout(refreshSeriesEditor, 0);
     });
     grid.appendChild(cell);
   });
@@ -8885,6 +9118,80 @@ function openChartDialog(existing) {
     updateLblVis();
   }
   updateCartesianVis();
+  /* ---- live preview: paintChart() only reads its ctx, so the sheet renderer
+     and the print rasterizer already share it. Reusing it here means the preview
+     is the real chart, not an approximation. chartExtractData() throws on an
+     unparseable range, which is the normal state mid-edit, so probe first. ---- */
+  const previewCv = content.querySelector('#ch-preview');
+  const previewEmpty = content.querySelector('#ch-preview-empty');
+  function draftChart() {
+    const cart = state.type !== 'pie';
+    const labelsOn = cart && content.querySelector('#ch-labels').checked;
+    const lblPos = content.querySelector('#ch-lblpos').value;
+    const lblFmt = content.querySelector('#ch-lblfmt').value.trim();
+    const xt = content.querySelector('#ch-xt').value.trim();
+    const yt = content.querySelector('#ch-yt').value.trim();
+    return {
+      type: state.type,
+      title: content.querySelector('#ch-title').value.trim(),
+      range: content.querySelector('#ch-range').value.trim(),
+      seriesInRows: content.querySelector('#ch-rows').checked,
+      sheetId: sh.id,
+      colors: state.colors, seriesNames: state.seriesNames,
+      seriesTypes: comboCapable() ? state.seriesTypes : null,
+      seriesOrder: comboCapable() ? state.order : null,
+      dataLabels: labelsOn || null,
+      labelPos: labelsOn && lblPos !== 'out' ? lblPos : null,
+      labelFmt: labelsOn && lblFmt ? lblFmt : null,
+      axisTitles: cart && (xt || yt) ? { x: xt || null, y: yt || null } : null
+    };
+  }
+  let previewRaf = 0, lastW = 0, lastH = 0;
+  function refreshPreview() {
+    if (previewRaf) return;
+    previewRaf = requestAnimationFrame(() => {
+      previewRaf = 0;
+      const wrap = previewCv.parentElement;
+      const w = wrap.clientWidth, h = wrap.clientHeight;
+      if (!w || !h) return;
+      lastW = w; lastH = h;
+      const dpr = R.dpr || (window.devicePixelRatio || 1);
+      previewCv.width = Math.max(10, Math.round(w * dpr));
+      previewCv.height = Math.max(10, Math.round(h * dpr));
+      previewCv.style.width = w + 'px';
+      previewCv.style.height = h + 'px';
+      const pctx = previewCv.getContext('2d');
+      pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      pctx.clearRect(0, 0, w, h);
+      pctx.fillStyle = '#ffffff';
+      pctx.fillRect(0, 0, w, h);
+      let ok = true;
+      try {
+        const d = chartExtractData(draftChart());
+        ok = !!(d && d.series.length && d.series[0].values.length);
+      } catch (e) { ok = false; }
+      previewEmpty.style.display = ok ? 'none' : '';
+      if (!ok) return;
+      try { paintChart(pctx, w, h, draftChart()); }
+      catch (e) {
+        pctx.clearRect(0, 0, w, h);
+        pctx.fillStyle = '#8a8886';
+        pctx.font = '12px "Segoe UI", system-ui, sans-serif';
+        pctx.textAlign = 'center';
+        pctx.fillText('No data — check the data range', w / 2, h / 2);
+      }
+    });
+  }
+  /* delegated, so the series editor's rebuilt inputs stay covered */
+  content.addEventListener('input', refreshPreview);
+  content.addEventListener('change', refreshPreview);
+  /* the box measures 0x0 until openModal attaches and lays out the body */
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => {
+      const wrap = previewCv.parentElement;
+      if (wrap.clientWidth !== lastW || wrap.clientHeight !== lastH) refreshPreview();
+    }).observe(previewCv.parentElement);
+  }
   /* ---- per-series color + name + type + order editor (rebuilds when range/orientation/type changes) ---- */
   const seriesBox = content.querySelector('#ch-series');
   const comboCapable = () => state.type === 'column' || state.type === 'bar' || state.type === 'line';
@@ -8959,68 +9266,108 @@ function openChartDialog(existing) {
     wireColors();
   }
   refreshSeriesEditor();
-  content.querySelector('#ch-range').addEventListener('change', refreshSeriesEditor);
+  const rangeInput = content.querySelector('#ch-range');
+  const pickTip = content.querySelector('#ch-pick-tip');
+  rangeInput.addEventListener('change', () => { refreshSeriesEditor(); syncPickArm(); });
   content.querySelector('#ch-rows').addEventListener('change', refreshSeriesEditor);
-  openModal({
-    title: existing ? 'Edit Chart' : 'Insert Chart', width: 520, content,
-    buttons: [{ label: 'Cancel' }, { label: existing ? 'Apply' : 'Insert', primary: true, onClick: () => {
-      const rangeTxt = content.querySelector('#ch-range').value.trim();
-      if (!parseRangeText(rangeTxt)) { toast('Invalid data range', 'error'); return false; }
-      state.title = content.querySelector('#ch-title').value.trim();
-      state.range = rangeTxt;
-      state.seriesInRows = content.querySelector('#ch-rows').checked;
-      const isCart = state.type !== 'pie';
-      const labelsOn = isCart && content.querySelector('#ch-labels').checked;
-      const lblPosSel = content.querySelector('#ch-lblpos').value;
-      const lblFmtVal = content.querySelector('#ch-lblfmt').value.trim();
-      const labelPosOut = labelsOn && lblPosSel && lblPosSel !== 'out' ? lblPosSel : null;
-      const labelFmtOut = labelsOn && lblFmtVal ? lblFmtVal : null;
-      const xt = content.querySelector('#ch-xt').value.trim();
-      const yt = content.querySelector('#ch-yt').value.trim();
-      const axisTitlesOut = isCart && (xt || yt) ? { x: xt || null, y: yt || null } : null;
-      const typesClean = comboCapable() ? (state.seriesTypes || []).map(t => (t === 'column' || t === 'line') ? t : null) : [];
-      const typesAny = typesClean.some(Boolean);
-      const orderClean = comboCapable() && Array.isArray(state.order) ? state.order.slice() : null;
-      const orderIsIdentity = orderClean ? orderClean.every((ix, j) => ix === j) : true;
-      const orderOut = orderClean && !orderIsIdentity ? orderClean : null;
-      if (existing) {
-        const colorsClean = (state.colors || []).map(c => c || null);
-        const namesClean = (state.seriesNames || []).map(n => n || null);
-        Object.assign(existing, { type: state.type, title: state.title, range: state.range, seriesInRows: state.seriesInRows,
-          colors: colorsClean.some(Boolean) ? colorsClean : null, seriesNames: namesClean.some(Boolean) ? namesClean : null,
-          seriesTypes: typesAny ? typesClean : null, seriesOrder: orderOut,
-          dataLabels: labelsOn || null, labelPos: labelPosOut, labelFmt: labelFmtOut, axisTitles: axisTitlesOut });
-        renderChartsLayer(); Persistence.markDirty();
-        return true;
-      }
-      const L = R.layout;
+  /* Arming: focus the range field and the sheet starts mirroring it. The grid
+     keeps its own cursor, so a plain click or drag re-points the field — this is
+     the whole reason the pane sits beside the grid instead of over it. */
+  function syncPickArm() {
+    ChartPane.picking = ChartPane.open && document.activeElement === rangeInput;
+    rangeInput.classList.toggle('cp-armed', ChartPane.picking);
+    if (pickTip) pickTip.hidden = !ChartPane.picking;
+    if (ChartPane.picking) kickChartPaneStep();
+    requestPaint();
+  }
+  rangeInput.addEventListener('focus', syncPickArm);
+  rangeInput.addEventListener('blur', () => { if (ChartPane.open) syncPickArm(); });
+  ChartPane.draft = {
+    sheetId: sh.id,
+    rangeInput: rangeInput,
+    setRange: (txt, live) => {
+      rangeInput.value = txt;
+      refreshPreview();
+      if (!live) refreshSeriesEditor();
+      kickChartPaneStep();
+    }
+  };
+  content.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && document.activeElement === rangeInput) { rangeInput.blur(); e.stopPropagation(); }
+  });
+  content.querySelector('.cp-x').addEventListener('click', closeChartPane);
+  content.querySelector('#ch-cancel').addEventListener('click', closeChartPane);
+  const applyBtn = content.querySelector('#ch-apply');
+  applyBtn.addEventListener('click', () => {
+    const rangeTxt = rangeInput.value.trim();
+    if (!parseRangeText(rangeTxt)) { toast('Invalid data range', 'error'); rangeInput.focus(); return; }
+    state.title = content.querySelector('#ch-title').value.trim();
+    state.range = rangeTxt;
+    state.seriesInRows = content.querySelector('#ch-rows').checked;
+    const isCart = state.type !== 'pie';
+    const labelsOn = isCart && content.querySelector('#ch-labels').checked;
+    const lblPosSel = content.querySelector('#ch-lblpos').value;
+    const lblFmtVal = content.querySelector('#ch-lblfmt').value.trim();
+    const labelPosOut = labelsOn && lblPosSel && lblPosSel !== 'out' ? lblPosSel : null;
+    const labelFmtOut = labelsOn && lblFmtVal ? lblFmtVal : null;
+    const xt = content.querySelector('#ch-xt').value.trim();
+    const yt = content.querySelector('#ch-yt').value.trim();
+    const axisTitlesOut = isCart && (xt || yt) ? { x: xt || null, y: yt || null } : null;
+    const typesClean = comboCapable() ? (state.seriesTypes || []).map(t => (t === 'column' || t === 'line') ? t : null) : [];
+    const typesAny = typesClean.some(Boolean);
+    const orderClean = comboCapable() && Array.isArray(state.order) ? state.order.slice() : null;
+    const orderIsIdentity = orderClean ? orderClean.every((ix, j) => ix === j) : true;
+    const orderOut = orderClean && !orderIsIdentity ? orderClean : null;
+    if (existing) {
       const colorsClean = (state.colors || []).map(c => c || null);
       const namesClean = (state.seriesNames || []).map(n => n || null);
-      const chart = {
-        id: uid(), type: state.type, title: state.title, range: state.range,
-        seriesInRows: state.seriesInRows, sheetId: sh.id,
-        colors: colorsClean.some(Boolean) ? colorsClean : null,
-        seriesNames: namesClean.some(Boolean) ? namesClean : null,
-        seriesTypes: typesAny ? typesClean : null,
-        seriesOrder: orderOut,
-        dataLabels: labelsOn || null,
-        labelPos: labelPosOut,
-        labelFmt: labelFmtOut,
-        axisTitles: axisTitlesOut,
-        x: (Scroll.x + (L.gridW / VIEW.zoom) / 2 - 220),
-        y: (Scroll.y + 60),
-        w: 440, h: 300
-      };
-      if (chart.x < 0) chart.x = Scroll.x + 40;
-      const before = sh.charts.slice();
-      sh.charts.push(chart);
-      const after = sh.charts.slice();
-      pushHistory({ label: 'Insert chart', undo: () => { sh.charts = before.slice(); renderChartsLayer(); }, redo: () => { sh.charts = after.slice(); renderChartsLayer(); } });
-      renderChartsLayer();
-      Persistence.markDirty();
-      return true;
-    } }]
+      Object.assign(existing, { type: state.type, title: state.title, range: state.range, seriesInRows: state.seriesInRows,
+        colors: colorsClean.some(Boolean) ? colorsClean : null, seriesNames: namesClean.some(Boolean) ? namesClean : null,
+        seriesTypes: typesAny ? typesClean : null, seriesOrder: orderOut,
+        dataLabels: labelsOn || null, labelPos: labelPosOut, labelFmt: labelFmtOut, axisTitles: axisTitlesOut });
+      renderChartsLayer(); Persistence.markDirty();
+      closeChartPane();
+      return;
+    }
+    const L = R.layout;
+    const colorsClean = (state.colors || []).map(c => c || null);
+    const namesClean = (state.seriesNames || []).map(n => n || null);
+    const chart = {
+      id: uid(), type: state.type, title: state.title, range: state.range,
+      seriesInRows: state.seriesInRows, sheetId: sh.id,
+      colors: colorsClean.some(Boolean) ? colorsClean : null,
+      seriesNames: namesClean.some(Boolean) ? namesClean : null,
+      seriesTypes: typesAny ? typesClean : null,
+      seriesOrder: orderOut,
+      dataLabels: labelsOn || null,
+      labelPos: labelPosOut,
+      labelFmt: labelFmtOut,
+      axisTitles: axisTitlesOut,
+      x: (Scroll.x + (L.gridW / VIEW.zoom) / 2 - 220),
+      y: (Scroll.y + 60),
+      w: 440, h: 300
+    };
+    if (chart.x < 0) chart.x = Scroll.x + 40;
+    const before = sh.charts.slice();
+    sh.charts.push(chart);
+    const after = sh.charts.slice();
+    pushHistory({ label: 'Insert chart', undo: () => { sh.charts = before.slice(); renderChartsLayer(); }, redo: () => { sh.charts = after.slice(); renderChartsLayer(); } });
+    renderChartsLayer();
+    Persistence.markDirty();
+    closeChartPane();
   });
+  /* mount only after the wiring exists, so the first preview paint measures a
+     laid-out pane rather than a detached tree */
+  const pane = $('#chart-pane');
+  pane.innerHTML = '';
+  pane.appendChild(content);
+  pane.hidden = false;
+  const btn = document.querySelector('[data-cmd="chart"]');
+  if (btn) btn.classList.add('active');
+  resizeCanvas();
+  requestPaint();
+  refreshPreview();
+  syncPickArm();
 }
 
 /* ==========================================================================
@@ -9210,7 +9557,7 @@ async function exportXlsx() {
       if (nc > range.e.c) range.e.c = Math.min(nc, 1000);
       const aStr = XLSX.utils.encode_cell({ r: nr, c: nc });
       if (!ws[aStr]) ws[aStr] = { t: 's', v: '' };
-      const cmts = [{ a: n.author || 'Note', t: n.text }];
+      const cmts = [{ a: n.author || 'You', t: n.text }];
       for (const rp of noteReplies(n)) cmts.push({ a: rp.a || 'Me', t: rp.t });
       ws[aStr].c = cmts;
     }
@@ -9222,7 +9569,7 @@ async function exportXlsx() {
     const rowsA = [];
     for (let r = 0; r <= range.e.r; r++) rowsA.push({ hpx: sh.rows.sizeOf(r) });
     ws['!rows'] = rowsA;
-    XLSX.utils.book_append_sheet(wb, ws, sh.name.slice(0, 31));
+    XLSX.utils.book_append_sheet(wb, ws, sh.name.slice(0, SHEET_NAME_MAX));
   }
   const fname = (WB.title || 'workbook').replace(/[\\/:*?"<>|]/g, '_') + '.xlsx';
   try {
@@ -9699,14 +10046,21 @@ function showCellContextMenu(x, y) {
     { label: 'Copy', icon: 'copy', shortcut: 'Ctrl+C', action: () => doCopy(false) },
     { label: 'Paste', icon: 'paste', shortcut: 'Ctrl+V', action: () => { armPaste(); toast('Press Ctrl+V to paste', 'info', 1600); } },
     { sep: true },
-    { label: 'Insert…', icon: 'plus', action: () => openInsertDialog('cells') },
-    { label: 'Delete…', icon: 'trash', action: () => openInsertDialog('cells-del') },
-    { label: 'Clear Contents', icon: 'clear', shortcut: 'Del', action: () => clearSelectionContents('contents') },
+    { label: 'Insert Row Above', icon: 'rowInsert', action: () => insertRowsAt('above') },
+    { label: 'Insert Row Below', icon: 'rowInsert', action: () => insertRowsAt('below') },
+    { label: 'Insert Column Before', icon: 'colInsert', action: () => insertColsAt('left') },
+    { label: 'Insert Column After', icon: 'colInsert', action: () => insertColsAt('right') },
     { sep: true },
-    { label: hasNote ? 'Edit Note' : 'Insert Note', icon: 'text', shortcut: 'Shift+F2', action: () => openNoteEditor(SEL.active.r, SEL.active.c) },
-    hasNote ? { label: 'Reply to Note…', icon: 'comment', action: () => { showNoteThreadPopover(shCtx, SEL.active.r, SEL.active.c, cellScreenRect(shCtx, SEL.active.r, SEL.active.c), true); } } : null,
+    { label: 'Clear Contents', icon: 'clear', shortcut: 'Del', action: () => clearSelectionContents('contents') },
+    { label: 'Delete Rows', icon: 'rowDelete', action: () => { const rows = selRows(); deleteRows(rows[0], rows.length); } },
+    { label: 'Delete Columns', icon: 'colDelete', action: () => { const cols = selCols(); deleteCols(cols[0], cols.length); } },
+    { sep: true },
+    { label: hasNote ? 'Edit Comment' : 'New Comment', icon: 'comment', shortcut: 'Shift+F2', action: () => openCommentDialog(SEL.active.r, SEL.active.c) },
+    hasNote ? { label: 'Reply to Comment…', icon: 'comment', action: () => { showNoteThreadPopover(shCtx, SEL.active.r, SEL.active.c, cellScreenRect(shCtx, SEL.active.r, SEL.active.c), true); } } : null,
     hasNote ? { label: 'Delete Note', icon: 'clear', action: () => { setNote(shCtx, SEL.active.r, SEL.active.c, ''); toast('Note deleted', 'info', 1200); } } : null,
-    { label: 'Format Cells…', icon: 'grid', action: () => openFormatCellsDialog() },
+    { label: 'Merge Across', icon: 'merge', action: () => mergeSelection('across') },
+    { label: 'Unmerge', icon: 'unmerge', action: () => mergeSelection('unmerge') },
+    { label: 'Numbering…', icon: 'numfmt', action: () => openNumberFormatDialog() },
     { label: 'Pick from Validation List', icon: 'validate', action: () => { updateDvChips(); const chip = document.querySelector('.dv-chip'); if (chip) chip.click(); else toast('No list validation applies to this cell', 'warn'); } },
     { sep: true },
     { label: quickFilterLabel, icon: 'filter', action: () => quickFilterByValue() },
@@ -9719,7 +10073,8 @@ function showCellContextMenu(x, y) {
 function showRowContextMenu(x, y) {
   const rows = selRows();
   showPopupMenu([
-    { label: 'Insert Rows', icon: 'rowInsert', action: () => insertRows(rows[0], rows.length) },
+    { label: 'Insert Rows Above', icon: 'rowInsert', action: () => insertRowsAt('above') },
+    { label: 'Insert Rows Below', icon: 'rowInsert', action: () => insertRowsAt('below') },
     { label: 'Delete Rows', icon: 'rowDelete', action: () => deleteRows(rows[0], rows.length) },
     { sep: true },
     { label: 'Clear Contents', icon: 'clear', action: () => clearSelectionContents('contents') },
@@ -9734,7 +10089,8 @@ function showRowContextMenu(x, y) {
 function showColContextMenu(x, y) {
   const cols = selCols();
   showPopupMenu([
-    { label: 'Insert Columns', icon: 'colInsert', action: () => insertCols(cols[0], cols.length) },
+    { label: 'Insert Columns Left', icon: 'colInsert', action: () => insertColsAt('left') },
+    { label: 'Insert Columns Right', icon: 'colInsert', action: () => insertColsAt('right') },
     { label: 'Delete Columns', icon: 'colDelete', action: () => deleteCols(cols[0], cols.length) },
     { sep: true },
     { label: 'Clear Contents', icon: 'clear', action: () => clearSelectionContents('contents') },
@@ -9956,41 +10312,6 @@ function promptDialog(title, label, value, onOk) {
 }
 
 /* ---------------- shared dialogs ---------------- */
-function openInsertDialog(kind) {
-  if (kind === 'cells-del') {
-    openModal({
-      title: 'Delete Cells', width: 400,
-      content: '<div class="hint">Deleting shifts surrounding cells to fill the gap.</div>' +
-        '<div class="form-row"><label></label><div class="fr-input"><label><input type="radio" name="delcells" value="up" checked> Shift cells up</label></div></div>' +
-        '<div class="form-row"><label></label><div class="fr-input"><label><input type="radio" name="delcells" value="left"> Shift cells left</label></div></div>' +
-        '<div class="form-row"><label></label><div class="fr-input"><label><input type="radio" name="delcells" value="rows"> Entire row(s)</label></div></div>' +
-        '<div class="form-row"><label></label><div class="fr-input"><label><input type="radio" name="delcells" value="cols"> Entire column(s)</label></div></div>',
-      buttons: [{ label: 'Cancel' }, { label: 'OK', primary: true, onClick: () => {
-        const v = document.querySelector('input[name="delcells"]:checked').value;
-        if (v === 'up') deleteCells('up'); else if (v === 'left') deleteCells('left');
-        else if (v === 'rows') { const rows = selRows(); deleteRows(rows[0], rows.length); }
-        else { const cols = selCols(); deleteCols(cols[0], cols.length); }
-        return true;
-      } }]
-    });
-    return;
-  }
-  openModal({
-    title: 'Insert', width: 400,
-    content: '<div class="hint">Inserted cells shift existing data to make room.</div>' +
-      '<div class="form-row"><label></label><div class="fr-input"><label><input type="radio" name="inscells" value="down" checked> Shift cells down</label></div></div>' +
-      '<div class="form-row"><label></label><div class="fr-input"><label><input type="radio" name="inscells" value="right"> Shift cells right</label></div></div>' +
-      '<div class="form-row"><label></label><div class="fr-input"><label><input type="radio" name="inscells" value="rows"> Entire row(s)</label></div></div>' +
-      '<div class="form-row"><label></label><div class="fr-input"><label><input type="radio" name="inscells" value="cols"> Entire column(s)</label></div></div>',
-    buttons: [{ label: 'Cancel' }, { label: 'OK', primary: true, onClick: () => {
-      const v = document.querySelector('input[name="inscells"]:checked').value;
-      if (v === 'down') insertCells('down'); else if (v === 'right') insertCells('right');
-      else if (v === 'rows') { const rows = selRows(); insertRows(rows[0], rows.length); }
-      else { const cols = selCols(); insertCols(cols[0], cols.length); }
-      return true;
-    } }]
-  });
-}
 function openGoToDialog() {
   const names = Object.keys(WB.names);
   const content = el('<div><div class="form-row"><label>Reference</label><div class="fr-input"><input type="text" id="gt-ref" placeholder="A1, B2:C9, Sheet2!A1, MyRange"></div></div><div class="hint">Go to a cell, range, or named range.</div><div id="gt-names"></div></div>');
@@ -10058,44 +10379,31 @@ function openDefineNameDialog() {
   });
 }
 
-/* ---------------- Format Cells dialog ---------------- */
-function openFormatCellsDialog() {
+/* ---------------- Numbering dialog ----------------
+   Number format only. Font, border, alignment and fill all have their own
+   ribbon controls (Home > Font/Alignment/Borders/Fill), so a combined Format
+   Cells dialog only duplicated them behind a second click. */
+function openNumberFormatDialog() {
   const sh = activeSheet();
   const rg = activeSelRange();
   const firstCell = sh.cells.get(key(rg.r1, rg.c1));
   const base = firstCell && firstCell.s ? Object.assign({}, firstCell.s) : {};
   const S = {
-    fontFamily: base.fontFamily || DEF.fontFamily, fontSize: base.fontSize || DEF.fontPt,
-    bold: !!base.bold, italic: !!base.italic, underline: base.underline || 0, strike: !!base.strike,
-    color: base.color || '#1a1a1a', backgroundColor: base.backgroundColor || '',
-    halign: base.halign || '', valign: base.valign || '', wrap: !!base.wrap, indent: base.indent || 0,
-    numFmtCat: base.numFmtCat || 'general', numberFormat: base.numberFormat || 'General', decimals: base.decimals,
-    borderSides: { t: base.border && base.border.t ? base.border.t.style : '', r: base.border && base.border.r ? base.border.r.style : '', b: base.border && base.border.b ? base.border.b.style : '', l: base.border && base.border.l ? base.border.l.style : '' },
-    borderColor: (base.border && (base.border.t || base.border.b || base.border.l || base.border.r) || {}).color || '#333333'
+    numFmtCat: base.numFmtCat || 'general',
+    numberFormat: base.numberFormat || 'General',
+    decimals: base.decimals
   };
   const CATS = [
     ['general', 'General'], ['number', 'Number'], ['currency', 'Currency'], ['accounting', 'Accounting'],
     ['shortDate', 'Short Date'], ['longDate', 'Long Date'], ['time', 'Time'], ['percent', 'Percentage'],
     ['fraction', 'Fraction'], ['scientific', 'Scientific'], ['text', 'Text'], ['custom', 'Custom']
   ];
+  const DEC_CATS = ['number', 'currency', 'accounting', 'percent'];
   const content = el('<div>' +
-    '<div class="dlg-tabs"><button class="dlg-tab active" data-p="number">Number</button><button class="dlg-tab" data-p="font">Font</button><button class="dlg-tab" data-p="border">Border</button><button class="dlg-tab" data-p="align">Alignment</button><button class="dlg-tab" data-p="fill">Fill</button></div>' +
-    '<div class="dlg-page active" data-p="number"><div class="form-row"><label>Category</label><div class="fr-input"><select id="fc-cat">' + CATS.map(c => '<option value="' + c[0] + '"' + (c[0] === S.numFmtCat ? ' selected' : '') + '>' + c[1] + '</option>').join('') + '</select></div></div>' +
-    '<div class="form-row" data-dec><label>Decimal places</label><div class="fr-input"><input type="number" id="fc-dec" min="0" max="10" value="2" style="width:90px"></div></div>' +
-    '<div class="form-row" data-fmt><label>Type</label><div class="fr-input"><input type="text" id="fc-fmt" placeholder="0.00"></div></div>' +
-    '<div class="form-row"><label>Preview</label><div class="fr-input"><div class="preview-box" id="fc-preview">1234.57</div></div></div></div>' +
-    '<div class="dlg-page" data-p="font"><div class="form-row"><label>Font</label><div class="fr-input"><select id="fc-font">' + FONT_LIST.map(f => '<option' + (f === S.fontFamily ? ' selected' : '') + '>' + f + '</option>').join('') + '</select><input type="number" id="fc-size" min="6" max="96" value="' + S.fontSize + '" style="width:80px"></div></div>' +
-    '<div class="form-row"><label>Style</label><div class="fr-input"><label><input type="checkbox" id="fc-bold"' + (S.bold ? ' checked' : '') + '> Bold</label><label><input type="checkbox" id="fc-italic"' + (S.italic ? ' checked' : '') + '> Italic</label><label><input type="checkbox" id="fc-strike"' + (S.strike ? ' checked' : '') + '> Strikethrough</label></div></div>' +
-    '<div class="form-row"><label>Underline</label><div class="fr-input"><select id="fc-under"><option value="0">None</option><option value="1"' + (S.underline === 1 ? ' selected' : '') + '>Single</option><option value="2"' + (S.underline === 2 ? ' selected' : '') + '>Double</option></select></div></div>' +
-    '<div class="form-row"><label>Color</label><div class="fr-input"><input type="color" id="fc-color" value="' + (S.color || '#1a1a1a') + '"></div></div></div>' +
-    '<div class="dlg-page" data-p="border"><div class="border-style-row"><label style="font-size:12px;color:#605e5c">Style</label><select id="fc-bstyle"><option value="">(none)</option><option value="thin">Thin</option><option value="medium">Medium</option><option value="thick">Thick</option><option value="double">Double</option></select><label style="font-size:12px;color:#605e5c">Color</label><input type="color" id="fc-bcolor" value="' + S.borderColor + '"></div>' +
-    '<div class="mini-grid-cells" id="fc-bgrid"></div><div class="hint">Click cells in the mini grid to toggle each border side of the selection outline, then press Apply. Use presets below for speed.</div>' +
-    '<div class="form-row"><label>Presets</label><div class="fr-input"><select id="fc-bpreset"><option value="">Choose…</option><option value="all">All borders</option><option value="out">Outside border</option><option value="thick">Thick outside</option><option value="top">Top</option><option value="bottom">Bottom</option><option value="dblbottom">Double bottom</option><option value="left">Left</option><option value="right">Right</option><option value="none">No border</option></select></div></div></div>' +
-    '<div class="dlg-page" data-p="align"><div class="form-row"><label>Horizontal</label><div class="fr-input"><select id="fc-halign"><option value="">General</option><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></div></div>' +
-    '<div class="form-row"><label>Vertical</label><div class="fr-input"><select id="fc-valign"><option value="">Default (middle)</option><option value="top">Top</option><option value="middle">Middle</option><option value="bottom">Bottom</option></select></div></div>' +
-    '<div class="form-row"><label>Indent</label><div class="fr-input"><input type="number" id="fc-indent" min="0" max="15" value="' + (S.indent || 0) + '" style="width:90px"></div></div>' +
-    '<div class="form-row"><label></label><div class="fr-input"><label><input type="checkbox" id="fc-wrap"' + (S.wrap ? ' checked' : '') + '> Wrap text</label></div></div></div>' +
-    '<div class="dlg-page" data-p="fill"><div class="form-row"><label>Background</label><div class="fr-input"><input type="color" id="fc-bg" value="' + (S.backgroundColor || '#ffffff') + '"><button class="btn small" id="fc-bgnone">No Fill</button></div></div></div>' +
+    '<div class="form-row"><label>Category</label><div class="fr-input"><select id="fc-cat">' + CATS.map(c => '<option value="' + c[0] + '"' + (c[0] === S.numFmtCat ? ' selected' : '') + '>' + c[1] + '</option>').join('') + '</select></div></div>' +
+    '<div class="form-row" data-dec><label>Decimal places</label><div class="fr-input"><input type="number" id="fc-dec" min="0" max="10" value="' + (S.decimals == null ? 2 : S.decimals) + '" style="width:90px"></div></div>' +
+    '<div class="form-row" data-fmt><label>Type</label><div class="fr-input"><input type="text" id="fc-fmt" placeholder="0.00" value="' + esc(S.numberFormat === 'General' ? '' : S.numberFormat) + '"></div></div>' +
+    '<div class="form-row"><label>Preview</label><div class="fr-input"><div class="preview-box" id="fc-preview">1234.57</div></div></div>' +
     '</div>');
   const fmtInput = content.querySelector('#fc-fmt');
   const decInput = content.querySelector('#fc-dec');
@@ -10122,100 +10430,30 @@ function openFormatCellsDialog() {
     const code = codeForCat(cat);
     fmtInput.value = cat === 'custom' ? fmtInput.value : code;
     const sampleVals = [1234.567, -1234.5, 0.5, dateToSerial(new Date())];
-    const prev = content.querySelector('#fc-preview');
-    prev.textContent = sampleVals.map(v => formatValue(v, code)).join('   |   ');
-    content.querySelector('[data-dec]').style.display = ['number', 'currency', 'accounting', 'percent'].includes(cat) ? '' : 'none';
+    content.querySelector('#fc-preview').textContent = sampleVals.map(v => formatValue(v, code)).join('   |   ');
+    content.querySelector('[data-dec]').style.display = DEC_CATS.includes(cat) ? '' : 'none';
     content.querySelector('[data-fmt]').style.display = cat === 'custom' ? '' : 'none';
   }
   content.querySelector('#fc-cat').addEventListener('change', updatePreview);
   decInput.addEventListener('input', updatePreview);
   fmtInput.addEventListener('input', updatePreview);
   updatePreview();
-  /* tabs */
-  content.querySelectorAll('.dlg-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      content.querySelectorAll('.dlg-tab').forEach(t => t.classList.remove('active'));
-      content.querySelectorAll('.dlg-page').forEach(p => p.classList.remove('active'));
-      tab.classList.add('active');
-      content.querySelector('.dlg-page[data-p="' + tab.dataset.p + '"]').classList.add('active');
-    });
-  });
-  /* border mini grid: 3x3 where clicking marks sides of the center cell */
-  const bgrid = content.querySelector('#fc-bgrid');
-  const marks = { t: S.borderSides.t, b: S.borderSides.b, l: S.borderSides.l, r: S.borderSides.r };
-  for (let i = 0; i < 9; i++) {
-    const cellBtn = el('<button class="mg' + '" data-i="' + i + '"></button>');
-    cellBtn.addEventListener('click', () => { /* decorative grid positions map: top row toggles t, middle sides, bottom toggles b */ });
-    bgrid.appendChild(cellBtn);
-  }
-  function paintMarks() {
-    const cells = bgrid.querySelectorAll('.mg');
-    cells.forEach((cbtn, i) => {
-      cbtn.classList.remove('mark');
-      if (i === 1 && marks.t) cbtn.classList.add('mark');
-      if (i === 7 && marks.b) cbtn.classList.add('mark');
-      if (i === 3 && marks.l) cbtn.classList.add('mark');
-      if (i === 5 && marks.r) cbtn.classList.add('mark');
-    });
-  }
-  const sideFor = i => i === 1 ? 't' : i === 7 ? 'b' : i === 3 ? 'l' : i === 5 ? 'r' : null;
-  bgrid.addEventListener('click', e => {
-    const i = e.target.dataset && e.target.dataset.i;
-    const side = sideFor(+i);
-    if (!side) return;
-    marks[side] = marks[side] ? '' : (content.querySelector('#fc-bstyle').value || 'thin');
-    paintMarks();
-  });
-  content.querySelector('#fc-bpreset').addEventListener('change', e => {
-    const v = e.target.value;
-    const st = content.querySelector('#fc-bstyle').value || 'thin';
-    if (v === 'all') { marks.t = marks.b = marks.l = marks.r = 'thin'; }
-    else if (v === 'out') { marks.t = marks.b = marks.l = marks.r = st; }
-    else if (v === 'thick') { marks.t = marks.b = marks.l = marks.r = 'thick'; }
-    else if (v === 'top') { marks.t = st; }
-    else if (v === 'bottom') { marks.b = st; }
-    else if (v === 'dblbottom') { marks.b = 'double'; }
-    else if (v === 'left') { marks.l = st; }
-    else if (v === 'right') { marks.r = st; }
-    else if (v === 'none') { marks.t = marks.b = marks.l = marks.r = ''; }
-    paintMarks();
-    e.target.value = '';
-  });
   openModal({
-    title: 'Format Cells', width: 560, content,
+    title: 'Numbering', width: 430, content,
     buttons: [{ label: 'Cancel' }, { label: 'Apply', primary: true, onClick: () => {
       const cat = content.querySelector('#fc-cat').value;
       const code = cat === 'custom' ? (fmtInput.value || 'General') : codeForCat(cat);
-      const dec = clamp(parseInt(decInput.value || '0', 10) || 0, 0, 10);
-      const patch = {
-        fontFamily: content.querySelector('#fc-font').value,
-        fontSize: clamp(parseInt(content.querySelector('#fc-size').value, 10) || 11, 6, 96),
-        bold: content.querySelector('#fc-bold').checked,
-        italic: content.querySelector('#fc-italic').checked,
-        underline: +content.querySelector('#fc-under').value,
-        strike: content.querySelector('#fc-strike').checked,
-        color: content.querySelector('#fc-color').value,
-        halign: content.querySelector('#fc-halign').value || null,
-        valign: content.querySelector('#fc-valign').value || null,
-        wrap: content.querySelector('#fc-wrap').checked,
-        indent: clamp(parseInt(content.querySelector('#fc-indent').value, 10) || 0, 0, 15),
+      const dec = clamp(parseInt(content.querySelector('#fc-dec').value, 10) || 0, 0, 10);
+      applyStyleToSelection({
         numberFormat: code === 'General' ? null : code,
         numFmtCat: code === 'General' ? null : cat,
-        decimals: ['number', 'currency', 'accounting', 'percent'].includes(cat) ? dec : null
-      };
-      const bgInput = content.querySelector('#fc-bg');
-      const bg = bgInput.dataset.touched ? (bgInput.dataset.none ? null : bgInput.value) : (S.backgroundColor || null);
-      patch.backgroundColor = bg;
-      const bc = content.querySelector('#fc-bcolor').value;
-      const mk = s => marks[s] ? { style: marks[s], color: bc } : null;
-      patch.border = { t: mk('t'), r: mk('r'), b: mk('b'), l: mk('l') };
-      applyStyleToSelection(patch, { label: 'Format cells' });
+        decimals: DEC_CATS.includes(cat) ? dec : null
+      }, { label: 'Number format' });
       return true;
     } }]
   });
-  setTimeout(() => { const nb = content.querySelector('#fc-bgnone'); if (nb) nb.addEventListener('click', () => { content.querySelector('#fc-bg').value = '#ffffff'; content.querySelector('#fc-bg').dataset.none = '1'; content.querySelector('#fc-bg').dataset.touched = '1'; }); const bgIn = content.querySelector('#fc-bg'); bgIn.addEventListener('input', () => { bgIn.dataset.touched = '1'; bgIn.dataset.none = ''; }); }, 0);
 }
-const FONT_LIST = ['Calibri', 'Segoe UI', 'Arial', 'Georgia', 'Times New Roman', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Courier New', 'Consolas', 'Impact', 'Comic Sans MS'];
+
 const RIBBON_FONT_GROUPS = [
   ['Sans-Serif', ['Calibri', 'Segoe UI', 'Arial', 'Helvetica', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Poppins', 'Nunito', 'Ubuntu', 'Raleway', 'Oswald', 'Work Sans', 'DM Sans', 'Impact']],
   ['Serif', ['Georgia', 'Times New Roman', 'Merriweather', 'Lora', 'Libre Baskerville', 'DM Serif Display', 'Crimson Text']],
@@ -10464,53 +10702,39 @@ function ribbonConfig() {
         ] })
       ]},
       { label: 'Arrange', items: [
-        { custom: 'stack', items: [
+        { custom: 'arrange', items: [
           cmd('alignTop', '', () => applyStyleToSelection({ valign: 'top' }), { cmd: 'align', title: 'Align top' }),
           cmd('alignMiddle', '', () => applyStyleToSelection({ valign: 'middle' }), { cmd: 'align', title: 'Align middle' }),
           cmd('alignBottom', '', () => applyStyleToSelection({ valign: 'bottom' }), { cmd: 'align', title: 'Align bottom' })
         ]},
-        { custom: 'stack', items: [
+        { custom: 'arrange', items: [
           cmd('alignLeft', '', () => applyStyleToSelection({ halign: 'left' }), { cmd: 'align', title: 'Align left' }),
           cmd('alignCenter', '', () => applyStyleToSelection({ halign: 'center' }), { cmd: 'align', title: 'Align center' }),
           cmd('alignRight', '', () => applyStyleToSelection({ halign: 'right' }), { cmd: 'align', title: 'Align right' })
         ]},
-        cmd('merge', 'Merge', () => mergeSelection('center'), { small: true, split: true, cmd: 'merge', menu: [
-          { label: 'Merge & Center', icon: 'merge', action: () => mergeSelection('center') },
-          { label: 'Merge Across', action: () => mergeSelection('across') },
-          { label: 'Unmerge', icon: 'unmerge', action: () => mergeSelection('unmerge') }
-        ] })
+        cmd('merge', '', () => mergeSelection('center'), { cmd: 'merge', title: 'Merge & Center' })
       ]}
     ],
     Insert: [
-      { label: 'Charts', items: CHART_TYPES.map(t => cmd(t.icon, t.name + ' Chart', () => openChartDialogFor(t.id), { small: true })) },
+      { label: 'Charts', items: [
+        cmd('chartPlus', 'Create Chart', () => toggleChartPane(), { cmd: 'chart', title: 'Create Chart' })
+      ] },
       { label: 'Cells', items: [
-        cmd('plus', 'Insert Cells', () => openInsertDialog('cells'), { small: true, title: 'Insert cells, shifting others' }),
-        cmd('rowInsert', 'Insert Rows', () => { const rows = selRows(); insertRows(rows[0], rows.length); }, { small: true }),
-        cmd('colInsert', 'Insert Columns', () => { const cols = selCols(); insertCols(cols[0], cols.length); }, { small: true }),
-        cmd('plusSheet', 'New Sheet', () => addSheet(WB.activeSheetId), { small: true }),
-        cmd('trash', 'Delete', null, { split: true, menu: [
-          { label: 'Delete Cells…', action: () => openInsertDialog('cells-del') },
-          { label: 'Delete Rows', icon: 'rowDelete', action: () => { const rows = selRows(); deleteRows(rows[0], rows.length); } },
-          { label: 'Delete Columns', icon: 'colDelete', action: () => { const cols = selCols(); deleteCols(cols[0], cols.length); } },
-          { label: 'Delete Sheet', icon: 'trash', action: () => deleteSheetById(WB.activeSheetId) }
-        ] }),
-        cmd('grid', 'Format', null, { split: true, menu: [
-          { label: 'Row Height…', action: () => promptRowHeight() },
-          { label: 'AutoFit Row Height', action: () => { selRows().forEach(r => autoFitSize('row', r)); } },
-          { label: 'Column Width…', action: () => promptColWidth() },
-          { label: 'AutoFit Column Width', action: () => { selCols().forEach(c => autoFitSize('col', c)); } },
-          { sep: true },
-          { label: 'Hide Rows', action: () => setRowsHidden(selRows(), true) },
-          { label: 'Unhide Rows…', action: () => unhideRowsMenu(300, 200) },
-          { label: 'Hide Columns', action: () => setColsHidden(selCols(), true) },
-          { label: 'Unhide Columns…', action: () => unhideColsMenu(300, 200) },
-          { sep: true },
-          { label: 'Format Cells…', action: () => openFormatCellsDialog() }
-        ] })
+        cmd('rowInsert', 'Insert Rows', () => insertRowsAt('above'), { cmd: 'insRows', title: 'Insert rows above the selection' }),
+        cmd('colInsert', 'Insert Columns', () => insertColsAt('left'), { cmd: 'insCols', title: 'Insert columns left of the selection' }),
+        cmd('rowDelete', 'Delete Rows', () => { const rows = selRows(); deleteRows(rows[0], rows.length); }, { cmd: 'delRows', title: 'Delete the selected rows' }),
+        cmd('colDelete', 'Delete Columns', () => { const cols = selCols(); deleteCols(cols[0], cols.length); }, { cmd: 'delCols', title: 'Delete the selected columns' })
+      ]},
+      { label: 'Sheets', items: [
+        cmd('plusSheet', 'New Sheet', () => addSheet(WB.activeSheetId), { title: 'Add a sheet after the active one' }),
+        cmd('dup', 'Duplicate', () => duplicateSheetById(WB.activeSheetId), { title: 'Duplicate the active sheet' }),
+        cmd('pencil', 'Rename', () => renameActiveSheetFromRibbon(), { title: 'Rename the active sheet' }),
+        cmd('trash', 'Delete Sheet', () => deleteSheetById(WB.activeSheetId), { cmd: 'delSheet', title: 'Delete the active sheet' }),
+        { custom: 'tabColor' }
       ]},
       { label: 'Notes & Names', items: [
-        cmd('text', 'Note', () => openNoteEditor(SEL.active.r, SEL.active.c), { small: true, title: 'Add a note to the active cell (Shift+F2)' }),
-        cmd('nameBox', 'Define Name', () => openDefineNameDialog(), { small: true })
+        cmd('comment', 'Comments', () => openCommentDialog(SEL.active.r, SEL.active.c), { cmd: 'comment', title: 'Add a comment to the active cell (Shift+F2)' }),
+        cmd('nameBox', 'Define Name', () => openDefineNameDialog(), { title: 'Create a named range usable in formulas and the Name Box' })
       ]}
     ],
     Layout: [
@@ -10529,7 +10753,8 @@ function ribbonConfig() {
       { label: 'Styles', items: [
         cmd('styles', 'Conditional', () => openConditionalFormattingDialog(), { small: true, title: 'Conditional Formatting' }),
         cmd('table', 'Format as Table', () => formatAsTable(), { small: true, cmd: 'asTable' }),
-        cmd('grid', 'Cell Styles', null, { split: true, menu: CELL_STYLES.map(p => ({ custom: 'styleChip', preset: p })) })
+        cmd('grid', 'Cell Styles', null, { split: true, menu: CELL_STYLES.map(p => ({ custom: 'styleChip', preset: p })) }),
+        cmd('numfmt', 'Numbering', () => openNumberFormatDialog(), { cmd: 'numFmtDlg', title: 'Number format: category, decimals and custom type (Ctrl+1)' })
       ]}
     ],
     Formulas: [
@@ -10647,14 +10872,6 @@ function insertFunctionByName(name) {
   ed.setSelectionRange(ed.value.length, ed.value.length);
   Edit.dirty = true;
   updateFormulaBarForEdit(ed.value);
-}
-function openChartDialogFor(type) {
-  openChartDialog(null);
-  /* preselect type after dialog opens */
-  setTimeout(() => {
-    const cell = document.querySelector('.chart-type-cell[data-t="' + type + '"]');
-    if (cell) cell.click();
-  }, 60);
 }
 function changeFontSize(delta) {
   const sh = activeSheet();
@@ -10917,7 +11134,10 @@ function positionRibbonIndicator() {
 function buildRibbonItem(item) {
   if (item.custom) return buildCustomRibbonControl(item);
   const big = !item.small;
-  const btn = el('<button class="ribbon-btn' + (big ? '' : ' ribbon-btn-icon') + (item.split ? ' split' : '') + '" title="' + esc(item.title || item.label) + '" aria-label="' + esc(item.title || item.label) + '">' + icon(item.icon) + (big ? '<span>' + esc(item.label) + '</span>' : '') + '</button>');
+  /* no label → no <span> at all. An empty one is still a flex item, so it would
+     add a stray gap and push the glyph off-centre. Icon-only buttons keep the
+     base .ribbon-btn box, matching Notes/Docs/Slides (docs.css:681-683). */
+  const btn = el('<button class="ribbon-btn' + (big ? '' : ' ribbon-btn-icon') + (item.split ? ' split' : '') + '" title="' + esc(item.title || item.label) + '" aria-label="' + esc(item.title || item.label) + '">' + icon(item.icon) + (big && item.label ? '<span>' + esc(item.label) + '</span>' : '') + '</button>');
   /* One trigger, on click. This used to open on mousedown and then let the
      click that follows fire a second time, and openRibbonMenu only ever closed
      before reopening — so re-pressing the button made the menu reappear instead
@@ -11113,6 +11333,20 @@ const FILL_COLORS = [
   { value: '#FFDAB9', label: 'Peach', hex: '#FFDAB9' },
   { value: 'transparent', label: 'Clear', hex: 'transparent' }
 ];
+/* Excel's classic ten tab colours, plus No Color. Tab colour renders as a small
+   dot on the tab, so saturated values all read fine against the chrome. */
+const TAB_COLORS = [
+  { value: '#C00000', label: 'Dark Red' },
+  { value: '#FF0000', label: 'Red' },
+  { value: '#FFC000', label: 'Orange' },
+  { value: '#FFFF00', label: 'Yellow' },
+  { value: '#92D050', label: 'Light Green' },
+  { value: '#00B050', label: 'Green' },
+  { value: '#00B0F0', label: 'Light Blue' },
+  { value: '#0070C0', label: 'Blue' },
+  { value: '#002060', label: 'Dark Blue' },
+  { value: '#7030A0', label: 'Purple' }
+];
 function buildCustomRibbonControl(item) {
   switch (item.custom) {
     case 'fontFamily': {
@@ -11205,9 +11439,29 @@ function buildCustomRibbonControl(item) {
         pick: v => applyStyleToSelection({ backgroundColor: v === 'transparent' ? null : v })
       });
     }
+    case 'tabColor': {
+      const noneSw = '<span class="color-preview" style="background:transparent;border:1px solid #ccc;display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:#888">&#10005;</span>';
+      return msDropdownCtrl({
+        id: 'rbnTabColor',
+        minWidth: 86,
+        title: 'Tab color',
+        menuClass: 'color-list-menu',
+        value: () => (activeSheet() || {}).tabColor || 'none',
+        render: v => '<span class="color-preview" style="background:' + (v === 'none' ? 'transparent;border:1px solid #ccc' : v) + '"></span><span class="dropdown-value">Tab</span>',
+        items: [{ value: 'none', html: noneSw + 'No Color' }].concat(
+          TAB_COLORS.map(c => ({ value: c.value, html: '<span class="color-preview" style="background:' + c.value + '"></span>' + c.label }))
+        ),
+        pick: v => setSheetTabColor(WB.activeSheetId, v)
+      });
+    }
     case 'fontChips': {
       const wrap = el('<div class="font-controls"></div>');
       for (const sub of item.items) { if (!sub.custom) sub.small = true; wrap.appendChild(buildRibbonItem(sub)); }
+      return wrap;
+    }
+    case 'arrange': {
+      const wrap = el('<div class="rb-arrange"></div>');
+      for (const sub of item.items) { if (!sub.custom) wrap.appendChild(buildRibbonItem(sub)); }
       return wrap;
     }
     case 'stack': {
@@ -11293,6 +11547,12 @@ function getRibbonAvailability() {
   }
   return {
     formattingContext: formattingContext,
+    hasSelection: hasSelection,
+    /* The row and column commands are axis-specific: the row half only applies
+       to a whole-row selection, the column half only to a whole-column one, and
+       a plain cell/block selection is neither — so both halves grey out. */
+    rowCtx: hasSelection && SEL.ranges.every(isRowSelection),
+    colCtx: hasSelection && SEL.ranges.every(isColSelection),
     hasContent: hasContent,
     multiCell: SEL.ranges.length > 1 || rg.r1 !== rg.r2 || rg.c1 !== rg.c2,
     hasFormula: !!(active && active.f),
@@ -11352,6 +11612,16 @@ function updateRibbonAvailability() {
   /* Sort / format-as-table need a region with a second row. */
   setRibbonCommandsDisabled('sort', !s.multiRowRegion);
   setRibbonCommandsDisabled('asTable', !s.multiRowRegion);
+
+  /* Insert tab: the row half is live only on a whole-row selection and the
+     column half only on a whole-column one. Numbering takes any selection;
+     deleting the last visible sheet can't work. */
+  setRibbonCommandsDisabled('insRows', !s.rowCtx);
+  setRibbonCommandsDisabled('delRows', !s.rowCtx);
+  setRibbonCommandsDisabled('insCols', !s.colCtx);
+  setRibbonCommandsDisabled('delCols', !s.colCtx);
+  setRibbonCommandsDisabled('numFmtDlg', !s.hasSelection);
+  setRibbonCommandsDisabled('delSheet', WB.sheets.length <= 1 || WB.sheets.filter(x => !x.hidden).length <= 1);
 
   updateUndoRedoUI();
 }
@@ -11460,6 +11730,94 @@ function updateUndoRedoUI() {
 /* ---------------- sheet tabs ---------------- */
 /* sheet ids that already played their tab entrance animation */
 const TabSeen = { ids: new Set() };
+const SheetDrag = { id: null, overId: null, before: true };
+function clearSheetDropMarks() {
+  document.querySelectorAll('#sheet-tabs .sheet-tab.drop-before, #sheet-tabs .sheet-tab.drop-after')
+    .forEach(t => t.classList.remove('drop-before', 'drop-after'));
+}
+/* Reordering works on the visible sheets only, then writes that order back into
+   the unhidden slots of WB.sheets. Hidden sheets keep their original indices —
+   they have no tab to aim at, so guessing a new home for them would be a lie. */
+function applySheetReorder(dragId, targetId, before) {
+  const vis = visibleSheets();
+  const from = vis.findIndex(s => s.id === dragId);
+  const to = vis.findIndex(s => s.id === targetId);
+  /* from === to short-circuits the self-drop case: removing the dragged sheet
+     leaves at === -1, and splice(-1, 0, x) would quietly land it mid-array. */
+  if (from < 0 || to < 0 || from === to) return;
+  const moved = vis.splice(from, 1)[0];
+  const at = vis.findIndex(s => s.id === targetId);
+  vis.splice(before ? at : at + 1, 0, moved);
+  const slots = [];
+  WB.sheets.forEach((s, i) => { if (!s.hidden) slots.push(i); });
+  const prevOrder = WB.sheets.slice();
+  slots.forEach((slot, k) => { WB.sheets[slot] = vis[k]; });
+  const nextOrder = WB.sheets.slice();
+  if (prevOrder.every((s, i) => s === nextOrder[i])) return;
+  pushHistory({
+    label: 'Reorder sheets',
+    undo() { WB.sheets = prevOrder.slice(); updateSheetTabBar(); },
+    redo() { WB.sheets = nextOrder.slice(); updateSheetTabBar(); }
+  });
+  updateSheetTabBar();
+  Persistence.markDirty();
+}
+function wireSheetTabDrag(tab, sh) {
+  tab.draggable = true;
+  const mark = el('<i class="drop-mark"></i>');
+  tab.appendChild(mark);
+  tab.addEventListener('dragstart', e => {
+    SheetDrag.id = sh.id; SheetDrag.overId = null; SheetDrag.before = true;
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', sh.name); } catch (_) { /* IE */ }
+    tab.classList.add('dragging');
+  });
+  tab.addEventListener('dragend', () => {
+    tab.classList.remove('dragging');
+    clearSheetDropMarks();
+    SheetDrag.id = null; SheetDrag.overId = null;
+  });
+  tab.addEventListener('dragover', e => {
+    if (!SheetDrag.id || SheetDrag.id === sh.id) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const r = tab.getBoundingClientRect();
+    const before = (e.clientX - r.left) < r.width / 2;
+    if (SheetDrag.overId === sh.id && SheetDrag.before === before) return;
+    clearSheetDropMarks();
+    SheetDrag.overId = sh.id; SheetDrag.before = before;
+    tab.classList.add(before ? 'drop-before' : 'drop-after');
+  });
+  tab.addEventListener('dragleave', () => tab.classList.remove('drop-before', 'drop-after'));
+  tab.addEventListener('drop', e => {
+    e.preventDefault();
+    e.stopPropagation();   /* otherwise the strip's own handler also fires */
+    const id = SheetDrag.id, before = SheetDrag.before;
+    clearSheetDropMarks();
+    SheetDrag.id = null; SheetDrag.overId = null;
+    if (id && id !== sh.id) applySheetReorder(id, sh.id, before);
+  });
+}
+/* #sheet-tabs is flex:1, so there's usually bare space past the last tab. Drop
+   there and append, instead of letting the drop die on a non-droppable node. */
+function wireSheetStripDrop(bar) {
+  bar.addEventListener('dragover', e => {
+    if (!SheetDrag.id) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  });
+  bar.addEventListener('drop', e => {
+    if (!SheetDrag.id) return;
+    e.preventDefault();
+    const id = SheetDrag.id;
+    clearSheetDropMarks();
+    SheetDrag.id = null; SheetDrag.overId = null;
+    const vis = visibleSheets();
+    if (!vis.length) return;
+    const last = vis[vis.length - 1];
+    if (id !== last.id) applySheetReorder(id, last.id, false);
+  });
+}
 function updateSheetTabBar() {
   const bar = $('#sheet-tabs');
   bar.innerHTML = '';
@@ -11468,6 +11826,7 @@ function updateSheetTabBar() {
     const tab = el('<button class="sheet-tab' + (sh.id === WB.activeSheetId ? ' active' : '') + (sh.tabColor ? ' has-color' : '') + '" role="tab" aria-selected="' + (sh.id === WB.activeSheetId) + '" tabindex="0" title="' + esc(sh.name) + '">' +
       (sh.tabColor ? '<span class="tab-dot" style="background:' + sh.tabColor + '"></span>' : '') +
       '<span class="tab-label">' + esc(sh.name) + '</span></button>');
+    tab.dataset.sheetId = sh.id;
     if (!TabSeen.ids.has(sh.id)) { tab.classList.add('tab-enter'); TabSeen.ids.add(sh.id); }
     tab.addEventListener('click', () => setActiveSheet(sh.id));
     tab.addEventListener('dblclick', () => beginTabRename(sh, tab));
@@ -11489,7 +11848,7 @@ function updateSheetTabBar() {
         { label: 'Move Left', icon: 'arrowLeft', action: () => moveSheetDelta(sh.id, -1) },
         { label: 'Move Right', icon: 'arrowRight', action: () => moveSheetDelta(sh.id, 1) },
         { sep: true },
-        { label: 'Tab Color…', icon: 'tag', action: () => { const r = tab.getBoundingClientRect(); showColorPalette(r.left, r.bottom + 2, c => { sh.tabColor = c === 'none' ? null : c; updateSheetTabBar(); Persistence.markDirty(); }, true); } },
+        { label: 'Tab Color…', icon: 'tag', action: () => { const r = tab.getBoundingClientRect(); showColorPalette(r.left, r.bottom + 2, c => setSheetTabColor(sh.id, c), true); } },
         { label: 'Hide Sheet', icon: 'eyeOff', action: () => {
           if (WB.sheets.filter(s => !s.hidden).length <= 1) { toast('Cannot hide the only visible sheet', 'warn'); return; }
           sh.hidden = true;
@@ -11505,15 +11864,40 @@ function updateSheetTabBar() {
       ], e.clientX, e.clientY);
     });
     bar.appendChild(tab);
+    wireSheetTabDrag(tab, sh);
   }
+  /* Nothing to step to when a single sheet is showing — grey the arrows out
+     rather than let a click silently do nothing. */
+  const vis = visibleSheets();
+  const idx = vis.findIndex(s => s.id === WB.activeSheetId);
+  [['#tab-home', idx <= 0], ['#tab-prev', idx <= 0], ['#tab-next', idx < 0 || idx >= vis.length - 1], ['#tab-end', idx < 0 || idx >= vis.length - 1]]
+    .forEach(([sel, off]) => {
+      const b = $(sel);
+      if (b) { b.disabled = vis.length < 2 || off; b.setAttribute('aria-disabled', String(vis.length < 2 || off)); }
+    });
 }
 function beginTabRename(sh, tab) {
   const input = el('<input type="text" value="' + esc(sh.name) + '" aria-label="Sheet name">');
   tab.innerHTML = '';
+  tab.draggable = false;   /* a draggable button hijacks text selection in the input */
   tab.appendChild(input);
   input.focus();
   input.select();
-  let done = false;
+  let done = false, flagged = false;
+  /* No maxlength attribute: silently swallowing the keystroke gives no clue
+     why typing stopped. Clamp the value and say why instead — once per
+     attempt, re-armed by dropping back under the cap. */
+  input.addEventListener('input', () => {
+    if (input.value.length <= SHEET_NAME_MAX) { flagged = false; return; }
+    const caret = input.selectionStart;
+    const appending = caret === input.value.length;   /* read before the slice resets the caret */
+    input.value = input.value.slice(0, SHEET_NAME_MAX);
+    const keep = Math.min(caret, SHEET_NAME_MAX);
+    input.setSelectionRange(keep, keep);
+    if (flagged || !appending) return;
+    flagged = true;
+    toast('Sheet names are limited to ' + SHEET_NAME_MAX + ' characters', 'warn');
+  });
   const finish = save => {
     if (done) return;
     done = true;
@@ -12117,12 +12501,16 @@ function paletteCommands() {
   add('Undo', 'undo', 'Edit', () => undo());
   add('Redo', 'redo', 'Edit', () => redo());
   add('Save Now', 'save', 'Document', () => { Persistence.flush(); toast('Autosaved to this browser', 'success', 1300); });
+  /* Home > Arrange merges on a single click, so these two live on the cell
+     context menu instead of a dropdown (see showCellContextMenu). */
+  add('Merge Across', 'merge', 'Home', () => mergeSelection('across'));
+  add('Unmerge', 'unmerge', 'Home', () => mergeSelection('unmerge'));
   try {
     const cfg = ribbonConfig();
     for (const tabName in cfg) {
       for (const g of cfg[tabName]) {
         for (const item of g.items) {
-          if (item.custom === 'stack' && item.items) {
+          if (item.custom === 'stack' || item.custom === 'arrange') {
             for (const sub of item.items) add(sub.title || sub.label, sub.icon, tabName, sub.action);
             continue;
           }
@@ -12344,14 +12732,18 @@ function setupChrome() {
   });
   $('#add-sheet').innerHTML = icon('plus');
   $('#add-sheet').addEventListener('click', () => addSheet(WB.activeSheetId));
+  wireSheetStripDrop($('#sheet-tabs'));   /* once — #sheet-tabs outlives updateSheetTabBar */
   $('#tab-home').innerHTML = icon('chevsLeft');
   $('#tab-prev').innerHTML = icon('chevLeft');
   $('#tab-next').innerHTML = icon('chevRight');
   $('#tab-end').innerHTML = icon('chevsRight');
-  $('#tab-home').addEventListener('click', () => { $('#sheet-tabs').scrollLeft = 0; });
-  $('#tab-prev').addEventListener('click', () => { $('#sheet-tabs').scrollLeft -= 120; });
-  $('#tab-next').addEventListener('click', () => { $('#sheet-tabs').scrollLeft += 120; });
-  $('#tab-end').addEventListener('click', () => { $('#sheet-tabs').scrollLeft = 99999; });
+  /* These used to scroll #sheet-tabs, which never overflows — the strip is
+     sized to its content — so all four did nothing. They switch sheets now,
+     stepping over hidden ones exactly like walking the visible tabs does. */
+  $('#tab-home').addEventListener('click', () => switchSheetEdge(false));
+  $('#tab-prev').addEventListener('click', () => switchSheetDelta(-1));
+  $('#tab-next').addEventListener('click', () => switchSheetDelta(1));
+  $('#tab-end').addEventListener('click', () => switchSheetEdge(true));
   $('#sb-zoom-pct').addEventListener('click', () => animateZoom(1));
   setupEditorEvents();
   window.addEventListener('resize', rafThrottle(() => { resizeCanvas(); positionRibbonIndicator(); }));
@@ -12365,23 +12757,7 @@ function setupChrome() {
     }
   });
   window.addEventListener('beforeunload', () => { try { Persistence.flush(); } catch (e) {} });
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') Persistence.flush(); syncWindowFocusState(); });
-  /* Ribbon greys out while this window/tab isn't focused. Availability alone
-     can't express that: Font, Alignment and Clipboard have no unmet precondition
-     when you alt-tab away, they just aren't aimed at anything the user can see.
-     Purely a body class, so it composes with the [disabled] state instead of
-     overwriting it and restores on its own. Notes/Docs/Slides keep their own
-     selection-driven rules and don't need this — their ribbon is a text editor
-     whose caret is the only target, so focus loss is implied by the selection. */
-  window.addEventListener('blur', syncWindowFocusState);
-  window.addEventListener('focus', syncWindowFocusState);
-  syncWindowFocusState();
-}
-
-/* hasFocus() is false while the window is blurred, a background tab, or a
-   hidden document — all three are "the user isn't looking at this". */
-function syncWindowFocusState() {
-  document.body.classList.toggle('win-blurred', !document.hasFocus() || document.visibilityState === 'hidden');
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') Persistence.flush(); });
 }
 
 let booted = false;

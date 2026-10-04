@@ -87,26 +87,29 @@
     <div class="expand-grip" id="formula-expand" title="Expand formula bar" aria-label="Expand formula bar"></div>
   </div>
 
-  <!-- ======= Spreadsheet grid ======= -->
-  <main id="grid-area">
-    <canvas id="grid-canvas"></canvas>
-    <textarea id="cell-editor" aria-label="Cell editor" spellcheck="false"></textarea>
-    <div id="filter-btn-layer" aria-hidden="true"></div>
-    <div id="dv-btn-layer" aria-hidden="true"></div>
-    <div id="chart-layer" aria-label="Floating charts"></div>
-    <div id="fill-tip" aria-hidden="true"></div>
-    <div id="size-tip" aria-hidden="true"></div>
-    <div id="drag-hint" aria-hidden="true"></div>
-  </main>
+  <!-- ======= Spreadsheet grid + chart pane ======= -->
+  <div id="grid-row">
+    <main id="grid-area">
+      <canvas id="grid-canvas"></canvas>
+      <textarea id="cell-editor" aria-label="Cell editor" spellcheck="false"></textarea>
+      <div id="filter-btn-layer" aria-hidden="true"></div>
+      <div id="dv-btn-layer" aria-hidden="true"></div>
+      <div id="chart-layer" aria-label="Floating charts"></div>
+      <div id="fill-tip" aria-hidden="true"></div>
+      <div id="size-tip" aria-hidden="true"></div>
+      <div id="drag-hint" aria-hidden="true"></div>
+    </main>
+    <aside id="chart-pane" class="chart-pane" aria-label="Chart pane" hidden></aside>
+  </div>
 
   <!-- ======= Bottom bar: sheet tabs (left) + status count & zoom (right) ======= -->
   <footer id="status-bar" role="region" aria-label="Sheet tabs and status">
     <div class="sb-sheets">
       <div class="tab-nav" role="group" aria-label="Sheet tab navigation">
-        <button id="tab-home" class="iconbtn" title="Scroll to start" aria-label="Scroll sheet tabs to start"></button>
-        <button id="tab-prev" class="iconbtn" title="Scroll left" aria-label="Scroll sheet tabs left"></button>
-        <button id="tab-next" class="iconbtn" title="Scroll right" aria-label="Scroll sheet tabs right"></button>
-        <button id="tab-end" class="iconbtn" title="Scroll to end" aria-label="Scroll sheet tabs to end"></button>
+        <button id="tab-home" class="iconbtn" title="First sheet" aria-label="Go to first sheet"></button>
+        <button id="tab-prev" class="iconbtn" title="Previous sheet" aria-label="Go to previous sheet"></button>
+        <button id="tab-next" class="iconbtn" title="Next sheet" aria-label="Go to next sheet"></button>
+        <button id="tab-end" class="iconbtn" title="Last sheet" aria-label="Go to last sheet"></button>
         <button id="add-sheet" title="New sheet" aria-label="Add worksheet"></button>
       </div>
       <div id="sheet-tabs" role="tablist" aria-label="Worksheets"></div>

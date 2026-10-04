@@ -285,7 +285,7 @@ button { cursor: default; }
    ========================================================================== */
 #sheet-tabs { display: flex; align-items: stretch; overflow: hidden; flex: 1; min-width: 0; position: relative; }
 .sheet-tab .tab-label { overflow: hidden; text-overflow: ellipsis; }
-.sheet-tab .tab-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; display: none; }
+.sheet-tab .tab-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; display: none; box-shadow: inset 0 0 0 1px rgba(0,0,0,.18); }
 .sheet-tab.has-color .tab-dot { display: inline-block; }
 .sheet-tab input {
   width: 110px; height: 20px; border: 1px solid var(--accent); border-radius: 2px; padding: 0 4px; font-size: 12px;
@@ -370,13 +370,6 @@ button { cursor: default; }
 .btn:disabled { opacity: .45; }
 .btn.small { height: 24px; padding: 0 10px; font-size: 11.5px; }
 
-.dlg-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 12px; flex-wrap: wrap; }
-.dlg-tab { border: none; background: transparent; padding: 6px 12px; font-size: 12.5px; color: var(--ink-3); border-radius: 3px 3px 0 0; position: relative; }
-.dlg-tab:hover { background: var(--chrome); }
-.dlg-tab.active { color: var(--accent-dark); font-weight: 600; }
-.dlg-tab.active::after { content: ""; position: absolute; left: 6px; right: 6px; bottom: -1px; height: 2.5px; background: var(--accent); }
-.dlg-page { display: none; }
-.dlg-page.active { display: block; }
 .form-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .form-row > label { width: 118px; flex: none; color: var(--ink-3); font-size: 12.5px; text-align: right; }
 .form-row .fr-input { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -434,17 +427,73 @@ button { cursor: default; }
 .fn-name { margin-bottom: 3px; font-size: 13px; font-weight: 600; color: var(--ink); }
 .fn-sig { font-family: Consolas, monospace; font-size: 12px; color: var(--accent-dark); word-break: break-word; }
 .fn-desc { margin-top: 5px; font-size: 12.5px; color: var(--ink-2); }
-.chart-type-grid { display: grid; grid-template-columns: repeat(5, 64px); gap: 6px; margin-bottom: 12px; }
-.chart-type-cell { height: 58px; border: 1px solid var(--line); border-radius: 4px; background: var(--paper); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 10.5px; color: var(--ink-3); }
-.chart-type-cell svg { width: 26px; height: 26px; color: var(--accent); }
-.chart-type-cell:hover { border-color: var(--accent); }
-.chart-type-cell.active { border-color: var(--accent); background: var(--accent-tint); box-shadow: 0 0 0 1px var(--accent); }
-.mini-grid-cells { display: grid; grid-template-columns: repeat(3, 34px); grid-auto-rows: 30px; gap: 0; border: 1px solid var(--line); width: max-content; }
-.mini-grid-cells .mg { border: 1px solid var(--grid-line); background: var(--paper); margin: -0.5px; padding: 0; }
-.mini-grid-cells .mg:hover { background: var(--accent-tint); }
-.mini-grid-cells .mg.mark { background: var(--accent-tint-2); box-shadow: inset 0 0 0 1.5px var(--accent); }
-.border-style-row { display: flex; gap: 6px; align-items: center; margin: 8px 0; }
-.border-style-row select { height: 26px; border: 1px solid var(--line); border-radius: 3px; }
+/* ---- chart pane (Insert > Charts) ----
+   In-flow sibling of #grid-area, like the Slides animation pane, so opening it
+   shrinks the grid instead of covering cells — which is what lets you drag out a
+   data range on the sheet while the range field is focused. */
+#grid-row { flex: 1; display: flex; align-items: stretch; min-height: 0; }
+.chart-pane {
+  flex: none; width: 340px; display: flex; flex-direction: column;
+  border-left: 1px solid var(--line); background: transparent;
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  overflow: hidden; min-height: 0;
+}
+.chart-pane[hidden] { display: none; }
+.chart-pane-in { display: flex; flex-direction: column; min-height: 0; height: 100%; animation: cpIn 180ms cubic-bezier(.2, .85, .3, 1); }
+@keyframes cpIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+/* Side-panel spacing scale — shared with the Slides animation pane and the
+   Docs Outline/Pages/Footnotes panes:
+     header  8px 16px   body  8px 16px 12px   foot  8px 16px 12px
+   container margin 0 */
+.cp-head {display: flex;align-items: center;gap: 8px;padding: 8px 16px;}
+.cp-head-text { flex: 1; min-width: 0; }
+/* Typography mirrors the Slides Animation pane (.ap-header) and the Docs
+   Titles pane (.outline-head h3) — 14px/700, same ink, same tracking. */
+.cp-title { font-size: 14px; font-weight: 700; letter-spacing: .02em; color: rgba(44, 62, 80, .95); }
+/* Same close-button shape as both: 6px padding, 6px radius, 14px glyph, no
+   fixed hit box, .2s background/colour fade. */
+.cp-x { flex: none; width: auto; height: auto; padding: 6px; border: none; border-radius: 6px; background: transparent; color: rgba(44, 62, 80, .5); cursor: pointer; line-height: 1; transition: background .2s, color .2s; display: flex; align-items: center; justify-content: center; }
+.cp-x svg { width: 14px; height: 14px; }
+.cp-x:hover { background: rgba(0, 0, 0, .06); color: rgba(44, 62, 80, .9); }
+.cp-body { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 16px 12px; }
+.cp-foot { flex: none; display: flex; gap: 8px; justify-content: flex-end; padding: 8px 16px 12px; background: transparent; }
+.cp-sec-title { margin: 0 0 7px; font-size: 10.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); }
+.cp-sec-title-gap { margin-top: 16px; }
+.chart-type-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 6px; }
+.chart-type-cell { height: 62px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; color: var(--ink-2); cursor: pointer; transition: border-color .12s, background .12s, box-shadow .12s; }
+.chart-type-cell svg { width: 24px; height: 24px; color: var(--ink-3); }
+.chart-type-cell:hover { border-color: var(--accent); background: var(--chrome); }
+.chart-type-cell:hover svg { color: var(--accent); }
+.chart-type-cell:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-tint-2); }
+.chart-type-cell.active { border-color: var(--accent); background: var(--accent-tint); box-shadow: 0 0 0 1px var(--accent); color: var(--ink); font-weight: 600; }
+.chart-type-cell.active svg { color: var(--accent); }
+/* the grid range preview — paintChart() only reads its ctx, so this is the real
+   chart, not a mock-up */
+.ch-preview { position: relative; height: 186px; border: 1px solid var(--line-soft); border-radius: 6px; background: var(--paper); overflow: hidden; }
+.ch-preview canvas { display: block; }
+.ch-preview-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 0 16px; text-align: center; font-size: 11.5px; color: var(--ink-4); pointer-events: none; }
+.ch-preview-hint { margin-top: 8px; }
+/* armed = the range field has focus: the sheet outlines the live range and a drag
+   on the grid re-points it (same striped treatment as a formula reference) */
+#ch-range.cp-armed { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-tint-2); }
+.cp-pick-tip { display: flex; align-items: center; gap: 5px; margin-top: 6px; font-size: 11px; color: var(--accent-dark); }
+.cp-pick-tip svg { width: 12px; height: 12px; flex: none; }
+.cp-pick-tip[hidden] { display: none; }
+.cp-field { margin-bottom: 9px; }
+.cp-field > label { display: block; margin-bottom: 4px; font-size: 11.5px; font-weight: 600; color: var(--ink-2); }
+.cp-field input[type="text"] { width: 100%; height: 28px; border: 1px solid var(--line); border-radius: 4px; padding: 0 8px; font-size: 12.5px; font-family: Consolas, monospace; color: var(--ink); background: var(--paper); min-width: 0; }
+.cp-field input[type="text"]:focus { outline: none; border-color: var(--accent); }
+.cp-check { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--ink-2); cursor: pointer; }
+.cp-check input { accent-color: var(--accent); }
+.cp-hint { margin: 10px 0 0; font-size: 11.5px; line-height: 1.45; color: var(--ink-4); }
+.cp-btn { height: 30px; padding: 0 14px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: var(--ink-2); font-size: 12.5px; font-weight: 500; }
+.cp-btn:hover { background: var(--chrome); }
+.cp-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.cp-btn.primary:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+@media (prefers-reduced-motion: reduce) {
+  .chart-pane-in { animation: none; }
+  .chart-type-cell, .cp-x, .cp-btn { transition: none; }
+}
 .table-preview { font-size: 12px; color: var(--ink-3); }
 .table-preview table { border-collapse: collapse; font-family: Consolas, monospace; }
 .table-preview td, .table-preview th { border: 1px solid var(--line-soft); padding: 3px 9px; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -557,37 +606,68 @@ button { cursor: default; }
 .note-pop .note-ts { font-weight: 400; font-size: 10.5px; color: var(--ink-4); }
 .note-pop .note-body { padding: 7px 10px 8px; white-space: pre-wrap; word-break: break-word; color: var(--ink); max-height: 180px; overflow-y: auto; line-height: 1.45; }
 
-/* --- comment thread popover (v4) — interactive bubbles with replies --- */
+/* --- comment thread popover: Docs .comment-popup parity ------------------
+   White card, fixed 250px, header / body / replies / action row. Docs uses
+   `width: 250px` and no max-width; we keep a max-width so a very long unbreakable
+   token cannot stretch the card past the grid. */
 .note-pop.note-thread {
-  pointer-events: auto; max-width: 300px; min-width: 224px; padding: 8px 8px 6px;
-  background: linear-gradient(180deg, #fffdf3, #fffbea 60%);
-  border: 1px solid #e2c886; border-radius: 8px;
-  box-shadow: var(--shadow-3), inset 0 1px 0 rgba(255,255,255,.8);
+  pointer-events: auto; width: 250px; max-width: 250px; padding: 0;
+  background: var(--paper, #fff);
+  border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.12), 0 1px 4px rgba(0,0,0,.08);
+  font-family: var(--font-ui); max-height: 340px; overflow: hidden;
+  display: flex; flex-direction: column;
 }
-.note-thread .nt-item { display: flex; gap: 8px; padding: 4px 2px; align-items: flex-start; }
-.note-thread .nt-reply { padding-left: 18px; }
+.note-thread .nt-head {
+  display: flex; align-items: center; gap: 7px; padding: 8px 10px 6px;
+  border-bottom: 1px solid var(--line-soft);
+}
 .note-thread .nt-avatar {
-  flex: 0 0 auto; width: 24px; height: 24px; margin-top: 1px; border-radius: 50%;
-  color: #fff; font-size: 11.5px; font-weight: 700; line-height: 24px; text-align: center;
-  box-shadow: inset 0 -1px 2px rgba(0,0,0,.18), 0 0 0 2px rgba(255,255,255,.85);
-  text-shadow: 0 1px 1px rgba(0,0,0,.25); user-select: none;
+  flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--accent); color: #fff; font-size: 11px; font-weight: 700;
+  line-height: 22px; text-align: center; user-select: none;
 }
-.note-thread .nt-bubble {
-  flex: 1 1 auto; min-width: 0; background: #fff; border: 1px solid #f0e2b4;
-  border-radius: 7px; border-top-left-radius: 2px; padding: 6px 9px 7px;
-  box-shadow: 0 1px 2px rgba(122,93,16,.10);
+.note-thread .nt-author { font-weight: 600; font-size: 12px; color: var(--ink); }
+.note-thread .nt-ts { font-size: 10.5px; color: var(--ink-4); white-space: nowrap; }
+.note-thread .nt-close {
+  margin-left: auto; flex: 0 0 auto; width: 22px; height: 22px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: none; background: transparent; border-radius: 4px; color: var(--ink-3); cursor: pointer;
 }
-.note-thread .nt-reply .nt-bubble { border-top-left-radius: 7px; border-bottom-left-radius: 2px; background: #fffef9; }
-.note-thread .nt-meta { display: flex; align-items: baseline; gap: 8px; margin-bottom: 2px; }
-.note-thread .nt-author { font-weight: 600; font-size: 11.5px; color: #6d5410; }
-.note-thread .nt-ts { font-size: 10px; color: var(--ink-4); white-space: nowrap; }
-.note-thread .nt-text { white-space: pre-wrap; word-break: break-word; color: var(--ink); line-height: 1.45; font-size: 12.25px; }
-.note-thread .nt-count { margin: 4px 2px 0 34px; font-size: 10.5px; color: #a08333; font-weight: 600; letter-spacing: .2px; }
-.note-thread .nt-replyrow { display: flex; gap: 6px; margin: 8px 2px 2px 2px; align-items: center; }
+.note-thread .nt-close:hover { background: var(--chrome-2); color: var(--ink); }
+.note-thread .nt-close svg { width: 13px; height: 13px; }
+.note-thread .nt-body {
+  padding: 7px 10px; font-size: 12.25px; line-height: 1.45; color: var(--ink);
+  white-space: pre-wrap; word-break: break-word; overflow-y: auto;
+}
+.note-thread .nt-replies { border-top: 1px solid var(--line-soft); overflow-y: auto; }
+.note-thread .nt-reply {
+  padding: 5px 10px 2px; font-size: 11.5px; line-height: 1.35; color: var(--ink-2);
+  word-break: break-word;
+}
+.note-thread .nt-reply .nt-author { font-size: 11.5px; }
+.note-thread .nt-reply .nt-ts { margin-left: 5px; }
+/* Docs .comment-popup-actions: Reply / Resolve / Delete as small pills. */
+.note-thread .nt-actions { display: flex; gap: 6px; padding: 7px 10px 4px; }
+.note-thread .nt-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border: none; border-radius: 4px; cursor: pointer;
+  font-family: var(--font-ui); font-size: 11px; font-weight: 500; color: var(--ink-2);
+  transition: background .12s;
+}
+.note-thread .nt-btn svg { width: 12px; height: 12px; }
+.note-thread .nt-reply-btn { background: rgba(0,0,0,.04); }
+.note-thread .nt-reply-btn:hover { background: rgba(0,0,0,.08); }
+.note-thread .nt-resolve-btn { background: var(--accent-tint-2); color: var(--accent-dark); }
+.note-thread .nt-resolve-btn:hover { background: var(--accent-tint); }
+.note-thread .nt-resolve-btn.on { background: var(--chrome-2); color: var(--ink-3); }
+.note-thread .nt-delete-btn { background: rgba(220,38,38,.08); color: #dc2626; }
+.note-thread .nt-delete-btn:hover { background: rgba(220,38,38,.16); }
+.note-thread .nt-replyrow { display: flex; gap: 6px; padding: 4px 10px 8px; align-items: center; }
 .note-thread .nt-input {
   flex: 1 1 auto; min-width: 0; height: 26px; padding: 3px 9px; font-size: 12px;
-  border: 1px solid #e2c886; border-radius: 13px; background: #fff; outline: none;
-  transition: border-color .12s, box-shadow .12s;
+  border: 1px solid var(--line); border-radius: 13px; background: var(--paper); outline: none;
+  font-family: var(--font-ui); transition: border-color .12s, box-shadow .12s;
 }
 .note-thread .nt-input::placeholder { color: var(--ink-4); }
 .note-thread .nt-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-tint-2); }
@@ -599,6 +679,8 @@ button { cursor: default; }
 .note-thread .nt-send svg { width: 13px; height: 13px; }
 .note-thread .nt-send:hover { background: var(--accent-dark); box-shadow: 0 1px 4px rgba(24,92,55,.35); }
 .note-thread .nt-send:active { transform: scale(.94); }
+/* Resolved threads read as done, like Docs' .comment-resolved anchors. */
+.note-thread.is-resolved .nt-body { opacity: .6; }
 
 /* --- filter chips (v4): active check badge --- */
 .filter-chip { position: relative; }
@@ -620,25 +702,26 @@ button { cursor: default; }
 .popup .popup-item .pi-icon svg { opacity: .82; transition: opacity .1s; }
 .popup .popup-item:hover .pi-icon svg, .popup .popup-item:focus .pi-icon svg { opacity: 1; }
 
-.note-editor {
-  position: absolute; z-index: 75; width: 284px; background: var(--paper);
-  border: 1px solid var(--line); border-radius: 5px; box-shadow: var(--shadow-3);
-  animation: notePop .12s ease-out; overflow: hidden;
+/* Comment composer lives in the shared modal; only the field is app-specific.
+   Metrics mirror the Docs/Slides composer so the three read identically. */
+.cmt-body { display: block; }
+.cmt-body .field { display: block; }
+.cmt-text {
+  display: block; width: 100%; resize: vertical; min-height: 72px; max-height: 40vh;
+  border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px;
+  font-size: 13px; line-height: 1.45; font-family: var(--font-ui); color: var(--ink);
+  background: var(--paper); outline: none;
 }
-.note-editor .ne-head { display: flex; align-items: center; justify-content: space-between; padding: 7px 10px 5px; }
-.note-editor .ne-addr { font-weight: 600; font-size: 12px; color: var(--accent-dark); }
-.note-editor .ne-del { font-size: 11.5px; }
-.note-editor .ne-text {
-  display: block; width: calc(100% - 16px); margin: 0 8px; height: 92px; resize: vertical;
-  border: 1px solid var(--line); border-radius: 3px; padding: 6px 8px; font-size: 12.5px; line-height: 1.4;
-  font-family: var(--font-ui); background: var(--paper);
+.cmt-text:focus { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-tint-2); }
+/* Docs/Slides centre the bubble above the title and float the close button;
+   Sheets' default modal head is a horizontal row, so opt this one in. */
+.modal.cmt .modal-head {
+  flex-direction: column; align-items: center; justify-content: center;
+  padding: 24px 24px 0; border-bottom: none; position: relative;
 }
-.note-editor .ne-text:focus { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-tint-2); }
-.note-editor .ne-foot { display: flex; align-items: center; justify-content: space-between; padding: 7px 10px 9px; }
-.note-editor .ne-hint { font-size: 10.5px; color: var(--ink-4); }
-.note-editor .ne-btns { display: flex; gap: 6px; }
-.note-editor .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-.note-editor .btn.primary:hover { background: var(--accent-dark); }
+.modal.cmt .modal-icon { margin: 0 auto 12px; }
+.modal.cmt .modal-title { flex: none; text-align: center; }
+.modal.cmt .modal-x { position: absolute; top: 14px; right: 14px; }
 
 /* ==========================================================================
    Visual polish layer — chrome refinement & motion
@@ -679,7 +762,24 @@ button { cursor: default; }
 .sheet-tab:hover { background: var(--chrome); }
 .sheet-tab.active { background: var(--paper); box-shadow: 0 -1px 0 var(--line) inset, 1px 0 0 var(--line), -1px 0 0 var(--line); }
 .sheet-tab.active::before { content: ""; position: absolute; left: 6px; right: 6px; top: 0; height: 2px; background: var(--accent); border-radius: 0 0 2px 2px; }
-.sheet-tab.has-color::after { content: ""; position: absolute; right: 5px; bottom: 4px; width: 7px; height: 7px; border-radius: 50%; border: 1px solid rgba(0,0,0,.15); }
+/* The tab colour rides on the real .tab-dot span, never on ::after — ::after is
+   the active underline (below), and a dot rule here would win/loseproperty-by-
+   property against it: the underline keeps left+right but inherits width:8px,
+   collapsing the bar to an 8px stub on coloured tabs. */
+
+/* Drag-and-drop sheet reordering in the tab bar */
+.sheet-tab.dragging { opacity: .45; }
+/* A real child element, not ::before/::after — both of those are already taken
+   by the active accent bar and the tab-colour dot. Kept inside the tab box: 
+   #sheet-tabs is overflow:hidden, so an overhang is clipped at the first and
+   last tab and the indicator fades to a thin sliver there. */
+.sheet-tab .drop-mark {
+  display: none; position: absolute; top: 1px; bottom: 1px; width: 3px;
+  background: var(--accent); border-radius: 2px; z-index: 3;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.75);
+}
+.sheet-tab.drop-before .drop-mark { display: block; left: 0; }
+.sheet-tab.drop-after .drop-mark { display: block; right: 0; }
 #add-sheet { transition: background .12s; border-radius: 4px; }
 #add-sheet:hover { background: var(--accent-tint); }
 
@@ -697,7 +797,6 @@ button { cursor: default; }
 .modal > div { box-shadow: var(--shadow-3); }
 
 /* Dialog tab underline slides */
-.dlg-tab { transition: color .1s, background .1s; }
 
 /* Formula row: focus glow */
 #formula-input:focus, #name-box:focus { box-shadow: 0 0 0 1.5px var(--accent-tint-2); }
@@ -708,7 +807,7 @@ button { cursor: default; }
 
 /* Reduced motion respect */
 @media (prefers-reduced-motion: reduce) {
-  .toast, .popup, .modal, .modal-overlay, .note-pop, .note-editor { animation: none !important; }
+  .toast, .popup, .modal, .modal-overlay, .note-pop { animation: none !important; }
   .ribbon-tab::after { transition: none; }
   /* open/close now run on transitions rather than a one-shot keyframe */
   .ms-dropdown-menu, .ms-dropdown-menu.open, .ms-dropdown-menu.closing { transition: none !important; }
@@ -2039,7 +2138,7 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
   white-space: nowrap;
   margin: 0 0 4px;
 }
-.ribbon-controls { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; min-width: max-content; }
+.ribbon-controls, .rb-arrange { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; min-width: max-content; }
 .rb-sep { width: 1px; background: rgba(0, 0, 0, .07); margin: 4px 3px; flex: none; }
 .rb-stack { display: flex; flex-direction: row; gap: 2px; justify-content: center; align-items: center; height: auto; }
 .rb-stack .ribbon-btn { width: auto; min-width: 32px; height: auto; padding: 4px 6px; flex-direction: row; gap: 0; justify-content: center; border-radius: 6px; }
@@ -2091,6 +2190,12 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 .ribbon-btn-icon svg { width: 16px; height: 16px; }
 .ribbon-btn-icon span { font-size: 12px; }
 .ribbon-btn.tall-narrow { padding: 6px 8px; min-width: 34px; }
+/* Arrange (Home) uses plain .ribbon-btn — no override. Notes/Docs/Slides keep
+   icon-only buttons at the base 60px min-width (docs.css:681-683) and only
+   .ribbon-btn-icon collapses to 28px, which is what .rb-stack used to force here.
+   The label needs no nudge either: with the Merge caret gone the controls row is
+   a plain 34px, so the centred .ribbon-group already leaves the usual 6px gap +
+   4px label margin-bottom above it. */
 /* Split-button caret (Borders, Merge, Delete, Format, AutoSum, Clear, ...).
    Matched glyph, size, colour and motion to the dropdown caret in
    .ms-dropdown-btn::after below, so the one ribbon reads as one set: same
@@ -2124,22 +2229,6 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
   border-color: rgba(0, 0, 0, .08);
   color: rgba(44, 62, 80, .8);
   box-shadow: none;
-}
-/* While the window or tab isn't focused, the whole ribbon greys out — including
-   Font, Alignment and Clipboard, which have no other reason to go unavailable.
-   The cells those groups act on are no longer what the user is looking at.
-   Driven by a body class instead of [disabled] on purpose: that keeps it out of
-   the way of updateRibbonAvailability() (nothing has to be recomputed, and the
-   two states compose rather than overwrite each other), and it restores by
-   itself the moment focus comes back. Same .35 and the same transitions the
-   [disabled] rules above rely on, so both directions fade rather than snap. */
-body.win-blurred #ribbon-body .ribbon-btn,
-body.win-blurred #ribbon-body .ms-dropdown-btn,
-body.win-blurred #ribbon-tabs .ribbon-tab,
-body.win-blurred #ribbon-tabs .ribbon-tab-action {
-  opacity: .35;
-  cursor: default;
-  pointer-events: none;
 }
 .rbtn-col {
   display: inline-flex;
@@ -2780,9 +2869,15 @@ body.win-blurred #ribbon-tabs .ribbon-tab-action {
 /* ==========================================================================
    WELCOME SCREEN (home / workbook overview) — Docs/Slides-style
    ========================================================================== */
+/* #grid-row must be hidden, not just #grid-area. #grid-row is `flex: 1`, so as
+   a flex child of #app it claims its share of the height from its own flex
+   basis — hiding only its children left it taking 50% of the viewport and
+   squeezing .welcome-screen (also `flex: 1 1 0%`) into the other half, which
+   clipped the welcome screen in half. Hiding the wrapper also covers the chart
+   pane, which used to stay visible on the welcome screen. */
 body.no-active-wb #ribbon,
 body.no-active-wb #formula-row,
-body.no-active-wb #grid-area,
+body.no-active-wb #grid-row,
 body.no-active-wb #status-bar { display: none; }
 
 .welcome-screen {
