@@ -594,93 +594,84 @@ button { cursor: default; }
 }
 
 /* ==========================================================================
-   Cell notes (comments) — hover popover & editor
+   Cell notes (comments) — pin + thread popover + editor
+   Mirrors the Docs comment UI: a bubble pin that only nudges on hover, and a
+   250px thread card (header / body / replies / actions) that opens on click.
    ========================================================================== */
 .note-pop {
   position: absolute; z-index: 70; max-width: 264px; background: #fffbea;
   border: 1px solid #e2c886; border-radius: 4px; box-shadow: var(--shadow-2);
-  font-size: 12px; pointer-events: none; animation: notePop .12s ease-out;
+  font-size: 12px; pointer-events: none; animation: notePop .15s ease-out;
 }
-@keyframes notePop { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+@keyframes notePop { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 .note-pop .note-head { display: flex; justify-content: space-between; gap: 12px; padding: 5px 10px 3px; font-weight: 600; color: #7a5d10; border-bottom: 1px solid #f3e6bd; }
 .note-pop .note-ts { font-weight: 400; font-size: 10.5px; color: var(--ink-4); }
 .note-pop .note-body { padding: 7px 10px 8px; white-space: pre-wrap; word-break: break-word; color: var(--ink); max-height: 180px; overflow-y: auto; line-height: 1.45; }
 
 /* --- comment thread popover: Docs .comment-popup parity ------------------
-   White card, fixed 250px, header / body / replies / action row. Docs uses
-   `width: 250px` and no max-width; we keep a max-width so a very long unbreakable
-   token cannot stretch the card past the grid. */
+   Same card as Docs' .comment-popup: white, 250px, 8px radius, the soft accent
+   header, avatar circle, body, replies and a Reply / Resolve / Delete row. Docs
+   uses `width: 250px` and no max-width; we keep a max-width so a very long
+   unbreakable token cannot stretch the card past the grid. */
 .note-pop.note-thread {
   pointer-events: auto; width: 250px; max-width: 250px; padding: 0;
   background: var(--paper, #fff);
   border: 1px solid var(--line); border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0,0,0,.12), 0 1px 4px rgba(0,0,0,.08);
-  font-family: var(--font-ui); max-height: 340px; overflow: hidden;
+  font-family: var(--font-ui); max-height: 340px; overflow-x: hidden; overflow-y: auto;
   display: flex; flex-direction: column;
 }
+.note-pop.note-thread[hidden] { display: none; }
+.note-thread .nt-item { flex: 0 0 auto; }
+.note-thread .nt-item + .nt-item { border-top: 1px solid var(--line-soft); }
 .note-thread .nt-head {
-  display: flex; align-items: center; gap: 7px; padding: 8px 10px 6px;
-  border-bottom: 1px solid var(--line-soft);
+  display: flex; align-items: center; gap: 6px; padding: 8px 10px 6px;
+  flex: 0 0 auto; background: rgba(33,115,70,.10); border-bottom: 1px solid var(--line-soft);
 }
 .note-thread .nt-avatar {
-  flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%;
-  background: var(--accent); color: #fff; font-size: 11px; font-weight: 700;
-  line-height: 22px; text-align: center; user-select: none;
+  flex: 0 0 auto; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--accent); color: #fff; font-size: 10px; font-weight: 700;
+  line-height: 20px; text-align: center; user-select: none;
 }
 .note-thread .nt-author { font-weight: 600; font-size: 12px; color: var(--ink); }
-.note-thread .nt-ts { font-size: 10.5px; color: var(--ink-4); white-space: nowrap; }
+.note-thread .nt-ts { font-size: 10px; color: var(--ink-4); white-space: nowrap; }
+.note-thread .nt-head-spacer { margin-left: auto; flex: 0 0 22px; height: 22px; }
 .note-thread .nt-close {
   margin-left: auto; flex: 0 0 auto; width: 22px; height: 22px; padding: 0;
   display: inline-flex; align-items: center; justify-content: center;
-  border: none; background: transparent; border-radius: 4px; color: var(--ink-3); cursor: pointer;
+  border: none; background: transparent; border-radius: 4px; color: var(--ink-4); cursor: pointer;
+  font-family: var(--font-ui); font-size: 16px; line-height: 1;
 }
-.note-thread .nt-close:hover { background: var(--chrome-2); color: var(--ink); }
-.note-thread .nt-close svg { width: 13px; height: 13px; }
+.note-thread .nt-close:hover { background: rgba(0,0,0,.06); color: var(--ink-2); }
 .note-thread .nt-body {
-  padding: 7px 10px; font-size: 12.25px; line-height: 1.45; color: var(--ink);
-  white-space: pre-wrap; word-break: break-word; overflow-y: auto;
+  padding: 6px 10px; font-size: 12.25px; line-height: 1.4; color: var(--ink);
+  min-height: 0; white-space: pre-wrap; word-break: break-word; overflow-y: auto;
 }
-.note-thread .nt-replies { border-top: 1px solid var(--line-soft); overflow-y: auto; }
+.note-thread .nt-replies { min-height: 0; border-top: 1px solid var(--line-soft); overflow-y: auto; }
 .note-thread .nt-reply {
-  padding: 5px 10px 2px; font-size: 11.5px; line-height: 1.35; color: var(--ink-2);
+  padding: 5px 10px 3px; font-size: 11.5px; line-height: 1.35; color: var(--ink-2);
   word-break: break-word;
 }
 .note-thread .nt-reply .nt-author { font-size: 11.5px; }
-.note-thread .nt-reply .nt-ts { margin-left: 5px; }
+/* Docs .comment-popup-reply .reply-time sits on its own line under the reply. */
+.note-thread .nt-reply .nt-ts { display: block; font-size: 9.5px; }
 /* Docs .comment-popup-actions: Reply / Resolve / Delete as small pills. */
-.note-thread .nt-actions { display: flex; gap: 6px; padding: 7px 10px 4px; }
+.note-thread .nt-actions { display: flex; flex: 0 0 auto; gap: 6px; padding: 6px 10px 8px; }
 .note-thread .nt-btn {
-  display: inline-flex; align-items: center; gap: 4px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
   padding: 3px 8px; border: none; border-radius: 4px; cursor: pointer;
   font-family: var(--font-ui); font-size: 11px; font-weight: 500; color: var(--ink-2);
   transition: background .12s;
 }
-.note-thread .nt-btn svg { width: 12px; height: 12px; }
 .note-thread .nt-reply-btn { background: rgba(0,0,0,.04); }
 .note-thread .nt-reply-btn:hover { background: rgba(0,0,0,.08); }
-.note-thread .nt-resolve-btn { background: var(--accent-tint-2); color: var(--accent-dark); }
-.note-thread .nt-resolve-btn:hover { background: var(--accent-tint); }
+.note-thread .nt-resolve-btn { background: rgba(33,115,70,.10); color: var(--accent); }
+.note-thread .nt-resolve-btn:hover { background: rgba(33,115,70,.15); }
 .note-thread .nt-resolve-btn.on { background: var(--chrome-2); color: var(--ink-3); }
 .note-thread .nt-delete-btn { background: rgba(220,38,38,.08); color: #dc2626; }
 .note-thread .nt-delete-btn:hover { background: rgba(220,38,38,.16); }
-.note-thread .nt-replyrow { display: flex; gap: 6px; padding: 4px 10px 8px; align-items: center; }
-.note-thread .nt-input {
-  flex: 1 1 auto; min-width: 0; height: 26px; padding: 3px 9px; font-size: 12px;
-  border: 1px solid var(--line); border-radius: 13px; background: var(--paper); outline: none;
-  font-family: var(--font-ui); transition: border-color .12s, box-shadow .12s;
-}
-.note-thread .nt-input::placeholder { color: var(--ink-4); }
-.note-thread .nt-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-tint-2); }
-.note-thread .nt-send {
-  flex: 0 0 auto; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
-  border: 1px solid var(--accent-dark); border-radius: 50%; background: var(--accent); color: #fff;
-  transition: background .12s, transform .12s, box-shadow .12s;
-}
-.note-thread .nt-send svg { width: 13px; height: 13px; }
-.note-thread .nt-send:hover { background: var(--accent-dark); box-shadow: 0 1px 4px rgba(24,92,55,.35); }
-.note-thread .nt-send:active { transform: scale(.94); }
 /* Resolved threads read as done, like Docs' .comment-resolved anchors. */
-.note-thread.is-resolved .nt-body { opacity: .6; }
+.note-thread.is-resolved .nt-body, .note-thread .nt-item.is-resolved .nt-body { opacity: .6; }
 
 /* --- filter chips (v4): active check badge --- */
 .filter-chip { position: relative; }
@@ -722,6 +713,51 @@ button { cursor: default; }
 .modal.cmt .modal-icon { margin: 0 auto 12px; }
 .modal.cmt .modal-title { flex: none; text-align: center; }
 .modal.cmt .modal-x { position: absolute; top: 14px; right: 14px; }
+.modal.cmt .modal-foot { justify-content: center; }
+.modal.define-name .modal-head {
+  flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; padding: 24px 24px 0; border-bottom: none;
+  background: transparent; position: relative;
+}
+.modal.define-name .modal-icon { margin: 0 auto 12px; }
+.modal.define-name .modal-title { flex: none; text-align: center; }
+.modal.define-name .modal-body { padding: 18px 24px 20px; }
+.define-name-content {
+  display: grid; grid-template-columns: minmax(0, 280px) minmax(250px, 1fr);
+  align-items: stretch; gap: 22px;
+}
+.define-name-fields { min-width: 0; }
+.modal.define-name .modal-foot { justify-content: center; }
+.define-name-content .form-row { align-items: stretch; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+.define-name-content .form-row > label { width: auto; text-align: left; color: var(--ink-2); font-weight: 600; }
+.define-name-content .form-row input[type="text"] { height: 40px; border-radius: 6px; padding: 0 12px; }
+.define-name-content .hint { max-width: 36ch; margin: 0 0 14px; line-height: 1.45; }
+.define-name-panel {
+  min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px;
+  background: #f8f9f8; display: flex; flex-direction: column;
+}
+.define-name-list-heading { margin: 0 0 10px; color: var(--ink-2); font-size: 12px; font-weight: 600; }
+.define-name-list { min-height: 100px; max-height: 220px; overflow-y: auto; }
+.define-name-listbox { display: flex; flex-direction: column; }
+.define-name-row {
+  display: flex; align-items: center; gap: 10px; min-width: 0; padding: 9px 4px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.define-name-row:first-child { padding-top: 2px; }
+.define-name-info { display: flex; flex: 1 1 auto; flex-direction: column; gap: 3px; min-width: 0; }
+.define-name-label { overflow: hidden; color: var(--ink); font-size: 12.5px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.define-name-ref { overflow: hidden; color: var(--ink-4); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.define-name-delete {
+  display: inline-flex; flex: 0 0 32px; align-items: center; justify-content: center;
+  width: 32px; height: 32px; padding: 0; border: 1px solid var(--line);
+  border-radius: 6px; background: var(--paper); color: var(--danger); cursor: pointer;
+}
+.define-name-delete svg { width: 16px; height: 16px; }
+.define-name-delete:hover { border-color: rgba(220,38,38,.3); background: #fdecec; }
+.define-name-empty { padding: 12px 4px; color: var(--ink-4); font-size: 12px; }
+@media (max-width: 700px) {
+  .define-name-content { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+}
 
 /* ==========================================================================
    Visual polish layer — chrome refinement & motion
@@ -1397,15 +1433,6 @@ mark.nt-hl { color: #4a3a05; }
 .ch-axis-inputs input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px var(--accent-tint-2); }
 #find-panel .ch-axis-inputs input[type="text"] { flex: 1; }
 
-/* ---- CF dialog: badge for imported rules in the rule list ---- */
-.cf-imp-badge {
-  display: inline-block; margin-left: 6px;
-  font-size: 10px; line-height: 1.4; font-weight: 600;
-  color: #7f6000; background: #fff4ce;
-  border: 1px solid #e2c886; border-radius: 8px;
-  padding: 0 6px; vertical-align: 1px;
-}
-
 /* ---- v8 guards ---- */
 @media (prefers-reduced-motion: reduce) {
   #find-panel .fp-list, #find-panel .fp-item, .ch-axis-inputs input { animation: none; transition: none; }
@@ -1416,44 +1443,8 @@ mark.nt-hl { color: #4a3a05; }
 }
 
 /* ============================================================
-   Polish layer v9 — icon sets, CF precedence, chart label options
+   Polish layer v9 — chart label options
    ============================================================ */
-
-/* CF dialog: rule precedence reorder buttons */
-.cf-order-btns {
-  display: inline-flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-right: 6px;
-}
-.cf-order {
-  width: 18px;
-  height: 14px;
-  padding: 0;
-  border: 1px solid var(--border, #d1d1d1);
-  border-radius: 3px;
-  background: #ffffff;
-  color: #605e5c;
-  font-size: 8px;
-  line-height: 1;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: background .12s ease, color .12s ease, border-color .12s ease;
-}
-.cf-order:hover:not(:disabled) {
-  background: var(--accent-soft, #e7f2ec);
-  color: var(--accent, #217346);
-  border-color: var(--accent, #217346);
-}
-.cf-order:active:not(:disabled) { transform: translateY(0.5px); }
-.cf-order:disabled { opacity: .35; cursor: default; }
-.cf-order:focus-visible { outline: 2px solid var(--accent, #217346); outline-offset: 1px; }
-.cf-list .list-row .sub .wins { color: var(--accent, #217346); font-weight: 600; }
-
-/* CF dialog: icon style select row matches the compact select styling */
-#cf-icons { min-width: 180px; }
 
 /* chart dialog: label position + number format row */
 .ch-lbl-inputs { display: flex; gap: 8px; }
@@ -1492,10 +1483,6 @@ mark.nt-hl { color: #4a3a05; }
   .ch-lbl-inputs { flex-direction: column; }
   .ch-lbl-inputs select { flex: 1 0 auto; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .cf-order { transition: none; }
-}
-
 /* ==========================================================================
    Polish layer v10 — interaction & motion: smooth editor, resize tips,
    selection glide, animated stats, cleaner chrome
@@ -2127,6 +2114,7 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
   min-width: max-content;
   position: static;
 }
+.ribbon-group + .ribbon-group { padding-left: 12px; }
 .ribbon-group::after { display: none; }
 .ribbon-group:last-child { border-right: none; padding-right: 0; margin-right: 0; }
 .group-label {

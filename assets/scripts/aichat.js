@@ -1102,25 +1102,73 @@ function _mdInline(raw) {
 function _mdBlock(raw) {
   return renderMarkdown(raw).trim();
 }
+/* Longest a [MEMORY]…[/MEMORY] block may be and still count as memory. The
+   worker tells the model a block "may contain any characters, newlines, and
+   brackets" and must be "SUMMARIZED and condensed", so anything longer than
+   this is the model forgetting the closing tag mid-answer, not a memory. */
+const _MEM_BLOCK_MAX = 1200;
+const _MEM_BLOCK_SRC = "\\[MEMORY\\]([\\s\\S]{0," + _MEM_BLOCK_MAX + "}?)\\[\\/MEMORY\\]";
+const _MEM_BLOCK_RE = new RegExp(_MEM_BLOCK_SRC, "g");
+const _MEM_SHORT_RE = /\[MEMORY:\s*([^\]\n]{1,400})\]/g;
+
+/* Is this actually a memory, or is it the model's answer?
+   A real block is a short condensed list. Answer-shaped content — headings, code
+   fences, tables — means the model opened the tag and then kept writing its
+   reply, and that text must never be removed. Checking content shape rather
+   than length is what makes this safe: the swallowed-answer case can be short. */
+function _memBlockIsMemoryish(body) {
+  const t = String(body || "").trim();
+  if (!t) return false;
+  if (t.length > _MEM_BLOCK_MAX) return false;
+  if (/```/.test(t)) return false;
+  if (/^\s{0,3}#{1,6}\s|\n\s{0,3}#{1,6}\s/.test(t)) return false;
+  if (/\|/.test(t)) return false;
+  return true;
+}
+
 function _extractMemories(text) {
   const out = [];
   const s = String(text || "");
-  for (const bm of s.matchAll(/\[MEMORY\]([\s\S]*?)\[\/MEMORY\]/g)) {
+  // Bounded for the same reason as _stripMemoryTags: an unbounded lazy match
+  // captured the model's whole answer as "memory" whenever it opened a block and
+  // closed it at the end, which both blanked the reply and poisoned the memory
+  // store with the answer text.
+  for (const bm of s.matchAll(new RegExp(_MEM_BLOCK_SRC, "g"))) {
     const t = bm[1].trim();
-    if (t) out.push({ tag: bm[0], text: t });
+    if (t && _memBlockIsMemoryish(t)) out.push({ tag: bm[0], text: t });
   }
-  const cleaned = s.replace(/\[MEMORY\]([\s\S]*?)\[\/MEMORY\]/g, " ");
-  for (const im of cleaned.matchAll(/\[MEMORY:\s*([^\]]+)\]/g)) {
+  const cleaned = s.replace(new RegExp(_MEM_BLOCK_SRC, "g"), " ");
+  for (const im of cleaned.matchAll(_MEM_SHORT_RE)) {
     const t = im[1].trim();
     if (t) out.push({ tag: im[0], text: t });
   }
   return out;
 }
+
+/* Strips memory tags WITHOUT ever deleting the user's answer.
+   Two bugs lived here, both of which blanked the whole response:
+     · "[MEMORY]…[/MEMORY]" matched lazily across any distance, so a model that
+       opened the block and answered before closing it had its ENTIRE reply
+       swallowed as "memory" — the user saw an empty message and the answer was
+       stored as a memory.
+     · /\s*\[MEMORY(?:\]|:)[^]*$/ deleted from the tag to END OF STRING, which is
+       what truncated the response mid-stream every time a block was opened but
+       not yet closed.
+   Now only well-formed, plausibly-sized blocks are removed; anything else is
+   left in place with just the literal delimiter neutralised. */
 function _stripMemoryTags(text) {
-  return String(text || "")
-    .replace(/\[MEMORY\]([\s\S]*?)\[\/MEMORY\]/g, " ")
-    .replace(/\[MEMORY:[^\]]*\]?/g, " ")
-    .replace(/\s*\[MEMORY(?:\]|:)[^]*$/, " ");
+  let s = String(text || "");
+  // A real memory block is removed. If the "block" is actually the model's
+  // answer, keep the body and drop only the delimiters, so nothing the user
+  // wrote or asked for can ever be deleted from the reply.
+  s = s.replace(_MEM_BLOCK_RE, (_m, body) => (_memBlockIsMemoryish(body) ? " " : String(body)));
+  s = s.replace(_MEM_SHORT_RE, " ");
+  // Leftovers: an unterminated or oversized tag. Remove only the tag itself —
+  // never the prose around it.
+  s = s.replace(/\[\/MEMORY\]/g, "");
+  s = s.replace(/\[MEMORY\]/g, "");
+  s = s.replace(/\[MEMORY:[^\]\n]{0,400}/g, "");
+  return s;
 }
 function _streamDisplayText(raw) {
   let t = String(raw || "");
@@ -3039,13 +3087,9 @@ async function handleSend(opts) {
   const fileParts = buildFileParts(files);
   if (fileParts.length) history[history.length - 1].parts.push(...fileParts);
 
-  // Only inject EmeraldSuite context when user explicitly mentions it
-  function _userMentionsSuite(t) {
-    const s = String(t || "").toLowerCase();
-    return /\b(emeraldsuite|emerald suite|my notes?|my docs?|my documents?|my slides?|my presentations?|my sheets?|my spreadsheets?|in (notes?|docs?|documents?|slides?|presentations?|sheets?|spreadsheets?))\b/.test(s);
-  }
-  const needsSuiteCtx = !_silent && _userMentionsSuite(text);
-  if (needsSuiteCtx) {
+  // EmeraldSuite context is always injected; the write gate decides writes
+  _efResetWriteGate();
+  if (!_silent) {
     try {
       const fileCtx = await _suiteAutoContext(text);
       if (fileCtx && history.length && history[history.length - 1]?.parts?.length) {
@@ -3668,18 +3712,13 @@ async function regenerateMessage(msgEl) {
     }
   }
   const regenUserText = (userMsgIdx >= 0 && conv.messages[userMsgIdx] && conv.messages[userMsgIdx].text) || "";
-  function _userMentionsSuite(t) {
-    const s = String(t || "").toLowerCase();
-    return /\b(emeraldsuite|emerald suite|my notes?|my docs?|my documents?|my slides?|my presentations?|my sheets?|my spreadsheets?|in (notes?|docs?|documents?|slides?|presentations?|sheets?|spreadsheets?))\b/.test(s);
-  }
-  if (_userMentionsSuite(regenUserText)) {
-    try {
-      const fileCtx = await _suiteAutoContext(regenUserText);
-      if (fileCtx && history.length && history[history.length - 1]?.parts?.length) {
-        history[history.length - 1].parts.unshift({ text: fileCtx });
-      }
-    } catch (e) { console.warn("File context failed:", e); }
-  }
+  _efResetWriteGate();
+  try {
+    const fileCtx = await _suiteAutoContext(regenUserText);
+    if (fileCtx && history.length && history[history.length - 1]?.parts?.length) {
+      history[history.length - 1].parts.unshift({ text: fileCtx });
+    }
+  } catch (e) { console.warn("File context failed:", e); }
   state.isStreaming = true;
   state.abortCtrl = new AbortController();
   state.streamConvId = conv ? conv.id : null;
@@ -4713,6 +4752,8 @@ function doSearch() {
 }
 function newChat() {
   state.convId = null;
+  _efSuiteLatch = false;
+  _efResetWriteGate();
   updateOwnedUrl();
   showWelcome();
   updateTopbarTitle("");
@@ -6766,28 +6807,8 @@ function _extractEmeraldApp(text) {
   let parseFailed = false;
   raw = raw.replace(/^[\s\n]*```(?:json|JSON)?[\s\n]*\n?/i, "");
   raw = raw.replace(/\n?[\s\n]*```[\s\n]*$/i, "");
-  raw = raw.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
-  raw = raw.replace(/\/\/[^\n]*/g, "");
-  raw = raw.replace(/\/\*[\s\S]*?\*\//g, "");
-  const firstBrace = raw.indexOf("{");
-  const lastBrace = raw.lastIndexOf("}");
-  if (firstBrace >= 0 && lastBrace > firstBrace) raw = raw.slice(firstBrace, lastBrace + 1);
-  try {
-    appData = JSON.parse(raw);
-  } catch (e1) {
-    try {
-      const fixed = raw
-        .replace(/,\s*([}\]])/g, "$1")
-        .replace(/(?<=[{,])\s*(\w+)\s*:/g, '"$1":')
-        .replace(/:\s*undefined/g, ":null")
-        .replace(/:\s*NaN/g, ":0")
-        .replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
-      appData = JSON.parse(fixed);
-    } catch (e2) {
-      try { appData = _aggressiveJSONExtract(raw); }
-      catch (e3) { parseFailed = true; }
-    }
-  }
+  appData = _efParsePayload(raw);
+  if (!appData) parseFailed = true;
   if (appData && !_esAppKind(appData)) { parseFailed = true; appData = null; }
   return { before, after, appData, parseFailed };
 }
@@ -7066,7 +7087,7 @@ function _esBuildSheetData(data) {
     tabColor: data.tabColor || null, hidden: false,
     cells, rows, cols, merges: [], notes: [],
     freeze: { r: Math.max(0, parseInt(fr.r, 10) || 0), c: Math.max(0, parseInt(fr.c, 10) || 0) },
-    charts: [], cf: [], dv: [], filter: null, showGridlines: true
+    charts: [], dv: [], filter: null, showGridlines: true
   };
 }
 async function _esImportSheets(data) {
@@ -7132,20 +7153,122 @@ document.addEventListener("click", function(e) {
    BroadcastChannel (Sheets via the es-ai agent channel). Creating NEW files
    stays on the <es-app> import card. */
 
+/* ── Suite context ────────────────────────────────────────────────
+   The [EMERALDSUITE FILES] block is injected ONLY on turns that are actually
+   about the user's EmeraldSuite content. Injecting it on every request made
+   the model carry a private file catalog into unrelated questions, so it kept
+   steering conversations back to notes it had been told nothing about.
+
+   A naive mention gate ("does the message contain a file noun?") is what broke
+   normal follow-ups before: "fix the typo", "make it shorter", "do that again"
+   name no file, so the model got no catalog, could not know a single file id,
+   and its payload came back as "No file changed — you didn't ask for one".
+
+   So the gate is a latch with three levels:
+     · MENTION  — names the suite or a file ("my notes", "the doc", "slide 3")
+                  → tell it everything, and latch.
+     · FOLLOW-UP — no noun, but an action/continuation word ("shorter", "again",
+                  "continue") AND the previous turn was already about a file
+                  → still in that conversation, keep telling it.
+     · UNRELATED — neither → tell it NOTHING about the suite and drop the latch.
+   This is what keeps "fix the typo" working right after a file edit while
+   leaving "what's the capital of France?" completely unaware files exist. */
+
 /* ── Write gate ────────────────────────────────────────────────
    The model can only be trusted loosely, so the user's own message is the
    authority: a file is written or created ONLY when that message explicitly
    asks for the change. Merely mentioning a file, asking what is in it, asking
    for advice, or asking the AI to summarize/compare it stays READ-ONLY, and a
-   stray <es-edit>/<es-app> payload is stripped and thrown away. Set once per
+   stray <es-edit>/<es-app> payload is stripped and thrown away. Computed per
    request by _suiteAutoContext(), checked before every write. */
 let _efWriteRequested = false;
+/* Called before every request so a turn can never inherit the previous turn's
+   verdict. _suiteAutoContext() now always runs and overwrites this, but it
+   awaits IndexedDB and can throw, so the reset stays as the floor. */
+function _efResetWriteGate() {
+  _efWriteRequested = false;
+}
 
-const _EF_WRITE_VERB = /\b(edit|update|rewrite|revise|fix|change|modify|replace|rename|reword|proofread|correct|improve|expand|shorten|lengthen|reformat|reorder|reorgani[sz]e|organi[sz]e|sort|add|append|prepend|insert|remove|delete|erase|trim|clear|fill|write|save|overwrite|create|draft|compose|generate|apply|convert|translate|continue|finish|complete|tweak|adjust|boost|merge|split|build|make|clean|tidy|polish|redo|revamp|restyle|retheme|redesign|unify|standardi[sz]e|shorter|longer|simpler|clearer|neater|formal|casual|bulleted|bullet\s*point)\b/i;
+const _EF_WRITE_VERB = /\b(edit|update|rewrite|revise|fix|change|modify|replace|rename|retitle|reword|proofread|correct|improve|expand|shorten|lengthen|reformat|reorder|reorgani[sz]e|organi[sz]e|sort|add|append|prepend|insert|remove|delete|erase|trim|clear|fill|write|save|overwrite|create|draft|compose|generate|apply|convert|translate|continue|finish|complete|tweak|adjust|boost|merge|split|build|make|clean|tidy|polish|redo|revamp|restyle|retheme|redesign|unify|standardi[sz]e|shorter|longer|simpler|clearer|neater|formal|casual|bulleted|bullet\s*point|turn|transform|rephrase|paraphrase|restructure|condense|expand|iterate|iterate\s*on|improve\s*it|start\s*over|overhaul|correct|drop|include|incorporate|add\s+in|throw\s+in)\b/i;
 const _EF_NEW_FILE = /\b(new|fresh|another|extra|second)\s+(note|notes|doc|docs|document|documents|slide|slides|deck|decks|presentation|presentations|sheet|sheets|spreadsheet|spreadsheets|workbook|workbooks|file|files)\b/i;
 const _EF_FILE_REF = /\b(note|notes|doc|docs|document|documents|slide|slides|deck|decks|presentation|presentations|sheet|sheets|spreadsheet|spreadsheets|workbook|workbooks|file|files)\b/i;
 const _EF_WH_QUESTION = /\b(what|why|how|when|where|who|whom|which|whose)\b/i;
 const _EF_DIRECT_ASK = /\b(please|can you|could you|would you|will you|go ahead|do it|do that|make it|try to|try and|i need you to|i want you to|i'?d like you to|help me|now)\b/i;
+/* Advice-seeking, even when it happens to contain a write verb ("should I add
+   more slides?"). Checked first so a trailing question always wins over the
+   verb, otherwise asking for a second opinion grants write permission. */
+const _EF_ADVICE_QUESTION = /\b(should i|should we|shall i|would it|do you think|do you reckon|what if|is it (better|worse|worth|possible|a good)|are there (better|any)|worth (it|doing)|any (ideas?|thoughts?|suggestions?|advice)|how would you|how (should|would) i|could you explain|can you explain|can you suggest|help me decide|thoughts on|let me know (if|whether|what))\b/i;
+
+/* ── Does the model get to know the suite exists this turn? ───────────
+   Three levels, described at the "Suite context" banner above. */
+const _EF_SUITE_MENTION = /\b(emeraldsuite|emerald\s+suite|the suite|my suite|suite (file|note|doc|slide|sheet)|catalog|library)\b/i;
+const _EF_FILE_NOUN = /\b(note|notes|doc|docs|document|documents|slide|slides|deck|decks|presentation|presentations|sheet|sheets|spreadsheet|spreadsheets|workbook|workbooks|file|files)\b/i;
+/* Action/continuation words that keep an in-progress file conversation alive
+   without naming a file: "make it shorter", "fix the typo", "again", "continue".
+   The edit verbs are reused from _EF_WRITE_VERB rather than listed twice — a
+   shorter copy silently drifts and follow-ups stop working. _EF_CONTINUE adds
+   the bare continuations that are not edits at all. */
+const _EF_CONTINUE = /\b(again|continue|keep going|go on|proceed|next|once more|and then|that one|same|do it|go ahead|yes|please|sure|perfect|great|nice|thanks|thank you)\b/i;
+/* The subset of the above that actually grants permission to write. "thanks!"
+   and "nice" keep the context alive but must never authorise a rewrite, so they
+   are deliberately excluded. */
+const _EF_APPROVAL = /\b(again|continue|keep going|go on|proceed|next|once more|and then|that one|same|do it|do that|go ahead|yes|apply it|apply that|save it|make it so|keep at it)\b/i;
+/* A phrase like "make it shorter" or "add a heading" continues a file edit only
+   when its object points BACK at the file. While the latch is on, ordinary chat
+   shares these verbs constantly, and every one dragged the private file catalog
+   along: "translate hello into French", "help me fix my code", "clean up this SQL
+   query". Enumerating the non-file objects does not work — there are always
+   more — so the object is judged structurally instead. A follow-up continues when:
+     · it backs off with a pronoun — "make it shorter", "expand it";
+     · it asks for something NEW to go in — "add a heading", "insert an example";
+     · it is a bare approval — "again", "continue" — which continues by definition;
+     · it is very short — "shorter", "fix the typo" — which continues by context.
+   And anything naming its own object is rejected first: a possessive ("my code")
+   or a demonstrative plus noun ("this SQL query") binds to the current message,
+   not to any file. */
+const _EF_ORDINARY_POSSESSIVE = /\b(i|me|my|mine|you|your|yours|we|us|our|ours)\b/i;
+const _EF_DEMONSTRATIVE_NOUN = /\b(this|that|these|those)\s+[a-z]/i;
+const _EF_BACK_REFERENCE = /\b(it|its|them)\b/i;
+const _EF_INDEFINITE_ADD = /\b(add|insert|append|prepend|include)\s+(a|an|another|one more|the rest)\b/i;
+/* Read-only verbs that need the file's actual text to act on. Paired with a
+   referent below so "summarize it" works but "where is Rome?" does not. */
+const _EF_ABOUT_CONTENT = /\b(summari[sz]e|summari[sz]ation|recap|proofread|read through|go over|walk me through)\b/i;
+const _EF_REFERENT = /\b(it|its|this|that|these|those|them|the same|the rest)\b/i;
+function _wordCount(t) {
+  return String(t || "").trim().split(/\s+/).filter(Boolean).length;
+}
+let _efSuiteLatch = false;
+
+function _suiteContextAllowed(userText) {
+  const t = String(userText || "").trim();
+  if (!t) return false;
+  // A direct mention always wins, even mid-sentence: "update the doc",
+  // "my slides", "what's in this note?".
+  if (_EF_SUITE_MENTION.test(t) || _EF_FILE_NOUN.test(t)) { _efSuiteLatch = true; return true; }
+  // No file named. If this message points back at the file we were just working
+  // on, the conversation is still about it and the model keeps its context.
+  if (_efSuiteLatch) {
+    // It brings its own object ("my code", "this SQL query", "a python script"),
+    // so whatever it means, it is not about a stored file.
+    if (_EF_ORDINARY_POSSESSIVE.test(t) || _EF_DEMONSTRATIVE_NOUN.test(t)) { _efSuiteLatch = false; return false; }
+    const continues = _EF_APPROVAL.test(t) || _EF_BACK_REFERENCE.test(t) ||
+      _EF_INDEFINITE_ADD.test(t) || (_wordCount(t) <= 3 && _EF_WRITE_VERB.test(t));
+    if (continues && (_EF_WRITE_VERB.test(t) || _EF_CONTINUE.test(t) || _EF_ABOUT_CONTENT.test(t))) {
+      return true;
+    }
+  }
+  // Anything else: the suite is none of this message's business. Drop the latch
+  // so a later bare "make it shorter" starts from a clean slate rather than
+  // acting on a stale file.
+  _efSuiteLatch = false;
+  return false;
+}
+
+/* Asking ABOUT content is not asking to change it. Checked before the verbs so
+   "summarize my docs" cannot rewrite the documents — the file noun alone used to
+   reach "hasFileRef && !isWhQuestion" and return true, silently overwriting a
+   file the user only wanted read. Anything here is safe to auto-write later. */
+const _EF_READONLY_ASK = /\b(summari[sz]e|summary|recap|list|show|read|review|compare|contrast|explain|describe|analy[sz]e|analysis|find|search|count|check|extract|tell me about|walk me through|break down|feedback|thoughts on|what('s| is| are)|how many|which|where)\b/i;
 
 function _efDetectWriteRequest(userText) {
   const t = String(userText || "").trim();
@@ -7157,14 +7280,23 @@ function _efDetectWriteRequest(userText) {
   const hasDirectAsk = _EF_DIRECT_ASK.test(t);
   const isWhQuestion = _EF_WH_QUESTION.test(t);
 
+  if (_EF_ADVICE_QUESTION.test(t)) return false;
+  // A read-only ask wins over a verb, except when the user pairs it with a real
+  // instruction ("summarize it AND save it") — that is a write.
+  if (_EF_READONLY_ASK.test(t) && !(hasWriteVerb && hasDirectAsk)) return false;
   if (hasWriteVerb || hasNewFile) return true;
+  if (_efSuiteLatch && _EF_APPROVAL.test(t)) return true;
   if (hasFileRef && (hasDirectAsk || !isWhQuestion)) return true;
+  // A bare follow-up approving an earlier request — "go ahead", "do it",
+  // "continue", "apply it" — is a write instruction too. It names no file
+  // kind, so it used to be read as read-only and the payload was rejected even
+  // though the turn before it had just been granted the file. Safe because
+  // this only unblocks a payload; it cannot invent one.
+  if (hasDirectAsk && !isQuestion && !isWhQuestion) return true;
   if (isQuestion && !hasDirectAsk && !hasFileRef) return false;
   if (isWhQuestion && !hasWriteVerb && !hasNewFile && !hasDirectAsk) return false;
   return false;
 }
-
-function _efLabel(app) { return (_ES_APPS[app] && _ES_APPS[app].label) || app; }
 
 function _efLabel(app) { return (_ES_APPS[app] && _ES_APPS[app].label) || app; }
 
@@ -7236,10 +7368,19 @@ function _efSheetToMd(sheet) {
 }
 
 /* Auto-read every EmeraldSuite file (catalog + latest contents) from storage.
-   Injected into each send so the AI can pick the file the user means.
-   userText = the user's own message this turn; it decides whether the model is
-   allowed to write anything at all (see the write gate above). */
+   Injected only when the user's message is about that content — see
+   _suiteContextAllowed(). userText = the user's own message this turn; it also
+   decides whether the model may write anything at all (write gate above).
+   Returns null when the suite is irrelevant, which is the common case for
+   general chat, so the model stays a normal assistant there. */
 async function _suiteAutoContext(userText) {
+  // The suite is only discussed when the user brings it up. Checked FIRST, before
+  // any storage read: an unrelated question should not even pull the private
+  // catalog out of IndexedDB, let alone put it in front of the model.
+  if (!_suiteContextAllowed(userText)) {
+    _efWriteRequested = false;
+    return null;
+  }
   // Set first, synchronously, so no request can ever inherit a stale verdict.
   _efWriteRequested = _efDetectWriteRequest(userText);
   const items = [];
@@ -7269,7 +7410,19 @@ async function _suiteAutoContext(userText) {
     const sheets = await _efSheetsAll();
     for (const s of sheets) items.push(await note("sheets", s.id, s.title, s.updatedAt || 0));
   } catch (e) {}
-  if (!items.length) return null;
+  if (!items.length) {
+    // Nothing in storage yet. The <es-app> create syntax is documented ONLY in
+    // this block and in _efDirective(), so returning null here left the model
+    // with no idea the tag existed: "create a note about X" on an empty suite
+    // got answered in plain text and no file was ever made. Still tell it how
+    // to create one when the turn asked for a change.
+    if (!_efWriteRequested) return null;
+    return _efDirective() + "\n[EMERALDSUITE FILES]\nThe user has no files in EmeraldSuite yet.\n" +
+      " There is nothing to edit, so CREATE the file with <es-app>{\"app\":\"...\", ...}</es-app> — no \"id\" is needed." +
+      ' Payload shapes: notes {"app":"notes","title":"...","content":"markdown"}; docs {"app":"docs","title":"...","content":"markdown"};' +
+      ' slides {"app":"slides","title":"...","slides":[{"title":"...","content":"..."}]}; sheets {"app":"sheets","title":"...","sheetName":"Sheet1","rows":[["A1","B1"]]}.' +
+      " Emit exactly one payload and do not also emit <es-edit>.";
+  }
   items.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   const CATALOG = items.slice(0, 30);
   const DETAIL = items.slice(0, 6);
@@ -7286,6 +7439,7 @@ async function _suiteAutoContext(userText) {
       " — the FULL new file content, with the same \"app\" and \"id\" from the catalog. For slides: {\"app\":\"slides\",\"id\":\"...\",\"title\":\"...\",\"slides\":[...]} — for sheets: {\"app\":\"sheets\",\"id\":\"...\",\"title\":\"...\",\"rows\":[[...]],\"sheetName\":\"Sheet1\"}." +
       " Change ONLY what the user asked; keep the rest intact." +
       " To CREATE a brand-new file instead, use <es-app>{...}</es-app> (the import card, no id needed)." +
+      " For an existing note/doc that is long, prefer compact patches instead of re-sending everything: {\"app\":\"...\",\"id\":\"...\",\"patches\":[{\"op\":\"replace\",\"find\":\"exact existing text\",\"text\":\"replacement\"}]} — ops: replace, delete, insert_after, insert_before, append, prepend. \"find\" must be copied exactly from [FILE CONTENTS]." +
       " Still touch nothing else, and emit exactly one payload.";
   }
   if (block.length > 26000) block = block.slice(0, 26000) + "\n[...truncated...]";
@@ -7299,9 +7453,96 @@ async function _suiteAutoContext(userText) {
    own function so it is built once, up front, and cannot be truncated away. */
 function _efDirective() {
   if (_efWriteRequested) {
-    return "[EMERALDSUITE EDIT PERMISSION — GRANTED] The user EXPLICITLY asked you to change something in this message, so you may write a file. Emit AT MOST ONE payload: <es-edit>{\"app\":\"...\",\"id\":\"...\",\"title\":\"...\",\"content\":\"full new content (markdown)\"}</es-edit> — the FULL new content, with the same \"app\" and \"id\" from the catalog below. For slides: {\"app\":\"slides\",\"id\":\"...\",\"title\":\"...\",\"slides\":[...]} — for sheets: {\"app\":\"sheets\",\"id\":\"...\",\"title\":\"...\",\"rows\":[[...]],\"sheetName\":\"Sheet1\"}. To CREATE a brand-new file use <es-app>{...}</es-app> (no id needed). Change ONLY what was asked, keep the rest intact, touch no other file, and never mix the two tags in one response.";
+    return "[EMERALDSUITE EDIT PERMISSION — GRANTED] The user EXPLICITLY asked you to change something in this message, so you may write a file. Emit AT MOST ONE payload: <es-edit>{\"app\":\"...\",\"id\":\"...\",\"title\":\"...\",\"content\":\"full new content (markdown)\"}</es-edit> — the FULL new content, with the same \"app\" and \"id\" from the catalog below. For slides: {\"app\":\"slides\",\"id\":\"...\",\"title\":\"...\",\"slides\":[...]} — for sheets: {\"app\":\"sheets\",\"id\":\"...\",\"title\":\"...\",\"rows\":[[...]],\"sheetName\":\"Sheet1\"}. To CREATE a brand-new file use <es-app>{...}</es-app> (no id needed). For a long existing note/doc prefer compact patches over re-sending the whole file: {\"app\":\"...\",\"id\":\"...\",\"patches\":[{\"op\":\"replace\",\"find\":\"exact existing text\",\"text\":\"replacement\"}]} with ops replace/delete/insert_after/insert_before/append/prepend. Change ONLY what was asked, keep the rest intact, touch no other file, and never mix the two tags in one response.";
   }
   return "[EMERALDSUITE EDIT PERMISSION — DENIED] The user did NOT ask you to change, create, save, rewrite or delete anything. The files below are READ-ONLY reference material. NEVER output <es-edit> or <es-app> in this response, not even partially, and never claim you have changed or saved a file. Naming a file, asking what is in it, asking for a summary, review, comparison, explanation or advice is NOT a request to edit it — answer in plain text only. If the user seems to want a change but never clearly asked for one, describe what you would change and wait for them to confirm.";
+}
+
+/* String-aware JSON repair for <es-edit> / <es-app> payloads.
+   The model streams markdown as the value of "content", and markdown is full of
+   things JSON forbids: real newlines inside the string, unescaped quotes, and
+   braces inside code fences. Two earlier bugs made every one of those a hard
+   parse failure — which is why a one-line first edit worked but the 2nd, 3rd and
+   later edits (longer content, a URL, a code block) returned "Edit not applied":
+     · brace matching counted braces INSIDE string values, so it sliced a
+       truncated object,
+     · "//" was stripped as if it were a comment, which cut a markdown URL
+       (https://…) in half mid-line and unbalanced the object.
+   These helpers ignore braces inside strings and escape raw control characters. */
+function _efScanJsonObject(raw) {
+  const s = String(raw || "");
+  const start = s.indexOf("{");
+  if (start < 0) return s;
+  let depth = 0, inStr = false, esc = false, end = -1;
+  for (let i = start; i < s.length; i++) {
+    const ch = s[i];
+    if (inStr) {
+      if (esc) { esc = false; continue; }
+      if (ch === "\\") { esc = true; continue; }
+      if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') { inStr = true; continue; }
+    if (ch === "{") depth++;
+    else if (ch === "}") { depth--; if (depth === 0) { end = i + 1; break; } }
+  }
+  return end < 0 ? s.slice(start) : s.slice(start, end);
+}
+/* One string-aware pass that escapes raw control characters inside string
+   values and drops trailing commas between members — both only EVER while
+   outside a string literal. An earlier version rewrote unquoted keys with
+   .replace(/(?<=[{,])\s*(\w+)\s*:/g, ...), which fired on a code fence inside
+   the file's own markdown: "{x: 1}" became '{"x": 1}', the injected quote ended
+   the enclosing string and the payload no longer parsed. Regular .replace() has
+   no idea which bytes are inside a string, so it corrupted exactly the content
+   that mattered most. */
+function _efRepairJson(raw) {
+  const s = _efScanJsonObject(raw);
+  let out = "", inStr = false, esc = false;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (inStr) {
+      if (esc) { out += ch; esc = false; continue; }
+      if (ch === "\\") { out += ch; esc = true; continue; }
+      if (ch === '"') { out += ch; inStr = false; continue; }
+      if (ch === "\n") { out += "\\n"; continue; }
+      if (ch === "\r") { out += "\\r"; continue; }
+      if (ch === "\t") { out += "\\t"; continue; }
+      out += ch; continue;
+    }
+    if (ch === '"') { inStr = true; out += ch; continue; }
+    if (ch === ",") {
+      let j = i + 1;
+      while (j < s.length && /\s/.test(s[j])) j++;
+      if (s[j] === "}" || s[j] === "]") continue;   // trailing comma
+    }
+    out += ch;
+  }
+  return out;
+}
+
+/* Shared payload parser for <es-edit> and <es-app>. Both tags carry markdown in
+   a JSON string, so both failed on the same inputs until they shared this.
+   Returns the parsed object, or null when it genuinely cannot be read. */
+function _efParsePayload(raw) {
+  const base = [String(raw || "")];
+  // Entity-decoding is a FALLBACK: applied only after a plain parse fails,
+  // because &quot; inside file content would decode to a raw quote and break an
+  // otherwise-valid payload.
+  const decoded = base[0]
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
+  if (decoded !== base[0]) base.push(decoded);
+  const attempts = base.concat(base.map(_efRepairJson));
+  for (const cand of attempts) {
+    for (const variant of [cand, _efScanJsonObject(cand)]) {
+      try {
+        const v = JSON.parse(variant);
+        if (v && typeof v === "object") return v;
+      } catch {}
+    }
+  }
+  return null;
 }
 
 function _extractFileEdit(text) {
@@ -7316,31 +7557,16 @@ function _extractFileEdit(text) {
   let parseFailed = false;
   raw = raw.replace(/^[\s\n]*```(?:json|JSON)?[\s\n]*\n?/i, "");
   raw = raw.replace(/\n?[\s\n]*```[\s\n]*$/i, "");
-  raw = raw.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
-  raw = raw.replace(/\/\/[^\n]*/g, "");
-  raw = raw.replace(/\/\*[\s\S]*?\*\//g, "");
-  const firstBrace = raw.indexOf("{");
-  const lastBrace = raw.lastIndexOf("}");
-  if (firstBrace >= 0 && lastBrace > firstBrace) raw = raw.slice(firstBrace, lastBrace + 1);
-  try {
-    edit = JSON.parse(raw);
-  } catch (e1) {
-    try {
-      const fixed = raw
-        .replace(/,\s*([}\]])/g, "$1")
-        .replace(/(?<=[{,])\s*(\w+)\s*:/g, '"$1":')
-        .replace(/:\s*undefined/g, ":null")
-        .replace(/:\s*NaN/g, ":0")
-        .replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
-      edit = JSON.parse(fixed);
-    } catch (e2) {
-      try { edit = _aggressiveJSONExtract(raw); }
-      catch (e3) { parseFailed = true; }
-    }
-  }
+  // NOTE: "//" and "/* */" are deliberately NOT stripped. JSON has no comments,
+  // so a "//" in a payload is a URL inside the file's own markdown; deleting it
+  // truncated the user's content mid-line.
+  edit = _efParsePayload(raw);
+  if (!edit) parseFailed = true;
   if (!parseFailed) {
     const valid = edit && typeof edit === "object" && !Array.isArray(edit) &&
-      (edit.title != null || edit.content != null || Array.isArray(edit.slides) || Array.isArray(edit.rows));
+      (edit.title != null || edit.content != null || Array.isArray(edit.slides) ||
+       Array.isArray(edit.patches) ||
+       edit.rows != null || edit.cells != null || edit.data != null);
     if (!valid) { parseFailed = true; edit = null; }
   }
   return { before, after, edit, parseFailed };
@@ -7363,17 +7589,65 @@ function esEditLoadingCardHTML() {
   </div>`;
 }
 
+/* Patch application for <es-edit>.
+   The worker's system prompt tells the model to switch to compact patches once a
+   file is long — "[EMERALDSUITE LONG FILE EDIT OVERRIDE] ... use compact patches
+   by default" — precisely so a big note/doc does not have to be re-sent whole.
+   This frontend never implemented it, so the very first edit (small enough for a
+   full "content" payload) applied fine and then EVERY later edit came back as
+   "Edit not applied": the payload parsed, but carried only "patches", which the
+   extractor did not recognise as a valid edit at all.
+   Ops: replace, delete, insert_after, insert_before, append, prepend.
+   "text" is the new text; "replace" is accepted as an alias, since the prompt
+   shows one example using {"find":...,"replace":...} and another using "text".
+   Applied to PLAIN TEXT, because "find" is copied verbatim out of
+   [FILE CONTENTS], which is plain text (_efRead runs _esPlainText). */
+function _efApplyPatches(text, patches) {
+  let out = String(text || "");
+  const list = Array.isArray(patches) ? patches : [];
+  let applied = 0;
+  for (const p of list) {
+    if (!p || typeof p !== "object") continue;
+    const op = String(p.op || "replace").toLowerCase().replace(/[^a-z_]/g, "");
+    const body = p.text != null ? String(p.text) : (p.replace != null ? String(p.replace) : "");
+    if (op === "append") { if (out && !/\n$/.test(out)) out += "\n"; out += body; applied++; continue; }
+    if (op === "prepend") { out = body + (out ? "\n" : "") + out; applied++; continue; }
+    const find = p.find != null ? String(p.find) : "";
+    if (!find) continue;
+    const i = out.indexOf(find);
+    if (i < 0) continue;                       // no anchor -> skip, counted as missed
+    const tail = out.slice(i + find.length);
+    if (op === "replace") out = out.slice(0, i) + body + tail;
+    else if (op === "delete") out = out.slice(0, i) + tail;
+    else if (op === "insert_after") out = out.slice(0, i + find.length) + "\n" + body + tail;
+    else if (op === "insert_before") out = out.slice(0, i) + body + "\n" + out.slice(i);
+    else continue;
+    applied++;
+  }
+  return { text: out, applied, missed: list.length - applied };
+}
+
 async function _efApplyEdit(fEditRes, msgId) {
-  if (!fEditRes) return { ok: false };
+  if (!fEditRes) return { ok: false, error: "bad-payload" };
   // Payload the write gate rejected: the user never asked for a change.
   if (fEditRes.blocked) return { ok: false, error: "not-requested" };
-  if (!fEditRes.edit && fEditRes.parseFailed) return { ok: false };
+  // The model emitted a tag but its JSON would not parse. Guessing at unescaped
+  // quotes risks rewriting the file, so this is reported rather than guessed.
+  if (!fEditRes.edit && fEditRes.parseFailed) return { ok: false, error: "bad-payload" };
   const edit = fEditRes.edit;
   const app = String((edit && edit.app) || "").toLowerCase().trim();
   const id = String((edit && edit.id) || "").trim();
   if (!app || !_ES_APPS[app]) return { ok: false, error: "no-app" };
   if (!id) return { ok: false, error: "no-id" };
   try {
+    // A payload only has to carry the fields it actually changes. _extractFileEdit
+    // already accepts a content-only payload (title may legitimately be absent),
+    // so each branch below resolves title/content against the EXISTING record:
+    // missing field => keep what is there, never rename to a placeholder and
+    // never blank the file. Previously docs/slides bailed out with a bare
+    // { ok:false } (surfacing as "Edit not applied" seconds after the
+    // "Updating file…" card) and notes silently overwrote the title with
+    // "Imported Note" and its body with "".
     if (app === "notes") {
       const key = "emeraldcore.storage.suite.notes";
       let arr = await _esStoreGet(key);
@@ -7381,39 +7655,80 @@ async function _efApplyEdit(fEditRes, msgId) {
       const note = arr.find((n) => n.id === id);
       if (!note) return { app, id, ok: false, error: "not-found" };
       const now = new Date().toISOString();
-      const title = _esPlainText(edit.title) || "Imported Note";
-      const content = _esHtml(edit.content) || "";
+      const hasBody = edit.content != null;
+      const hasTitle = _esPlainText(edit.title) !== "";
+      const hasPatches = Array.isArray(edit.patches) && edit.patches.length > 0;
+      if (!hasBody && !hasTitle && !hasPatches) return { app, id, ok: false, error: "no-content" };
+      const title = hasTitle ? _esPlainText(edit.title) : (note.title || "Untitled Note");
+      let content;
+      if (hasBody) content = _esHtml(edit.content) || "";
+      else if (hasPatches) {
+        const r = _efApplyPatches(_esPlainText(note.content || ""), edit.patches);
+        if (!r.applied) return { app, id, ok: false, error: "patch-not-found" };
+        content = _esHtml(r.text) || "";
+      } else content = note.content || "";
       note.title = title; note.content = content; note.modifiedAt = now;
       await _esStoreSet(key, arr);
       return { app, id, ok: true, title };
     }
     if (app === "docs") {
       const now = Date.now();
-      const title = _esPlainText(edit.title);
-      if (!title) return { app, id, ok: false };
-      const content = _esHtml(edit.content) || "<p><br></p>";
       let idx = await _esStoreGet("emeraldcore.storage.suite.docs");
       idx = Array.isArray(idx) ? idx : [];
       let meta = idx.find((m) => m.id === id);
       if (!meta) return { app, id, ok: false, error: "not-found" };
-      meta.title = title; meta.updatedAt = now; meta.wordCount = _esWordCount(edit.content);
+      let prev = null;
+      try { const d = await _esStoreGet("emeraldcore.storage.suite.docs." + id); if (d && d.id) prev = d; } catch (e) {}
+      const hasBody = edit.content != null;
+      const hasTitle = _esPlainText(edit.title) !== "";
+      const hasPatches = Array.isArray(edit.patches) && edit.patches.length > 0;
+      if (!hasBody && !hasTitle && !hasPatches) return { app, id, ok: false, error: "no-content" };
+      const title = hasTitle ? _esPlainText(edit.title) : (meta.title || (prev && prev.title) || "Untitled Document");
+      let content;
+      let plainText;
+      if (hasBody) { content = _esHtml(edit.content) || "<p><br></p>"; plainText = _esPlainText(edit.content); }
+      else if (hasPatches) {
+        const r = _efApplyPatches(_esPlainText((prev && prev.content) || ""), edit.patches);
+        if (!r.applied) return { app, id, ok: false, error: "patch-not-found" };
+        plainText = r.text;
+        content = _esHtml(r.text) || "<p><br></p>";
+      } else { content = (prev && prev.content) || "<p><br></p>"; plainText = _esPlainText(content); }
+      meta.title = title; meta.updatedAt = now; meta.wordCount = _esWordCount(plainText);
       await _esStoreSet("emeraldcore.storage.suite.docs", idx);
-      await _esStoreSet("emeraldcore.storage.suite.docs." + id, { id, title, content, savedAt: now, theme: edit.theme === "dark" ? "dark" : "light", header: "", footer: "", footnotes: [], endnotes: [], comments: [] });
+      await _esStoreSet("emeraldcore.storage.suite.docs." + id, { id, title, content, savedAt: now, theme: edit.theme === "dark" ? "dark" : ((prev && prev.theme) || "light"), header: "", footer: "", footnotes: [], endnotes: [], comments: [] });
       return { app, id, ok: true, title };
     }
     if (app === "slides") {
       const now = Date.now();
-      const title = _esPlainText(edit.title);
-      if (!title) return { app, id, ok: false };
       let idx = await _esStoreGet("emeraldcore.storage.suite.slides");
       idx = Array.isArray(idx) ? idx : [];
       let prev = null;
       try { const d = await _esStoreGet("emeraldcore.storage.suite.slides." + id); if (d && d.id) prev = d; } catch (e) {}
-      const srcSlides = (Array.isArray(edit.slides) && edit.slides.length) ? edit.slides : _esSplitSlides(edit);
-      const slides = srcSlides.map((s) => _esBuildSlide(s, edit));
-      const pres = { id, title, createdAt: (prev && prev.createdAt) || now, updatedAt: now, slides };
+      const hasBody = edit.content != null;
+      const hasTitle = _esPlainText(edit.title) !== "";
+      const hasPatches = Array.isArray(edit.patches) && edit.patches.length > 0;
+      if (!hasBody && !Array.isArray(edit.slides) && !hasTitle && !hasPatches) return { app, id, ok: false, error: "no-content" };
       let meta = idx.find((m) => m.id === id);
       if (!meta) return { app, id, ok: false, error: "not-found" };
+      const title = hasTitle ? _esPlainText(edit.title) : (meta.title || (prev && prev.title) || "Untitled Presentation");
+      let slides = (prev && Array.isArray(prev.slides)) ? prev.slides : [];
+      if (Array.isArray(edit.slides) && edit.slides.length) slides = edit.slides.map((s) => _esBuildSlide(s, edit));
+      else if (hasBody) slides = _esSplitSlides(edit).map((s) => _esBuildSlide(s, edit));
+      else if (hasPatches) {
+        // The prompt scopes patches to notes/docs. If one arrives for a deck,
+        // apply it to whichever slide holds the anchor rather than rebuilding
+        // the whole presentation — and say so if nothing matched.
+        let touched = 0;
+        for (const s of slides) {
+          if (!s) continue;
+          const src = _esPlainText(s.content || "") || _esPlainText(s.title || "");
+          if (!src) continue;
+          const r = _efApplyPatches(src, edit.patches);
+          if (r.applied) { s.content = r.text; touched += r.applied; }
+        }
+        if (!touched) return { app, id, ok: false, error: "patch-not-found" };
+      }
+      const pres = { id, title, createdAt: (prev && prev.createdAt) || now, updatedAt: now, slides };
       meta.title = title; meta.updatedAt = now; meta.slideCount = slides.length;
       await _esStoreSet("emeraldcore.storage.suite.slides", idx);
       await _esStoreSet("emeraldcore.storage.suite.slides." + id, pres);
@@ -7421,11 +7736,14 @@ async function _efApplyEdit(fEditRes, msgId) {
     }
     if (app === "sheets") {
       const now = Date.now();
-      const title = _esPlainText(edit.title) || "Imported Spreadsheet";
-      const sheet = _esBuildSheetData(Object.assign({ title }, edit));
-      const prev = await _efSheetsGet(id);
-      const prevData = (prev && prev.data) || null;
+      let prev = await _efSheetsGet(id);
+      let prevData = (prev && prev.data) || null;
       if (!prev || !prevData) return { app, id, ok: false, error: "not-found" };
+      const hasBody = edit.rows != null || edit.cells != null || edit.data != null;
+      const hasTitle = _esPlainText(edit.title) !== "";
+      if (!hasBody && !hasTitle) return { app, id, ok: false, error: "no-content" };
+      const title = hasTitle ? _esPlainText(edit.title) : (prevData.title || "Untitled Spreadsheet");
+      const sheet = hasBody ? _esBuildSheetData(Object.assign({ title }, edit)) : (Array.isArray(prevData.sheets) && prevData.sheets.length ? prevData.sheets[0] : _esBuildSheetData({ title, sheetName: "Sheet1" }));
       const wbData = {
         v: 1, id, title, createdAt: prevData.createdAt || now,
         sheets: [sheet], activeSheetId: sheet.id, names: {},
@@ -7437,9 +7755,9 @@ async function _efApplyEdit(fEditRes, msgId) {
     }
   } catch (e2) {
     console.warn("File edit failed:", e2);
-    return { app, id, ok: false };
+    return { app, id, ok: false, error: "write-failed" };
   }
-  return { app, id, ok: false };
+  return { app, id, ok: false, error: "unsupported" };
 }
 
 function renderFileEditBadge(aiDiv, outcome) {
@@ -7459,6 +7777,11 @@ function renderFileEditBadge(aiDiv, outcome) {
     if (outcome.error === "not-requested") label = "No file changed \u2014 you didn't ask for one";
     else if (outcome.error === "no-app" || outcome.error === "no-id") label = "Which file? — the AI must target the exact file";
     else if (outcome.error === "not-found") label = "File not found to edit";
+    else if (outcome.error === "no-content") label = "Nothing to change \u2014 the AI sent an empty edit";
+    else if (outcome.error === "bad-payload") label = "The AI\u2019s edit came through malformed \u2014 try asking again";
+    else if (outcome.error === "patch-not-found") label = "Edit didn\u2019t match the file \u2014 the text to change had moved";
+    else if (outcome.error === "write-failed") label = "Couldn\u2019t save the file \u2014 storage error";
+    else if (outcome.error === "unsupported") label = "That file type can\u2019t be edited yet";
   }
   b.innerHTML = icon + " " + label;
   sender.insertAdjacentElement("afterend", b);
@@ -7745,19 +8068,14 @@ async function submitUserMsgEdit(msgId) {
       if (fileParts.length) last.parts.push(...fileParts);
     }
   }
-  // Only inject EmeraldSuite context when user explicitly mentions it
-  function _userMentionsSuite(t) {
-    const s = String(t || "").toLowerCase();
-    return /\b(emeraldsuite|emerald suite|my notes?|my docs?|my documents?|my slides?|my presentations?|my sheets?|my spreadsheets?|in (notes?|docs?|documents?|slides?|presentations?|sheets?|spreadsheets?))\b/.test(s);
-  }
-  if (_userMentionsSuite(newText)) {
-    try {
-      const fileCtx = await _suiteAutoContext(newText);
-      if (fileCtx && history.length && history[history.length - 1]?.parts?.length) {
-        history[history.length - 1].parts.unshift({ text: fileCtx });
-      }
-    } catch (e) { console.warn("File context failed:", e); }
-  }
+  // EmeraldSuite context is always injected; the write gate decides writes
+  _efResetWriteGate();
+  try {
+    const fileCtx = await _suiteAutoContext(newText);
+    if (fileCtx && history.length && history[history.length - 1]?.parts?.length) {
+      history[history.length - 1].parts.unshift({ text: fileCtx });
+    }
+  } catch (e) { console.warn("File context failed:", e); }
   state.isStreaming = true;
   state.abortCtrl = new AbortController();
   state.streamConvId = conv ? conv.id : null;

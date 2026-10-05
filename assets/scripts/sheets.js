@@ -14,7 +14,7 @@
  *   9. Interactions: selection, keyboard, in-cell editing, fill handle, drag-move
  *  10. Clipboard (internal + system TSV), format painter
  *  11. Structure operations (insert/delete rows, cols, sheets, merge, hide)
- *  12. Sorting, filtering, conditional formatting, data validation
+ *  12. Sorting, filtering, data validation
  *  13. Floating charts
  *  14. Import / export (CSV, XLSX) and print
  *  15. Chrome UI: header, menus, ribbon, dialogs, context menus, toasts
@@ -85,6 +85,7 @@ function cmpNum(a, b) { return a < b ? -1 : a > b ? 1 : 0; }
 
 /* Tiny SVG icon set (stroke-based, 24x24). Rendered inline so the app never
  * depends on network icon availability. */
+const COMMENT_ICON_PATH = 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z';
 const ICONS = {
   cut: '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/>',
   copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>',
@@ -106,10 +107,10 @@ const ICONS = {
   unmerge: '<rect x="3" y="6" width="8" height="12" rx="1.5"/><rect x="13" y="6" width="8" height="12" rx="1.5"/>',
   currency: '<path d="M12 3v18M16.5 7.2C15.6 6 14 5.4 12 5.4c-2.4 0-4.2 1.1-4.2 2.8 0 3.6 8.4 1.7 8.4 5.3 0 1.8-1.8 2.9-4.2 2.9-2 0-3.6-.7-4.5-1.9"/>',
   percent: '<path d="M19 5 5 19"/><circle cx="6.8" cy="6.8" r="2.3"/><circle cx="17.2" cy="17.2" r="2.3"/>',
-  comma: '<ellipse cx="6.4" cy="11.6" rx="2.5" ry="3.9"/><ellipse cx="13.2" cy="11.6" rx="2.5" ry="3.9"/><path d="M19.8 13.2c-.2 2.3-1.3 3.9-3.2 4.9"/>',
+  comma: '<ellipse cx="6.6" cy="10.4" rx="2.3" ry="6.4"/><ellipse cx="14" cy="10.4" rx="2.3" ry="6.4"/><path d="M19.8 13.6c0 3.2-1.5 5.1-4.5 6.2"/>',
   numfmt: '<path d="M9.2 3.5 7.2 20.5M15.6 3.5l-2 17M3.4 8.8h17.2M2.8 15.4h17.2"/><circle cx="20.2" cy="20.2" r="1.5" fill="currentColor" stroke="none"/>',
-  decInc: '<circle cx="4.4" cy="16.4" r="1.1" fill="currentColor" stroke="none"/><ellipse cx="9.3" cy="12" rx="2.4" ry="3.8"/><path d="M14.5 12h6.5m-2.6-2.6L21 12l-2.6 2.6"/>',
-  decDec: '<circle cx="4.4" cy="16.4" r="1.1" fill="currentColor" stroke="none"/><ellipse cx="9.3" cy="12" rx="2.4" ry="3.8"/><path d="M21 12h-6.5m2.6-2.6L14.5 12l2.6 2.6"/>',
+  decInc: '<circle cx="4.3" cy="16.9" r="1.25" fill="currentColor" stroke="none"/><ellipse cx="9.8" cy="10.7" rx="2.4" ry="7.4"/><path d="M14.2 10.7h5.8m-2.9-2.9L20.1 10.7l-2.9 2.9"/>',
+  decDec: '<circle cx="19.7" cy="16.9" r="1.25" fill="currentColor" stroke="none"/><ellipse cx="14.2" cy="10.7" rx="2.4" ry="7.4"/><path d="M9.8 10.7H4m2.9-2.9L4 10.7l2.9 2.9"/>',
   sum: '<path d="M17.5 5.5H7l6 6.5-6 6.5h10.5"/>',
   clear: '<path d="m7 21-4.6-4.6a1 1 0 0 1 0-1.4l9.6-9.6a1 1 0 0 1 1.4 0l5.6 5.6a1 1 0 0 1 0 1.4L13 21"/><path d="M22 21H7M5.5 11l8 8"/>',
   sortAsc: '<path d="M12 19V5M6 11l6-6 6 6M4 21h7"/>',
@@ -136,7 +137,6 @@ const ICONS = {
   print: '<path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
   zoomIn: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.7-4.7M8 11h6M11 8v6"/>',
   zoomOut: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.7-4.7M8 11h6"/>',
-  bucket: '<path d="m12 3 8 8-7.5 7.5a2 2 0 0 1-2.8 0L4 12.8a1.5 1.5 0 0 1 0-2.1z"/><path d="m7 8 8 8"/><path d="M21.5 15.5s1.5 2 1.5 3.2a1.8 1.8 0 0 1-3.6 0c0-1.2 2.1-3.2 2.1-3.2z"/>',
   borders: '<rect x="4" y="4" width="16" height="16" rx="1"/><path d="M12 4v16M4 12h16" stroke-dasharray="2 2"/>',
   grid: '<rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 9.3h18M3 14.6h18M9 4v16M15 4v16"/>',
   fx: '<path d="M13.9 5.3c-.9-.9-2.4-.8-3.1.3-.3.5-.5 1.1-.5 1.7v10.2M8.3 9.9h5.8"/><path d="m14.9 11.2 5.3 6.2M20.2 11.2l-5.3 6.2"/>',
@@ -187,7 +187,8 @@ const ICONS = {
   auditPrec: '<rect x="3" y="9" width="7" height="6" rx="1"/><rect x="15" y="9" width="7" height="6" rx="1"/><path d="M10 12h5"/><path d="m13 9.5 2.5 2.5-2.5 2.5"/>',
   auditDep: '<rect x="2" y="9" width="7" height="6" rx="1"/><rect x="14" y="9" width="7" height="6" rx="1"/><path d="M9 12h5"/><path d="m12 9.5 2.5 2.5-2.5 2.5"/>',
   auditOff: '<rect x="3" y="9" width="7" height="6" rx="1"/><rect x="15" y="9" width="7" height="6" rx="1"/><path d="M11 10.5h3" stroke-dasharray="2 2"/><path d="M3 3l18 18" stroke-width="1.4"/>',
-  comment: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  comment: '<path d="' + COMMENT_ICON_PATH + '"/>',
+  commentRibbon: '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>',
   reply: '<path d="M9 14 4 9l5-5"/><path d="M4 9h9a7 7 0 0 1 7 7v4"/>',
   auditAll: '<circle cx="5" cy="12" r="2.2"/><circle cx="12" cy="5.5" r="2.2"/><circle cx="12" cy="18.5" r="2.2"/><circle cx="19" cy="12" r="2.2"/><path d="M7 11l3.2-4M7 13l3.2 4M14.2 6.5 17 10M14.2 17.5 17 14"/>',
   gauge: '<path d="M5 19a9 9 0 1 1 14 0"/><path d="M12 13l3.5-3.5"/><circle cx="12" cy="13" r="1.4"/><path d="M8 19h8"/>',
@@ -478,7 +479,7 @@ function formatValue(v, code) {
     return fmtDateTokens(toks, v);
   }
   if (secs[3] !== undefined && typeof v === 'number') { /* numeric with text section falls through */ }
-  // scientific?
+  // Exponent notation remains supported for custom and imported formats.
   const expIdx = toks.findIndex(t => t.t === 'exp');
   if (expIdx !== -1) {
     const mantToks = toks.slice(0, expIdx);
@@ -573,7 +574,6 @@ const NUMCAT = {
   time: 'h:mm:ss AM/PM',
   percent: d => '0' + (d > 0 ? '.' + '0'.repeat(d) : '') + '%',
   fraction: '# ?/?',
-  scientific: '0.00E+00',
   text: '@'
 };
 
@@ -2119,7 +2119,7 @@ function makeSheet(name, id) {
     merges: [],
     mergeMap: new Map(),
     freeze: { r: 0, c: 0 },
-    charts: [], cf: [], dv: [],
+    charts: [], dv: [],
     filter: null, filterHidden: new Set(),
     showGridlines: true,
     usedMax: { r: 0, c: 0 }
@@ -2300,10 +2300,10 @@ function snapshotSheet(sh) {
     cells, rows, cols,
     merges: deepClone(sh.merges),
     freeze: Object.assign({}, sh.freeze),
-    charts: deepClone(sh.charts), cf: deepClone(sh.cf), dv: deepClone(sh.dv),
+    charts: deepClone(sh.charts), dv: deepClone(sh.dv),
     filter: deepClone(sh.filter), showGridlines: sh.showGridlines,
     usedMax: Object.assign({}, sh.usedMax), name: sh.name, tabColor: sh.tabColor,
-    notes: sh.notes ? new Map(sh.notes) : new Map()
+    notes: sh.notes ? new Map([...sh.notes].map(([k, stored]) => [k, deepClone(noteThreadsFromValue(stored))])) : new Map()
   };
 }
 function restoreSheet(sh, snap) {
@@ -2325,11 +2325,11 @@ function restoreSheet(sh, snap) {
   growExtent(sh, um.r + 1, um.c + 1);
   sh.merges = deepClone(snap.merges); rebuildMergeMap(sh);
   sh.freeze = Object.assign({}, snap.freeze);
-  sh.charts = deepClone(snap.charts); sh.cf = deepClone(snap.cf); sh.dv = deepClone(snap.dv);
+  sh.charts = deepClone(snap.charts); sh.dv = deepClone(snap.dv);
   sh.filter = deepClone(snap.filter); sh.filterHidden = new Set();
   sh.showGridlines = snap.showGridlines;
   sh.usedMax = Object.assign({}, snap.usedMax);
-  sh.notes = snap.notes ? new Map(snap.notes) : new Map();
+  sh.notes = snap.notes ? new Map([...snap.notes].map(([k, stored]) => [k, deepClone(noteThreadsFromValue(stored))])) : new Map();
   rebuildAllDeps();
   renderChartsLayer();
   renderFilterChips();
@@ -2633,8 +2633,8 @@ function serializeSheet(sh) {
     id: sh.id, name: sh.name, tabColor: sh.tabColor, hidden: !!sh.hidden,
     cells, rows, cols,
     merges: sh.merges.map(m => [m.r1, m.c1, m.r2, m.c2]),
-    notes: [...sh.notes.entries()].map(([k, n]) => [k, { t: n.text, a: n.author, ts: n.ts, r: noteReplies(n), rs: n.resolved ? 1 : 0 }]),
-    freeze: sh.freeze, charts: sh.charts, cf: sh.cf, dv: sh.dv,
+    notes: [...sh.notes.entries()].map(([k, stored]) => [k, noteThreadsFromValue(stored).map(n => ({ id: n.id, t: n.text, a: n.author, ts: n.ts, r: noteReplies(n), rs: n.resolved ? 1 : 0 }))]),
+    freeze: sh.freeze, charts: sh.charts, dv: sh.dv,
     filter: sh.filter, showGridlines: sh.showGridlines
   };
 }
@@ -2657,13 +2657,21 @@ function deserializeSheet(d) {
   for (const m of sh.merges) { if (m.r2 > extR) extR = m.r2; if (m.c2 > extC) extC = m.c2; }
   rebuildMergeMap(sh);
   sh.freeze = d.freeze || { r: 0, c: 0 };
-  sh.charts = d.charts || []; sh.cf = d.cf || []; sh.dv = d.dv || [];
+  sh.charts = d.charts || []; sh.dv = d.dv || [];
   sh.filter = d.filter || null;
   if (sh.filter && sh.filter.range) { if (sh.filter.range.r2 > extR) extR = sh.filter.range.r2; if (sh.filter.range.c2 > extC) extC = sh.filter.range.c2; }
   sh.filterHidden = new Set();
   sh.showGridlines = d.showGridlines !== false;
   sh.notes = new Map();
-  for (const entry of (d.notes || [])) { if (entry && entry[0]) sh.notes.set(entry[0], { text: String(entry[1].t || ''), author: entry[1].a || '', ts: entry[1].ts || null, resolved: !!entry[1].rs, replies: Array.isArray(entry[1].r) ? entry[1].r.map(rp => ({ a: String(rp.a || 'Me'), t: String(rp.t || ''), ts: rp.ts || null })) : [] }); }
+  for (const entry of (d.notes || [])) {
+    if (!entry || !entry[0]) continue;
+    const stored = entry[1];
+    const threads = Array.isArray(stored) ? stored : stored ? [stored] : [];
+    sh.notes.set(entry[0], threads.map(n => ({
+      id: String(n.id || uid()), text: String(n.t || ''), author: n.a || '', ts: n.ts || null,
+      resolved: !!n.rs, replies: Array.isArray(n.r) ? n.r.map(rp => ({ a: String(rp.a || 'Me'), t: String(rp.t || ''), ts: rp.ts || null })) : []
+    })));
+  }
   /* autogrow: re-materialize the extent around the loaded content, then restore usedMax */
   growExtent(sh, extR + 1, extC + 1);
   sh.usedMax = { r: maxR, c: maxC };
@@ -2874,152 +2882,6 @@ function displayValue(sh, r, c) {
   return { text: String(v), v, isNum: false, isErr: false, isBool: false, style };
 }
 
-/* conditional formatting application for a cell */
-function cfForCell(sh, r, c, cache) {
-  if (!sh.cf.length) return null;
-  let out = null;
-  for (const rule of sh.cf) {
-    const rg = rule.range;
-    if (r < rg.r1 || r > rg.r2 || c < rg.c1 || c > rg.c2) continue;
-    const cell = sh.cells.get(key(r, c));
-    let v = cell ? (cell.f ? getComputedCell(sh.id, r, c) : cell.v) : null;
-    if (isErr(v)) continue;
-    const highlight = () => { out = Object.assign(out || {}, { backgroundColor: rule.color, color: rule.fontColor || null }); };
-    if (rule.type === 'greaterThan' || rule.type === 'lessThan' || rule.type === 'equalTo') {
-      if (v == null || typeof v !== 'number') continue;
-      const ok = rule.type === 'greaterThan' ? v > rule.value : rule.type === 'lessThan' ? v < rule.value : v === rule.value;
-      if (ok) highlight();
-    } else if (rule.type === 'greaterThanOrEqual' || rule.type === 'lessThanOrEqual') {
-      if (v == null || typeof v !== 'number') continue;
-      const ok = rule.type === 'greaterThanOrEqual' ? v >= rule.value : v <= rule.value;
-      if (ok) highlight();
-    } else if (rule.type === 'notEqualTo') {
-      if (v == null) continue;
-      let ok;
-      if (typeof rule.value === 'number') ok = !(typeof v === 'number' && v === rule.value);
-      else ok = String(typeof v === 'string' ? v : generalNum(v)).toLowerCase() !== String(rule.value).toLowerCase();
-      if (ok) highlight();
-    } else if (rule.type === 'between') {
-      if (v == null || typeof v !== 'number') continue;
-      if (v >= Math.min(rule.value, rule.value2) && v <= Math.max(rule.value, rule.value2)) highlight();
-    } else if (rule.type === 'contains') {
-      if (v == null) continue;
-      if (String(typeof v === 'string' ? v : generalNum(v)).toLowerCase().includes(String(rule.value).toLowerCase())) highlight();
-    } else if (rule.type === 'beginsWith' || rule.type === 'endsWith') {
-      if (v == null) continue;
-      const s = String(typeof v === 'string' ? v : generalNum(v)).toLowerCase();
-      const q = String(rule.value == null ? '' : rule.value).toLowerCase();
-      const ok = rule.type === 'beginsWith' ? s.startsWith(q) : s.endsWith(q);
-      if (ok) highlight();
-    } else if (rule.type === 'expression') {
-      /* relative formula evaluated per cell (refs shift from the rule base cell) */
-      if (!rule.expr) continue;
-      const base = rule.base || { r: rg.r1, c: rg.c1 };
-      const src = shiftFormulaRefs(rule.expr[0] === '=' ? rule.expr : '=' + rule.expr, r - base.r, c - base.c);
-      const res = evalFormulaText(src, sh.id, r, c);
-      if (!isErr(res) && toBool(res)) highlight();
-    } else if (rule.type === 'aboveAverage' || rule.type === 'belowAverage') {
-      if (v == null || typeof v !== 'number') continue;
-      const st = cache.get(rule.id);
-      if (!st) continue;
-      if (rule.type === 'aboveAverage' ? v > st.avg : v < st.avg) highlight();
-    } else if (rule.type === 'top10' || rule.type === 'top10Percent' || rule.type === 'bottom10' || rule.type === 'bottom10Percent') {
-      if (v == null || typeof v !== 'number') continue;
-      const st = cache.get(rule.id);
-      if (!st) continue;
-      const isTop = rule.type === 'top10' || rule.type === 'top10Percent';
-      if (isTop ? v >= st.threshold : v <= st.threshold) highlight();
-    } else if (rule.type === 'unique' || rule.type === 'duplicates') {
-      if (v == null) continue;
-      const st = cache.get(rule.id);
-      if (!st) continue;
-      const kk = typeof v === 'number' ? 'n:' + v : 's:' + String(v).toLowerCase();
-      const cnt = st.counts.get(kk) || 0;
-      if (rule.type === 'unique' ? cnt === 1 : cnt > 1) highlight();
-    } else if (rule.type === 'colorScale2' || rule.type === 'colorScale3') {
-      if (v == null || typeof v !== 'number') continue;
-      const st = cache.get(rule.id);
-      if (!st) continue;
-      const t = st.max === st.min ? 0.5 : clamp((v - st.min) / (st.max - st.min), 0, 1);
-      const col = t <= 0.5 || !rule.colorMid
-        ? lerpColor(rule.colorMin, rule.colorMid || rule.colorMax, rule.colorMid ? t : t)
-        : lerpColor(rule.colorMid, rule.colorMax, (t - 0.5) * 2);
-      out = Object.assign(out || {}, { backgroundColor: col });
-    } else if (rule.type === 'dataBar') {
-      if (v == null || typeof v !== 'number') continue;
-      const st = cache.get(rule.id);
-      if (!st) continue;
-      const t = st.max === st.min ? 1 : clamp((v - st.min) / (st.max - st.min), 0, 1);
-      out = Object.assign(out || {}, { dataBar: { t, color: rule.color } });
-    } else if (rule.type === 'iconSet') {
-      if (v == null || typeof v !== 'number') continue;
-      const st = cache.get(rule.id);
-      if (!st) continue;
-      /* 3-icon bucketing on the value span (percent thresholds 33/67 of min..max) */
-      const span = st.max - st.min;
-      const bucket = span <= 0 ? 2 : v < st.min + span / 3 ? 0 : v < st.min + (span * 2) / 3 ? 1 : 2;
-      out = Object.assign(out || {}, { iconSet: { kind: rule.icons || 'arrows3', bucket } });
-    } else if (rule.type === 'banded') {
-      if ((r - rg.r1) % 2 === 1) out = Object.assign(out || {}, { backgroundColor: rule.color });
-    }
-  }
-  return out;
-}
-function lerpColor(a, b, t) {
-  const pa = hexToRgb(a), pb = hexToRgb(b);
-  return 'rgb(' + Math.round(pa[0] + (pb[0] - pa[0]) * t) + ',' + Math.round(pa[1] + (pb[1] - pa[1]) * t) + ',' + Math.round(pa[2] + (pb[2] - pa[2]) * t) + ')';
-}
-function hexToRgb(h) {
-  h = (h || '#ffffff').replace('#', '');
-  if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
-  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
-}
-/* scan the (capped) rule range, invoking cb(value) for each existing cell */
-function cfScanRange(sh, rg, cb) {
-  const rEnd = Math.min(rg.r2, rg.r1 + 50000), cEnd = Math.min(rg.c2, rg.c1 + 500);
-  for (let r = rg.r1; r <= rEnd; r++) for (let c = rg.c1; c <= cEnd; c++) {
-    const cell = sh.cells.get(key(r, c));
-    if (!cell) continue;
-    cb(cell.f ? getComputedCell(sh.id, r, c) : cell.v);
-  }
-}
-function computeCfStats(sh, cache) {
-  for (const rule of sh.cf) {
-    const rg = rule.range;
-    if (rule.type === 'colorScale2' || rule.type === 'colorScale3' || rule.type === 'dataBar' || rule.type === 'iconSet') {
-      let min = Infinity, max = -Infinity, cnt = 0;
-      cfScanRange(sh, rg, v => {
-        if (typeof v !== 'number') return;
-        if (v < min) min = v; if (v > max) max = v; cnt++;
-      });
-      if (!cnt) { min = 0; max = 1; }
-      cache.set(rule.id, { min, max });
-    } else if (rule.type === 'aboveAverage' || rule.type === 'belowAverage') {
-      let sum = 0, cnt = 0;
-      cfScanRange(sh, rg, v => { if (typeof v === 'number') { sum += v; cnt++; } });
-      cache.set(rule.id, { avg: cnt ? sum / cnt : 0 });
-    } else if (rule.type === 'top10' || rule.type === 'top10Percent' || rule.type === 'bottom10' || rule.type === 'bottom10Percent') {
-      const nums = [];
-      cfScanRange(sh, rg, v => { if (typeof v === 'number') nums.push(v); });
-      if (!nums.length) { cache.set(rule.id, { threshold: 0 }); continue; }
-      const want = Number(rule.value) || 10;
-      const n = rule.type === 'top10Percent' || rule.type === 'bottom10Percent'
-        ? Math.max(1, Math.ceil(nums.length * want / 100))
-        : Math.max(1, Math.min(nums.length, Math.trunc(want)));
-      nums.sort((a, b) => b - a);
-      cache.set(rule.id, { threshold: (rule.type === 'top10' || rule.type === 'top10Percent') ? nums[Math.min(n, nums.length) - 1] : nums[nums.length - Math.min(n, nums.length)] });
-    } else if (rule.type === 'unique' || rule.type === 'duplicates') {
-      const counts = new Map();
-      cfScanRange(sh, rg, v => {
-        if (v == null) return;
-        const kk = typeof v === 'number' ? 'n:' + v : 's:' + String(v).toLowerCase();
-        counts.set(kk, (counts.get(kk) || 0) + 1);
-      });
-      cache.set(rule.id, { counts });
-    }
-  }
-}
-
 /* borders: strongest side wins between neighbours */
 const BORDER_W = { thin: 1, medium: 2, thick: 3, double: 3 };
 function drawBorderSide(ctx, x1, y1, x2, y2, b, zoom) {
@@ -3170,9 +3032,6 @@ function paint() {
   const r0 = sh.rows.indexAt(scrollRowsY0);
   const r1 = Math.min(MAX_ROWS - 1, sh.rows.indexAt(scrollRowsY0 + rowsScrollH) + 1);
 
-  const cfCache = new Map();
-  computeCfStats(sh, cfCache);
-
   /* --- band painting --- */
   function paintBand(clip, rowsFrom, rowsTo, colsFrom, colsTo, offsetX, offsetY, originRow, originCol) {
     if (clip.w <= 0 || clip.h <= 0) return;
@@ -3196,7 +3055,7 @@ function paint() {
         if (m && !(m.r1 === r && m.c1 === c)) continue;
         const rect = m ? cellScreenRect(sh, r, c) : { x: colScreenX(sh, c), y, w, h: hh };
         if (rect.x + rect.w < clip.x - offsetX - 4 || rect.x > clip.x - offsetX + clip.w + 4) continue;
-        drawCellContent(sh, ctx, r, c, rect, cfCache, L);
+        drawCellContent(sh, ctx, r, c, rect, L, clip);
       }
     }
     /* gridlines */
@@ -3233,8 +3092,6 @@ function paint() {
         void rightIdx; void botIdx;
       }
     }
-    /* note reply-count badges (drawn above text/borders so right-aligned values never cover them) */
-    drawNoteBadges(sh, ctx, drawRows, drawCols, L);
     /* recent-commit flash glows (fading accent tint) */
     drawCellFlashes(ctx, sh, L);
     /* selection overlay */
@@ -3478,75 +3335,53 @@ function drawSparkline(ctx, rect, spark) {
   ctx.restore();
 }
 
-function drawNoteBadges(sh, ctx, drawRows, drawCols, L) {
-  if (!sh.notes || !sh.notes.size || (L.zoom || 1) < 0.75) return;
-  const rMin = drawRows[0], rMax = drawRows[drawRows.length - 1];
-  const cMin = drawCols[0], cMax = drawCols[drawCols.length - 1];
-  if (rMin == null || cMin == null) return;
-  for (const [k, n] of sh.notes) {
-    const nRep = noteReplies(n).length;
-    if (!nRep) continue;
-    const seg = k.split(',');
-    const r = +seg[0], c = +seg[1];
-    if (r < rMin || r > rMax || c < cMin || c > cMax) continue;
-    if (!sh.rows.visible(r) || !sh.cols.visible(c)) continue;
-    const m = mergeAt(sh, r, c);
-    if (m && !(m.r1 === r && m.c1 === c)) continue;
-    const rect = m ? cellScreenRect(sh, r, c) : { x: colScreenX(sh, c), y: rowScreenY(sh, r), w: colScreenW(sh, c), h: rowScreenH(sh, r) };
-    const zm = L.zoom || 1;
-    const rad = 7 * zm;
-    const bx = rect.x + rect.w - rad - 1, by = rect.y + rad + 1.5;
-    ctx.beginPath(); ctx.arc(bx, by, rad, 0, Math.PI * 2);
-    ctx.fillStyle = '#c4314b'; ctx.fill();
-    ctx.lineWidth = 1.5; ctx.strokeStyle = '#ffffff'; ctx.stroke();
-    ctx.fillStyle = '#ffffff'; ctx.font = 'bold ' + Math.max(8, Math.round(9 * zm)) + 'px "Segoe UI"';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(nRep > 9 ? '9+' : String(nRep), bx, by + 0.5);
-  }
+function clippedCellRect(rect, clip) {
+  const x = Math.max(rect.x, clip.x), y = Math.max(rect.y, clip.y);
+  const right = Math.min(rect.x + rect.w, clip.x + clip.w);
+  const bottom = Math.min(rect.y + rect.h, clip.y + clip.h);
+  return { x, y, w: Math.max(0, right - x), h: Math.max(0, bottom - y) };
 }
-function drawCellContent(sh, ctx, r, c, rect, cfCache, L) {
+let commentPinPath = null;
+function drawCellContent(sh, ctx, r, c, rect, L, clip) {
   let info = displayValue(sh, r, c);
   {
     const gt = glideTextFor(sh, r, c);
     if (gt != null) info = Object.assign({}, info, { text: gt, isNum: true, isErr: false, isBool: false });
   }
   const style = info.style;
-  let bg = style.backgroundColor, fg = style.color, dataBar = null, iconSet = null;
-  const cf = cfForCell(sh, r, c, cfCache);
-  if (cf) {
-    if (cf.backgroundColor) bg = cf.backgroundColor;
-    if (cf.color) fg = cf.color;
-    if (cf.dataBar) dataBar = cf.dataBar;
-    if (cf.iconSet) iconSet = cf.iconSet;
-  }
+  const bg = style.backgroundColor, fg = style.color;
   if (bg) { ctx.fillStyle = bg; ctx.fillRect(rect.x, rect.y, rect.w, rect.h); }
-  /* note/comment indicator (red corner triangle); reply badge drawn in a later pass */
-  if (sh.notes && sh.notes.size && sh.notes.has(key(r, c))) {
-    const s = Math.min(9, Math.max(6, 7 * (L.zoom || 1)));
-    ctx.fillStyle = '#c4314b';
-    ctx.beginPath();
-    ctx.moveTo(rect.x + rect.w - s, rect.y);
-    ctx.lineTo(rect.x + rect.w, rect.y);
-    ctx.lineTo(rect.x + rect.w, rect.y + s);
-    ctx.closePath();
-    ctx.fill();
-  }
-  if (dataBar) {
-    const bw = Math.max(2, (rect.w - 2) * dataBar.t);
-    ctx.fillStyle = dataBar.color;
-    ctx.globalAlpha = 0.55;
-    ctx.fillRect(rect.x + 1, rect.y + 1.5, bw, rect.h - 3);
-    ctx.globalAlpha = 0.85;
-    ctx.fillRect(rect.x + 1, rect.y + rect.h / 2 - 1, bw, 2);
-    ctx.globalAlpha = 1;
-  }
-  /* icon-set CF glyphs: drawn left of the content, text shifts right */
-  let shiftL = 0;
-  if (iconSet && rect.w > 26) {
-    const zc = L.zoom || 1;
-    const s = Math.max(8, Math.min(13, 11 * zc));
-    drawCfIcon(ctx, rect.x + 3 * zc + s / 2, rect.y + rect.h / 2, s, iconSet.kind, iconSet.bucket);
-    shiftL = s + 5 * zc;
+  if (sh.notes && sh.notes.has(key(r, c))) {
+    const note = noteAt(sh, r, c);
+    const visible = clippedCellRect(rect, clip);
+    const size = Math.min(20, Math.max(14, 17 * (L.zoom || 1)), visible.w - 2, visible.h - 2);
+    if (size >= 8) {
+      const inset = Math.min(2, (visible.w - size) / 2, (visible.h - size) / 2);
+      const markerX = visible.x + visible.w - size - inset;
+      const markerY = visible.y + inset;
+      if (!commentPinPath) {
+        commentPinPath = new Path2D();
+        commentPinPath.roundRect(0, 0, 24, 24, [12, 12, 12, 4]);
+      }
+      ctx.save();
+      ctx.translate(markerX + size / 2, markerY + size / 2);
+      ctx.rotate(-Math.PI / 4);
+      ctx.scale(size / 24, size / 24);
+      ctx.translate(-12, -12);
+      ctx.fillStyle = note.resolved ? '#999999' : '#217346';
+      ctx.shadowColor = note.resolved ? 'transparent' : 'rgba(33,115,70,.3)';
+      ctx.shadowBlur = note.resolved ? 0 : 4 * (L.zoom || 1);
+      ctx.shadowOffsetY = L.zoom || 1;
+      ctx.fill(commentPinPath);
+      ctx.restore();
+      ctx.save();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '700 ' + Math.max(7, Math.round(9 * (L.zoom || 1))) + 'px "DM Sans", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(avatarLetter(note.author || 'You'), markerX + size / 2, markerY + size / 2);
+      ctx.restore();
+    }
   }
   if (info.spark) { drawSparkline(ctx, rect, info.spark); return; }
   if (info.text === '') return;
@@ -3578,7 +3413,7 @@ function drawCellContent(sh, ctx, r, c, rect, cfCache, L) {
     ctx.beginPath(); ctx.rect(rect.x, rect.y, rect.w, rect.h); ctx.clip();
     for (let i = 0; i < Math.min(lines.length, maxLines); i++) {
       ctx.textAlign = align === 'right' ? 'right' : align === 'center' ? 'center' : 'left';
-      const tx = align === 'right' ? rect.x + rect.w - pad : align === 'center' ? rect.x + shiftL + (rect.w - shiftL) / 2 : rect.x + pad + shiftL;
+      const tx = align === 'right' ? rect.x + rect.w - pad : align === 'center' ? rect.x + rect.w / 2 : rect.x + pad;
       ctx.fillText(lines[i], tx + (align === 'left' ? (style.indent || 0) * 8 * zm : 0), startY + i * lh);
     }
     ctx.restore();
@@ -3588,8 +3423,8 @@ function drawCellContent(sh, ctx, r, c, rect, cfCache, L) {
   /* measure + overflow */
   ctx.textAlign = align === 'right' ? 'right' : align === 'center' ? 'center' : 'left';
   const tw = ctx.measureText(info.text).width;
-  const avail = rect.w - pad * 2 - shiftL;
-  let tx = align === 'right' ? rect.x + rect.w - pad : align === 'center' ? rect.x + shiftL + (rect.w - shiftL) / 2 : rect.x + pad + shiftL + (style.indent || 0) * 8 * zm;
+  const avail = rect.w - pad * 2;
+  let tx = align === 'right' ? rect.x + rect.w - pad : align === 'center' ? rect.x + rect.w / 2 : rect.x + pad + (style.indent || 0) * 8 * zm;
 
   if (tw > avail) {
     if (info.isNum) {
@@ -3648,97 +3483,6 @@ function drawCellContent(sh, ctx, r, c, rect, cfCache, L) {
     ctx.restore();
   }
   ctx.fillText(info.text, tx, textY);
-}
-
-/* vector glyphs for the icon-set conditional format (bucket: 0 low, 1 middle, 2 high) */
-const CF_ICON_COLORS = { low: '#d13438', mid: '#ffc000', high: '#1f9d55' };
-function drawCfIcon(ctx, cx, cy, size, kind, bucket) {
-  const r = size / 2;
-  const col = bucket === 0 ? CF_ICON_COLORS.low : bucket === 1 ? CF_ICON_COLORS.mid : CF_ICON_COLORS.high;
-  ctx.save();
-  ctx.lineWidth = Math.max(1, size / 9);
-  ctx.lineJoin = 'round';
-  ctx.lineCap = 'round';
-  if (kind === 'arrows3') {
-    /* triangles pointing down / right / up */
-    ctx.fillStyle = col;
-    ctx.beginPath();
-    if (bucket === 2) { ctx.moveTo(cx, cy - r); ctx.lineTo(cx + r, cy + r * 0.75); ctx.lineTo(cx - r, cy + r * 0.75); }
-    else if (bucket === 1) { ctx.moveTo(cx + r, cy); ctx.lineTo(cx - r * 0.75, cy - r); ctx.lineTo(cx - r * 0.75, cy + r); }
-    else { ctx.moveTo(cx, cy + r); ctx.lineTo(cx + r, cy - r * 0.75); ctx.lineTo(cx - r, cy - r * 0.75); }
-    ctx.closePath(); ctx.fill();
-  } else if (kind === 'traffic3') {
-    ctx.fillStyle = col;
-    ctx.beginPath(); ctx.arc(cx, cy, r - 0.5, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
-    ctx.beginPath(); ctx.arc(cx, cy, r - 0.5, 0, Math.PI * 2); ctx.stroke();
-  } else if (kind === 'signs3') {
-    ctx.fillStyle = col;
-    ctx.translate(cx, cy); ctx.rotate(Math.PI / 4);
-    const q = r * 0.74;
-    ctx.beginPath(); ctx.rect(-q, -q, q * 2, q * 2); ctx.fill();
-    ctx.rotate(-Math.PI / 4); ctx.translate(-cx, -cy);
-    /* glyph inside the diamond */
-    ctx.strokeStyle = '#ffffff'; ctx.fillStyle = '#ffffff';
-    if (bucket === 2) { /* check */
-      ctx.beginPath();
-      ctx.moveTo(cx - r * 0.42, cy + r * 0.05); ctx.lineTo(cx - r * 0.08, cy + r * 0.4); ctx.lineTo(cx + r * 0.45, cy - r * 0.35);
-      ctx.stroke();
-    } else if (bucket === 1) { /* exclamation */
-      ctx.beginPath(); ctx.moveTo(cx, cy - r * 0.5); ctx.lineTo(cx, cy + r * 0.16); ctx.stroke();
-      ctx.beginPath(); ctx.arc(cx, cy + r * 0.44, Math.max(0.6, size / 12), 0, Math.PI * 2); ctx.fill();
-    } else { /* cross */
-      ctx.beginPath();
-      ctx.moveTo(cx - r * 0.4, cy - r * 0.4); ctx.lineTo(cx + r * 0.4, cy + r * 0.4);
-      ctx.moveTo(cx + r * 0.4, cy - r * 0.4); ctx.lineTo(cx - r * 0.4, cy + r * 0.4);
-      ctx.stroke();
-    }
-  } else if (kind === 'flags3') {
-    ctx.fillStyle = col;
-    ctx.beginPath();
-    ctx.moveTo(cx - r * 0.55, cy - r);
-    ctx.lineTo(cx + r * 0.7, cy - r * 0.55);
-    ctx.lineTo(cx - r * 0.55, cy - r * 0.1);
-    ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = '#8a8886';
-    ctx.lineWidth = Math.max(1, size / 11);
-    ctx.beginPath(); ctx.moveTo(cx - r * 0.55, cy - r); ctx.lineTo(cx - r * 0.55, cy + r); ctx.stroke();
-  } else if (kind === 'stars3') {
-    /* bronze / silver / gold star */
-    const fill = bucket === 2 ? '#ffc000' : bucket === 1 ? '#b9b9b9' : '#cd9065';
-    drawCfStar(ctx, cx, cy, r, fill);
-  } else { /* symbols3: cross / exclamation / check */
-    ctx.strokeStyle = col; ctx.fillStyle = col;
-    if (bucket === 2) {
-      ctx.beginPath();
-      ctx.moveTo(cx - r * 0.55, cy + r * 0.02); ctx.lineTo(cx - r * 0.1, cy + r * 0.5); ctx.lineTo(cx + r * 0.6, cy - r * 0.45);
-      ctx.stroke();
-    } else if (bucket === 1) {
-      ctx.beginPath(); ctx.moveTo(cx, cy - r * 0.65); ctx.lineTo(cx, cy + r * 0.2); ctx.stroke();
-      ctx.beginPath(); ctx.arc(cx, cy + r * 0.5, Math.max(0.7, size / 11), 0, Math.PI * 2); ctx.fill();
-    } else {
-      ctx.beginPath();
-      ctx.moveTo(cx - r * 0.5, cy - r * 0.5); ctx.lineTo(cx + r * 0.5, cy + r * 0.5);
-      ctx.moveTo(cx + r * 0.5, cy - r * 0.5); ctx.lineTo(cx - r * 0.5, cy + r * 0.5);
-      ctx.stroke();
-    }
-  }
-  ctx.restore();
-}
-function drawCfStar(ctx, cx, cy, r, fill) {
-  ctx.fillStyle = fill;
-  ctx.beginPath();
-  for (let i = 0; i < 10; i++) {
-    const rad = i % 2 === 0 ? r : r * 0.45;
-    const a = -Math.PI / 2 + (i * Math.PI) / 5;
-    const px = cx + Math.cos(a) * rad, py = cy + Math.sin(a) * rad;
-    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-  }
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(0,0,0,0.2)';
-  ctx.lineWidth = 0.8;
-  ctx.stroke();
 }
 
 function wrapText(ctx, text, maxW) {
@@ -5904,15 +5648,26 @@ function clearSelectionContents(what) {
 }
 
 /* ---------------- Cell notes (comments) ---------------- */
-function noteAt(sh, r, c) { return sh.notes ? sh.notes.get(key(r, c)) : undefined; }
+function noteThreadsFromValue(value) {
+  if (!value) return [];
+  const threads = Array.isArray(value) ? value : [value];
+  for (const thread of threads) if (thread && !thread.id) thread.id = uid();
+  return threads.filter(Boolean);
+}
+function noteThreadsAt(sh, r, c) { return noteThreadsFromValue(sh.notes && sh.notes.get(key(r, c))); }
+function noteAt(sh, r, c, threadId) {
+  const threads = noteThreadsAt(sh, r, c);
+  return threadId == null ? threads[threads.length - 1] : threads.find(thread => thread.id === threadId);
+}
 function noteReplies(n) { return n && Array.isArray(n.replies) ? n.replies : []; }
 /* note snapshots for undo/redo (deep-cloned so later mutations never alias history) */
-function noteSnap(n) { return n ? deepClone({ text: n.text, author: n.author, ts: n.ts, replies: n.replies, resolved: !!n.resolved }) : null; }
+function noteSnap(sh, r, c) { return deepClone(noteThreadsAt(sh, r, c)); }
 function applyNoteSnap(sh, r, c, snap) {
   if (!sh.notes) sh.notes = new Map();
   const k = key(r, c);
-  if (!snap) sh.notes.delete(k);
-  else sh.notes.set(k, deepClone(snap));
+  const threads = deepClone(noteThreadsFromValue(snap));
+  if (!threads.length) sh.notes.delete(k);
+  else sh.notes.set(k, threads);
   Persistence.markDirty();
   requestPaint();
 }
@@ -5926,30 +5681,54 @@ function noteHistoryEntry(sh, r, c, before, after, label) {
   };
 }
 function setNote(sh, r, c, text, author) {
-  const before = noteSnap(noteAt(sh, r, c));
-  if (!sh.notes) sh.notes = new Map();
+  const before = noteSnap(sh, r, c);
+  const threads = deepClone(noteThreadsAt(sh, r, c));
+  const existing = threads[threads.length - 1];
   const t = String(text || '').trim();
-  const k = key(r, c);
-  if (!t) { if (sh.notes.delete(k)) { /* removed */ } }
-  else {
-    const existing = sh.notes.get(k);
-    sh.notes.set(k, { text: t, author: author || (existing && existing.author) || '', ts: (existing && existing.ts) || Date.now(), replies: noteReplies(existing), resolved: !!(existing && existing.resolved) });
+  if (!t) {
+    if (existing) {
+      const after = threads.slice(0, -1);
+      const entry = noteHistoryEntry(sh, r, c, before, after, 'Delete comment');
+      if (entry) pushHistory(entry);
+      applyNoteSnap(sh, r, c, after);
+    }
+    return;
   }
-  const entry = noteHistoryEntry(sh, r, c, before, noteSnap(noteAt(sh, r, c)), t ? 'Edit note' : 'Delete note');
+  if (existing) {
+    existing.text = t;
+    existing.author = author || existing.author || '';
+    existing.ts = existing.ts || Date.now();
+  } else {
+    threads.push({ id: uid(), text: t, author: author || 'You', ts: Date.now(), replies: [], resolved: false });
+  }
+  const entry = noteHistoryEntry(sh, r, c, before, threads, 'Edit note');
   if (entry) pushHistory(entry);
-  Persistence.markDirty();
-  requestPaint();
+  applyNoteSnap(sh, r, c, threads);
 }
-function addNoteReply(sh, r, c, text) {
-  const n = noteAt(sh, r, c);
-  if (!n || !String(text || '').trim()) return false;
-  const before = noteSnap(n);
-  if (!Array.isArray(n.replies)) n.replies = [];
-  n.replies.push({ a: 'Me', t: String(text).trim(), ts: Date.now() });
-  const entry = noteHistoryEntry(sh, r, c, before, noteSnap(n), 'Reply to note');
+function addNoteThread(sh, r, c, text, author) {
+  const t = String(text || '').trim();
+  if (!t) return false;
+  const before = noteSnap(sh, r, c);
+  const threads = deepClone(noteThreadsAt(sh, r, c));
+  threads.push({ id: uid(), text: t, author: author || 'You', ts: Date.now(), replies: [], resolved: false });
+  const entry = noteHistoryEntry(sh, r, c, before, threads, 'Add comment');
   if (entry) pushHistory(entry);
-  Persistence.markDirty();
-  requestPaint();
+  applyNoteSnap(sh, r, c, threads);
+  return true;
+}
+function addNoteReply(sh, r, c, threadId, text) {
+  if (text === undefined) { text = threadId; threadId = null; }
+  const n = noteAt(sh, r, c, threadId);
+  if (!n || !String(text || '').trim()) return false;
+  const before = noteSnap(sh, r, c);
+  const threads = deepClone(noteThreadsAt(sh, r, c));
+  const target = threads.find(thread => thread.id === n.id);
+  if (!target) return false;
+  if (!Array.isArray(target.replies)) target.replies = [];
+  target.replies.push({ a: 'Me', t: String(text).trim(), ts: Date.now() });
+  const entry = noteHistoryEntry(sh, r, c, before, threads, 'Reply to comment');
+  if (entry) pushHistory(entry);
+  applyNoteSnap(sh, r, c, threads);
   return true;
 }
 function notePopoverEl() {
@@ -5978,118 +5757,161 @@ function highlightFindText(text, q) {
 /* Mirrors the Docs comment popup: header (avatar, author, time), body, replies,
    then a Reply / Resolve / Delete action row. Sheets' own grid indicator and
    reply storage stay as they were. */
-function noteThreadHtml(n, hl) {
-  const replies = noteReplies(n);
+function noteThreadHtml(threads, hl) {
   const hi = t => hl ? highlightFindText(t, hl) : esc(t);
-  let html = '<div class="nt-head">' +
-    '<div class="nt-avatar">' + esc(avatarLetter(n.author || 'You')) + '</div>' +
-    '<span class="nt-author">' + esc(n.author || 'You') + '</span>' +
-    '<span class="nt-ts">' + esc(fmtNoteTs(n.ts)) + '</span>' +
-    '<button class="nt-close" type="button" aria-label="Close">' + icon('x') + '</button></div>' +
-    '<div class="nt-body">' + hi(n.text) + '</div>';
-  if (replies.length) {
-    html += '<div class="nt-replies">';
-    for (const rp of replies) {
-      html += '<div class="nt-reply"><span class="nt-author">' + esc(rp.a || 'Me') + '</span> ' + hi(rp.t) +
-        '<span class="nt-ts">' + esc(fmtNoteTs(rp.ts)) + '</span></div>';
+  return threads.map((n, index) => {
+    const replies = noteReplies(n);
+    let html = '<section class="nt-item' + (n.resolved ? ' is-resolved' : '') + '" data-thread-id="' + esc(n.id) + '">' +
+      '<div class="nt-head"><div class="nt-avatar">' + esc(avatarLetter(n.author || 'You')) + '</div>' +
+      '<span class="nt-author">' + esc(n.author || 'You') + '</span>' +
+      '<span class="nt-ts">' + esc(fmtNoteTs(n.ts)) + '</span>' +
+      (index === 0 ? '<button class="nt-close" type="button" aria-label="Close">&times;</button>' : '<span class="nt-head-spacer" aria-hidden="true"></span>') + '</div>' +
+      '<div class="nt-body">' + hi(n.text) + '</div>';
+    if (replies.length) {
+      html += '<div class="nt-replies">';
+      for (const rp of replies) {
+        html += '<div class="nt-reply"><span class="nt-author">' + esc(rp.a || 'Me') + '</span> ' + hi(rp.t) +
+          '<span class="nt-ts">' + esc(fmtNoteTs(rp.ts)) + '</span></div>';
+      }
+      html += '</div>';
     }
-    html += '</div>';
-  }
-  html += '<div class="nt-actions">' +
-    '<button class="nt-btn nt-reply-btn" type="button">' + icon('reply') + 'Reply</button>' +
-    '<button class="nt-btn nt-resolve-btn' + (n.resolved ? ' on' : '') + '" type="button">' +
-      icon(n.resolved ? 'unresolve' : 'check') + (n.resolved ? 'Unresolve' : 'Resolve') + '</button>' +
-    '<button class="nt-btn nt-delete-btn" type="button">' + icon('trash') + 'Delete</button>' +
-    '</div>' +
-    '<div class="nt-replyrow"><input type="text" class="nt-input" placeholder="Reply…" aria-label="Reply to comment">' +
-    '<button class="nt-send" type="button" title="Add reply" aria-label="Add reply">' + icon('reply') + '</button></div>';
-  return html;
+    html += '<div class="nt-actions"><button class="nt-btn nt-reply-btn" type="button">Reply</button>' +
+      '<button class="nt-btn nt-resolve-btn" type="button">' + (n.resolved ? 'Unresolve' : 'Resolve') + '</button>' +
+      '<button class="nt-btn nt-delete-btn" type="button">Delete</button></div></section>';
+    return html;
+  }).join('');
 }
 function avatarLetter(name) { return (String(name || 'You').trim().charAt(0) || 'Y').toUpperCase(); }
 /* Toggling resolved goes through setNote so undo/redo, persistence and the redraw
    all fire exactly as they do for an edit. */
-function setNoteResolved(sh, r, c, v) {
-  const n = noteAt(sh, r, c);
+function setNoteResolved(sh, r, c, threadId, v) {
+  const n = noteAt(sh, r, c, threadId);
   if (!n || !!n.resolved === !!v) return;
-  const before = noteSnap(n);
-  n.resolved = !!v;
-  pushHistory(noteHistoryEntry(sh, r, c, before, noteSnap(n), v ? 'Resolve comment' : 'Unresolve comment'));
-  Persistence.markDirty();
-  requestPaint();
+  const before = noteSnap(sh, r, c);
+  const threads = deepClone(noteThreadsAt(sh, r, c));
+  const target = threads.find(thread => thread.id === n.id);
+  if (!target) return;
+  target.resolved = !!v;
+  const entry = noteHistoryEntry(sh, r, c, before, threads, v ? 'Resolve comment' : 'Unresolve comment');
+  if (entry) pushHistory(entry);
+  applyNoteSnap(sh, r, c, threads);
 }
-function deleteNote(sh, r, c) {
-  if (!noteAt(sh, r, c)) return;
-  setNote(sh, r, c, '');
-  hideNotePopover();
-  toast('Comment deleted', 'success', 1200);
+function deleteNote(sh, r, c, threadId) {
+  const before = noteSnap(sh, r, c);
+  if (!before.length) return;
+  const threads = threadId == null ? [] : before.filter(thread => thread.id !== threadId);
+  if (threads.length === before.length) return;
+  const entry = noteHistoryEntry(sh, r, c, before, threads, 'Delete comment');
+  if (entry) pushHistory(entry);
+  applyNoteSnap(sh, r, c, threads);
+  if (!threads.length) hideNotePopover();
 }
 function showNotePopover(sh, r, c, anchorRect) {
   showNoteThreadPopover(sh, r, c, anchorRect, false);
 }
 function showNoteThreadPopover(sh, r, c, anchorRect, focusReply) {
-  const n = noteAt(sh, r, c);
-  if (!n) { hideNotePopover(); return; }
+  const threads = noteThreadsAt(sh, r, c);
+  if (!threads.length) { hideNotePopover(); return; }
   const pop = notePopoverEl();
   const hl = (Find.hlCell === key(r, c) && Find.text) ? Find.text : null;
-  pop.innerHTML = noteThreadHtml(n, hl);
-  pop.classList.toggle('is-resolved', !!n.resolved);
+  pop.innerHTML = noteThreadHtml(threads, hl);
+  pop.classList.toggle('is-resolved', threads.every(thread => !!thread.resolved));
   pop.hidden = false;
-  const send = () => {
-    const input = pop.querySelector('.nt-input');
-    if (input && addNoteReply(sh, r, c, input.value)) {
-      showNoteThreadPopover(sh, r, c, anchorRect, false);
-      toast('Reply added', 'success', 1100);
-    }
-  };
-  pop.querySelector('.nt-send').addEventListener('click', send);
   pop.querySelector('.nt-close').addEventListener('click', hideNotePopover);
-  pop.querySelector('.nt-reply-btn').addEventListener('click', () => input.focus());
-  pop.querySelector('.nt-resolve-btn').addEventListener('click', () => {
-    setNoteResolved(sh, r, c, !noteAt(sh, r, c).resolved);
-    showNoteThreadPopover(sh, r, c, anchorRect, false);
-  });
-  pop.querySelector('.nt-delete-btn').addEventListener('click', () => deleteNote(sh, r, c));
-  const input = pop.querySelector('.nt-input');
-  input.addEventListener('keydown', ev => {
-    if (ev.key === 'Enter') { ev.preventDefault(); ev.stopPropagation(); send(); }
-    else if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); hideNotePopover(); }
-  });
+  for (const item of pop.querySelectorAll('.nt-item')) {
+    const threadId = item.dataset.threadId;
+    item.querySelector('.nt-reply-btn').addEventListener('click', () => openNoteReplyDialog(sh, r, c, threadId, anchorRect));
+    item.querySelector('.nt-resolve-btn').addEventListener('click', () => {
+      const thread = noteAt(sh, r, c, threadId);
+      if (!thread) return;
+      setNoteResolved(sh, r, c, threadId, !thread.resolved);
+      showNoteThreadPopover(sh, r, c, anchorRect, false);
+    });
+    item.querySelector('.nt-delete-btn').addEventListener('click', () => {
+      deleteNote(sh, r, c, threadId);
+      if (noteThreadsAt(sh, r, c).length) showNoteThreadPopover(sh, r, c, anchorRect, false);
+      toast('Comment deleted', 'success', 1200);
+    });
+  }
   const ga = $('#grid-area').getBoundingClientRect();
-  let x = anchorRect.x + anchorRect.w + 6, y = anchorRect.y;
+  const viewport = window.visualViewport;
+  const viewLeft = viewport ? viewport.offsetLeft : 0;
+  const viewTop = viewport ? viewport.offsetTop : 0;
+  const viewRight = viewLeft + (viewport ? viewport.width : document.documentElement.clientWidth);
+  const viewBottom = viewTop + (viewport ? viewport.height : document.documentElement.clientHeight);
+  const left = Math.max(8, viewLeft - ga.left + 8);
+  const right = Math.min(ga.width - 8, viewRight - ga.left - 8);
+  const top = Math.max(8, viewTop - ga.top + 8);
+  const bottom = Math.min(ga.height - 8, viewBottom - ga.top - 8);
   pop.style.left = '0px'; pop.style.top = '0px';
+  pop.style.width = Math.max(1, Math.min(250, right - left)) + 'px';
+  pop.style.maxHeight = Math.max(1, Math.min(340, bottom - top)) + 'px';
   const pw = pop.offsetWidth, ph = pop.offsetHeight;
-  if (x + pw > ga.width - 8) x = Math.max(8, anchorRect.x - pw - 6);
-  if (y + ph > ga.height - 8) y = Math.max(8, ga.height - ph - 8);
+  let x = anchorRect.x + anchorRect.w + 6;
+  if (x + pw > right) x = anchorRect.x - pw - 6;
+  x = Math.max(left, Math.min(x, right - pw));
+  let y = anchorRect.y;
+  if (y + ph > bottom) y = anchorRect.y - ph - 6;
+  y = Math.max(top, Math.min(y, bottom - ph));
   pop.style.left = x + 'px'; pop.style.top = y + 'px';
-  if (focusReply) setTimeout(() => input.focus(), 0);
+  if (focusReply) setTimeout(() => openNoteReplyDialog(sh, r, c, threads[threads.length - 1].id, anchorRect), 0);
 }
 function hideNotePopover() { const pop = document.getElementById('note-pop'); if (pop) pop.hidden = true; }
+function openNoteReplyDialog(sh, r, c, threadId, anchorRect) {
+  if (!noteAt(sh, r, c, threadId)) {
+    hideNotePopover();
+    toast('This comment was deleted. Add a new comment to continue.', 'warn');
+    return;
+  }
+  const body = el('<div class="cmt-body"><div class="field"><textarea class="cmt-text" rows="3" placeholder="Write a reply..." aria-label="Reply text"></textarea></div></div>');
+  const ta = body.querySelector('.cmt-text');
+  const dlg = openModal({
+    title: 'Reply', icon: 'comment', width: 380, noCloseX: true, centerFoot: true, content: body,
+    buttons: [
+      { label: 'Cancel', onClick: () => true },
+      { label: 'Reply', primary: true, onClick: () => {
+          const text = ta.value.trim();
+          if (!text) { toast('Write a reply first', 'error'); return false; }
+          if (!noteAt(sh, r, c, threadId)) {
+            hideNotePopover();
+            toast('This comment was deleted. Add a new comment to continue.', 'warn');
+            return true;
+          }
+          if (!addNoteReply(sh, r, c, threadId, text)) { toast('Could not add reply to this comment', 'error'); return false; }
+          showNoteThreadPopover(sh, r, c, anchorRect, false);
+          toast('Reply added', 'success', 1100);
+          return true;
+        } }
+    ]
+  });
+  if (dlg) dlg.modal.classList.add('cmt');
+}
 /* Docs/Slides parity: the composer is a modal (same .modal-head/.modal-icon
    chrome openModal already builds for every other dialog here), not a floating
    popup. The thread popover next to the cell keeps replies, as in Docs. */
 function openCommentDialog(r, c) {
   const sh = activeSheet();
-  const existing = noteAt(sh, r, c);
   const body = el('<div class="cmt-body"><div class="field"><textarea class="cmt-text" rows="3" placeholder="Write a comment..." aria-label="Comment text"></textarea></div></div>');
   const ta = body.querySelector('.cmt-text');
-  ta.value = existing ? existing.text : '';
   /* Delete lives in the body, not the footer: openModal() paints the entire
      dialog as a danger confirm when any footer button is marked danger, which
      would make merely editing an existing comment render as a destructive
      prompt. Docs keeps delete out of the footer for the same reason. */
   const dlg = openModal({
-    title: existing ? 'Edit Comment' : 'New Comment',
+    title: 'New Comment',
     icon: 'comment',
-    width: 440,
+    width: 380,
+    noCloseX: true,
+    centerFoot: true,
     content: body,
     buttons: [
-      { label: 'Cancel' },
-      { label: existing ? 'Save' : 'Add Comment', primary: true, onClick: () => {
+      { label: 'Cancel', onClick: () => true },
+        { label: 'Add Comment', primary: true, onClick: () => {
           const text = ta.value.trim();
           if (!text) { toast('Write a comment first', 'error'); return false; }
-          setNote(sh, r, c, text);
+          addNoteThread(sh, r, c, text);
           hideNotePopover();
-          toast(existing ? 'Comment updated' : 'Comment added', 'success', 1200);
+          toast('Comment added', 'success', 1200);
           return true;
         } }
     ]
@@ -6869,7 +6691,6 @@ function insertRows(at, count) {
        asked for; every further insert then added another phantom frozen row. */
     if (sh.freeze.r > 0 && sh.freeze.r >= at) sh.freeze.r += count;
     if (sh.filter) { if (sh.filter.range.r1 >= at) { sh.filter.range.r1 += count; sh.filter.range.r2 += count; } else if (sh.filter.range.r2 >= at) sh.filter.range.r2 += count; }
-    for (const cf of sh.cf) { if (cf.range.r1 >= at) { cf.range.r1 += count; cf.range.r2 += count; } else if (cf.range.r2 >= at) cf.range.r2 += count; }
     for (const dv of sh.dv) { if (dv.range.r1 >= at) { dv.range.r1 += count; dv.range.r2 += count; } else if (dv.range.r2 >= at) dv.range.r2 += count; }
     for (const ch of sh.charts) { if (ch.y >= at * DEF.rowH) ch.y += count * DEF.rowH; }
     rebuildMergeMap(sh);
@@ -6899,7 +6720,6 @@ function deleteRows(at, count) {
       if (sh.filter.range.r1 >= at + count) { sh.filter.range.r1 -= count; sh.filter.range.r2 -= count; }
       else if (sh.filter.range.r2 >= at) sh.filter.range.r2 = Math.max(sh.filter.range.r1, sh.filter.range.r2 - count);
     }
-    sh.cf = sh.cf.map(cf => { const r = cf.range; if (r.r1 >= at + count) { r.r1 -= count; r.r2 -= count; } else if (r.r2 >= at) r.r2 = Math.max(r.r1, r.r2 - count); return cf; });
     sh.dv = sh.dv.map(dv => { const r = dv.range; if (r.r1 >= at + count) { r.r1 -= count; r.r2 -= count; } else if (r.r2 >= at) r.r2 = Math.max(r.r1, r.r2 - count); return dv; });
     rebuildMergeMap(sh);
     rebuildAllDeps();
@@ -6948,7 +6768,6 @@ function insertCols(at, count) {
     /* See insertRows: at === 0 must not turn a 0 (= none) freeze into a real one. */
     if (sh.freeze.c > 0 && sh.freeze.c >= at) sh.freeze.c += count;
     if (sh.filter) { if (sh.filter.range.c1 >= at) { sh.filter.range.c1 += count; sh.filter.range.c2 += count; } else if (sh.filter.range.c2 >= at) sh.filter.range.c2 += count; }
-    for (const cf of sh.cf) { if (cf.range.c1 >= at) { cf.range.c1 += count; cf.range.c2 += count; } else if (cf.range.c2 >= at) cf.range.c2 += count; }
     for (const dv of sh.dv) { if (dv.range.c1 >= at) { dv.range.c1 += count; dv.range.c2 += count; } else if (dv.range.c2 >= at) dv.range.c2 += count; }
     for (const ch of sh.charts) { if (ch.x >= at * DEF.colW) ch.x += count * DEF.colW; }
     rebuildMergeMap(sh);
@@ -7005,7 +6824,6 @@ function deleteCols(at, count) {
       if (sh.filter.range.c1 >= at + count) { sh.filter.range.c1 -= count; sh.filter.range.c2 -= count; }
       else if (sh.filter.range.c2 >= at) sh.filter.range.c2 = Math.max(sh.filter.range.c1, sh.filter.range.c2 - count);
     }
-    sh.cf = sh.cf.map(cf => { const r = cf.range; if (r.c1 >= at + count) { r.c1 -= count; r.c2 -= count; } else if (r.c2 >= at) r.c2 = Math.max(r.c1, r.c2 - count); return cf; });
     sh.dv = sh.dv.map(dv => { const r = dv.range; if (r.c1 >= at + count) { r.c1 -= count; r.c2 -= count; } else if (r.c2 >= at) r.c2 = Math.max(r.c1, r.c2 - count); return dv; });
     rebuildMergeMap(sh);
     rebuildAllDeps();
@@ -7515,7 +7333,7 @@ function handleValidationError(sh, r, c, err, prevSnap) {
 }
 
 /* ==========================================================================
- * 12. SORTING / FILTERING / CONDITIONAL FORMATTING / DATA VALIDATION UI
+ * 12. SORTING / FILTERING / DATA VALIDATION UI
  * ========================================================================== */
 function detectRegionAround(r, c) {
   const sh = activeSheet();
@@ -7802,117 +7620,6 @@ function quickFilterByValue() {
   toast('Filtered column ' + colName(c) + ' to “' + (val === '' ? '(Blanks)' : val) + '”' + (hidden ? ' — ' + hidden + ' row' + (hidden === 1 ? '' : 's') + ' hidden' : ''), 'success', 2600);
 }
 
-/* ---------------- Conditional formatting ---------------- */
-function openConditionalFormattingDialog() {
-  const sh = activeSheet();
-  const content = el('<div><div class="hint">Rules apply to the active sheet and update live as values change.</div><div class="listbox" id="cf-list" style="max-height:180px;margin-bottom:10px"></div><div class="form-row"><label>New rule</label><div class="fr-input"><select id="cf-type"><option value="greaterThan">Highlight cells greater than</option><option value="greaterThanOrEqual">Highlight cells greater than or equal to</option><option value="lessThan">Highlight cells less than</option><option value="lessThanOrEqual">Highlight cells less than or equal to</option><option value="between">Highlight cells between</option><option value="equalTo">Highlight cells equal to</option><option value="notEqualTo">Highlight cells not equal to</option><option value="contains">Highlight cells containing text</option><option value="beginsWith">Highlight cells beginning with</option><option value="endsWith">Highlight cells ending with</option><option value="aboveAverage">Above average</option><option value="belowAverage">Below average</option><option value="top10">Top N values</option><option value="bottom10">Bottom N values</option><option value="top10Percent">Top N% values</option><option value="bottom10Percent">Bottom N% values</option><option value="unique">Unique values</option><option value="duplicates">Duplicate values</option><option value="expression">Use a formula (relative to top-left cell)</option><option value="colorScale2">Color scale (2-color)</option><option value="colorScale3">Color scale (3-color)</option><option value="dataBar">Data bar</option><option value="iconSet">Icon set</option><option value="banded">Banded rows</option></select></div></div><div class="form-row" data-p="icons" style="display:none"><label>Icon style</label><div class="fr-input"><select id="cf-icons"><option value="arrows3">3 Arrows (colored)</option><option value="traffic3">3 Traffic Lights</option><option value="signs3">3 Signs</option><option value="flags3">3 Flags</option><option value="stars3">3 Stars</option><option value="symbols3">3 Symbols (circled)</option></select></div></div><div class="form-row" data-p="value"><label>Value</label><div class="fr-input"><input type="text" id="cf-value" placeholder="e.g. 100 or text"></div></div><div class="form-row" data-p="value2" style="display:none"><label>and value</label><div class="fr-input"><input type="text" id="cf-value2"></div></div><div class="form-row" data-p="color"><label>Color</label><div class="fr-input"><input type="color" id="cf-color" value="#ffd8b4"></div></div><div class="form-row" data-p="colorMid" style="display:none"><label>Middle color</label><div class="fr-input"><input type="color" id="cf-colormid" value="#ffe697"></div></div><div class="form-row" data-p="colorMax" style="display:none"><label>Max color</label><div class="fr-input"><input type="color" id="cf-colormax" value="#63be7b"></div></div><div class="form-row"><label>Applies to</label><div class="fr-input"><input type="text" id="cf-range"></div></div><div class="hint" id="cf-hint">Defaults to the current selection.</div></div>');
-  const sel = content.querySelector('#cf-type');
-  const CF_VALUE_TYPES = ['greaterThan', 'lessThan', 'between', 'equalTo', 'notEqualTo', 'contains', 'beginsWith', 'endsWith', 'top10', 'bottom10', 'top10Percent', 'bottom10Percent', 'expression'];
-  const CF_COLOR_TYPES = ['greaterThan', 'lessThan', 'between', 'equalTo', 'notEqualTo', 'contains', 'beginsWith', 'endsWith', 'aboveAverage', 'belowAverage', 'top10', 'bottom10', 'top10Percent', 'bottom10Percent', 'unique', 'duplicates', 'expression', 'dataBar'];
-  sel.addEventListener('change', () => {
-    const v = sel.value;
-    content.querySelector('[data-p="value"]').style.display = CF_VALUE_TYPES.includes(v) ? '' : 'none';
-    content.querySelector('[data-p="value2"]').style.display = v === 'between' ? '' : 'none';
-    content.querySelector('[data-p="color"]').style.display = CF_COLOR_TYPES.includes(v) ? '' : 'none';
-    content.querySelector('[data-p="colorMid"]').style.display = v === 'colorScale3' ? '' : 'none';
-    content.querySelector('[data-p="colorMax"]').style.display = ['colorScale2', 'colorScale3'].includes(v) ? '' : 'none';
-    content.querySelector('[data-p="icons"]').style.display = v === 'iconSet' ? '' : 'none';
-    const vIn = content.querySelector('#cf-value');
-    if (['top10', 'bottom10', 'top10Percent', 'bottom10Percent'].includes(v)) vIn.placeholder = 'N (default 10)';
-    else if (v === 'expression') vIn.placeholder = '=A1>$B$2 or A1>100';
-    else vIn.placeholder = 'e.g. 100 or text';
-  });
-  const rg = activeSelRange();
-  content.querySelector('#cf-range').value = addr(rg.r1, rg.c1) + ':' + addr(rg.r2, rg.c2);
-  function renderList() {
-    const box = content.querySelector('#cf-list');
-    box.innerHTML = '';
-    if (!sh.cf.length) { box.innerHTML = '<div class="list-row"><span class="sub">No conditional formatting rules on this sheet yet.</span></div>'; return; }
-    sh.cf.forEach((rule, idx) => {
-      const desc = describeCf(rule);
-      const upDown = '<span class="cf-order-btns">' +
-        '<button class="cf-order" data-up' + (idx === 0 ? ' disabled' : '') + ' title="Move rule earlier — applied first (lower precedence)" aria-label="Move rule earlier">\u25b2</button>' +
-        '<button class="cf-order" data-down' + (idx === sh.cf.length - 1 ? ' disabled' : '') + ' title="Move rule later — applied last, wins conflicts (higher precedence)" aria-label="Move rule later">\u25bc</button>' +
-        '</span>';
-      const row = el('<div class="list-row"><span class="grow">' + esc(desc) + (rule.priority != null ? '<span class="cf-imp-badge">imported</span>' : '') + '<div class="sub">' + addr(rule.range.r1, rule.range.c1) + ':' + addr(rule.range.r2, rule.range.c2) + (idx === sh.cf.length - 1 ? ' \u00b7 wins conflicts' : '') + '</div></span>' + upDown + '<button class="btn small" data-del>Remove</button></div>');
-      row.querySelector('[data-del]').addEventListener('click', () => {
-        const before = sh.cf.slice();
-        sh.cf = sh.cf.filter(x => x.id !== rule.id);
-        const after = sh.cf.slice();
-        pushHistory({ label: 'Remove CF', undo: () => { sh.cf = before.slice(); requestPaint(); }, redo: () => { sh.cf = after.slice(); requestPaint(); } });
-        renderList(); requestPaint();
-      });
-      row.querySelectorAll('.cf-order').forEach(btn => btn.addEventListener('click', () => {
-        const dir = btn.hasAttribute('data-up') ? -1 : 1;
-        const j = idx + dir;
-        if (j < 0 || j >= sh.cf.length) return;
-        const before = sh.cf.slice();
-        const tmp = sh.cf[idx]; sh.cf[idx] = sh.cf[j]; sh.cf[j] = tmp;
-        const after = sh.cf.slice();
-        pushHistory({ label: 'Reorder CF', undo: () => { sh.cf = before.slice(); requestPaint(); renderList(); }, redo: () => { sh.cf = after.slice(); requestPaint(); renderList(); } });
-        renderList(); requestPaint();
-      }));
-      box.appendChild(row);
-    });
-  }
-  renderList();
-  openModal({
-    title: 'Conditional Formatting', width: 560, content,
-    buttons: [{ label: 'Close' }, { label: 'Add Rule', primary: true, onClick: () => {
-      const type = sel.value;
-      const rangeTxt = content.querySelector('#cf-range').value.trim();
-      const parsed = parseRangeText(rangeTxt);
-      if (!parsed) { toast('Invalid range — use a form like A1:C20', 'error'); return false; }
-      const rule = { id: uid(), type, range: parsed };
-      if (['greaterThan', 'lessThan', 'equalTo', 'notEqualTo', 'contains', 'beginsWith', 'endsWith'].includes(type)) {
-        const v = content.querySelector('#cf-value').value;
-        const num = Number(v);
-        if (['greaterThan', 'lessThan', 'equalTo', 'notEqualTo'].includes(type) && v.trim() === '') { toast('Enter a value for this rule', 'error'); return false; }
-        rule.value = v !== '' && !isNaN(num) ? num : v;
-        rule.color = content.querySelector('#cf-color').value;
-      } else if (type === 'greaterThanOrEqual' || type === 'lessThanOrEqual') {
-        const num = Number(content.querySelector('#cf-value').value);
-        if (isNaN(num)) { toast('Enter a number for this rule', 'error'); return false; }
-        rule.value = num;
-        rule.color = content.querySelector('#cf-color').value;
-      } else if (type === 'top10' || type === 'bottom10' || type === 'top10Percent' || type === 'bottom10Percent') {
-        const num = Number(content.querySelector('#cf-value').value);
-        rule.value = isNaN(num) || num <= 0 ? 10 : Math.trunc(num);
-        rule.color = content.querySelector('#cf-color').value;
-      } else if (type === 'aboveAverage' || type === 'belowAverage' || type === 'unique' || type === 'duplicates') {
-        rule.color = content.querySelector('#cf-color').value;
-      } else if (type === 'expression') {
-        const f = content.querySelector('#cf-value').value.trim();
-        if (!f) { toast('Enter a formula for this rule', 'error'); return false; }
-        rule.expr = f[0] === '=' ? f : '=' + f;
-        rule.base = { r: parsed.r1, c: parsed.c1 };
-        rule.color = content.querySelector('#cf-color').value;
-      } else if (type === 'between') {
-        const v1 = Number(content.querySelector('#cf-value').value);
-        const v2 = Number(content.querySelector('#cf-value2').value);
-        if (isNaN(v1) || isNaN(v2)) { toast('Enter two numbers for Between', 'error'); return false; }
-        rule.value = v1; rule.value2 = v2;
-        rule.color = content.querySelector('#cf-color').value;
-      } else if (type === 'colorScale2') {
-        rule.colorMin = '#f8c9d4'; rule.colorMax = content.querySelector('#cf-colormax').value;
-      } else if (type === 'colorScale3') {
-        rule.colorMin = '#f8c9d4'; rule.colorMid = content.querySelector('#cf-colormid').value; rule.colorMax = content.querySelector('#cf-colormax').value;
-      } else if (type === 'dataBar') {
-        rule.color = content.querySelector('#cf-color').value;
-      } else if (type === 'iconSet') {
-        rule.icons = content.querySelector('#cf-icons').value;
-      } else if (type === 'banded') {
-        rule.color = '#eef3f0';
-      }
-      const before = sh.cf.slice();
-      sh.cf.push(rule);
-      const after = sh.cf.slice();
-      pushHistory({ label: 'Add CF', undo: () => { sh.cf = before.slice(); requestPaint(); }, redo: () => { sh.cf = after.slice(); requestPaint(); } });
-      renderList(); requestPaint();
-      return false; /* keep dialog open */
-    } }]
-  });
-}
 function parseRangeText(txt) {
   try {
     let sheetName = null, ref = txt;
@@ -7928,35 +7635,6 @@ function parseRangeText(txt) {
     return null;
   } catch (e) { return null; }
 }
-function describeCf(rule) {
-  switch (rule.type) {
-    case 'greaterThan': return 'Greater than ' + rule.value;
-    case 'lessThan': return 'Less than ' + rule.value;
-    case 'equalTo': return 'Equal to ' + rule.value;
-    case 'notEqualTo': return 'Not equal to ' + rule.value;
-    case 'greaterThanOrEqual': return 'Greater than or equal to ' + rule.value;
-    case 'lessThanOrEqual': return 'Less than or equal to ' + rule.value;
-    case 'between': return 'Between ' + rule.value + ' and ' + rule.value2;
-    case 'contains': return 'Contains "' + rule.value + '"';
-    case 'beginsWith': return 'Begins with "' + rule.value + '"';
-    case 'endsWith': return 'Ends with "' + rule.value + '"';
-    case 'aboveAverage': return 'Above average';
-    case 'belowAverage': return 'Below average';
-    case 'top10': return 'Top ' + (Number(rule.value) || 10) + ' values';
-    case 'bottom10': return 'Bottom ' + (Number(rule.value) || 10) + ' values';
-    case 'top10Percent': return 'Top ' + (Number(rule.value) || 10) + '% values';
-    case 'bottom10Percent': return 'Bottom ' + (Number(rule.value) || 10) + '% values';
-    case 'unique': return 'Unique values';
-    case 'duplicates': return 'Duplicate values';
-    case 'expression': { const e = String(rule.expr || ''); return 'Formula: ' + (e.length > 34 ? e.slice(0, 33) + '…' : e); }
-    case 'colorScale2': return 'Color scale (2-color)';
-    case 'colorScale3': return 'Color scale (3-color)';
-    case 'dataBar': return 'Data bar';
-    case 'iconSet': return 'Icon set \u00b7 ' + ({ arrows3: '3 Arrows', traffic3: '3 Traffic Lights', signs3: '3 Signs', flags3: '3 Flags', stars3: '3 Stars', symbols3: '3 Symbols' }[rule.icons] || '3 Arrows');
-    case 'banded': return 'Banded rows';
-    default: return rule.type;
-  }
-}
 function formatAsTable() {
   const sh = activeSheet();
   const rg = activeSelRange();
@@ -7971,15 +7649,13 @@ function formatAsTable() {
     const base = cell && cell.s ? Object.assign({}, cell.s) : {};
     writeCell(sh, region.r1, c, { s: normStyle(Object.assign(base, { bold: true, backgroundColor: '#d7e8de', color: '#1c5233' })) });
   }
-  const rule = { id: uid(), type: 'banded', range: { r1: region.r1 + 1, c1: region.c1, r2: region.r2, c2: region.c2 }, color: '#eef3f0' };
-  sh.cf.push(rule);
   if (!sh.filter) { sh.filter = { range: Object.assign({}, region), cols: {} }; }
   rebuildAllDeps();
   const after = snapshotSheet(sh);
   pushHistory({ label: 'Format as Table', undo: () => restoreSheet(sh, before), redo: () => restoreSheet(sh, after) });
   renderFilterChips();
   requestPaint(); Persistence.markDirty();
-  toast('Formatted as table with banded rows and filters', 'success');
+  toast('Formatted as table with header styling and filters', 'success');
 }
 
 /* ---------------- cell styles gallery ---------------- */
@@ -9498,7 +9174,7 @@ async function importXlsx(file) {
           const main = cell.c[0] || {};
           const replies = cell.c.slice(1).filter(cm => cm && (cm.t != null)).map(cm => ({ a: String(cm.a || 'Me'), t: String(cm.t || ''), ts: null }));
           if (String(main.t || '').trim() || replies.length) {
-            sh.notes.set(addrKey, { text: String(main.t || '').trim(), author: String(main.a || ''), ts: null, replies });
+            sh.notes.set(addrKey, [{ id: uid(), text: String(main.t || '').trim(), author: String(main.a || ''), ts: null, replies, resolved: false }]);
           }
         }
       }
@@ -9548,8 +9224,9 @@ async function exportXlsx() {
       }
     }
     /* notes → cell comments (main note + thread replies); extends !ref to cover noted cells */
-    for (const [k, n] of sh.notes) {
-      if (!n || !n.text) continue;
+    for (const [k, stored] of sh.notes) {
+      const threads = noteThreadsFromValue(stored).filter(n => n.text);
+      if (!threads.length) continue;
       const ix = k.indexOf(',');
       const nr = +k.slice(0, ix), nc = +k.slice(ix + 1);
       if (!isFinite(nr) || !isFinite(nc)) continue;
@@ -9557,8 +9234,11 @@ async function exportXlsx() {
       if (nc > range.e.c) range.e.c = Math.min(nc, 1000);
       const aStr = XLSX.utils.encode_cell({ r: nr, c: nc });
       if (!ws[aStr]) ws[aStr] = { t: 's', v: '' };
-      const cmts = [{ a: n.author || 'You', t: n.text }];
-      for (const rp of noteReplies(n)) cmts.push({ a: rp.a || 'Me', t: rp.t });
+      const cmts = [];
+      for (const n of threads) {
+        cmts.push({ a: n.author || 'You', t: n.text });
+        for (const rp of noteReplies(n)) cmts.push({ a: rp.a || 'Me', t: rp.t });
+      }
       ws[aStr].c = cmts;
     }
     ws['!ref'] = XLSX.utils.encode_range(range);
@@ -10055,7 +9735,7 @@ function showCellContextMenu(x, y) {
     { label: 'Delete Rows', icon: 'rowDelete', action: () => { const rows = selRows(); deleteRows(rows[0], rows.length); } },
     { label: 'Delete Columns', icon: 'colDelete', action: () => { const cols = selCols(); deleteCols(cols[0], cols.length); } },
     { sep: true },
-    { label: hasNote ? 'Edit Comment' : 'New Comment', icon: 'comment', shortcut: 'Shift+F2', action: () => openCommentDialog(SEL.active.r, SEL.active.c) },
+    { label: 'New Comment', icon: 'comment', shortcut: 'Shift+F2', action: () => openCommentDialog(SEL.active.r, SEL.active.c) },
     hasNote ? { label: 'Reply to Comment…', icon: 'comment', action: () => { showNoteThreadPopover(shCtx, SEL.active.r, SEL.active.c, cellScreenRect(shCtx, SEL.active.r, SEL.active.c), true); } } : null,
     hasNote ? { label: 'Delete Note', icon: 'clear', action: () => { setNote(shCtx, SEL.active.r, SEL.active.c, ''); toast('Note deleted', 'info', 1200); } } : null,
     { label: 'Merge Across', icon: 'merge', action: () => mergeSelection('across') },
@@ -10216,7 +9896,7 @@ const modalStack = [];
 function modalIconFor(title) {
   const t = (title || '').toLowerCase();
   const map = [
-    ['delete', 'trash'], ['function', 'sigma'], ['chart', 'chartCol'], ['conditional', 'bucket'],
+    ['delete', 'trash'], ['function', 'sigma'], ['chart', 'chartCol'],
     ['data validation', 'validate'], ['sort', 'sort'], ['filter', 'filter'], ['saved documents', 'folder'],
     ['document', 'file'], ['workbook', 'file'], ['import', 'import'], ['export', 'export'],
     ['print', 'print'], ['save', 'save'], ['named range', 'nameBox'], ['insert', 'plus'],
@@ -10340,25 +10020,28 @@ function openGoToDialog() {
 function openDefineNameDialog() {
   const sh = activeSheet();
   const rg = activeSelRange();
-  const content = el('<div><div class="form-row"><label>Name</label><div class="fr-input"><input type="text" id="nm-name" placeholder="e.g. Sales2024"></div></div><div class="form-row"><label>Refers to</label><div class="fr-input"><input type="text" id="nm-ref" value="' + sh.name + '!' + addr(rg.r1, rg.c1) + ':' + addr(rg.r2, rg.c2) + '"></div></div><div class="hint">Names can be used in formulas (e.g. =SUM(Sales2024)) and in the Name Box.</div><div id="nm-list"></div></div>');
+  const content = el('<div class="define-name-content"><div class="define-name-fields"><div class="form-row"><label for="nm-name">Name</label><div class="fr-input"><input type="text" id="nm-name" placeholder="e.g. Sales2024"></div></div><div class="form-row"><label for="nm-ref">Refers to</label><div class="fr-input"><input type="text" id="nm-ref" value="' + sh.name + '!' + addr(rg.r1, rg.c1) + ':' + addr(rg.r2, rg.c2) + '"></div></div><div class="hint">Names can be used in formulas (e.g. =SUM(Sales2024)) and in the Name Box.</div></div><aside class="define-name-panel" aria-label="Defined names"><h3 class="define-name-list-heading">Defined names</h3><div id="nm-list" class="define-name-list"></div></aside></div>');
   const listBox = content.querySelector('#nm-list');
   function renderNames() {
     listBox.innerHTML = '';
-    const keys = Object.keys(WB.names);
-    if (!keys.length) return;
-    const list = el('<div class="listbox" style="max-height:140px"></div>');
+    const keys = Object.keys(WB.names).sort((a, b) => WB.names[a].name.localeCompare(WB.names[b].name));
+    if (!keys.length) {
+      listBox.appendChild(el('<div class="define-name-empty">No defined names yet</div>'));
+      return;
+    }
+    const list = el('<div class="define-name-listbox" role="list"></div>');
     for (const k of keys) {
       const def = WB.names[k];
-      const row = el('<div class="list-row"><span class="grow">' + esc(def.name) + '<div class="sub">=' + esc(def.sheetName || '') + '!' + addr(def.r1, def.c1) + ':' + addr(def.r2, def.c2) + '</div></span><button class="btn small" data-del>' + icon('trash') + '</button></div>');
+      const row = el('<div class="define-name-row" role="listitem"><span class="define-name-info"><span class="define-name-label">' + esc(def.name) + '</span><span class="define-name-ref">=' + esc(def.sheetName || '') + '!' + addr(def.r1, def.c1) + ':' + addr(def.r2, def.c2) + '</span></span><button class="define-name-delete" type="button" data-del title="Delete named range" aria-label="Delete named range ' + esc(def.name) + '">' + icon('trash') + '</button></div>');
       row.querySelector('[data-del]').addEventListener('click', () => { delete WB.names[k]; rebuildAllDeps(); renderNames(); updateNameBox(); Persistence.markDirty(); });
       list.appendChild(row);
     }
     listBox.appendChild(list);
   }
   renderNames();
-  openModal({
-    title: 'Define Name', width: 480, content,
-    buttons: [{ label: 'Close' }, { label: 'Add', primary: true, onClick: () => {
+  const dlg = openModal({
+    title: 'Define Name', width: 680, icon: 'nameBox', noCloseX: true, centerFoot: true, content,
+    buttons: [{ label: 'Close', onClick: () => true }, { label: 'Add', primary: true, onClick: () => {
       const name = content.querySelector('#nm-name').value.trim();
       if (!/^[A-Za-z_][A-Za-z0-9_.]*$/.test(name)) { toast('Names must start with a letter or underscore and contain no spaces', 'error'); return false; }
       const refTxt = content.querySelector('#nm-ref').value.trim();
@@ -10377,6 +10060,7 @@ function openDefineNameDialog() {
       return false;
     } }]
   });
+  if (dlg) dlg.modal.classList.add('define-name');
 }
 
 /* ---------------- Numbering dialog ----------------
@@ -10396,7 +10080,7 @@ function openNumberFormatDialog() {
   const CATS = [
     ['general', 'General'], ['number', 'Number'], ['currency', 'Currency'], ['accounting', 'Accounting'],
     ['shortDate', 'Short Date'], ['longDate', 'Long Date'], ['time', 'Time'], ['percent', 'Percentage'],
-    ['fraction', 'Fraction'], ['scientific', 'Scientific'], ['text', 'Text'], ['custom', 'Custom']
+    ['fraction', 'Fraction'], ['text', 'Text'], ['custom', 'Custom']
   ];
   const DEC_CATS = ['number', 'currency', 'accounting', 'percent'];
   const content = el('<div>' +
@@ -10419,7 +10103,6 @@ function openNumberFormatDialog() {
       case 'time': return NUMCAT.time;
       case 'percent': return NUMCAT.percent(d);
       case 'fraction': return NUMCAT.fraction;
-      case 'scientific': return NUMCAT.scientific;
       case 'text': return '@';
       case 'custom': return fmtInput.value || 'General';
     }
@@ -10732,8 +10415,10 @@ function ribbonConfig() {
         cmd('trash', 'Delete Sheet', () => deleteSheetById(WB.activeSheetId), { cmd: 'delSheet', title: 'Delete the active sheet' }),
         { custom: 'tabColor' }
       ]},
-      { label: 'Notes & Names', items: [
-        cmd('comment', 'Comments', () => openCommentDialog(SEL.active.r, SEL.active.c), { cmd: 'comment', title: 'Add a comment to the active cell (Shift+F2)' }),
+      { label: 'Comments', items: [
+        cmd('commentRibbon', 'Comment', () => openCommentDialog(SEL.active.r, SEL.active.c), { cmd: 'comment', title: 'Add a comment to the active cell (Shift+F2)' }),
+      ]},
+      { label: 'Names', items: [
         cmd('nameBox', 'Define Name', () => openDefineNameDialog(), { title: 'Create a named range usable in formulas and the Name Box' })
       ]}
     ],
@@ -10741,8 +10426,6 @@ function ribbonConfig() {
       { label: 'Number', items: [
         { custom: 'numFmt' },
         { custom: 'stack', items: [
-          cmd('currency', '', () => applyStyleToSelection({ numberFormat: NUMCAT.currency(2), numFmtCat: 'currency' }), { cmd: 'numfmt', title: 'Currency format' }),
-          cmd('percent', '', () => applyStyleToSelection({ numberFormat: NUMCAT.percent(0), numFmtCat: 'percent' }), { cmd: 'numfmt', title: 'Percent format' }),
           cmd('comma', '', () => applyStyleToSelection({ numberFormat: NUMCAT.number(2), numFmtCat: 'number' }), { cmd: 'numfmt', title: 'Comma style' })
         ]},
         { custom: 'stack', items: [
@@ -10751,7 +10434,6 @@ function ribbonConfig() {
         ]}
       ]},
       { label: 'Styles', items: [
-        cmd('styles', 'Conditional', () => openConditionalFormattingDialog(), { small: true, title: 'Conditional Formatting' }),
         cmd('table', 'Format as Table', () => formatAsTable(), { small: true, cmd: 'asTable' }),
         cmd('grid', 'Cell Styles', null, { split: true, menu: CELL_STYLES.map(p => ({ custom: 'styleChip', preset: p })) }),
         cmd('numfmt', 'Numbering', () => openNumberFormatDialog(), { cmd: 'numFmtDlg', title: 'Number format: category, decimals and custom type (Ctrl+1)' })
@@ -11373,7 +11055,7 @@ function buildCustomRibbonControl(item) {
       });
     }
     case 'numFmt': {
-      const opts = [['General', 'General'], ['number', 'Number'], ['currency', 'Currency'], ['accounting', 'Accounting'], ['shortDate', 'Short Date'], ['longDate', 'Long Date'], ['time', 'Time'], ['percent', 'Percentage'], ['fraction', 'Fraction'], ['scientific', 'Scientific'], ['text', 'Text']];
+      const opts = [['General', 'General'], ['number', 'Number'], ['currency', 'Currency'], ['accounting', 'Accounting'], ['shortDate', 'Short Date'], ['longDate', 'Long Date'], ['time', 'Time'], ['percent', 'Percentage'], ['fraction', 'Fraction'], ['text', 'Text']];
       return msDropdownCtrl({
         id: 'rbnNumFmt',
         minWidth: 100,
@@ -11382,7 +11064,7 @@ function buildCustomRibbonControl(item) {
           const sh = activeSheet();
           const cell = sh.cells.get(key(SEL.active.r, SEL.active.c));
           const cat = cell && cell.s && cell.s.numFmtCat ? cell.s.numFmtCat : 'General';
-          return ['number', 'currency', 'accounting', 'shortDate', 'longDate', 'time', 'percent', 'fraction', 'scientific', 'text'].includes(cat) ? cat : 'General';
+          return ['number', 'currency', 'accounting', 'shortDate', 'longDate', 'time', 'percent', 'fraction', 'text'].includes(cat) ? cat : 'General';
         },
         render: v => {
           const o = opts.find(x => x[0] === v);
@@ -11400,7 +11082,6 @@ function buildCustomRibbonControl(item) {
           else if (v === 'time') { code = NUMCAT.time; cat = 'time'; }
           else if (v === 'percent') { code = NUMCAT.percent(2); cat = 'percent'; }
           else if (v === 'fraction') { code = NUMCAT.fraction; cat = 'fraction'; }
-          else if (v === 'scientific') { code = NUMCAT.scientific; cat = 'scientific'; }
           else if (v === 'text') { code = '@'; cat = 'text'; }
           applyStyleToSelection(code === 'General' ? { numberFormat: null, numFmtCat: null } : { numberFormat: code, numFmtCat: cat });
         }
@@ -11981,9 +11662,8 @@ function collectMatches() {
   }
   /* notes + replies (optional; matches open the thread popover on navigate) */
   if (Find.inNotes && sh.notes && sh.notes.size) {
-    for (const [k, n] of sh.notes) {
-      if (!n) continue;
-      const parts = [String(n.text || '')].concat(noteReplies(n).map(rp => String(rp.t || '')));
+    for (const [k, stored] of sh.notes) {
+      const parts = noteThreadsFromValue(stored).flatMap(n => [String(n.text || ''), ...noteReplies(n).map(rp => String(rp.t || ''))]);
       const hay = Find.matchCase ? parts.join('\n') : parts.join('\n').toLowerCase();
       if (!hay.includes(q)) continue;
       const seg = k.split(',');
@@ -12320,19 +12000,18 @@ function clearBenchCells(rows) {
   return n;
 }
 function collectWorkbookStats() {
-  let cells = 0, formulas = 0, notes = 0, charts = 0, cf = 0, dv = 0, merges = 0;
+  let cells = 0, formulas = 0, notes = 0, charts = 0, dv = 0, merges = 0;
   for (const sh of WB.sheets) {
     cells += sh.cells.size;
     for (const [, cell] of sh.cells) if (cell && cell.f) formulas++;
-    notes += sh.notes ? sh.notes.size : 0;
+    if (sh.notes) for (const stored of sh.notes.values()) notes += noteThreadsFromValue(stored).length;
     charts += sh.charts ? sh.charts.length : 0;
-    cf += sh.cf ? sh.cf.length : 0;
     dv += sh.dv ? sh.dv.length : 0;
     merges += sh.merges ? sh.merges.length : 0;
   }
   let usage = null, quota = null;
   return {
-    sheets: WB.sheets.length, cells, formulas, notes, charts, cf, dv, merges,
+    sheets: WB.sheets.length, cells, formulas, notes, charts, dv, merges,
     names: Object.keys(WB.names || {}).length,
     history: H.undo.length, redo: H.redo.length, historyLimit: H.limit,
     activeSheet: activeSheet().name,
@@ -12353,7 +12032,7 @@ function openDiagnostics() {
     '<div class="diag-grid">' +
     stat('Sheets', st.sheets) + stat('Cells', st.cells.toLocaleString()) + stat('Formulas', st.formulas.toLocaleString()) +
     stat('Named Ranges', st.names) + stat('Notes', st.notes) + stat('Charts', st.charts) +
-    stat('Cond. Format Rules', st.cf) + stat('Validation Rules', st.dv) + stat('Merged Regions', st.merges) +
+    stat('Validation Rules', st.dv) + stat('Merged Regions', st.merges) +
     '</div></div>' +
     '<div class="diag-section"><div class="diag-section-t">' + icon('history') + ' Session History</div>' +
     '<div class="diag-grid">' +
@@ -12806,7 +12485,7 @@ async function boot() {
     layout: () => R.layout ? { gridX: R.layout.gridX, gridY: R.layout.gridY, w: R.layout.w, h: R.layout.h, zoom: R.layout.zoom, frzR: R.layout.frzR, frzC: R.layout.frzC, scrollVisibleV: R.layout.scrollVisibleV } : null,
     repaint: () => { paint(); return 'painted'; },
     chartData: (idx) => { try { const ch = activeSheet().charts[idx]; return ch ? chartExtractData(ch) : null; } catch (e) { return 'err:' + e.message; } },
-    notes: () => { const sh = activeSheet(); return sh.notes ? [...sh.notes.entries()].map(([k, n]) => ({ key: k, text: n.text })) : []; },
+    notes: () => { const sh = activeSheet(); return sh.notes ? [...sh.notes.entries()].flatMap(([k, stored]) => noteThreadsFromValue(stored).map(n => ({ key: k, id: n.id, text: n.text }))) : []; },
     bench: (rows) => {
       rows = Math.min(Math.max(rows || 10000, 100), 50000);
       const sh = activeSheet();
@@ -12838,7 +12517,6 @@ async function boot() {
       return { cleared: n };
     },
     chartInfo: (idx) => { try { const ch = activeSheet().charts[idx]; return ch ? { type: ch.type, range: ch.range, x: ch.x, y: ch.y, w: ch.w, h: ch.h, labels: !!ch.dataLabels, labelPos: ch.labelPos || 'out', labelFmt: ch.labelFmt || null, axisTitles: ch.axisTitles || null } : null; } catch (e) { return 'err:' + e.message; } },
-    cfRules: () => { try { return activeSheet().cf.map(r => ({ type: r.type, range: addr(r.range.r1, r.range.c1) + ':' + addr(r.range.r2, r.range.c2), value: r.value, color: r.color })); } catch (e) { return 'err:' + e.message; } },
     printDry: () => { try { const html = buildPrintHtml(activeSheet()); return { len: html.length, charts: (html.match(/class="print-chart"/g) || []).length, hasWrap: html.indexOf('print-grid-wrap') !== -1 }; } catch (e) { return 'err:' + e.message; } },
     importBuffer: async (buf, name) => { try { await importXlsx(new File([buf], name || 'import.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })); return ZS.stats(); } catch (e) { return 'err:' + e.message; } }
   };
