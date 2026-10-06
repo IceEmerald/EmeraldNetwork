@@ -3537,11 +3537,12 @@ function buildHistory(conv) {
       text = text.replace(/<es-edit>[\s\S]*?<\/es-edit>/g, "[Update was applied to your file in EmeraldSuite]");
       text = _stripMemoryTags(text).replace(/\[GENERATE_IMAGE:\s*[^\]]+\]/g, "").replace(/\[EDIT_IMAGE:\s*[^\]]+\]/g, "").replace(/\[IMAGE:\s*[^\]]+\]/g, "").replace(/\[IMAGE_SEARCH:\s*[^\]]+\]/g, "").trim();
       if (m.imagePrompt) {
-        // Naming the mode matters: it is what lets the model correctly treat a
-        // later "make it darker" as an edit of this picture rather than a
-        // request for a brand new one.
-        text += `
-[${m.imageMode === "edit" ? "An image was EDITED from the user's own image and shown to the user" : "An image was generated and shown to the user"} for this request: "${m.imagePrompt}"]`;
+        // Tells the model an image came out of this turn and whether it was an
+        // edit, which is what makes a later "make it darker" act on that same
+        // picture instead of asking for a new one. Context only, never shown in
+        // the chat — keep it short and free of implementation wording.
+        const _ip = String(m.imagePrompt).replace(/\s+/g, " ").trim();
+        text += `\n[${m.imageMode === "edit" ? "Image edited" : "Image generated"}: "${_ip.slice(0, 200)}${_ip.length > 200 ? "…" : ""}"]`;
       }
       const isRecent = idx >= arr.length - HISTORY_FULL_TAIL;
       if (!isRecent && text.length > HISTORY_MAX_CHARS) {
