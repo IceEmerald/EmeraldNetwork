@@ -1174,6 +1174,7 @@ function _streamDisplayText(raw) {
   let t = String(raw || "");
   t = _stripMemoryTags(t);
   t = t.replace(/\[GENERATE_IMAGE:[^\]]*\]?/g, "");
+  t = t.replace(/\[EDIT_IMAGE:[^\]]*\]?/g, "");
   t = t.replace(/\[IMAGE:\s*[^\]]+\]/g, "");
   t = t.replace(/\[IMAGE_SEARCH:\s*[^\]]+\]/g, "");
   t = _stripThinkingPreamble(t);
@@ -1913,6 +1914,8 @@ function loadConversation(id) {
   // Skip animation if we're already on this conversation.
   if (state.convId === id && !state.isTemp) return;
   _refreshPanelStateSnapshot();
+  // A picked edit source belongs to the conversation it was picked in.
+  _dropPendingImageEdit();
   state.convId = id;
   state.isTemp = false;
   animateChatSwitch(() => {
@@ -3368,9 +3371,11 @@ async function handleSend(opts) {
     displayText = _stripMemoryTags(displayText).replace(/\n{3,}/g, "\n\n").trim();
     displayText = _stripThinkingPreamble(displayText).replace(/^\s+/, "");
     const memoryAdded = memoriesAdded.length > 0;
-    const _imgGenMatch = displayText.match(/\[GENERATE_IMAGE:\s*([^\]]+)\]/);
-    const _imgPrompt = _imgGenMatch ? _imgGenMatch[1].trim() : null;
-    displayText = displayText.replace(/\[GENERATE_IMAGE:[^\]]*\]?/g, "").trim();
+    const _imgTags = extractImageTags(displayText);
+    const _imgPrompt = _imgTags.genPrompt;
+    const _imgEditPrompt = _imgTags.editPrompt;
+    const _imgPromptFinal = _imgEditPrompt || _imgPrompt;
+    displayText = stripImageTags(displayText);
     const _quizResult = _extractQuiz(displayText);
     const quizData = _quizResult.quizData;
     const beforeQuizText = _quizResult.before;
@@ -3399,7 +3404,7 @@ async function handleSend(opts) {
     let _fileEditOutcome = null;
     textEl.classList.remove("stream-reveal");
     const _textToShow = (quizData || _quizParseFailed) ? beforeQuizText : displayText;
-    const _hasOtherContent = !!(quizData || _quizParseFailed || appData || _appParseFailed || _fEditRes || _imgPrompt || memoryAdded);
+    const _hasOtherContent = !!(quizData || _quizParseFailed || appData || _appParseFailed || _fEditRes || _imgPromptFinal || memoryAdded);
     if (_textToShow) {
       textEl.innerHTML = renderMarkdown(_textToShow);
     } else if (_hasOtherContent) {
@@ -3476,7 +3481,8 @@ async function handleSend(opts) {
         esAppTextBefore: (appData || _appParseFailed) ? beforeAppText : void 0,
         esAppTextAfter: (appData || _appParseFailed) ? afterAppText : void 0,
         fileEdit: _fileEditOutcome || void 0,
-        imagePrompt: _imgPrompt || void 0,
+        imagePrompt: _imgPromptFinal || void 0,
+        imageMode: _imgEditPrompt ? "edit" : (_imgPrompt ? "generate" : void 0),
         // Persist the reasoning text so the collapsible "Reasoning" panel
         // can be re-rendered on page reload. Stored separately from `text`
         // so buildHistory never sends reasoning back to Gemini.
@@ -3491,10 +3497,10 @@ async function handleSend(opts) {
       // with a 400. Use a non-empty placeholder so buildHistory stays valid.
       if (quizData) state.tempHistory.push({ role: "user", parts: [{ text: "[User started a quiz — no text message]" }] });
     }
-    if (_imgPrompt) {
-      processImageGenTag(aiDiv, _imgPrompt, state.convId, msgId);
+    if (_imgPromptFinal) {
+      runImageTags(aiDiv, fullText, state.convId, msgId, { files, userText: text });
     }
-    // Always process [IMAGE_SEARCH:] tags regardless of [GENERATE_IMAGE:]
+    // Always process [IMAGE_SEARCH:] tags regardless of the image tags above
     processImageSearchTags(aiDiv, state.convId, msgId);
   } else if (aiDiv && textEl) {
     // No text came back (request error / cancellation / empty response).
@@ -3529,10 +3535,13 @@ function buildHistory(conv) {
       text = text.replace(/<quiz>[\s\S]*?<\/quiz>/g, "[A quiz was provided here]");
       text = text.replace(/<es-app>[\s\S]*?<\/es-app>/g, "[Content was offered for import to EmeraldSuite]");
       text = text.replace(/<es-edit>[\s\S]*?<\/es-edit>/g, "[Update was applied to your file in EmeraldSuite]");
-      text = _stripMemoryTags(text).replace(/\[GENERATE_IMAGE:\s*[^\]]+\]/g, "").replace(/\[IMAGE:\s*[^\]]+\]/g, "").replace(/\[IMAGE_SEARCH:\s*[^\]]+\]/g, "").trim();
+      text = _stripMemoryTags(text).replace(/\[GENERATE_IMAGE:\s*[^\]]+\]/g, "").replace(/\[EDIT_IMAGE:\s*[^\]]+\]/g, "").replace(/\[IMAGE:\s*[^\]]+\]/g, "").replace(/\[IMAGE_SEARCH:\s*[^\]]+\]/g, "").trim();
       if (m.imagePrompt) {
+        // Naming the mode matters: it is what lets the model correctly treat a
+        // later "make it darker" as an edit of this picture rather than a
+        // request for a brand new one.
         text += `
-[An image was generated and shown to the user for this prompt: "${m.imagePrompt}"]`;
+[${m.imageMode === "edit" ? "An image was EDITED from the user's own image and shown to the user" : "An image was generated and shown to the user"} for this request: "${m.imagePrompt}"]`;
       }
       const isRecent = idx >= arr.length - HISTORY_FULL_TAIL;
       if (!isRecent && text.length > HISTORY_MAX_CHARS) {
@@ -3712,6 +3721,9 @@ async function regenerateMessage(msgEl) {
     }
   }
   const regenUserText = (userMsgIdx >= 0 && conv.messages[userMsgIdx] && conv.messages[userMsgIdx].text) || "";
+  // Original attachments of the prompt being regenerated — these are the source
+  // pixels when that turn asked for an image edit.
+  const regenFiles = (userMsgIdx >= 0 && conv.messages[userMsgIdx] && conv.messages[userMsgIdx].files) || [];
   _efResetWriteGate();
   try {
     const fileCtx = await _suiteAutoContext(regenUserText);
@@ -3856,9 +3868,11 @@ textEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.editStarted
     displayText = _stripMemoryTags(displayText).replace(/\n{3,}/g, "\n\n").trim();
     displayText = _stripThinkingPreamble(displayText).replace(/^\s+/, "");
     const memoryAdded = memoriesAdded.length > 0;
-    const imgGenMatch = displayText.match(/\[GENERATE_IMAGE:\s*([^\]]+)\]/);
-    const imgPrompt = imgGenMatch ? imgGenMatch[1].trim() : null;
-    displayText = displayText.replace(/\[GENERATE_IMAGE:[^\]]*\]?/g, "").trim();
+    const imgTags = extractImageTags(displayText);
+    const imgPrompt = imgTags.genPrompt;
+    const imgEditPrompt = imgTags.editPrompt;
+    const imgPromptFinal = imgEditPrompt || imgPrompt;
+    displayText = stripImageTags(displayText);
     const _quizResult = _extractQuiz(displayText);
     const quizData = _quizResult.quizData;
     const beforeQuizText = _quizResult.before;
@@ -3883,7 +3897,7 @@ textEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.editStarted
     let _fileEditOutcome = null;
     textEl.classList.remove("stream-reveal");
     const _regenTextToShow = (quizData || _quizParseFailed) ? beforeQuizText : displayText;
-    const _hasOtherContent = !!(quizData || _quizParseFailed || appData || _appParseFailed || _fEditRes || imgPrompt || memoryAdded);
+    const _hasOtherContent = !!(quizData || _quizParseFailed || appData || _appParseFailed || _fEditRes || imgPromptFinal || memoryAdded);
     if (_regenTextToShow) {
       textEl.innerHTML = renderMarkdown(_regenTextToShow);
     } else if (_hasOtherContent) {
@@ -3958,7 +3972,8 @@ textEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.editStarted
       esAppTextBefore: (appData || _appParseFailed) ? beforeAppText : void 0,
       esAppTextAfter: (appData || _appParseFailed) ? afterAppText : void 0,
       fileEdit: _fileEditOutcome || void 0,
-      imagePrompt: imgPrompt || void 0,
+      imagePrompt: imgPromptFinal || void 0,
+      imageMode: imgEditPrompt ? "edit" : (imgPrompt ? "generate" : void 0),
       reasoning: _reasoningText || void 0,
       sources: _allSources.length ? _allSources.map(s => ({ title: s.title || '', uri: s.uri })) : void 0
     };
@@ -3969,8 +3984,8 @@ textEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.editStarted
     conv._regenBranches[regenBranchId] = regenBranch;
     upsertConv(conv);
     updateRegenNavDOM(regenBranchId);
-    if (imgPrompt) {
-      processImageGenTag(aiDiv, imgPrompt, state.convId, newId);
+    if (imgPromptFinal) {
+      runImageTags(aiDiv, fullText, state.convId, newId, { files: regenFiles, userText: regenUserText });
     }
   } else if (aiDiv && textEl) {
     // No text came back (request error / cancellation / empty response).
@@ -4709,6 +4724,7 @@ function applyTheme(theme) {
 function toggleTempChat() {
   state.isTemp = !state.isTemp;
   state.convId = null;
+  _dropPendingImageEdit();
   state.tempHistory = [];
   const btn = $("tempChatBtn");
   const badge = $("tempBadge");
@@ -4752,6 +4768,7 @@ function doSearch() {
 }
 function newChat() {
   state.convId = null;
+  _dropPendingImageEdit();
   _efSuiteLatch = false;
   _efResetWriteGate();
   updateOwnedUrl();
@@ -5874,7 +5891,7 @@ My answer: "${e.a}"${e.rubric ? `
     });
     prompt += "\nPlease give me feedback.";
   }
-  prompt += "\n\n[IMPORTANT: Only provide explanations and essay feedback for the above. Do NOT generate a new quiz. Do NOT generate an image. No <quiz> tags. No [GENERATE_IMAGE:...] tags. Just a plain helpful response.]";
+  prompt += "\n\n[IMPORTANT: Only provide explanations and essay feedback for the above. Do NOT generate a new quiz. Do NOT generate or edit an image. No <quiz> tags. No [GENERATE_IMAGE:...] or [EDIT_IMAGE:...] tags. Just a plain helpful response.]";
   // Send silently — no user message bubble, no input box text.
   // The AI typing indicator appears immediately; the response streams in directly.
   handleSend({ silent: true, silentText: prompt });
@@ -5929,6 +5946,7 @@ function clearAllChats() {
   state.isTemp = false;
   state.tempHistory = [];
   state.attachments = [];
+  _dropPendingImageEdit();
   const btn = $("tempChatBtn");
   if (btn) btn.classList.remove("active");
   const badge = $("tempBadge");
@@ -6435,7 +6453,7 @@ function _renderCachedImageSearchResults(aiDiv, cacheMap) {
 }
 function appendStoredAIMessage(m) {
   const rawText = m.text || "";
-  let displayText = _stripMemoryTags(rawText).replace(/\[GENERATE_IMAGE:\s*[^\]]+\]/g, "").replace(/\n{3,}/g, "\n\n").trim();
+  let displayText = _stripMemoryTags(rawText).replace(/\[GENERATE_IMAGE:\s*[^\]]+\]/g, "").replace(/\[EDIT_IMAGE:\s*[^\]]+\]/g, "").replace(/\n{3,}/g, "\n\n").trim();
   displayText = _stripThinkingPreamble(displayText).replace(/^\s+/, "");
   const hasMemory = m.hasMemory || /\[MEMORY:/.test(rawText) || /\[MEMORY\]/.test(rawText);
   let quizData = m.hasQuiz && m.quizData ? m.quizData : null;
@@ -6550,20 +6568,22 @@ function appendStoredAIMessage(m) {
   div.querySelector(".message-body").appendChild(buildMessageActionsEl(m.id || genId()));
   const _imgDataSafe = m.imageData ? _safeMediaSrc(m.imageData, "image") : '';
   if (m.imageData && _imgDataSafe) {
-    const wrapper = document.createElement("div");
-    wrapper.className = "img-gen-result";
-    const img = document.createElement("img");
-    img.src = _imgDataSafe;
-    img.alt = m.imagePrompt ? escapeHtmlAttr(m.imagePrompt.slice(0, 80)) : "";
-    img.className = "img-gen-image";
-    const dlLink = document.createElement("a");
-    dlLink.className = "img-gen-download";
-    dlLink.href = _imgDataSafe;
-    dlLink.download = "emeraldbot-image.png";
-    dlLink.title = "Download image";
-    dlLink.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
-    wrapper.appendChild(img);
-    wrapper.appendChild(dlLink);
+    const _storedMsgId = m.id || "";
+    const _wasEdit = m.imageMode === "edit";
+    // The stored data URL is fetched lazily on click rather than parked in the
+    // DOM, so a long conversation does not hold every picture twice.
+    const wrapper = buildImageResultEl({
+      dataUrl: _imgDataSafe,
+      alt: m.imagePrompt ? escapeHtmlAttr(m.imagePrompt.slice(0, 80)) : "",
+      downloadName: _wasEdit ? "emeraldbot-edited.png" : "emeraldbot-image.png",
+      isEdit: _wasEdit,
+      resolveDataUrl: () => {
+        const _conv = getConv(state.convId);
+        const _m = _conv && _conv.messages.find((x) => x.id === _storedMsgId);
+        const _raw = _m && typeof _m.imageData === "string" ? _m.imageData : m.imageData;
+        return /^data:image\//i.test(_raw || "") ? _raw : null;
+      },
+    });
     insertBeforeMessageActions(div.querySelector(".message-body"), wrapper);
   }
   const typingEl = $("typingIndicator");
@@ -8224,11 +8244,11 @@ async function submitUserMsgEdit(msgId) {
     memoriesAdded.forEach((t) => addMemory(t));
     dispText = _stripMemoryTags(dispText).replace(/\n{3,}/g, "\n\n").trim();
     const memoryAdded = memoriesAdded.length > 0;
-    const imgM = dispText.match(/\[GENERATE_IMAGE:\s*([^\]]+)\]/);
-    const imgPrompt = imgM ? imgM[1].trim() : null;
-    dispText = dispText.replace(/\[GENERATE_IMAGE:[^\]]*\]?/g, "").trim();
-    const _quizResult = _extractQuiz(dispText);
-    const quizData = _quizResult.quizData;
+    const imgTags = extractImageTags(dispText);
+    const imgPrompt = imgTags.genPrompt;
+    const imgEditPrompt = imgTags.editPrompt;
+    const imgPromptFinal = imgEditPrompt || imgPrompt;
+    dispText = stripImageTags(dispText);
     const beforeQuizText = _quizResult.before;
     const afterQuizText = _quizResult.after;
     const _quizParseFailed = _quizResult.parseFailed;
@@ -8251,7 +8271,7 @@ async function submitUserMsgEdit(msgId) {
     let _fileEditOutcome = null;
     aiTextEl.classList.remove("stream-reveal");
     const _editTextToShow = (quizData || _quizParseFailed) ? beforeQuizText : dispText;
-    const _hasOtherContent = !!(quizData || _quizParseFailed || appData || _appParseFailed || _fEditRes || imgPrompt || memoryAdded);
+    const _hasOtherContent = !!(quizData || _quizParseFailed || appData || _appParseFailed || _fEditRes || imgPromptFinal || memoryAdded);
     if (_editTextToShow) {
       aiTextEl.innerHTML = renderMarkdown(_editTextToShow);
     } else if (_hasOtherContent) {
@@ -8326,7 +8346,8 @@ async function submitUserMsgEdit(msgId) {
         esAppTextBefore: (appData || _appParseFailed) ? beforeAppText : void 0,
         esAppTextAfter: (appData || _appParseFailed) ? afterAppText : void 0,
         fileEdit: _fileEditOutcome || void 0,
-        imagePrompt: imgPrompt || void 0,
+        imagePrompt: imgPromptFinal || void 0,
+        imageMode: imgEditPrompt ? "edit" : (imgPrompt ? "generate" : void 0),
         reasoning: _reasoningText || void 0,
         sources: _allSources.length ? _allSources.map(s => ({ title: s.title || '', uri: s.uri })) : void 0
       });
@@ -8336,8 +8357,8 @@ async function submitUserMsgEdit(msgId) {
     } else {
       state.tempHistory.push({ role: "model", parts: [{ text: aiFullText }] });
     }
-    if (imgPrompt) {
-      processImageGenTag(aiDiv, imgPrompt, state.convId, aiMsgId);
+    if (imgPromptFinal) {
+      runImageTags(aiDiv, aiFullText, state.convId, aiMsgId, { files: originalFiles, userText: newText });
     }
   } else if (aiDiv && aiTextEl) {
     // No text came back (request error / cancellation / empty response).
@@ -8958,12 +8979,368 @@ function detectAspectRatio(prompt) {
   if (/\b(presentation slide|slide deck|16x10)\b/.test(p)) return "16:9";
   return "1:1";
 }
-async function processImageGenTag(aiDiv, prompt, convId, msgId) {
+
+/* ══════════════════════════════════════════════════════════════════
+   IMAGE EDITING (true image-to-image)
+
+   The image model (FLUX.2 klein) accepts up to 4 reference images as real
+   binary input. That is what makes editing an EDIT: the uploaded pixels are
+   handed to the model and only the requested change is applied. Anything that
+   merely rewrites the picture as text is still text-to-image, which is exactly
+   why the source image is always resolved and sent with the request.
+
+   Upstream hard limit: every reference image must be 512x512 or smaller, so
+   anything larger is downscaled here before the request goes out.
+   ══════════════════════════════════════════════════════════════════ */
+
+const IMG_EDIT_MAX_DIM = 512;
+const IMG_EDIT_MAX_SOURCES = 4;
+const IMG_EDIT_LONG_SIDE = 1024;
+const IMG_DIM_MULTIPLE = 16;
+const IMG_DIM_MIN = 256;
+const IMG_DIM_MAX = 1920;
+
+// Image the user explicitly picked via the "Edit" button on a rendered image.
+// Consumed by the next image request, then cleared.
+let _pendingImageEdit = null; // { dataUrl, name }
+
+function _setPendingImageEdit(dataUrl, name) {
+  if (!dataUrl || !/^data:image\//i.test(dataUrl)) return;
+  _pendingImageEdit = { dataUrl, name: name || "image" };
+  renderPendingImageEditChip();
+}
+
+function _takePendingImageEdit() {
+  const p = _pendingImageEdit;
+  _pendingImageEdit = null;
+  renderPendingImageEditChip();
+  return p;
+}
+
+function _dropPendingImageEdit() {
+  _pendingImageEdit = null;
+  renderPendingImageEditChip();
+}
+
+function _snapImgDim(n) {
+  const v = Math.round(Number(n) / IMG_DIM_MULTIPLE) * IMG_DIM_MULTIPLE;
+  if (!Number.isFinite(v)) return IMG_DIM_MIN;
+  return Math.min(IMG_DIM_MAX, Math.max(IMG_DIM_MIN, v));
+}
+
+/* For an edit the output shape follows the source image; for a fresh generation
+   it follows the prompt. Both keep the long side at 1024 so the request stays in
+   the model's first-megapixel pricing tier. */
+function dimsForEditSource(w, h) {
+  const sw = Number(w);
+  const sh = Number(h);
+  if (!Number.isFinite(sw) || !Number.isFinite(sh) || sw <= 0 || sh <= 0) return null;
+  let outW;
+  let outH;
+  if (sw >= sh) {
+    outW = IMG_EDIT_LONG_SIDE;
+    outH = Math.round((IMG_EDIT_LONG_SIDE * sh) / sw);
+  } else {
+    outH = IMG_EDIT_LONG_SIDE;
+    outW = Math.round((IMG_EDIT_LONG_SIDE * sw) / sh);
+  }
+  return { width: _snapImgDim(outW), height: _snapImgDim(outH) };
+}
+
+const ASPECT_RATIO_DIMS = {
+  "1:1": { width: 1024, height: 1024 },
+  "16:9": { width: 1024, height: 576 },
+  "9:16": { width: 576, height: 1024 },
+  "4:3": { width: 1024, height: 768 },
+  "3:4": { width: 768, height: 1024 },
+  "3:2": { width: 1024, height: 688 },
+  "2:3": { width: 688, height: 1024 },
+  "4:5": { width: 816, height: 1024 },
+  "5:4": { width: 1024, height: 816 },
+  "21:9": { width: 1024, height: 448 },
+};
+
+function dimsForAspectRatioKey(key) {
+  return ASPECT_RATIO_DIMS[key] || ASPECT_RATIO_DIMS["1:1"];
+}
+
+function _loadImageEl(src) {
+  return new Promise((resolve, reject) => {
+    const im = new Image();
+    im.onload = () => resolve(im);
+    im.onerror = () => reject(new Error("decode failed"));
+    im.src = src;
+  });
+}
+
+/* Downscale a data URL so neither side exceeds maxDim. Returns the original
+   untouched when it already fits. JPEG in → JPEG out (keeps the payload
+   small); anything else re-encodes as PNG. */
+async function fitImageForEditing(src, maxDim) {
+  const cap = maxDim || IMG_EDIT_MAX_DIM;
+  let im;
+  try {
+    im = await _loadImageEl(src);
+  } catch (e) {
+    return null;
+  }
+  const w = im.naturalWidth || im.width || 0;
+  const h = im.naturalHeight || im.height || 0;
+  if (!w || !h) return null;
+  if (w <= cap && h <= cap) return { dataUrl: src, width: w, height: h, resized: false };
+  const scale = Math.min(cap / w, cap / h);
+  const tw = Math.max(1, Math.round(w * scale));
+  const th = Math.max(1, Math.round(h * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = tw;
+  canvas.height = th;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(im, 0, 0, tw, th);
+  let out;
+  try {
+    out = /^data:image\/jpe?g/i.test(src) ? canvas.toDataURL("image/jpeg", 0.92) : canvas.toDataURL("image/png");
+  } catch (e) {
+    return null;
+  }
+  if (!out || out.length < 32) return null;
+  return { dataUrl: out, width: tw, height: th, resized: true };
+}
+
+/* Every data-URL image inside an attachment list, in order. */
+function imageDataUrlsFromFiles(files) {
+  const out = [];
+  for (const f of files || []) {
+    if (f && typeof f.data === "string" && /^data:image\//i.test(f.data)) out.push(f.data);
+  }
+  return out;
+}
+
+/* Most recent image in a conversation — a previously generated result first,
+   then any attachment. This is what makes "make it darker" work right after the
+   AI produced a picture, with nothing attached to the follow-up. */
+function latestImageDataInConv(convId, excludeMsgId) {
+  if (!convId) return null;
+  const conv = getConv(convId);
+  if (!conv || !Array.isArray(conv.messages)) return null;
+  for (let i = conv.messages.length - 1; i >= 0; i--) {
+    const m = conv.messages[i];
+    if (!m || (excludeMsgId && m.id === excludeMsgId)) continue;
+    if (typeof m.imageData === "string" && /^data:image\//i.test(m.imageData)) return m.imageData;
+    const fromFiles = imageDataUrlsFromFiles(m.files);
+    if (fromFiles.length) return fromFiles[fromFiles.length - 1];
+  }
+  return null;
+}
+
+/* "…this image", "…remove the hat", "…make it brighter" — wording that means
+   "change the picture I gave you", not "draw me something new". */
+const IMG_REF_RE = /\b(this|that|the|these|those|attached|uploaded|my|it)\s+(image|images|picture|pictures|photo|photos|pic|pics|art|screenshot|logo|drawing|render)\b|\b(image|picture|photo|pic|screenshot)\s+(above|attached|uploaded|i\s+(sent|uploaded|shared|attached)|you\s+can\s+see|we\s+can\s+see)\b/i;
+const IMG_EDIT_VERB_RE = /\b(edit|editing|edits|modify|modifying|change|changing|adjust|adjusting|remove|removing|delete|deleting|erase|erasing|replace|replacing|retouch|retouching|restyle|restyling|recolor|recolour|transform|transforming|convert|converting|enhance|enhancing|improve|improving|upscale|downscale|sharpen|blur|crop|extend|lighten|darker|brighter|brighten|darken|clean\s+(\w+\s+)?up|fix\s+the|repaint|re-?paint|paint\s+over|stylize|stylise)\b/i;
+/* Weaker edit wording ("add a hat", "turn this into a watercolor"). Too vague to
+   trust on its own, but runImageTags only converts to an edit when real source
+   pixels are available — otherwise it stays a plain generation. So a false
+   positive here costs nothing while a missed one silently drops the reference. */
+const IMG_WEAK_EDIT_RE = /\b(add|adding|put|insert|place|apply|give)\b|\b(turn|turns|turning|convert)\b[\s\S]{0,24}?\b(into|to|as|in)\b|\b(this|that|it)\s+(into|to|as)\b/i;
+function looksLikeImageEditRequest(text) {
+  const t = String(text || "");
+  if (!t.trim()) return false;
+  return IMG_REF_RE.test(t) || IMG_EDIT_VERB_RE.test(t) || IMG_WEAK_EDIT_RE.test(t);
+}
+
+/* Where the pixels for an edit come from, in priority order:
+   1. images attached to the current message
+   2. the image whose "Edit" button the user pressed
+   3. the most recent image already in this conversation
+   Only consulted when an edit was actually requested. */
+function resolveImageEditSources(opts) {
+  const o = opts || {};
+  const picked = [];
+  const push = (u) => {
+    if (typeof u === "string" && /^data:image\//i.test(u) && !picked.includes(u) && picked.length < IMG_EDIT_MAX_SOURCES) picked.push(u);
+  };
+  imageDataUrlsFromFiles(o.files).forEach(push);
+  const pending = _takePendingImageEdit();
+  if (pending) push(pending.dataUrl);
+  if (!picked.length) push(latestImageDataInConv(o.convId, o.msgId));
+  return { sources: picked, pickedFromButton: !!pending };
+}
+
+function extractImageTags(text) {
+  const t = String(text || "");
+  const gen = t.match(/\[GENERATE_IMAGE:\s*([^\]]+)\]/);
+  const edit = t.match(/\[EDIT_IMAGE:\s*([^\]]+)\]/);
+  return {
+    genPrompt: gen ? gen[1].trim() : null,
+    editPrompt: edit ? edit[1].trim() : null,
+  };
+}
+
+function stripImageTags(text) {
+  return String(text || "")
+    .replace(/\[GENERATE_IMAGE:[^\]]*\]?/g, "")
+    .replace(/\[EDIT_IMAGE:[^\]]*\]?/g, "")
+    .trim();
+}
+
+/* Single entry point used by all three streaming paths (send / regenerate /
+   edit-and-resend) so edit routing can never drift between them. */
+function runImageTags(aiDiv, rawText, convId, msgId, opts) {
+  const o = opts || {};
+  const { genPrompt, editPrompt } = extractImageTags(rawText);
+  if (!genPrompt && !editPrompt) return false;
+
+  if (editPrompt) {
+    return processImageGenTag(aiDiv, editPrompt, convId, msgId, {
+      isEdit: true,
+      files: o.files,
+      userText: o.userText,
+    });
+  }
+
+  // The model asked for a fresh image. If the user was actually talking about a
+  // picture they handed over, honour that instead of inventing a lookalike.
+  const shouldBeEdit = imageDataUrlsFromFiles(o.files).length > 0 || looksLikeImageEditRequest(o.userText);
+  if (shouldBeEdit) {
+    const resolved = resolveImageEditSources(Object.assign({}, o, { convId, msgId }));
+    if (resolved.sources.length) {
+      return processImageGenTag(aiDiv, genPrompt, convId, msgId, {
+        isEdit: true,
+        files: o.files,
+        userText: o.userText,
+        sources: resolved.sources,
+      });
+    }
+  }
+  return processImageGenTag(aiDiv, genPrompt, convId, msgId, { isEdit: false, userText: o.userText });
+}
+
+function _imgGenErrorInto(body, message) {
+  const textEl = body?.querySelector(".message-text");
+  if (!textEl) return;
+  textEl.classList.remove("message-text--empty");
+  const existing = (textEl.innerHTML || "").trim();
+  textEl.innerHTML = existing
+    ? `${existing}<br><span class="md-error">${escapeHtml(message)}</span>`
+    : `<span class="md-error">${escapeHtml(message)}</span>`;
+}
+
+const IMG_EDIT_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
+/* Shared shell for a rendered image: <img>, download link, edit button and an
+   "Edited" badge. `resolveDataUrl` is lazy so the persisted-render path can pull
+   the data URL out of storage on click instead of duplicating it in the DOM. */
+function buildImageResultEl({ dataUrl, displaySrc, alt, downloadName, isEdit, resolveDataUrl }) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "img-gen-result" + (isEdit ? " img-gen-result--edit" : "");
+
+  const img = document.createElement("img");
+  img.src = displaySrc || dataUrl;
+  img.alt = alt || "";
+  img.className = "img-gen-image";
+  wrapper.appendChild(img);
+
+  if (isEdit) {
+    const badge = document.createElement("span");
+    badge.className = "img-gen-badge";
+    badge.title = "Edited from the image you provided";
+    badge.innerHTML = `${IMG_EDIT_ICON}<span>Edited</span>`;
+    wrapper.appendChild(badge);
+  }
+
+  const dlLink = document.createElement("a");
+  dlLink.className = "img-gen-download";
+  dlLink.href = dataUrl;
+  dlLink.download = downloadName;
+  dlLink.title = "Download image";
+  dlLink.setAttribute("aria-label", "Download image");
+  dlLink.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+  dlLink.addEventListener("click", (e) => e.stopPropagation());
+  wrapper.appendChild(dlLink);
+
+  const editBtn = document.createElement("button");
+  editBtn.type = "button";
+  editBtn.className = "img-gen-edit";
+  editBtn.title = "Edit this image";
+  editBtn.setAttribute("aria-label", "Edit this image");
+  editBtn.innerHTML = IMG_EDIT_ICON;
+  editBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const src = typeof resolveDataUrl === "function" ? resolveDataUrl() : dataUrl;
+    if (!src || !/^data:image\//i.test(src)) {
+      showToast(`${_aiSvgWarn} That image is no longer available.`);
+      return;
+    }
+    _setPendingImageEdit(src, alt || "image");
+    const ta = $("chatInput");
+    if (ta) {
+      if (!/\bedit\b/i.test(ta.value)) ta.value = "Edit this image: ";
+      ta.focus();
+      ta.setSelectionRange(ta.value.length, ta.value.length);
+    }
+    scrollToBottom();
+    showToast(`${_aiSvgInfo} Describe the change you want.`);
+  });
+  wrapper.appendChild(editBtn);
+
+  return wrapper;
+}
+
+/* Pending-edit indicator above the composer. It gets its own host element so
+   renderAttachmentPreviews() — which owns (and wipes) #attachPreview — can never
+   tear it out from under the user. */
+function renderPendingImageEditChip() {
+  const preview = $("attachPreview");
+  let host = document.getElementById("imgEditChipHost");
+  if (!_pendingImageEdit) {
+    if (host) host.style.display = "none";
+    return;
+  }
+  if (!host) {
+    host = document.createElement("div");
+    host.id = "imgEditChipHost";
+    host.className = "img-edit-chip-host";
+    if (preview && preview.parentNode) preview.parentNode.insertBefore(host, preview);
+  }
+  host.style.display = "flex";
+  let chip = host.querySelector(".pending-edit-chip");
+  if (!chip) {
+    chip = document.createElement("div");
+    chip.className = "pending-edit-chip";
+    chip.innerHTML = `
+      <img class="pending-edit-thumb" alt="">
+      <span class="pending-edit-text">Editing this image</span>
+      <button type="button" class="pending-edit-rm" title="Cancel image edit" aria-label="Cancel image edit">\xD7</button>`;
+    chip.querySelector(".pending-edit-rm").addEventListener("click", () => {
+      _dropPendingImageEdit();
+      const ta = $("chatInput");
+      if (ta && /^edit this image:\s*$/i.test(ta.value.trim())) ta.value = "";
+    });
+    host.appendChild(chip);
+  }
+  const thumb = chip.querySelector(".pending-edit-thumb");
+  if (thumb) thumb.src = _pendingImageEdit.dataUrl;
+}
+
+async function processImageGenTag(aiDiv, prompt, convId, msgId, opts) {
+  const o = opts || {};
   const body = aiDiv?.querySelector(".message-body");
   if (!body) return;
+  const isEdit = !!o.isEdit;
   const loadEl = document.createElement("div");
   loadEl.className = "img-gen-loading";
-  loadEl.innerHTML = `
+  loadEl.innerHTML = isEdit
+    ? `
+    <div class="img-gen-loading-inner">
+      <span class="img-gen-spinner"></span>
+      <div class="img-gen-loading-text">
+        <span class="img-gen-loading-title">Editing image</span>
+        <span class="img-gen-loading-sub">Applying your changes to the image\u2026</span>
+      </div>
+    </div>`
+    : `
     <div class="img-gen-loading-inner">
       <span class="img-gen-spinner"></span>
       <div class="img-gen-loading-text">
@@ -8973,12 +9350,80 @@ async function processImageGenTag(aiDiv, prompt, convId, msgId) {
     </div>`;
   insertBeforeMessageActions(body, loadEl);
   scrollToBottom();
-  try {
-    const reqBody = {
+
+  /* An edit was asked for but there is nothing to edit. Say so instead of
+     quietly generating a lookalike — that silent substitution is the bug this
+     whole path exists to fix. */
+  if (isEdit) {
+    const resolved = Array.isArray(o.sources) && o.sources.length
+      ? { sources: o.sources }
+      : resolveImageEditSources({ files: o.files, convId, msgId });
+    if (!resolved.sources.length) {
+      loadEl.remove();
+      _imgGenErrorInto(body, "I need an image to edit \u2014 attach the picture you want changed, or use the edit button on an image.");
+      scrollToBottom();
+      return;
+    }
+    const prepared = [];
+    for (const src of resolved.sources.slice(0, IMG_EDIT_MAX_SOURCES)) {
+      const fit = await fitImageForEditing(src, IMG_EDIT_MAX_DIM);
+      if (fit) prepared.push(fit);
+    }
+    if (!prepared.length) {
+      loadEl.remove();
+      _imgGenErrorInto(body, "That image could not be read for editing. Try attaching it again.");
+      scrollToBottom();
+      return;
+    }
+    const outDims = dimsForEditSource(prepared[0].width, prepared[0].height);
+    await _runImageRequest({
+      reqBody: {
+        prompt,
+        images: prepared.map((p) => p.dataUrl),
+        output_format: "png",
+        width: outDims ? outDims.width : IMG_EDIT_LONG_SIDE,
+        height: outDims ? outDims.height : IMG_EDIT_LONG_SIDE,
+      },
+      prompt,
+      aiDiv,
+      body,
+      loadEl,
+      convId,
+      msgId,
+      isEdit: true,
+    });
+    return;
+  }
+
+  await _runImageRequest({
+    reqBody: {
       prompt,
       aspect_ratio: detectAspectRatio(prompt),
-      output_format: "png"
-    };
+      output_format: "png",
+    },
+    prompt,
+    aiDiv,
+    body,
+    loadEl,
+    convId,
+    msgId,
+    isEdit: false,
+  });
+}
+
+/* The image worker keeps raw upstream error bodies private, but a few of its 4xx
+   bodies are written for the user and safe to surface. */
+function _imageWorkerErrorText(err, isEdit, detail) {
+  const status = err && err._httpStatus;
+  if (status === 413) return "That image is too large to edit. Please use one no bigger than 512\u00D7512.";
+  if (status === 400 && /\breference image\b/i.test(detail || "")) {
+    return "That image could not be read for editing. Please re-attach it as a PNG, JPEG, WebP or GIF.";
+  }
+  return aiChatErrorText(err, isEdit ? "editing the image" : "generating the image");
+}
+
+async function _runImageRequest({ reqBody, prompt, aiDiv, body, loadEl, convId, msgId, isEdit }) {
+  try {
     const res = await fetch(IMAGE_WORKER_URL + "/", {
       method: "POST",
       headers: {
@@ -8990,21 +9435,17 @@ async function processImageGenTag(aiDiv, prompt, convId, msgId) {
     if (!res.ok) {
       const _imgErr = new Error(`HTTP ${res.status}`);
       _imgErr._httpStatus = res.status;
-      // The image worker may relay raw upstream error text (quota, billing,
-      // model ids). Drop it — classify by status code only.
-      await res.text().catch(() => "");
-      const _errMsg = aiChatErrorText(_imgErr, "generating the image");
-      const textEl = body?.querySelector(".message-text");
-      if (textEl) {
-        textEl.classList.remove("message-text--empty");
-        const _existing = (textEl.innerHTML || "").trim();
-        textEl.innerHTML = _existing ? `${_existing}<br><span class="md-error">${escapeHtml(_errMsg)}</span>` : `<span class="md-error">${escapeHtml(_errMsg)}</span>`;
-      }
+      const detail = await res.text().catch(() => "");
+      _imgGenErrorInto(body, _imageWorkerErrorText(_imgErr, isEdit, detail));
       scrollToBottom();
       return;
     }
     const imageModelId = res.headers.get("X-Model-Used") || "";
     const imageModelName = imageModelId ? imageModelId.split("/").pop() : "";
+    // Trust the server's own verdict: it only reports i2i when reference
+    // pixels actually reached the model.
+    const modeUsed = (res.headers.get("X-Mode-Used") || "").toLowerCase();
+    const wasEdit = isEdit || modeUsed === "i2i";
     if (imageModelId) {
       aiDiv.dataset.imageModelId = imageModelId;
       aiDiv.dataset.imageModelName = imageModelName;
@@ -9013,20 +9454,12 @@ async function processImageGenTag(aiDiv, prompt, convId, msgId) {
     const dataUrl = await blobToDataURL(blob);
     const ct = blob.type || "";
     const ext = ct.includes("jpeg") || ct.includes("jpg") ? "jpg" : ct.includes("png") ? "png" : "png";
-    const wrapper = document.createElement("div");
-    wrapper.className = "img-gen-result";
-    const img = document.createElement("img");
-    img.src = dataUrl;
-    img.alt = escapeHtmlAttr(prompt.slice(0, 80));
-    img.className = "img-gen-image";
-    const dlLink = document.createElement("a");
-    dlLink.className = "img-gen-download";
-    dlLink.href = dataUrl;
-    dlLink.download = "emeraldbot-image." + ext;
-    dlLink.title = "Download image";
-    dlLink.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
-    wrapper.appendChild(img);
-    wrapper.appendChild(dlLink);
+    const wrapper = buildImageResultEl({
+      dataUrl,
+      alt: escapeHtmlAttr(prompt.slice(0, 80)),
+      downloadName: (wasEdit ? "emeraldbot-edited." : "emeraldbot-image.") + ext,
+      isEdit: wasEdit,
+    });
     insertBeforeMessageActions(body, wrapper);
     if (convId && msgId) {
       const convArr = loadConvs();
@@ -9036,6 +9469,7 @@ async function processImageGenTag(aiDiv, prompt, convId, msgId) {
         if (savedMsg) {
           savedMsg.imageData = dataUrl;
           savedMsg.imagePrompt = prompt;
+          savedMsg.imageMode = wasEdit ? "edit" : "generate";
           if (imageModelId) {
             savedMsg.imageModelId = imageModelId;
             savedMsg.imageModelName = imageModelName;
@@ -9046,13 +9480,7 @@ async function processImageGenTag(aiDiv, prompt, convId, msgId) {
     }
   } catch (e) {
     if (loadEl.parentNode) loadEl.remove();
-    const textEl = body?.querySelector(".message-text");
-    if (textEl) {
-      textEl.classList.remove("message-text--empty");
-      const _existing = (textEl.innerHTML || "").trim();
-      const _catchMsg = escapeHtml(aiChatErrorText(e, "generating the image"));
-      textEl.innerHTML = _existing ? `${_existing}<br><span class="md-error">${_catchMsg}</span>` : `<span class="md-error">${_catchMsg}</span>`;
-    }
+    _imgGenErrorInto(body, aiChatErrorText(e, isEdit ? "editing the image" : "generating the image"));
   }
   scrollToBottom();
 }
@@ -9366,6 +9794,15 @@ try {
   if (typeof positionMenu !== "undefined" && typeof window.positionMenu === "undefined") window.positionMenu = positionMenu;
   if (typeof processFileForAttachment !== "undefined" && typeof window.processFileForAttachment === "undefined") window.processFileForAttachment = processFileForAttachment;
   if (typeof processImageGenTag !== "undefined" && typeof window.processImageGenTag === "undefined") window.processImageGenTag = processImageGenTag;
+  if (typeof runImageTags !== "undefined" && typeof window.runImageTags === "undefined") window.runImageTags = runImageTags;
+  if (typeof extractImageTags !== "undefined" && typeof window.extractImageTags === "undefined") window.extractImageTags = extractImageTags;
+  if (typeof stripImageTags !== "undefined" && typeof window.stripImageTags === "undefined") window.stripImageTags = stripImageTags;
+  if (typeof resolveImageEditSources !== "undefined" && typeof window.resolveImageEditSources === "undefined") window.resolveImageEditSources = resolveImageEditSources;
+  if (typeof fitImageForEditing !== "undefined" && typeof window.fitImageForEditing === "undefined") window.fitImageForEditing = fitImageForEditing;
+  if (typeof latestImageDataInConv !== "undefined" && typeof window.latestImageDataInConv === "undefined") window.latestImageDataInConv = latestImageDataInConv;
+  if (typeof looksLikeImageEditRequest !== "undefined" && typeof window.looksLikeImageEditRequest === "undefined") window.looksLikeImageEditRequest = looksLikeImageEditRequest;
+  if (typeof buildImageResultEl !== "undefined" && typeof window.buildImageResultEl === "undefined") window.buildImageResultEl = buildImageResultEl;
+  if (typeof renderPendingImageEditChip !== "undefined" && typeof window.renderPendingImageEditChip === "undefined") window.renderPendingImageEditChip = renderPendingImageEditChip;
   if (typeof processWebImageTags !== "undefined" && typeof window.processWebImageTags === "undefined") window.processWebImageTags = processWebImageTags;
   if (typeof processImageSearchTags !== "undefined" && typeof window.processImageSearchTags === "undefined") window.processImageSearchTags = processImageSearchTags;
   if (typeof proxySearch !== "undefined" && typeof window.proxySearch === "undefined") window.proxySearch = proxySearch;

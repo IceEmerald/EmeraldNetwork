@@ -3899,6 +3899,10 @@ body.light-mode .attach-thumb {
     border-color: rgb(221, 221, 221);
 }
 
+body.light-mode .pending-edit-chip {
+    color: rgb(55, 65, 72);
+}
+
 body.light-mode .lib-item {
     background: rgb(255, 255, 255);
     border-color: rgb(238, 238, 238);
@@ -7234,6 +7238,124 @@ body.light-mode .img-gen-loading-title {
 
 .img-gen-download:hover {
     background: rgba(0, 191, 18, 0.85);
+}
+
+/* ── Image editing affordances ───────────────────────────────── */
+
+.img-gen-edit {
+    position: absolute;
+    top: 8px;
+    right: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(6px);
+    color: rgb(255, 255, 255);
+    cursor: pointer;
+    transition: background 0.18s, transform 0.14s;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.img-gen-result:hover .img-gen-edit {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.img-gen-edit:hover {
+    background: rgba(35, 154, 77, 0.9);
+}
+
+.img-gen-edit:active {
+    transform: scale(0.92);
+}
+
+.img-gen-badge {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.58);
+    backdrop-filter: blur(6px);
+    color: rgb(255, 255, 255);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    line-height: 1.2;
+    pointer-events: none;
+}
+
+.img-gen-badge svg {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+}
+
+.img-gen-result--edit .img-gen-image {
+    box-shadow: 0 0 0 2px rgba(35, 154, 77, 0.55);
+}
+
+.img-edit-chip-host {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.pending-edit-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px 5px 5px;
+    border-radius: 10px;
+    border: 1px solid rgba(35, 154, 77, 0.32);
+    background: rgba(35, 154, 77, 0.10);
+    color: var(--text, inherit);
+    font-size: 12.5px;
+    font-weight: 500;
+    max-width: 100%;
+}
+
+.pending-edit-thumb {
+    width: 32px;
+    height: 32px;
+    border-radius: 7px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.pending-edit-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pending-edit-rm {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    opacity: 0.6;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 6px;
+}
+
+.pending-edit-rm:hover {
+    opacity: 1;
+    background: rgba(35, 154, 77, 0.18);
 }
 /* ── Inline Web Images (from [IMAGE: url] tags) ──────────── */
 
