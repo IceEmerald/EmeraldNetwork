@@ -7276,35 +7276,6 @@ body.light-mode .img-gen-loading-title {
     transform: scale(0.92);
 }
 
-.img-gen-badge {
-    position: absolute;
-    left: 8px;
-    bottom: 8px;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 4px 9px;
-    border-radius: 999px;
-    background: rgba(0, 0, 0, 0.58);
-    backdrop-filter: blur(6px);
-    color: rgb(255, 255, 255);
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    line-height: 1.2;
-    pointer-events: none;
-}
-
-.img-gen-badge svg {
-    width: 12px;
-    height: 12px;
-    flex-shrink: 0;
-}
-
-.img-gen-result--edit .img-gen-image {
-    box-shadow: 0 0 0 2px rgba(35, 154, 77, 0.55);
-}
-
 .img-edit-chip-host {
     display: none;
     align-items: center;

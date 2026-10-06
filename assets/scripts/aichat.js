@@ -6569,14 +6569,12 @@ function appendStoredAIMessage(m) {
   const _imgDataSafe = m.imageData ? _safeMediaSrc(m.imageData, "image") : '';
   if (m.imageData && _imgDataSafe) {
     const _storedMsgId = m.id || "";
-    const _wasEdit = m.imageMode === "edit";
     // The stored data URL is fetched lazily on click rather than parked in the
     // DOM, so a long conversation does not hold every picture twice.
     const wrapper = buildImageResultEl({
       dataUrl: _imgDataSafe,
       alt: m.imagePrompt ? escapeHtmlAttr(m.imagePrompt.slice(0, 80)) : "",
-      downloadName: _wasEdit ? "emeraldbot-edited.png" : "emeraldbot-image.png",
-      isEdit: _wasEdit,
+      downloadName: "emeraldbot-image.png",
       resolveDataUrl: () => {
         const _conv = getConv(state.convId);
         const _m = _conv && _conv.messages.find((x) => x.id === _storedMsgId);
@@ -9228,26 +9226,19 @@ function _imgGenErrorInto(body, message) {
 }
 
 const IMG_EDIT_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
-/* Shared shell for a rendered image: <img>, download link, edit button and an
-   "Edited" badge. `resolveDataUrl` is lazy so the persisted-render path can pull
-   the data URL out of storage on click instead of duplicating it in the DOM. */
-function buildImageResultEl({ dataUrl, displaySrc, alt, downloadName, isEdit, resolveDataUrl }) {
+/* Shared shell for a rendered image: <img>, download link and edit button.
+   Edited and generated images look identical on purpose — nothing marks an
+   image as an edit. `resolveDataUrl` is lazy so the persisted-render path can
+   pull the data URL out of storage on click instead of duplicating it in the DOM. */
+function buildImageResultEl({ dataUrl, displaySrc, alt, downloadName, resolveDataUrl }) {
   const wrapper = document.createElement("div");
-  wrapper.className = "img-gen-result" + (isEdit ? " img-gen-result--edit" : "");
+  wrapper.className = "img-gen-result";
 
   const img = document.createElement("img");
   img.src = displaySrc || dataUrl;
   img.alt = alt || "";
   img.className = "img-gen-image";
   wrapper.appendChild(img);
-
-  if (isEdit) {
-    const badge = document.createElement("span");
-    badge.className = "img-gen-badge";
-    badge.title = "Edited from the image you provided";
-    badge.innerHTML = `${IMG_EDIT_ICON}<span>Edited</span>`;
-    wrapper.appendChild(badge);
-  }
 
   const dlLink = document.createElement("a");
   dlLink.className = "img-gen-download";
@@ -9457,8 +9448,7 @@ async function _runImageRequest({ reqBody, prompt, aiDiv, body, loadEl, convId, 
     const wrapper = buildImageResultEl({
       dataUrl,
       alt: escapeHtmlAttr(prompt.slice(0, 80)),
-      downloadName: (wasEdit ? "emeraldbot-edited." : "emeraldbot-image.") + ext,
-      isEdit: wasEdit,
+      downloadName: "emeraldbot-image." + ext,
     });
     insertBeforeMessageActions(body, wrapper);
     if (convId && msgId) {
