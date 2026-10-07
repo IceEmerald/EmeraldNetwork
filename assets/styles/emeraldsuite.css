@@ -1506,6 +1506,7 @@ body {
 
 /* Storage popup */
 .su-storage-btn { width: 34px; height: 34px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
+.su-storage-btn svg { width: 18px; height: 18px; }
 .storage-pop {
   position: fixed; top: 66px; right: 20px; z-index: 90; width: 250px;
   background: #fff; border: 1px solid #edebe9; border-radius: 12px;
@@ -1530,7 +1531,7 @@ body {
 /* Active rail item: left green pill */
 .rail-item { position: relative; }
 .rail-item.active::before {
-  content: ""; position: absolute; left: 0; top: 10px; bottom: 10px;
+  content: ""; position: absolute; left: -4px; top: 10px; bottom: 10px;
   width: 4px; border-radius: 4px; background: var(--ui-accent);
 }
 
@@ -1546,7 +1547,7 @@ body {
 .new-menu[hidden], .file-menu[hidden] { display: none; }
 
 /* Keep the logo square (style.css .logo .icon-primary was stretching it) */
-.su-top .logo .icon-primary { width: 30px; height: 30px; object-fit: contain; margin-bottom: 0; }
+.su-top .logo .icon-primary { width: 28px; height: 28px; object-fit: contain; margin-bottom: 0; }
 
 /* Storage icon: no filled box */
 .su-storage-btn { background: transparent !important; border: none !important; box-shadow: none; }
