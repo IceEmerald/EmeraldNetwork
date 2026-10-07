@@ -148,7 +148,11 @@
                 type: 'notes',
                 id: String(n.id),
                 title: (n.title || '').trim() || 'Untitled note',
-                updatedAt: toTs(n.updatedAt),
+                /* Notes persist their timestamp as modifiedAt (notes.js
+                   createNewNote / importFromUrl), not updatedAt — reading the
+                   wrong key made every note read as "never edited". Fall back
+                   through createdAt, then updatedAt, for older records. */
+                updatedAt: toTs(n.modifiedAt || n.createdAt || n.updatedAt),
                 detail: countWords(n.content) + ' words'
             }));
     }
@@ -176,13 +180,18 @@
         const arr = Array.isArray(raw) ? raw : [];
         return arr
             .filter(m => m && m.id)
-            .map(m => ({
-                type: 'slides',
-                id: String(m.id),
-                title: (m.title || '').trim() || 'Untitled presentation',
-                updatedAt: toTs(m.updatedAt),
-                detail: 'Presentation'
-            }));
+            .map(m => {
+                /* The Slides index already stores slideCount per presentation
+                   (slides.js:568), so no extra document fetch is needed. */
+                const n = Number(m.slideCount) || 0;
+                return {
+                    type: 'slides',
+                    id: String(m.id),
+                    title: (m.title || '').trim() || 'Untitled presentation',
+                    updatedAt: toTs(m.updatedAt),
+                    detail: n + (n === 1 ? ' slide' : ' slides')
+                };
+            });
     }
 
     /* Sheets use their own IndexedDB (emeraldcore.storage.suite.sheets / workbooks). */
@@ -444,12 +453,12 @@
         return '<div class="mini-wrap" style="' + style + '"><div class="wb-mini">' + cells + '</div></div>';
     }
 
-    function cardHTML(f) {
+    function cardHTML(f, cls) {
         const app = APPS[f.type];
         const typ = {
             notes: 'Note', docs: 'Document', slides: 'Presentation', sheets: 'Spreadsheet'
         }[f.type];
-        return '<article class="file-card" role="listitem" tabindex="0" data-type="' + f.type + '" data-id="' + esc(f.id) + '" style="--c:' + app.color + ';--soft:' + app.soft + ';--border:' + app.border + '">' +
+        return '<article class="' + (cls || 'file-card') + '" role="listitem" tabindex="0" data-type="' + f.type + '" data-id="' + esc(f.id) + '" style="--c:' + app.color + ';--soft:' + app.soft + ';--border:' + app.border + '">' +
             '<div class="card-thumb">' +
                 '<span class="type-flare"></span>' +
                 '<div class="card-actions">' +
@@ -466,9 +475,59 @@
         '</article>';
     }
 
+    /* Row layout for "Your files". Same data-type/data-id hooks as the card so
+       every existing handler (click, keyboard, context menu, card actions)
+       keeps working — only the presentation differs. */
+    function rowHTML(f) {
+        const app = APPS[f.type];
+        const typ = {
+            notes: 'Note', docs: 'Document', slides: 'Presentation', sheets: 'Spreadsheet'
+        }[f.type];
+        return '<article class="file-row" role="listitem" tabindex="0" data-type="' + f.type + '" data-id="' + esc(f.id) + '" style="--c:' + app.color + ';--soft:' + app.soft + ';--border:' + app.border + '">' +
+            '<div class="row-thumb">' +
+                '<div class="card-actions">' +
+                    '<button data-action="open" title="Open in ' + app.name + '">' + SVG.open + '</button>' +
+                    '<button data-action="rename" title="Rename">' + SVG.pen + '</button>' +
+                    '<button data-action="delete" title="Delete">' + SVG.trash + '</button>' +
+                '</div>' +
+                thumbHTML(f) +
+            '</div>' +
+            '<div class="row-main">' +
+                '<div class="row-title" title="' + esc(f.title) + '">' + esc(f.title) + '</div>' +
+                '<div class="row-meta">' + esc(typ) + ' · ' + esc(f.detail) + '</div>' +
+            '</div>' +
+            '<div class="row-time">' + esc(timeAgo(f.updatedAt)) + '</div>' +
+        '</article>';
+    }
+
     function render() {
+        renderRecent();
         renderFilters();
         renderGrid();
+    }
+
+    /* Three most-recently-edited files, shown larger than the main grid.
+       Uses updatedAt (the only recency signal the apps persist) rather than a
+       separate "last opened" field, so it stays in sync with the sort the
+       "Recently edited" dropdown already offers. */
+    function renderRecent() {
+        const grid = $('recentGrid');
+        const empty = $('recentEmpty');
+        if (!grid) return;
+        const recent = state.files.slice()
+            .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+            .slice(0, 3);
+        grid.innerHTML = '';
+        if (empty) empty.hidden = recent.length > 0;
+        recent.forEach(f => grid.appendChild(elFromHTML(cardHTML(f, 'recent-card'))));
+    }
+
+    /* cardHTML returns a single root element; parse it without pulling in a
+       template helper the file doesn't already use. */
+    function elFromHTML(html) {
+        const t = document.createElement('template');
+        t.innerHTML = html.trim();
+        return t.content.firstElementChild;
     }
 
     function renderFilters() {
@@ -490,42 +549,17 @@
             grid.innerHTML = '';
             empty.hidden = false;
             const app = state.filter !== 'all' && state.filters.size === 1 ? APPS[[...state.filters][0]] : null;
-            const img = $('emptyImg');
             const title = $('emptyTitle');
             const text = $('emptyText');
-            const actions = $('emptyActions');
-            if (actions) actions.innerHTML = '';
             if (state.search) {
-                img.src = '/assets/images/favicon.webp';
                 title.textContent = 'No matching files';
                 text.textContent = 'Nothing matched “' + esc(state.search) + '”. Try a different search.';
             } else if (app) {
-                img.src = app.empty;
                 title.textContent = 'No ' + app.urlLabel.toLowerCase() + ' yet';
                 text.textContent = 'Create a new ' + app.label.toLowerCase() + ' and it will appear here automatically.';
-                if (actions) {
-                    const a = document.createElement('a');
-                    a.className = 'btn-empty';
-                    a.href = app.emptyAction;
-                    a.innerHTML = appIcon(app.type) + 'Create a ' + app.label.toLowerCase();
-                    actions.appendChild(a);
-                }
             } else {
-                img.src = '/assets/images/favicon.webp';
                 title.textContent = 'No files yet';
                 text.textContent = 'Create a note, document, presentation or spreadsheet and it will appear here.';
-                if (actions) {
-                    Object.keys(APPS).forEach(key => {
-                        const app = APPS[key];
-                        const a = document.createElement('a');
-                        a.className = 'btn-empty btn-empty-mini';
-                        a.href = app.emptyAction;
-                        a.style.setProperty('--c', app.color);
-                        a.style.setProperty('--soft', app.soft);
-                        a.innerHTML = appIcon(key) + 'Create a ' + app.label.toLowerCase();
-                        actions.appendChild(a);
-                    });
-                }
             }
             return;
         }
@@ -533,11 +567,7 @@
         empty.hidden = true;
         grid.innerHTML = '';
         const frag = document.createDocumentFragment();
-        files.forEach(f => {
-            const div = document.createElement('div');
-            div.innerHTML = cardHTML(f);
-            frag.appendChild(div.firstElementChild);
-        });
+        files.forEach(f => frag.appendChild(elFromHTML(rowHTML(f))));
         grid.appendChild(frag);
     }
 
@@ -635,7 +665,7 @@
         });
 
         document.addEventListener('contextmenu', (e) => {
-            const card = e.target.closest('.file-card');
+            const card = e.target.closest('.file-card, .file-row, .recent-card');
             if (!card) { hideFileMenu(); return; }
             e.preventDefault();
             e.stopPropagation();
@@ -678,29 +708,35 @@
             });
         }
 
-        grid.addEventListener('click', (e) => {
-            const card = e.target.closest('.file-card');
-            if (!card) return;
-            const f = state.files.find(x => x.type === card.dataset.type && x.id === card.dataset.id);
-            if (!f) return;
-            const btn = e.target.closest('[data-action]');
-            if (btn) {
-                const a = btn.dataset.action;
-                if (a === 'open') openFile(f);
-                else if (a === 'rename') openRename(f);
-                else if (a === 'delete') openDelete(f);
-                return;
-            }
-            openFile(f);
-        });
+        /* Both grids (main + recent) share the same card markup, so the handlers are
+           bound to a common selector rather than one container. */
+        const cardGrids = [$('filesGrid'), $('recentGrid')].filter(Boolean);
 
-        grid.addEventListener('keydown', (e) => {
-            if (e.key !== 'Enter' && e.key !== ' ') return;
-            const card = e.target.closest('.file-card');
-            if (!card) return;
-            e.preventDefault();
-            const f = state.files.find(x => x.type === card.dataset.type && x.id === card.dataset.id);
-            if (f) openFile(f);
+        cardGrids.forEach(g => {
+            g.addEventListener('click', (e) => {
+                const card = e.target.closest('.file-card, .file-row, .recent-card');
+                if (!card) return;
+                const f = state.files.find(x => x.type === card.dataset.type && x.id === card.dataset.id);
+                if (!f) return;
+                const btn = e.target.closest('[data-action]');
+                if (btn) {
+                    const a = btn.dataset.action;
+                    if (a === 'open') openFile(f);
+                    else if (a === 'rename') openRename(f);
+                    else if (a === 'delete') openDelete(f);
+                    return;
+                }
+                openFile(f);
+            });
+
+            g.addEventListener('keydown', (e) => {
+                if (e.key !== 'Enter' && e.key !== ' ') return;
+                const card = e.target.closest('.file-card, .file-row, .recent-card');
+                if (!card) return;
+                e.preventDefault();
+                const f = state.files.find(x => x.type === card.dataset.type && x.id === card.dataset.id);
+                if (f) openFile(f);
+            });
         });
 
         $('searchInput').addEventListener('input', (e) => {
@@ -835,14 +871,123 @@
         refresh({});
     }
 
+    /* QA hook — lets the time-of-day theme be checked from the console without
+       touching the machine clock.
+
+         suiteDaypart('morning' | 'afternoon' | 'evening')  → force a theme
+         suiteDaypart()                                       → back to real time
+
+       Re-applies everything setGreeting does (greeting text, [data-daypart],
+       starfield) so a forced theme looks identical to the real one.
+       Pass the quoted string — the bare word would be a ReferenceError. */
+    let forcedDaypart = null;
+    window.suiteDaypart = function (part) {
+        const valid = ['morning', 'afternoon', 'evening'];
+        if (part === undefined || part === null) forcedDaypart = null;
+        else if (valid.indexOf(part) !== -1) forcedDaypart = part;
+        else { console.warn('suiteDaypart: expected one of', valid); return; }
+        applyDaypart();
+        console.log('[suite] daypart =', forcedDaypart || daypartFor(new Date().getHours()), '(forced=' + !!forcedDaypart + ')');
+    };
+
     function setGreeting() {
+        applyDaypart();
+    }
+
+    function applyDaypart() {
+        const part = forcedDaypart || daypartFor(new Date().getHours());
         const el = $('greeting');
-        if (!el) return;
-        const h = new Date().getHours();
-        let g = 'Good evening';
-        if (h < 12) g = 'Good morning';
-        else if (h < 18) g = 'Good afternoon';
-        el.innerHTML = g + ', welcome to <span>EmeraldSuite</span>!';
+        if (el) el.innerHTML = greetingFor(part) + ', welcome to <span>EmeraldSuite</span>!';
+        const app = document.querySelector('.suite-app');
+        if (app) app.dataset.daypart = part;
+        buildSky(part);
+    }
+
+    /* Decorative sky layer for the time-of-day themes.
+
+       evening — a scatter of stars, each twinkling on its own period, plus one
+       shooting star on a long loop.
+       morning — godray shafts fanning from the sun in the top-right toward the
+       centre, each a soft white bar with its own shimmer period.
+
+       Both are built as nodes rather than extra gradient layers because every
+       element animates on its own clock, which one background cannot do. */
+    function buildSky(part) {
+        const sky = $('skyLayer');
+        if (!sky) return;
+        sky.innerHTML = '';
+        if (part === 'morning') { buildGodRays(sky); return; }
+        if (part !== 'evening') return;
+
+        const frag = document.createDocumentFragment();
+        for (let i = 0; i < 26; i++) {
+            const star = document.createElement('i');
+            star.className = 'su-star';
+            const size = 1 + Math.round(Math.random() * 2);
+            if (size >= 3) star.classList.add('big');
+            star.style.width = size + 'px';
+            star.style.height = size + 'px';
+            /* keep stars in the upper sky so they never sit under the file list */
+            star.style.left = (Math.random() * 98).toFixed(2) + '%';
+            star.style.top = (Math.random() * 62).toFixed(2) + '%';
+            star.style.setProperty('--dur', (2.6 + Math.random() * 3.4).toFixed(2) + 's');
+            star.style.setProperty('--delay', (Math.random() * 4).toFixed(2) + 's');
+            frag.appendChild(star);
+        }
+        const shoot = document.createElement('i');
+        shoot.className = 'su-shooting';
+        shoot.style.animationDelay = (3 + Math.random() * 6).toFixed(2) + 's';
+        frag.appendChild(shoot);
+        sky.appendChild(frag);
+    }
+
+    /* Godrays: shafts anchored at the sun (top-right) and rotated to fan down
+       toward the centre. Angles run from just off vertical out to ~72deg, and
+       are placed with a jittered gap rather than an even split — real shafts
+       through cloud are uneven, and even spacing reads as a fan-blade pattern.
+       Width, opacity, blur and shimmer period are all varied per shaft so they
+       never pulse in unison. */
+    function buildGodRays(sky) {
+        const COUNT = 9;
+        const holder = document.createElement('div');
+        holder.className = 'su-rays';
+
+        let angle = 4;
+        for (let i = 0; i < COUNT; i++) {
+            const ray = document.createElement('i');
+            ray.className = 'su-ray';
+
+            const gap = 5 + Math.random() * 9;          /* uneven spacing */
+            angle += i === 0 ? gap : gap;
+            ray.style.transform = 'rotate(' + angle.toFixed(1) + 'deg)';
+
+            /* narrow, wide, narrow — gives the fan depth instead of a comb */
+            const edge = 1 - Math.abs(i / (COUNT - 1) - 0.5) * 1.5;
+            ray.style.setProperty('--w', (40 + Math.random() * 64 * Math.max(.45, edge)).toFixed(0) + 'px');
+            /* Heavy blur so each shaft diffuses into the air around it rather
+               than reading as a hard bar. The range is wide on purpose: a
+               consistent small blur makes nine shafts look like stripes,
+               whereas varied heavy blur layers them into one soft glow. */
+            ray.style.setProperty('--blur', (12 + Math.random() * 18).toFixed(1) + 'px');
+            ray.style.setProperty('--dur', (7 + Math.random() * 7).toFixed(2) + 's');
+            ray.style.setProperty('--delay', (Math.random() * 6).toFixed(2) + 's');
+            holder.appendChild(ray);
+        }
+        sky.appendChild(holder);
+    }
+
+    /* Single source of truth for the hour → part mapping, so the greeting text
+       and the [data-daypart] background theme can never disagree. */
+    function daypartFor(h) {
+        if (h < 12) return 'morning';
+        if (h < 18) return 'afternoon';
+        return 'evening';
+    }
+
+    function greetingFor(part) {
+        if (part === 'morning') return 'Good morning';
+        if (part === 'afternoon') return 'Good afternoon';
+        return 'Good evening';
     }
 
     document.addEventListener('DOMContentLoaded', init);

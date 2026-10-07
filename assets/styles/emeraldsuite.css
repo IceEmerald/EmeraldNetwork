@@ -983,57 +983,6 @@ body {
     font-size: 14px;
 }
 
-.empty-actions {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 10px;
-    max-width: 560px;
-}
-
-.btn-empty {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--ui-accent);
-    color: #fff;
-    padding: 11px 22px;
-    border-radius: 12px;
-    font-weight: 700;
-    font-size: 14px;
-    text-decoration: none;
-    font-family: 'DM Sans', sans-serif;
-    box-shadow: 0 6px 16px rgba(35, 154, 77, 0.3);
-    transition: all 0.2s ease;
-}
-
-.btn-empty:hover {
-    background: var(--ui-accent-hover);
-    transform: translateY(-2px);
-    box-shadow: 0 10px 22px rgba(35, 154, 77, 0.35);
-    color: #fff;
-}
-
-.btn-empty-mini {
-    background: rgba(255, 255, 255, 0.96);
-    color: #1c2833;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    gap: 9px;
-}
-
-.btn-empty-mini svg {
-    color: var(--c, var(--ui-accent));
-    flex-shrink: 0;
-}
-
-.btn-empty-mini:hover {
-    background: rgba(255, 255, 255, 1);
-    border-color: var(--c, var(--ui-accent));
-    color: #1c2833;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-}
-
 /* ---------------- File context menu ---------------- */
 .file-menu {
     position: fixed;
@@ -1370,12 +1319,29 @@ body {
   height: 62px; padding: 0 24px 0 20px;
   background: #faf9f8;
 }
+/* Shadow cast by the main canvas onto the chrome. Both pieces share one light
+   direction: the canvas sits right of the rail and below the bar, so the shadow
+   reaches full strength away from their shared top-left corner and is fully
+   absent at the corner itself. The mask therefore starts at 0 opacity on the
+   corner side and plateaus at full past the fade — no residual tint in the
+   corner, so the bar and rail can't read as two stacked layers. */
+.su-top::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 9px;
+  pointer-events: none;
+  background: linear-gradient(to top, rgba(15, 22, 17, .045), rgba(15, 22, 17, 0));
+  /* transparent at x=0 (the corner); the fade is compressed into a narrow band
+     so the shadow arrives quickly instead of smearing across half the bar.
+     The band sits to the right of the rail column so nothing lands on the
+     left edge of the screen. */
+  -webkit-mask-image: linear-gradient(to right, transparent 0, transparent 60px, rgba(0, 0, 0, .35) 78px, #000 96px);
+          mask-image: linear-gradient(to right, transparent 0, transparent 60px, rgba(0, 0, 0, .35) 78px, #000 96px);
+}
 .su-top .logo { display: flex; align-items: center; gap: 9px; margin-top: 3px; text-decoration: none; color: inherit; flex: none; }
 .su-search {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
   width: min(560px, 46vw); max-width: 560px;
   display: flex; align-items: center; gap: 8px;
-  background: #ffffff; border-radius: 8px; box-shadow: 0 4px 6px -1px rgb(221 221 221 / 10%);
+  background: #ffffff; border-radius: 8px; box-shadow: 0 4px 6px -1px rgb(221 221 221 / 50%); border: 1px solid #d3d3d3;
   padding: 7px 12px; color: #605e5c;
 }
 .su-search:focus-within { background: #fff; border-color: var(--ui-accent-border); box-shadow: 0 0 0 3px var(--ui-accent-soft); }
@@ -1398,6 +1364,20 @@ body {
   width: 68px; flex: none; background: #faf9f8;
   display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0;
 }
+/* Right-edge shadow cast by the main canvas onto the rail. Drawn as a gradient
+   layer rather than an inset box-shadow for the same reason as .su-top::after:
+   box-shadow has a hard rectangular end, which showed as a cut. Mask mirrors
+   the bar's — absent at the top (their shared corner), easing in downward,
+   full past the fade. */
+.su-rail::after {
+  content: ""; position: absolute; top: 0; bottom: 0; right: 0; width: 9px;
+  pointer-events: none;
+  background: linear-gradient(to left, rgba(15, 22, 17, .035), rgba(15, 22, 17, 0));
+  /* transparent at y=0 (the corner); fade compressed to a narrow band, mirroring
+     the bar's 11% so both arrive at full strength at the same visual rate */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, transparent 6px, rgba(0, 0, 0, .35) 14px, #000 22px);
+          mask-image: linear-gradient(to bottom, transparent 0, transparent 6px, rgba(0, 0, 0, .35) 14px, #000 22px);
+}
 .rail-item {
   display: flex; align-items: center; justify-content: center;
   width: 48px; padding: 10px 0; border-radius: 8px; text-decoration: none;
@@ -1407,9 +1387,9 @@ body {
 .rail-item:hover { background: #f3f2f1; color: #201f1e; }
 .rail-item.active { color: var(--ui-accent); }
 
-.suite-main { flex: 1; min-width: 0; padding: 28px 32px 56px; max-width: 1240px; margin: 0 auto; width: 100%; }
+.suite-main { flex: 1; min-width: 0; padding: 28px 32px 56px; max-width: 1460px; margin: 0 auto; width: 100%; }
 .suite-hero { padding: 7rem 0 18px; }
-.suite-greeting { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; color: #201f1e; margin: 0 0 4px; }
+.suite-greeting { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; color: #201f1e; margin: 0 0 4px; }
 .suite-subtitle { font-size: 13px; color: #8a8886; margin: 0; }
 
 /* App create cards — like MS365 Create row */
@@ -1528,8 +1508,9 @@ body {
 .storage-pop.closing { animation: suPopOut .14s ease-in forwards; }
 @keyframes suPopOut { to { opacity: 0; transform: translateY(-6px); } }
 
-/* Active rail item: left green pill */
-.rail-item { position: relative; }
+/* Active rail item: left green pill. z-index keeps the item (and its pill)
+   above .su-rail::after, which is a positioned overlay on the rail. */
+.rail-item { position: relative; z-index: 1; }
 .rail-item.active::before {
   content: ""; position: absolute; left: -4px; top: 10px; bottom: 10px;
   width: 4px; border-radius: 4px; background: var(--ui-accent);
@@ -1558,21 +1539,285 @@ body {
 /* Search icon matches placeholder color */
 .su-search svg { color: #8a8886; }
 
-/* Animated soft background graphic on the main window, fading to white */
-.su-shell { position: relative; }
-.su-shell::before {
-  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
-  background:
-    radial-gradient(560px 380px at 12% 0%, rgba(35, 154, 77, .16), transparent 62%),
-    radial-gradient(720px 520px at 88% 6%, rgba(8, 145, 178, .12), transparent 62%),
-    radial-gradient(820px 560px at 50% -12%, rgba(249, 115, 22, .10), transparent 62%);
-  -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 78%);
-          mask-image: linear-gradient(to bottom, black 0%, transparent 78%);
+/* ---------------------------------------------------------------------------
+   Time-of-day background
+
+   Two stacked layers so each can move on its own clock:
+     ::before — the colour wash (slow drift/scale)
+     ::after  — the detail (rotating sunburst / drifting clouds / twinkling stars)
+
+   Both cover roughly the top half of the viewport and fade into the white page.
+   The variant comes from [data-daypart] on .suite-app, set by the same
+   daypartFor() call that picks the greeting, so text and art always agree.
+   --------------------------------------------------------------------------- */
+.su-shell { position: relative; overflow: hidden; }
+.su-shell::before,
+.su-shell::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 62vh;
+  pointer-events: none; z-index: 0;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,.55) 46%, transparent 92%);
+          mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,.55) 46%, transparent 92%);
+  will-change: transform;
 }
+
+/* ---- base wash: afternoon, open white-and-blue sky ----
+   Deliberately STATIC. An earlier version drifted/scaled this layer, which read
+   as the whole page sliding around — all motion now lives in discrete local
+   features (rays, clouds, stars) instead of on the wash.
+
+   The blue is carried well past the old ~.30 wash: the cloud puffs sit on this
+   layer at up to .97 white, so a faint sky left them invisible. A deeper, more
+   saturated gradient (and a stronger hold through the middle of the viewport)
+   gives the white clouds something to read against. It still fades to the white
+   page well above the file list. */
+.su-shell::before {
+  background:
+    radial-gradient(1100px 760px at 8% -6%, rgba(35, 154, 77, .30), transparent 66%),
+    radial-gradient(1200px 820px at 94% 4%, rgba(8, 145, 178, .34), transparent 68%),
+    radial-gradient(1400px 900px at 50% -20%, rgba(249, 115, 22, .16), transparent 68%),
+    /* deeper sky at the top, holding well down the viewport before clearing */
+    linear-gradient(to bottom,
+      rgba(126, 183, 235, .62) 0%,
+      rgba(160, 206, 245, .52) 34%,
+      rgba(198, 226, 250, .34) 66%,
+      transparent 92%);
+}
+
+/* ---- detail layer: afternoon clouds ----
+   Each cloud is stacked from many overlapping ellipses: a wide flat base, a
+   row of puffs along the top, and a couple of taller towers. The puffs are
+   deliberately uneven in size and spacing — evenly-sized bumps read as a
+   mechanical pattern, whereas a lopsided pile reads as a cloud.
+   Radial falloff ends at ~52% to hold a defined edge, and each cloud carries
+   a wide thin blue-grey ellipse underneath for the shadow line. */
+.su-shell::after {
+  background:
+    /* ── cloud 1 — upper left, the largest ── */
+    radial-gradient(300px 92px at 14% 12%, rgba(255,255,255,.97), transparent 52%),
+    radial-gradient(232px 108px at 6% 11%, rgba(255,255,255,.95), transparent 52%),
+    radial-gradient(196px 84px at 19% 10%, rgba(255,255,255,.94), transparent 52%),
+    radial-gradient(158px 116px at 12% 8%, rgba(255,255,255,.93), transparent 52%),
+    radial-gradient(120px 78px at 25% 12%, rgba(255,255,255,.88), transparent 54%),
+    radial-gradient(104px 66px at 33% 14%, rgba(255,255,255,.78), transparent 56%),
+    radial-gradient(126px 44px at 28% 17%, rgba(255,255,255,.62), transparent 58%),
+    radial-gradient(330px 34px at 16% 19%, rgba(150, 182, 220, .52), transparent 66%),
+    radial-gradient(250px 22px at 10% 20%, rgba(150, 182, 220, .34), transparent 68%),
+
+    /* ── cloud 2 — mid right, second largest ── */
+    radial-gradient(268px 84px at 63% 24%, rgba(255,255,255,.93), transparent 52%),
+    radial-gradient(204px 102px at 54% 23%, rgba(255,255,255,.91), transparent 52%),
+    radial-gradient(170px 76px at 70% 22%, rgba(255,255,255,.89), transparent 52%),
+    radial-gradient(140px 108px at 60% 19%, rgba(255,255,255,.88), transparent 52%),
+    radial-gradient(112px 72px at 74% 25%, rgba(255,255,255,.82), transparent 54%),
+    radial-gradient(98px 60px at 79% 27%, rgba(255,255,255,.70), transparent 56%),
+    radial-gradient(290px 30px at 64% 29%, rgba(150, 182, 220, .46), transparent 66%),
+
+    /* ── cloud 3 — far right, medium ── */
+    radial-gradient(208px 76px at 89% 9%, rgba(255,255,255,.90), transparent 52%),
+    radial-gradient(164px 96px at 81% 8%, rgba(255,255,255,.88), transparent 52%),
+    radial-gradient(132px 66px at 95% 10%, rgba(255,255,255,.80), transparent 54%),
+    radial-gradient(104px 84px at 86% 6%, rgba(255,255,255,.84), transparent 52%),
+    radial-gradient(226px 26px at 88% 14%, rgba(150, 182, 220, .42), transparent 66%),
+
+    /* ── cloud 4 — low left, under the greeting, faint ── */
+    radial-gradient(186px 58px at 36% 39%, rgba(255,255,255,.64), transparent 54%),
+    radial-gradient(148px 70px at 28% 38%, rgba(255,255,255,.60), transparent 54%),
+    radial-gradient(114px 52px at 44% 40%, rgba(255,255,255,.52), transparent 56%),
+
+    /* ── cloud 5 — small high wisp, top centre ── */
+    radial-gradient(122px 40px at 47% 4%, rgba(255,255,255,.70), transparent 54%),
+    radial-gradient(96px 52px at 42% 3%, rgba(255,255,255,.66), transparent 54%);
+  animation: suCloudBreathe 15s ease-in-out infinite alternate;
+}
+
+/* ---- morning: warm dawn wash + pure-white godrays ---- */
+[data-daypart="morning"] .su-shell::before {
+  background:
+    radial-gradient(760px 620px at 90% -4%, rgba(253, 224, 71, .48), transparent 64%),
+    radial-gradient(1500px 700px at 50% -24%, rgba(253, 230, 138, .34), transparent 70%),
+    radial-gradient(900px 520px at 6% 2%, rgba(251, 191, 36, .18), transparent 66%),
+    linear-gradient(to bottom, rgba(255, 236, 179, .40), transparent 58%);
+}
+/* This layer now carries only the sun disc and its bloom — the shafts
+   themselves are .su-ray nodes, because a conic gradient draws wedges that
+   fan outward from the centre, whereas godrays are near-parallel shafts of
+   even width that only splay slightly as they travel. */
+/* Sun disc + bloom, positioned to line up with the .su-rays anchor at 92% so
+   the shafts appear to leave the light source. */
+/* Sun disc + bloom, positioned to line up with the .su-rays anchor at 92% so
+   the shafts appear to leave the light source. Also pure white, so the source
+   and the beams read as one light rather than a warm core with white shafts. */
+[data-daypart="morning"] .su-shell::after {
+  background:
+    radial-gradient(160px 160px at 92% -8%, #fff, transparent 70%),
+    radial-gradient(540px 480px at 90% -6%, rgba(255, 255, 255, .60), transparent 68%),
+    radial-gradient(760px 300px at 68% 20%, rgba(255, 252, 240, .34), transparent 74%);
+  opacity: .95;
+}
+
+/* Godray shafts: each is a soft white bar anchored at the sun and rotated to
+   fan toward the centre. Pure white (no tint) at near-full strength, tapered by
+   the gradient and diffused by a heavy blur, shimmered out of sync so they read
+   as light moving through cloud. */
+.su-rays { position: absolute; left: 92%; top: -8%; width: 0; height: 0; }
+.su-ray {
+  position: absolute; left: 0; top: 0; width: var(--w, 90px); height: 240vh;
+  transform-origin: 0 0; border-radius: 999px;
+  /* Pure white held near-opaque for most of the run, then cut to nothing late
+     so the blur has room to dissolve the tail. The heavy blur is what spreads
+     each shaft into the air; without it they read as flat stripes. */
+  background: linear-gradient(to bottom,
+    #fff 0%,
+    rgba(255, 255, 255, .98) 50%,
+    rgba(255, 255, 255, .68) 74%,
+    rgba(255, 255, 255, 0) 96%);
+  filter: blur(var(--blur, 18px));
+  animation: suRayShimmer var(--dur, 9s) ease-in-out var(--delay, 0s) infinite alternate;
+}
+
+/* ---- evening: midnight sky (static wash) ----
+   The stars are separate DOM nodes (.su-sky) rather than another gradient
+   layer: each star needs its own twinkle period, and a single background can
+   only animate as one unit. */
+[data-daypart="evening"] .su-shell::before {
+  background:
+    radial-gradient(1150px 720px at 0% -10%, rgba(23, 32, 74, .42), transparent 68%),
+    radial-gradient(1250px 780px at 100% -8%, rgba(49, 33, 92, .38), transparent 68%),
+    radial-gradient(1700px 620px at 50% -26%, rgba(15, 23, 42, .28), transparent 72%),
+    linear-gradient(to bottom, rgba(30, 41, 82, .34), transparent 60%);
+}
+[data-daypart="evening"] .su-shell::after { background: none; }
+
+/* ---- black hole, evening only ---- */
+.su-blackhole { display: none; }
+[data-daypart="evening"] .su-blackhole {
+  display: block;
+  position: absolute;
+  left: 76%; top: 14%;
+  width: 190px; height: 190px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 0;
+  /* whole-object blur so it reads as something distant on the celestial sphere
+     rather than an on-screen UI ornament; blur lives on the parent so the disc,
+     glow and photon ring all soften together */
+  filter: blur(7px);
+  opacity: .75;
+}
+/* outer glow warming the sky behind it */
+.su-blackhole .bh-glow {
+  position: absolute; inset: -160%;
+  background: radial-gradient(circle,
+    rgba(255, 150, 60, .20) 0%,
+    rgba(255, 90, 30, .09) 38%,
+    transparent 66%);
+}
+/* the accretion disk seen almost edge-on: a wide flat ring. The ring gradient
+   leaves the centre transparent so the black shadow sits inside it. Hot side
+   is biased with a warm overlay — relativistic beaming as seen in film. */
+.su-blackhole .bh-disk {
+  position: absolute; left: 50%; top: 50%;
+  width: 250%; height: 52%;
+  transform: translate(-50%, -50%) rotate(-13deg);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 50%,
+    transparent 0%, transparent 32%,
+    rgba(255, 232, 180, .95) 39%,
+    rgba(255, 170, 90, .85) 50%,
+    rgba(210, 90, 25, .42) 58%,
+    transparent 70%);
+  /* the approaching side is brighter */
+  box-shadow: inset 60px 0 80px -40px rgba(255, 240, 200, .7);
+}
+/* dark core sits inside the ring's hole */
+.su-blackhole .bh-shadow {
+  position: absolute; left: 50%; top: 50%;
+  width: 34%; height: 34%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #000;
+  /* softer, more contained halo so the core lost lost lostreads as a clean disc
+     rather than a hard black blob stamped over the disk */
+  filter: blur(1.2px);
+  box-shadow: 0 0 14px 5px rgba(0, 0, 0, .78);
+}
+/* the photon ring hugging the shadow */
+.su-blackhole .bh-ring {
+  position: absolute; left: 50%; top: 50%;
+  width: 38%; height: 38%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 214, 150, .95);
+  filter: blur(.5px);
+  box-shadow: 0 0 8px rgba(255, 180, 100, .5);
+}
+
+/* ---- starfield + shooting star (built by JS into #skyLayer) ---- */
+.su-sky {
+  display: none;
+  position: absolute; left: 0; right: 0; top: 0; height: 62vh;
+  pointer-events: none; z-index: 0; overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,.6) 50%, transparent 94%);
+          mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,.6) 50%, transparent 94%);
+}
+[data-daypart="evening"] .su-sky { display: block; }
+/* Morning uses the same layer for its godrays (stars/shooting star aren't built). */
+[data-daypart="morning"] .su-sky { display: block; }
+.su-star {
+  position: absolute; border-radius: 50%; background: #fff;
+  animation: suTwinkle var(--dur, 4s) ease-in-out var(--delay, 0s) infinite alternate;
+}
+.su-star.big { box-shadow: 0 0 6px 1px rgba(255, 255, 255, .5); }
+.su-shooting {
+  position: absolute; top: 4%; right: -6%; height: 2px; width: 150px;
+  border-radius: 2px; opacity: 0;
+  background: linear-gradient(to left, rgba(255, 255, 255, 0), rgba(255, 255, 255, .95));
+  transform: rotate(26deg); transform-origin: 100% 50%;
+  animation: suShoot 13s cubic-bezier(.35, 0, .6, 1) infinite;
+}
+
+/* Dark wash sits under the greeting, so a light halo keeps the dark text
+   legible without changing its colour. */
+[data-daypart="evening"] .suite-greeting { text-shadow: 0 1px 12px rgba(255, 255, 255, .85); }
+
 .suite-main > * { position: relative; z-index: 1; }
-@keyframes suBgDrift {
-  from { transform: translate3d(-1.5%, -1%, 0) scale(1); }
-  to   { transform: translate3d(1.5%, 1.5%, 0) scale(1.07); }
+
+/* ---- motion: local features only ---- */
+/* Clouds swell and soften out of phase. The floor stays high so they never
+   dissolve — these are meant to read as clouds, not as haze. */
+@keyframes suCloudBreathe {
+  from { opacity: .88; }
+  to   { opacity: 1; }
+}
+/* One shaft breathing on its own period; --dur/--delay set per ray in JS.
+   The floor stays high so the rays never fully dim out of view. */
+@keyframes suRayShimmer {
+  from { opacity: .82; }
+  to   { opacity: 1; }
+}
+/* One star's own cycle; --delay and --dur are set per element in JS */
+@keyframes suTwinkle {
+  from { opacity: .15; transform: scale(.75); }
+  to   { opacity: 1;   transform: scale(1.2); }
+}
+/* Sits off-stage for most of each cycle, then streaks once */
+@keyframes suShoot {
+  0%, 58%   { opacity: 0; transform: rotate(26deg) translate3d(0, 0, 0); }
+  62%       { opacity: 1; }
+  76%, 100% { opacity: 0; transform: rotate(26deg) translate3d(-680px, 380px, 0); }
+}
+
+/* Motion is decorative here — freeze everything when the user asks for it. */
+@media (prefers-reduced-motion: reduce) {
+  .su-shell::before,
+  .su-shell::after,
+  .su-star,
+  .su-shooting,
+  [data-daypart="morning"] .su-shell::before,
+  [data-daypart="morning"] .su-shell::after {
+    animation: none;
+  }
+  .su-shooting { display: none; }
 }
 
 /* Quick access polish: cleaner toolbar + cards */
@@ -1582,6 +1827,48 @@ body {
 .filter-btn.active { box-shadow: none; }
 .files-grid { gap: 14px; }
 .file-card { border-color: #ececec; }
+
+/* Your files — list rows. Same hooks as .file-card, laid out horizontally:
+   preview, title + meta, edited time. */
+.files-grid { display: block; }
+.file-row {
+  display: flex; align-items: center; gap: 14px;
+  background: #fff; border: 1px solid #ececec; border-radius: 10px;
+  padding: 10px 14px; margin-bottom: 8px; cursor: pointer;
+  transition: box-shadow .15s, border-color .15s, background .15s;
+}
+.file-row:last-child { margin-bottom: 0; }
+.file-row:hover { box-shadow: 0 2px 10px rgba(0,0,0,.06); border-color: #dcdcdc; }
+.file-row:focus-visible { outline: 2px solid var(--ui-accent-border); outline-offset: 1px; }
+.row-thumb {
+  position: relative; flex: none; width: 84px; height: 56px;
+  border-radius: 8px; background: var(--soft, #f3f2f1); overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+/* The mini previews are authored at card size (118x82 note, 132x78 slide,
+   76x96 doc). Scale the whole preview down to fit the 84x56 row thumbnail
+   rather than restyling each variant twice. */
+.row-thumb .mini-wrap { transform: scale(.46); transform-origin: center; padding: 0; }
+.row-main { flex: 1; min-width: 0; }
+.row-title { font-size: 14px; font-weight: 600; color: #201f1e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row-meta { font-size: 12px; color: #8a8886; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row-time { flex: none; font-size: 12px; color: #8a8886; }
+@media (max-width: 640px) { .row-time { display: none; } }
+
+/* Recent files — same markup as .file-card, sized up so the three most recent
+   read as the hero row above the full "Your files" grid. */
+.recent-wrap { margin-bottom: 26px; }
+.recent-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.recent-card { background: #fff; border: 1px solid #ececec; border-radius: 14px; overflow: hidden; cursor: pointer; transition: box-shadow .15s, border-color .15s, transform .15s; }
+.recent-card:hover { box-shadow: 0 8px 28px rgba(0,0,0,.09); border-color: #d8d8d8; transform: translateY(-2px); }
+.recent-card .card-thumb { height: 168px; }
+.recent-card .card-thumb img, .recent-card .card-thumb svg { width: 68px; height: 68px; opacity: .92; }
+.recent-card .card-body { padding: 14px 16px 16px; }
+.recent-card .card-title { font-size: 16px; margin-bottom: 2px; }
+.recent-card .card-meta { font-size: 12px; }
+.recent-empty { font-size: 13px; color: #8a8886; padding: 26px 0; text-align: center; }
+.recent-empty[hidden] { display: none; }
+@media (max-width: 900px) { .recent-grid { grid-template-columns: 1fr; } }
 .card-thumb { height: 118px; }
 .card-body { padding: 12px 14px 14px; }
 .card-title { font-size: 14px; }
@@ -1626,3 +1913,21 @@ body {
 }
 .sort-dd-item:hover { background: #f3f2f1; color: #201f1e; }
 .sort-dd-item.active { color: var(--ui-accent); font-weight: 600; background: var(--ui-accent-soft); }
+/* filter pills: youthful pill-style buttons */
+.filter-bar.filter-pills .filter-btn {
+  padding: 7px 15px;
+  border-radius: 9999px;
+  font-weight: 600;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #4a5568;
+  transition: background .2s, color .2s, box-shadow .2s;
+  margin: 0 6px 0 0;
+}
+.filter-bar.filter-pills .filter-btn:hover { background: #edf2f7; color: #2d3748; }
+.filter-bar.filter-pills .filter-btn.active {
+  background: var(--ui-accent);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 2px 8px rgba(33,115,70,.25);
+}
