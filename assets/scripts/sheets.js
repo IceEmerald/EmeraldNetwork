@@ -87,6 +87,7 @@ function cmpNum(a, b) { return a < b ? -1 : a > b ? 1 : 0; }
  * depends on network icon availability. */
 const COMMENT_ICON_PATH = 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z';
 const ICONS = {
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',
   cut: '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/>',
   copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>',
   paste: '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>',
@@ -118,6 +119,8 @@ const ICONS = {
   sort: '<path d="M8 5v14M4 9l4-4 4 4M16 19V5M12 15l4 4 4-4"/>',
   filter: '<path d="M3 5h18l-7 8v5.5L10 21v-8z"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.7-4.7"/>',
+  replace: '<path d="M4 7h13l-4-4M20 17H7l4 4"/>',
+  arrowRight: '<path d="M4 12h14M13 6l6 6-6 6"/>',
   chartCol: '<path d="M4 3v16.5H20"/><rect x="7" y="13" width="3.5" height="6" rx="1"/><rect x="12" y="9" width="3.5" height="10" rx="1"/><rect x="17" y="5" width="3.5" height="14" rx="1"/>',
   chartBar: '<path d="M4 3v17h17"/><rect x="6" y="5.5" width="12" height="3.5" rx="1"/><rect x="6" y="10.5" width="8" height="3.5" rx="1"/><rect x="6" y="15.5" width="10.5" height="3.5" rx="1"/>',
   chartLine: '<path d="M4 3v17h17"/><path d="m7 16 3.5-4.5 3 2.5L18 8"/><circle cx="7" cy="16" r="1.3"/><circle cx="18" cy="8" r="1.3"/>',
@@ -125,7 +128,6 @@ const ICONS = {
   chartScatter: '<path d="M4 3v17h17"/><circle cx="8" cy="15" r="1.5"/><circle cx="11.5" cy="10.5" r="1.5"/><circle cx="15.5" cy="13.5" r="1.5"/><circle cx="18.5" cy="6.5" r="1.5"/>',
   chartPlus: '<path d="M4 3v17h16"/><path d="m7 15.5 3.5-4.5 3 2.5 3-3.5"/><path d="M20.5 2v5M18 4.5h5"/>',
   crosshair: '<circle cx="12" cy="12" r="7"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>',
-  freeze: '<rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M3.5 9.5h17M9.5 4.5v15"/><path d="M3.5 9.5h6v10h-6z" fill="currentColor" stroke="none" opacity=".22"/>',
   rowInsert: '<path d="M3 5h18M3 19h18"/><rect x="3" y="9" width="18" height="6" rx="1" fill="currentColor" stroke="none" opacity=".25"/><path d="M12 8.5v7M8.5 12h7"/>',
   rowDelete: '<path d="M3 5h18M3 19h18"/><rect x="3" y="9" width="18" height="6" rx="1" fill="currentColor" stroke="none" opacity=".25"/><path d="m9 9.5 6 5M15 9.5l-6 5"/>',
   colInsert: '<path d="M5 3v18M19 3v18"/><rect x="9" y="3" width="6" height="18" rx="1" fill="currentColor" stroke="none" opacity=".25"/><path d="M8.5 12h7M12 8.5v7"/>',
@@ -135,11 +137,16 @@ const ICONS = {
   redo: '<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>',
   save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/>',
   print: '<path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
-  zoomIn: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.7-4.7M8 11h6M11 8v6"/>',
-  zoomOut: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.7-4.7M8 11h6"/>',
+  zoomIn: '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/>',
+  zoomOut: '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/>',
+  zoom100: '<circle cx="12" cy="12" r="9"/><path d="M9 11h6M9 14h6"/>',
+  fitWindow: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
   borders: '<rect x="4" y="4" width="16" height="16" rx="1"/><path d="M12 4v16M4 12h16" stroke-dasharray="2 2"/>',
   grid: '<rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 9.3h18M3 14.6h18M9 4v16M15 4v16"/>',
   fx: '<path d="M13.9 5.3c-.9-.9-2.4-.8-3.1.3-.3.5-.5 1.1-.5 1.7v10.2M8.3 9.9h5.8"/><path d="m14.9 11.2 5.3 6.2M20.2 11.2l-5.3 6.2"/>',
+  lineHead: '<path d="M4 5h16M4 10h16M4 15h11M4 20h8"/>',
+  headerCells: '<rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 9h18"/>',
+  fxBar: '<rect x="3" y="4" width="18" height="16" rx="2"/><line x1="7" y1="12" x2="17" y2="12"/>',
   sigma: '<path d="M17 5H7l6.5 7L7 19h10"/>',
   table: '<rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 9h18M9 4v16"/>',
   dedupe: '<rect x="3" y="3" width="12" height="12" rx="1.5"/><rect x="9" y="9" width="12" height="12" rx="1.5"/><path d="m12.5 12.5 5 5M17.5 12.5l-5 5"/>',
@@ -186,7 +193,6 @@ const ICONS = {
   datamodel: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"/>',
   auditPrec: '<rect x="3" y="9" width="7" height="6" rx="1"/><rect x="15" y="9" width="7" height="6" rx="1"/><path d="M10 12h5"/><path d="m13 9.5 2.5 2.5-2.5 2.5"/>',
   auditDep: '<rect x="2" y="9" width="7" height="6" rx="1"/><rect x="14" y="9" width="7" height="6" rx="1"/><path d="M9 12h5"/><path d="m12 9.5 2.5 2.5-2.5 2.5"/>',
-  auditOff: '<rect x="3" y="9" width="7" height="6" rx="1"/><rect x="15" y="9" width="7" height="6" rx="1"/><path d="M11 10.5h3" stroke-dasharray="2 2"/><path d="M3 3l18 18" stroke-width="1.4"/>',
   comment: '<path d="' + COMMENT_ICON_PATH + '"/>',
   commentRibbon: '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>',
   reply: '<path d="M9 14 4 9l5-5"/><path d="M4 9h9a7 7 0 0 1 7 7v4"/>',
@@ -2119,8 +2125,7 @@ function makeSheet(name, id) {
     merges: [],
     mergeMap: new Map(),
     freeze: { r: 0, c: 0 },
-    charts: [], dv: [],
-    filter: null, filterHidden: new Set(),
+    charts: [],
     showGridlines: true,
     usedMax: { r: 0, c: 0 }
   };
@@ -2174,7 +2179,6 @@ function usedRange(sh) {
   let mr = 0, mc = 0;
   for (const [k, cell] of sh.cells) { const [rs, cs] = k.split(','); const r = +rs, c = +cs; if (cell.v != null || cell.f || cell.s) { if (r > mr) mr = r; if (c > mc) mc = c; } }
   for (const m of sh.merges) { if (m.r2 > mr) mr = m.r2; if (m.c2 > mc) mc = m.c2; }
-  if (sh.filter) { mr = Math.max(mr, sh.filter.range.r2); mc = Math.max(mc, sh.filter.range.c2); }
   for (const ch of sh.charts) { mr = Math.max(mr, Math.floor((ch.y + ch.h) / DEF.rowH)); mc = Math.max(mc, Math.floor((ch.x + ch.w) / DEF.colW)); }
   return { r1: 0, c1: 0, r2: Math.min(mr, MAX_ROWS - 1), c2: Math.min(mc, MAX_COLS - 1) };
 }
@@ -2299,9 +2303,8 @@ function snapshotSheet(sh) {
   return {
     cells, rows, cols,
     merges: deepClone(sh.merges),
-    freeze: Object.assign({}, sh.freeze),
-    charts: deepClone(sh.charts), dv: deepClone(sh.dv),
-    filter: deepClone(sh.filter), showGridlines: sh.showGridlines,
+    charts: deepClone(sh.charts),
+    showGridlines: sh.showGridlines,
     usedMax: Object.assign({}, sh.usedMax), name: sh.name, tabColor: sh.tabColor,
     notes: sh.notes ? new Map([...sh.notes].map(([k, stored]) => [k, deepClone(noteThreadsFromValue(stored))])) : new Map()
   };
@@ -2324,15 +2327,13 @@ function restoreSheet(sh, snap) {
   const um = snap.usedMax || { r: 0, c: 0 };
   growExtent(sh, um.r + 1, um.c + 1);
   sh.merges = deepClone(snap.merges); rebuildMergeMap(sh);
-  sh.freeze = Object.assign({}, snap.freeze);
-  sh.charts = deepClone(snap.charts); sh.dv = deepClone(snap.dv);
-  sh.filter = deepClone(snap.filter); sh.filterHidden = new Set();
+  sh.freeze = { r: 0, c: 0 };
+  sh.charts = deepClone(snap.charts);
   sh.showGridlines = snap.showGridlines;
   sh.usedMax = Object.assign({}, snap.usedMax);
   sh.notes = snap.notes ? new Map([...snap.notes].map(([k, stored]) => [k, deepClone(noteThreadsFromValue(stored))])) : new Map();
   rebuildAllDeps();
   renderChartsLayer();
-  renderFilterChips();
   updateSheetTabBar();
 }
 function histSheet(sh, label, mutate) {
@@ -2454,11 +2455,11 @@ function onSelectionChanged() {
     SelAnim.pending = false;
     if (cur && prev) beginSelAnim(prev, cur);
   }
+  hideNotePopover();   /* the card belongs to the cell it was opened from */
   updateNameBox();
   updateFormulaBar();
   updateStatusBar();
   updateRibbonState();
-  updateDvChips();
   requestPaint();
 }
 
@@ -2634,8 +2635,8 @@ function serializeSheet(sh) {
     cells, rows, cols,
     merges: sh.merges.map(m => [m.r1, m.c1, m.r2, m.c2]),
     notes: [...sh.notes.entries()].map(([k, stored]) => [k, noteThreadsFromValue(stored).map(n => ({ id: n.id, t: n.text, a: n.author, ts: n.ts, r: noteReplies(n), rs: n.resolved ? 1 : 0 }))]),
-    freeze: sh.freeze, charts: sh.charts, dv: sh.dv,
-    filter: sh.filter, showGridlines: sh.showGridlines
+    charts: sh.charts,
+    showGridlines: sh.showGridlines
   };
 }
 function deserializeSheet(d) {
@@ -2656,11 +2657,8 @@ function deserializeSheet(d) {
   sh.merges = (d.merges || []).map(a => ({ r1: a[0], c1: a[1], r2: a[2], c2: a[3] }));
   for (const m of sh.merges) { if (m.r2 > extR) extR = m.r2; if (m.c2 > extC) extC = m.c2; }
   rebuildMergeMap(sh);
-  sh.freeze = d.freeze || { r: 0, c: 0 };
-  sh.charts = d.charts || []; sh.dv = d.dv || [];
-  sh.filter = d.filter || null;
-  if (sh.filter && sh.filter.range) { if (sh.filter.range.r2 > extR) extR = sh.filter.range.r2; if (sh.filter.range.c2 > extC) extC = sh.filter.range.c2; }
-  sh.filterHidden = new Set();
+  sh.freeze = { r: 0, c: 0 };
+  sh.charts = d.charts || [];
   sh.showGridlines = d.showGridlines !== false;
   sh.notes = new Map();
   for (const entry of (d.notes || [])) {
@@ -2861,7 +2859,7 @@ function requestPaint() {
   paintQueued = true;
   requestAnimationFrame(() => { paintQueued = false; try { paint(); } catch (e) { console.error('paint error', e); } });
 }
-function repaintAll() { requestPaint(); renderFilterChips(); updateDvChips(); renderChartsLayer(); }
+function repaintAll() { requestPaint(); renderChartsLayer(); }
 
 /* ---------------- cell display value ---------------- */
 function displayValue(sh, r, c) {
@@ -3045,6 +3043,7 @@ function paint() {
 
     drawSelectionFill(ctx, sh, L);
     /* fills + text */
+    const noted = [];
     for (const r of drawRows) {
       const y = rowScreenY(sh, r), hh = rowScreenH(sh, r);
       if (hh <= 0) continue;
@@ -3056,6 +3055,7 @@ function paint() {
         const rect = m ? cellScreenRect(sh, r, c) : { x: colScreenX(sh, c), y, w, h: hh };
         if (rect.x + rect.w < clip.x - offsetX - 4 || rect.x > clip.x - offsetX + clip.w + 4) continue;
         drawCellContent(sh, ctx, r, c, rect, L, clip);
+        if (sh.notes && sh.notes.has(key(r, c))) noted.push(r, c, rect);
       }
     }
     /* gridlines */
@@ -3096,6 +3096,9 @@ function paint() {
     drawCellFlashes(ctx, sh, L);
     /* selection overlay */
     drawSelection(ctx, sh, L);
+    /* comment bubbles last of all: gridlines, cell text, cell borders, commit
+       flashes and the selection glow must never cut through or tint them */
+    for (let i = 0; i < noted.length; i += 3) drawNotePin(sh, ctx, noted[i], noted[i + 1], noted[i + 2], clip);
     ctx.restore();
   }
 
@@ -3342,6 +3345,129 @@ function clippedCellRect(rect, clip) {
   return { x, y, w: Math.max(0, right - x), h: Math.max(0, bottom - y) };
 }
 let commentPinPath = null;
+/* How much bigger the bubble grows while hovered (the canvas twin of Docs'
+   `sup.comment-ref:hover .comment-bubble { transform: scale(1.12) }`). */
+const NOTE_PIN_HOVER_SCALE = 0.15;
+/* Comment pin geometry (canvas px). paint() and the pointer hit-test share this so
+   the click target is always exactly what is drawn. `clip` trims the pin to the
+   frozen/scrolled viewport; `grow` (0…1 from NotePinAnim) nudges the bubble up in
+   size around its centre. Returns null when the cell is too small to hold a pin. */
+function notePinGeom(sh, r, c, rect, clip, grow) {
+  const L = R.layout;
+  const visible = clip ? clippedCellRect(rect, clip) : rect;
+  const size = Math.min(32, Math.max(6, 17 * (L.zoom || 1)), visible.w - 2, visible.h - 2);
+  if (size < 8) return null;
+  const inset = Math.min(2, (visible.w - size) / 2, (visible.h - size) / 2);
+  const drawn = size * (1 + NOTE_PIN_HOVER_SCALE * (grow || 0));
+  return {
+    cx: visible.x + visible.w - size - inset + size / 2,
+    cy: visible.y + inset + size / 2,
+    size: drawn,
+    zoom: L.zoom || 1
+  };
+}
+/* Is (x,y) inside the comment pin of cell (r,c)? Small slop so the pin is easy to hit. */
+function onNotePin(sh, r, c, x, y) {
+  if (!sh.notes || !sh.notes.has(key(r, c))) return false;
+  const g = notePinGeom(sh, r, c, cellScreenRect(sh, r, c), null, 0);
+  if (!g) return false;
+  const pad = 2;
+  return x >= g.cx - g.size / 2 - pad && x <= g.cx + g.size / 2 + pad &&
+         y >= g.cy - g.size / 2 - pad && y <= g.cy + g.size / 2 + pad;
+}
+/* The bubble itself. Drawn in its own pass AFTER gridlines, cell text, cell
+   borders and the selection overlay, so nothing can cut through it — the same
+   layering Excel gives the note indicator. Every colour is a solid hex: an opaque
+   accent face over an opaque offset copy of the same shape, in place of the
+   translucent blur glow, so the bubble is never see-through. */
+function drawNotePin(sh, ctx, r, c, rect, clip) {
+  if (!sh.notes || !sh.notes.has(key(r, c))) return;
+  const note = noteAt(sh, r, c);
+  const cellK = sh.id + ':' + r + ':' + c;
+  const hoverP = notePinScaleFor(cellK);
+  const g = notePinGeom(sh, r, c, rect, clip, hoverP);
+  if (!g) return;
+  const size = g.size;
+  if (!commentPinPath) {
+    commentPinPath = new Path2D();
+    commentPinPath.roundRect(0, 0, 24, 24, [12, 12, 12, 4]);
+  }
+  const face = note.resolved ? '#8a8a8a' : '#217346';
+  const place = (cx, cy) => {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(-Math.PI / 4);
+    ctx.scale(size / 24, size / 24);
+    ctx.translate(-12, -12);
+    ctx.fill(commentPinPath);
+    ctx.restore();
+  };
+  ctx.fillStyle = face;
+  place(g.cx, g.cy);
+  /* author initial last, so it always sits on top of the bubble */
+  ctx.save();
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '700 ' + Math.max(6, Math.round(g.size * 0.5)) + 'px "DM Sans", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(avatarLetter(note.author || 'You'), g.cx, g.cy);
+  ctx.restore();
+}
+/* Hovering a comment pin nudges the bubble a little bigger — the canvas twin of
+   Docs' `sup.comment-ref:hover .comment-bubble { transform: scale(1.12) }` CSS
+   transition. The pin is drawn on the canvas, so it needs its own rAF tween (like
+   the glide / selection animations). One entry per bubble, so growing AND shrinking
+   animate, and sliding straight from one bubble to the next tweens both. */
+const NOTE_PIN_TWEEN_MS = 150;
+const NotePinAnim = { hover: null, scales: new Map(), raf: 0 };
+function notePinScaleFor(k) {
+  const m = NotePinAnim.scales;
+  const t = m.get(k);
+  if (!t) return 0;
+  const p = (performance.now() - t.t0) / NOTE_PIN_TWEEN_MS;
+  if (p >= 1) {
+    /* back at rest → forget it; still hovered → park it at full size, otherwise the
+       bubble would snap back the moment the grow tween finished */
+    if (t.to === 0) m.delete(k); else { t.from = 1; t.t0 = performance.now(); }
+    return t.to;
+  }
+  return t.from + (t.to - t.from) * (1 - Math.pow(1 - p, 3));   /* ease-out, both ways */
+}
+function retargetNotePin(k, to) {
+  const from = notePinScaleFor(k);          /* read the CURRENT eased value BEFORE
+                                               retargeting, else the tween jumps to its end */
+  if (Math.abs(from - to) < 0.001) return;
+  if (SmoothScroll.reduced) {
+    if (to === 0) NotePinAnim.scales.delete(k); else NotePinAnim.scales.set(k, { from: 1, to: 1, t0: performance.now() });
+    requestPaint();
+    return;
+  }
+  NotePinAnim.scales.set(k, { from, to, t0: performance.now() });
+  requestPaint();
+  if (NotePinAnim.raf) return;
+  const step = () => {
+    NotePinAnim.raf = 0;
+    /* Settle finished tweens here rather than only when a bubble is read: one that
+       scrolled off screen mid-tween must not keep this loop alive forever. */
+    const now = performance.now();
+    let busy = false;
+    for (const [k2, t] of NotePinAnim.scales) {
+      if (now - t.t0 < NOTE_PIN_TWEEN_MS) { busy = true; continue; }
+      if (t.to === 0) NotePinAnim.scales.delete(k2); else { t.from = 1; t.t0 = now; }
+    }
+    if (document.hidden) { NotePinAnim.scales.clear(); return; }
+    requestPaint();
+    if (busy) NotePinAnim.raf = requestAnimationFrame(step);
+  };
+  NotePinAnim.raf = requestAnimationFrame(step);
+}
+function setNotePinHover(k) {
+  if (NotePinAnim.hover === k) return;
+  const prev = NotePinAnim.hover;
+  NotePinAnim.hover = k;
+  if (prev) retargetNotePin(prev, 0);        /* the bubble just left springs back */
+  if (k) retargetNotePin(k, 1);
+}
 function drawCellContent(sh, ctx, r, c, rect, L, clip) {
   let info = displayValue(sh, r, c);
   {
@@ -3351,38 +3477,6 @@ function drawCellContent(sh, ctx, r, c, rect, L, clip) {
   const style = info.style;
   const bg = style.backgroundColor, fg = style.color;
   if (bg) { ctx.fillStyle = bg; ctx.fillRect(rect.x, rect.y, rect.w, rect.h); }
-  if (sh.notes && sh.notes.has(key(r, c))) {
-    const note = noteAt(sh, r, c);
-    const visible = clippedCellRect(rect, clip);
-    const size = Math.min(20, Math.max(14, 17 * (L.zoom || 1)), visible.w - 2, visible.h - 2);
-    if (size >= 8) {
-      const inset = Math.min(2, (visible.w - size) / 2, (visible.h - size) / 2);
-      const markerX = visible.x + visible.w - size - inset;
-      const markerY = visible.y + inset;
-      if (!commentPinPath) {
-        commentPinPath = new Path2D();
-        commentPinPath.roundRect(0, 0, 24, 24, [12, 12, 12, 4]);
-      }
-      ctx.save();
-      ctx.translate(markerX + size / 2, markerY + size / 2);
-      ctx.rotate(-Math.PI / 4);
-      ctx.scale(size / 24, size / 24);
-      ctx.translate(-12, -12);
-      ctx.fillStyle = note.resolved ? '#999999' : '#217346';
-      ctx.shadowColor = note.resolved ? 'transparent' : 'rgba(33,115,70,.3)';
-      ctx.shadowBlur = note.resolved ? 0 : 4 * (L.zoom || 1);
-      ctx.shadowOffsetY = L.zoom || 1;
-      ctx.fill(commentPinPath);
-      ctx.restore();
-      ctx.save();
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '700 ' + Math.max(7, Math.round(9 * (L.zoom || 1))) + 'px "DM Sans", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(avatarLetter(note.author || 'You'), markerX + size / 2, markerY + size / 2);
-      ctx.restore();
-    }
-  }
   if (info.spark) { drawSparkline(ctx, rect, info.spark); return; }
   if (info.text === '') return;
   const zm = L.zoom;
@@ -3947,15 +4041,13 @@ function lerpRangeRect(a, b, p) {
   };
 }
 
-/* overlay DOM (filter chips, dv chips, chart frames) repositioning after paint */
+/* overlay DOM (chart frames) repositioning after paint */
 let overlaySig = '';
 function updateOverlayLayers() {
   const sh = activeSheet();
-  const sig = [WB.activeSheetId, Math.round(Scroll.x), Math.round(Scroll.y), VIEW.zoom, VIEW.showHeadings ? 1 : 0, SEL.active.r, SEL.active.c, sh.filter ? 1 : 0, Edit.active ? 1 : 0].join('|');
+  const sig = [WB.activeSheetId, Math.round(Scroll.x), Math.round(Scroll.y), VIEW.zoom, VIEW.showHeadings ? 1 : 0, SEL.active.r, SEL.active.c, Edit.active ? 1 : 0].join('|');
   if (sig === overlaySig) return;
   overlaySig = sig;
-  renderFilterChips();
-  updateDvChips();
   repositionCharts();
 }
 function repositionCharts() {
@@ -4017,6 +4109,13 @@ R.canvas.addEventListener('mousedown', e => {
   }
   if (hit.zone !== 'grid') return;
   const { r, c } = hit;
+  /* comment pin? — left click is the ONLY way the thread card opens (hover just
+     nudges the bubble). Clicking it again closes the card. */
+  if (e.button === 0 && onNotePin(activeSheet(), r, c, p.x, p.y)) {
+    e.preventDefault();
+    toggleNotePopover(r, c, e);
+    return;
+  }
   /* fill handle? */
   if (onFillHandle(p.x, p.y)) { startFill(e, p); e.preventDefault(); return; }
   /* near selection border → move */
@@ -4043,13 +4142,18 @@ R.canvas.addEventListener('mousemove', e => {
     } else if (hit.zone === 'vscroll') cur = 'default';
     else if (hit.zone === 'hscroll') cur = 'default';
     let handleHover = false;
+    let pinKey = null;
     if (hit.zone === 'grid') {
       if (onFillHandle(p.x, p.y)) { cur = 'crosshair'; handleHover = true; }
       else if (!Edit.active && nearSelectionBorder(p.x, p.y)) cur = 'move';
       else if (Edit.active && Edit.refMode) cur = 'crosshair';
       else if (ChartPane.picking && ChartPane.draft && activeSheet().id === ChartPane.draft.sheetId) cur = 'crosshair';
+      else if (onNotePin(activeSheet(), hit.r, hit.c, p.x, p.y)) { cur = 'pointer'; pinKey = activeSheet().id + ':' + hit.r + ':' + hit.c; }
     }
     R.canvas.style.cursor = cur;
+    /* Hovering a comment pin only nudges the bubble bigger — the thread card is
+       click-to-open (see the mousedown handler), never a hover tooltip. */
+    setNotePinHover(pinKey);
     const sbHover = (hit.zone === 'vscroll' || hit.zone === 'hscroll') ? hit.zone : null;
     if (handleHover !== Hover.handle || sbHover !== Hover.sb) {
       Hover.handle = handleHover; Hover.sb = sbHover;
@@ -4069,23 +4173,9 @@ R.canvas.addEventListener('mousemove', e => {
       Hover.col = newHover.col; Hover.row = newHover.row;
       if (!Edit.active && !Mouse.mode) requestPaint();
     }
-    /* note hover popover (stays visible while the pointer is over the popover itself) */
-    let overNotePop = false;
-    const npop = document.getElementById('note-pop');
-    if (npop && !npop.hidden) {
-      const nr = npop.getBoundingClientRect();
-      overNotePop = e.clientX >= nr.left - 8 && e.clientX <= nr.right + 8 && e.clientY >= nr.top - 8 && e.clientY <= nr.bottom + 8;
-    }
-    if (hit.zone === 'grid' && !Edit.active && !Mouse.mode) {
-      const cell = pointToCellPx(p.x, p.y);
-      const shH = activeSheet();
-      if (cell && noteAt(shH, cell.r, cell.c)) {
-        const nr = cellScreenRect(shH, cell.r, cell.c);
-        showNotePopover(shH, cell.r, cell.c, nr);
-      } else if (!overNotePop) hideNotePopover();
-    } else if (!Edit.active && !overNotePop) hideNotePopover();
     return;
   }
+  setNotePinHover(null);   /* dragging: the bubble returns to its resting size */
   switch (Mouse.mode) {
     case 'select': {
       autoScroll(p);
@@ -4227,6 +4317,8 @@ window.addEventListener('mouseup', e => {
   requestPaint();
 });
 
+R.canvas.addEventListener('mouseleave', () => { setNotePinHover(null); });
+
 R.canvas.addEventListener('dblclick', e => {
   const p = gridPos(e);
   const hit = hitTest(p.x, p.y);
@@ -4242,6 +4334,7 @@ R.canvas.addEventListener('dblclick', e => {
 
 R.canvas.addEventListener('wheel', e => {
   e.preventDefault();
+  hideNotePopover();   /* the card is anchored to a cell rect, so scrolling invalidates it */
   if (e.ctrlKey || e.metaKey) {
     const zm = clamp(VIEW.zoom * (e.deltaY < 0 ? 1.1 : 0.9), ZOOM_MIN, ZOOM_MAX);
     setZoom(zm);
@@ -5054,12 +5147,9 @@ function commitCellValue(sh, r, c, text) {
   writeCell(sh, r, c, { v: snapAfter.v, f: snapAfter.f, s: snapAfter.s });
   pushHistory(histCellChange(sh, r, c, prevSnap, snapAfter));
   /* data validation */
-  const dvErr = validateCell(sh, r, c);
-  if (dvErr) handleValidationError(sh, r, c, dvErr, prevSnap);
   afterCellCommit(sh, r, c);
 }
 function afterCellCommit(sh, r, c) {
-  if (sh.filter) applyFilter(sh);
   updateStatusBar();
   renderChartsLayer();
   requestPaint();
@@ -5439,7 +5529,8 @@ document.addEventListener('keydown', e => {
   const tag = (document.activeElement && document.activeElement.tagName) || '';
   const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement && document.activeElement.isContentEditable;
   if (document.querySelector('.modal-overlay')) return; // modal handles its own keys
-  if ($('#find-panel') && !$('#find-panel').hidden && inInput && document.activeElement.closest('#find-panel')) {
+  const _fb = $('#findBar');
+  if (_fb && _fb.style.display !== 'none' && inInput && document.activeElement.closest('#findBar')) {
     if (e.key === 'Escape') { toggleFindPanel(false); e.preventDefault(); }
     return;
   }
@@ -5466,6 +5557,7 @@ document.addEventListener('keydown', e => {
     return;
   }
   if (e.key === 'Escape' && ChartPane.open) { closeChartPane(); e.preventDefault(); return; }
+  if (e.key === 'Escape' && notePopOpen()) { hideNotePopover(); e.preventDefault(); return; }
   if (popupOpen()) {
     if (e.key === 'Escape') { closePopups(); e.preventDefault(); }
     return;
@@ -5487,15 +5579,13 @@ document.addEventListener('keydown', e => {
       case 'a': e.preventDefault(); selectAll(); return;
       case 'f': e.preventDefault(); toggleFindPanel(true, 'find'); return;
       case 'h': e.preventDefault(); toggleFindPanel(true, 'replace'); return;
-      case 'g': e.preventDefault(); openGoToDialog(); return;
+      case 'g': e.preventDefault(); toggleFindPanel(true, 'goto'); return;
       case 's': e.preventDefault(); Persistence.flush(); toast('Autosaved to this browser', 'success', 1300); return;
       case 'p': e.preventDefault(); printWorksheet(); return;
       case 'o': e.preventDefault(); openDocumentsDialog(); return;
       case 'n': e.preventDefault(); fileNew(); return;
       case '`': e.preventDefault(); VIEW.showFormulas = !VIEW.showFormulas; requestPaint(); return;
       case 'k': e.preventDefault(); openCommandPalette(); return;
-      case '1': e.preventDefault(); openNumberFormatDialog(); return;
-      case 'l': if (e.shiftKey) { e.preventDefault(); toggleFilter(); return; } break;
       case ';': {
         e.preventDefault();
         const now = new Date();
@@ -5530,7 +5620,26 @@ document.addEventListener('keydown', e => {
     case 'F2': e.preventDefault(); if (e.shiftKey) openCommentDialog(SEL.active.r, SEL.active.c); else beginEdit(SEL.active.r, SEL.active.c, { cursorMode: true }); return;
     case 'F4': e.preventDefault(); repeatLastCmd(); return;
     case 'F9': e.preventDefault(); recalcWorkbook(true); return;
-    case 'Delete': case 'Backspace': e.preventDefault(); clearSelectionContents('contents'); return;
+    case 'Delete': case 'Backspace': {
+      e.preventDefault();
+      const sh = activeSheet();
+      const before = snapshotSheet(sh);
+      let changed = false;
+      forEachSelectedCell((r, c) => {
+        const m = mergeAt(sh, r, c);
+        if (m && !(m.r1 === r && m.c1 === c)) return;
+        const prev = sh.cells.get(key(r, c));
+        if (!prev || (prev.v == null && prev.f == null)) return;
+        writeCell(sh, r, c, { v: null, f: null });
+        changed = true;
+      });
+      if (changed) {
+        const after = snapshotSheet(sh);
+        pushHistory({ label: 'Clear contents', undo: () => restoreSheet(sh, before), redo: () => restoreSheet(sh, after) });
+        updateStatusBar(); updateFormulaBar(); renderChartsLayer(); requestPaint(); Persistence.markDirty();
+      }
+      return;
+    }
     case 'Escape':
       /* classic behavior: Escape only dismisses the marching-ants outline —
          the clipboard buffer itself stays intact so Paste still works */
@@ -5543,11 +5652,6 @@ document.addEventListener('keydown', e => {
       if (e.shiftKey) selectEntireRow(SEL.active.r, true);
       else selectEntireRow(SEL.active.r, false);
       return;
-  }
-  if (k === '=' && e.altKey) {
-    e.preventDefault();
-    autoSum('SUM');
-    return;
   }
   if (k.length === 1 && !e.altKey) {
     /* Typing mode: a printable character seeds the in-cell editor, which stays
@@ -5623,30 +5727,6 @@ function applyStyleToSelection(patch, opts = {}) {
   requestPaint();
   Persistence.markDirty();
 }
-function clearSelectionContents(what) {
-  const sh = activeSheet();
-  const changes = [];
-  batchHistory(() => {
-    forEachSelectedCell((r, c) => {
-      const m = mergeAt(sh, r, c);
-      if (m && !(m.r1 === r && m.c1 === c)) return;
-      const prev = sh.cells.get(key(r, c));
-      if (!prev) return;
-      const beforeSnap = snapOf(prev); /* snapshot BEFORE clearing */
-      const patch = what === 'contents' ? { v: null, f: null } : what === 'formats' ? { s: null } : { v: null, f: null, s: null };
-      writeCell(sh, r, c, patch);
-      const nowC = sh.cells.get(key(r, c));
-      changes.push({ sh, r, c, before: beforeSnap, after: nowC ? snapOf(nowC) : null });
-    });
-    if (changes.length) pushHistory({
-      label: 'Clear',
-      undo() { for (const ch of changes) writeCell(ch.sh, ch.r, ch.c, ch.before); },
-      redo() { for (const ch of changes) writeCell(ch.sh, ch.r, ch.c, ch.after); }
-    });
-  }, 'Clear');
-  updateStatusBar(); updateFormulaBar(); renderChartsLayer(); requestPaint();
-}
-
 /* ---------------- Cell notes (comments) ---------------- */
 function noteThreadsFromValue(value) {
   if (!value) return [];
@@ -5731,12 +5811,34 @@ function addNoteReply(sh, r, c, threadId, text) {
   applyNoteSnap(sh, r, c, threads);
   return true;
 }
+/* Outside-click dismisser for the thread card. It listens on document, so it also
+   sees the very mousedown that opened the card — that one event is remembered and
+   skipped, otherwise the card would open and close again in the same click. */
+let notePopCloserBound = false;
+let notePopOpenEvent = null;
+const NotePop = { cell: null };   /* sheet:r:c the visible card belongs to */
+function notePopOpen() { const pop = document.getElementById('note-pop'); return !!pop && !pop.hidden; }
+function notePopCloser(e) {
+  const pop = document.getElementById('note-pop');
+  if (!pop || pop.hidden) return;
+  if (notePopOpenEvent) {
+    if (e === notePopOpenEvent) return;
+    notePopOpenEvent = null;
+  }
+  if (e && e.target && pop.contains(e.target)) return;
+  hideNotePopover();
+}
 function notePopoverEl() {
   let pop = document.getElementById('note-pop');
   if (!pop) {
     pop = el('<div id="note-pop" class="note-pop note-thread" role="dialog" aria-label="Comment thread" hidden></div>');
     $('#grid-area').appendChild(pop);
-    pop.addEventListener('mouseleave', () => { hideNotePopover(); });
+    /* The card is opened by clicking the pin, so it stays put until dismissed
+       (close button, Escape, or a click elsewhere) instead of chasing the cursor. */
+    if (!notePopCloserBound) {
+      notePopCloserBound = true;
+      document.addEventListener('mousedown', notePopCloser);
+    }
   }
   return pop;
 }
@@ -5806,13 +5908,11 @@ function deleteNote(sh, r, c, threadId) {
   applyNoteSnap(sh, r, c, threads);
   if (!threads.length) hideNotePopover();
 }
-function showNotePopover(sh, r, c, anchorRect) {
-  showNoteThreadPopover(sh, r, c, anchorRect, false);
-}
 function showNoteThreadPopover(sh, r, c, anchorRect, focusReply) {
   const threads = noteThreadsAt(sh, r, c);
   if (!threads.length) { hideNotePopover(); return; }
   const pop = notePopoverEl();
+  NotePop.cell = sh.id + ':' + r + ':' + c;
   const hl = (Find.hlCell === key(r, c) && Find.text) ? Find.text : null;
   pop.innerHTML = noteThreadHtml(threads, hl);
   pop.classList.toggle('is-resolved', threads.every(thread => !!thread.resolved));
@@ -5856,7 +5956,18 @@ function showNoteThreadPopover(sh, r, c, anchorRect, focusReply) {
   pop.style.left = x + 'px'; pop.style.top = y + 'px';
   if (focusReply) setTimeout(() => openNoteReplyDialog(sh, r, c, threads[threads.length - 1].id, anchorRect), 0);
 }
-function hideNotePopover() { const pop = document.getElementById('note-pop'); if (pop) pop.hidden = true; }
+function hideNotePopover() { const pop = document.getElementById('note-pop'); if (pop) pop.hidden = true; NotePop.cell = null; notePopOpenEvent = null; }
+/* Left click on a comment pin: open the thread card, or close it when it is
+   already showing for this cell. The cell is selected so the card and the
+   selection agree, but no drag-select starts from the pin. */
+function toggleNotePopover(r, c, e) {
+  const sh = activeSheet();
+  if (!noteAt(sh, r, c)) return;
+  if (notePopOpen() && NotePop.cell === sh.id + ':' + r + ':' + c) { hideNotePopover(); return; }
+  setSelection(r, c, r, c, { keepScroll: true });
+  notePopOpenEvent = e || null;
+  showNoteThreadPopover(sh, r, c, cellScreenRect(sh, r, c), false);
+}
 function openNoteReplyDialog(sh, r, c, threadId, anchorRect) {
   if (!noteAt(sh, r, c, threadId)) {
     hideNotePopover();
@@ -6052,14 +6163,6 @@ function traceAll() {
   requestPaint();
   updateStatusBar();
   toast(Audit.mode ? 'Tracing full dependency chain (multi-level)' : 'Arrows removed', 'info', 1500);
-  updateRibbonState();
-}
-function removeAuditArrows() {
-  if (!Audit.mode) return;
-  Audit.mode = null; Audit.arrows = []; Audit.chips = 0; Audit.chipRects = [];
-  requestPaint();
-  updateStatusBar();
-  toast('Arrows removed', 'info', 1100);
   updateRibbonState();
 }
 function auditChipAt(x, y) {
@@ -6690,13 +6793,11 @@ function insertRows(at, count) {
        `>= at` test was true for at === 0 and switched on a freeze the user never
        asked for; every further insert then added another phantom frozen row. */
     if (sh.freeze.r > 0 && sh.freeze.r >= at) sh.freeze.r += count;
-    if (sh.filter) { if (sh.filter.range.r1 >= at) { sh.filter.range.r1 += count; sh.filter.range.r2 += count; } else if (sh.filter.range.r2 >= at) sh.filter.range.r2 += count; }
-    for (const dv of sh.dv) { if (dv.range.r1 >= at) { dv.range.r1 += count; dv.range.r2 += count; } else if (dv.range.r2 >= at) dv.range.r2 += count; }
     for (const ch of sh.charts) { if (ch.y >= at * DEF.rowH) ch.y += count * DEF.rowH; }
     rebuildMergeMap(sh);
     rebuildAllDeps();
   });
-  requestPaint(); renderFilterChips(); renderChartsLayer(); updateStatusBar(); updateFormulaBar(); Persistence.markDirty();
+  requestPaint(); renderChartsLayer(); updateStatusBar(); updateFormulaBar(); Persistence.markDirty();
 }
 function deleteRows(at, count) {
   const sh = activeSheet();
@@ -6716,16 +6817,10 @@ function deleteRows(at, count) {
     sh.rows.invalidate();
     /* freeze.r === 0 means "nothing frozen" and must stay 0. */
     if (sh.freeze.r > 0 && sh.freeze.r >= at) sh.freeze.r = Math.max(0, sh.freeze.r - count);
-    if (sh.filter) {
-      if (sh.filter.range.r1 >= at + count) { sh.filter.range.r1 -= count; sh.filter.range.r2 -= count; }
-      else if (sh.filter.range.r2 >= at) sh.filter.range.r2 = Math.max(sh.filter.range.r1, sh.filter.range.r2 - count);
-    }
-    sh.dv = sh.dv.map(dv => { const r = dv.range; if (r.r1 >= at + count) { r.r1 -= count; r.r2 -= count; } else if (r.r2 >= at) r.r2 = Math.max(r.r1, r.r2 - count); return dv; });
     rebuildMergeMap(sh);
     rebuildAllDeps();
-    if (sh.filter) applyFilter(sh);
-  });
-  requestPaint(); renderFilterChips(); renderChartsLayer(); Persistence.markDirty();
+    });
+  requestPaint(); renderChartsLayer(); Persistence.markDirty();
 }
 function shiftCellsRows(sh, at, count, isDelete) {
   const out = new Map();
@@ -6767,13 +6862,11 @@ function insertCols(at, count) {
     sh.cols.invalidate();
     /* See insertRows: at === 0 must not turn a 0 (= none) freeze into a real one. */
     if (sh.freeze.c > 0 && sh.freeze.c >= at) sh.freeze.c += count;
-    if (sh.filter) { if (sh.filter.range.c1 >= at) { sh.filter.range.c1 += count; sh.filter.range.c2 += count; } else if (sh.filter.range.c2 >= at) sh.filter.range.c2 += count; }
-    for (const dv of sh.dv) { if (dv.range.c1 >= at) { dv.range.c1 += count; dv.range.c2 += count; } else if (dv.range.c2 >= at) dv.range.c2 += count; }
     for (const ch of sh.charts) { if (ch.x >= at * DEF.colW) ch.x += count * DEF.colW; }
     rebuildMergeMap(sh);
     rebuildAllDeps();
   });
-  requestPaint(); renderFilterChips(); renderChartsLayer(); updateStatusBar(); updateFormulaBar(); Persistence.markDirty();
+  requestPaint(); renderChartsLayer(); updateStatusBar(); updateFormulaBar(); Persistence.markDirty();
 }
 /* insertRows()/insertCols() take an absolute start index, so the direction is
    just a different index: above/left starts at the first selected index, while
@@ -6820,16 +6913,10 @@ function deleteCols(at, count) {
     }
     sh.cols.invalidate();
     if (sh.freeze.c > 0 && sh.freeze.c >= at) sh.freeze.c = Math.max(0, sh.freeze.c - count);
-    if (sh.filter) {
-      if (sh.filter.range.c1 >= at + count) { sh.filter.range.c1 -= count; sh.filter.range.c2 -= count; }
-      else if (sh.filter.range.c2 >= at) sh.filter.range.c2 = Math.max(sh.filter.range.c1, sh.filter.range.c2 - count);
-    }
-    sh.dv = sh.dv.map(dv => { const r = dv.range; if (r.c1 >= at + count) { r.c1 -= count; r.c2 -= count; } else if (r.c2 >= at) r.c2 = Math.max(r.c1, r.c2 - count); return dv; });
     rebuildMergeMap(sh);
     rebuildAllDeps();
-    if (sh.filter) applyFilter(sh);
-  });
-  requestPaint(); renderFilterChips(); renderChartsLayer(); updateStatusBar(); updateFormulaBar(); Persistence.markDirty();
+    });
+  requestPaint(); renderChartsLayer(); updateStatusBar(); updateFormulaBar(); Persistence.markDirty();
 }
 function shiftCellsCols(sh, at, count, isDelete) {
   const out = new Map();
@@ -7045,22 +7132,6 @@ function setColsWidthPx(cols, px) {
   requestPaint(); Persistence.markDirty();
 }
 
-/* ---------------- freeze panes ---------------- */
-function setFreeze(r, c) {
-  const sh = activeSheet();
-  const before = Object.assign({}, sh.freeze);
-  sh.freeze = { r, c };
-  const after = Object.assign({}, sh.freeze);
-  pushHistory({
-    label: 'Freeze panes',
-    undo() { sh.freeze = before; requestPaint(); renderFilterChips(); },
-    redo() { sh.freeze = after; requestPaint(); renderFilterChips(); }
-  });
-  Scroll.x = 0; Scroll.y = 0;
-  requestPaint(); renderFilterChips(); Persistence.markDirty();
-  updateRibbonState();
-}
-
 /* ---------------- sheet operations ---------------- */
 function uniqueSheetName(base) {
   let name = base, i = 1;
@@ -7213,8 +7284,6 @@ function setActiveSheet(id) {
   updateSheetTabBar();
   onSelectionChanged();
   renderChartsLayer();
-  renderFilterChips();
-  updateDvChips();
   requestPaint();
   Persistence.markDirty();
 }
@@ -7249,87 +7318,6 @@ function recalcWorkbook(evaluateAll) {
   renderChartsLayer();
   updateStatusBar();
   toast('Workbook recalculated', 'success', 1200);
-}
-
-/* ---------------- data validation engine ---------------- */
-function validateCell(sh, r, c) {
-  for (const dv of sh.dv) {
-    const rg = dv.range;
-    if (r < rg.r1 || r > rg.r2 || c < rg.c1 || c > rg.c2) continue;
-    const cell = sh.cells.get(key(r, c));
-    const v = cell ? cell.v : null;
-    const empty = v == null || v === '';
-    if (empty) continue; /* blank cells allowed unless "ignore blank" off — we allow */
-    let ok = true, msg = '';
-    const n = typeof v === 'number' ? v : (typeof v === 'string' && v.trim() !== '' && !isNaN(Number(v)) ? Number(v) : null);
-    switch (dv.type) {
-      case 'wholeNumber':
-        if (n == null || !Number.isInteger(n)) { ok = false; msg = 'Enter a whole number'; }
-        else ok = checkRange(n, dv);
-        break;
-      case 'decimal':
-        if (n == null) { ok = false; msg = 'Enter a decimal number'; }
-        else ok = checkRange(n, dv);
-        break;
-      case 'list': {
-        const items = (dv.list || []).map(x => String(x));
-        ok = items.some(x => String(v).toLowerCase() === x.toLowerCase());
-        if (!ok) msg = 'Choose an item from the list';
-        break;
-      }
-      case 'textLength': {
-        const len = String(v).length;
-        ok = checkRange(len, dv);
-        break;
-      }
-      case 'date': {
-        const serial = typeof v === 'number' ? v : tryParseDateStr(String(v));
-        if (serial == null) { ok = false; msg = 'Enter a valid date'; }
-        else ok = checkRange(serial, dv);
-        break;
-      }
-      case 'custom': {
-        if (dv.formula) {
-          const res = evalFormulaText(dv.formula.replace(/@/g, addr(r, c)), sh.id, r, c);
-          ok = res === true || res === 1;
-        }
-        break;
-      }
-    }
-    if (!ok) {
-      return {
-        title: dv.errorTitle || 'Invalid entry',
-        msg: dv.errorText || (msg || 'The value entered is not valid for this cell.'),
-        style: dv.errorStyle || 'stop'
-      };
-    }
-  }
-  return null;
-}
-function checkRange(n, dv) {
-  switch (dv.op) {
-    case 'between': return n >= dv.min && n <= dv.max;
-    case 'notBetween': return n < dv.min || n > dv.max;
-    case 'eq': return n === dv.min;
-    case 'ne': return n !== dv.min;
-    case 'gt': return n > dv.min;
-    case 'lt': return n < dv.min;
-    case 'gte': return n >= dv.min;
-    case 'lte': return n <= dv.min;
-    default: return true;
-  }
-}
-function handleValidationError(sh, r, c, err, prevSnap) {
-  if (err.style === 'warning') {
-    confirmDialog(err.title, err.msg + '\n\nKeep the value anyway?', () => { /* keep */ }, () => {
-      writeCell(sh, r, c, prevSnap || { v: null, f: null, s: null });
-      requestPaint();
-    });
-  } else {
-    writeCell(sh, r, c, prevSnap || { v: null, f: null, s: null });
-    requestPaint();
-    toast(err.title + '\n' + err.msg, 'error', 4200);
-  }
 }
 
 /* ==========================================================================
@@ -7425,201 +7413,6 @@ function quickSort(desc) {
   const header = firstCell && secondCell && typeof firstCell.v === 'string' && typeof secondCell.v === 'number';
   sortRange(region, [{ col: SEL.active.c, desc }], { header });
 }
-function openSortDialog() {
-  const sh = activeSheet();
-  const rg = activeSelRange();
-  let region;
-  if (SEL.ranges.length === 1 && rg.r2 > rg.r1 && rg.c2 > rg.c1 && !isColSelection(rg) && !isRowSelection(rg)) region = rg;
-  else region = detectRegionAround(SEL.active.r, SEL.active.c);
-  const cols = [];
-  for (let c = region.c1; c <= region.c2; c++) cols.push(c);
-  const rowsHtml = [];
-  const state = { keys: [{ col: SEL.active.c, desc: false }], header: false };
-  const content = el('<div></div>');
-  function renderKeys() {
-    const box = content.querySelector('.sort-keys');
-    box.innerHTML = '';
-    state.keys.forEach((k, i) => {
-      const row = el('<div class="form-row"><label>' + (i === 0 ? 'Sort by' : 'Then by') + '</label><div class="fr-input"><select class="sk-col"></select><select class="sk-dir"><option value="asc">A to Z</option><option value="desc">Z to A</option></select>' + (state.keys.length > 1 ? '<button class="btn small sk-del" title="Remove level">✕</button>' : '') + '</div></div>');
-      const selC = row.querySelector('.sk-col'), selD = row.querySelector('.sk-dir');
-      for (const c of cols) selC.appendChild(el('<option value="' + c + '"' + (c === k.col ? ' selected' : '') + '>Column ' + colName(c) + (state.header && sh.cells.get(key(region.r1, c)) ? ' — ' + esc(String(displayValue(sh, region.r1, c).text).slice(0, 14)) : '') + '</option>'));
-      selC.value = String(k.col);
-      selD.value = k.desc ? 'desc' : 'asc';
-      selC.addEventListener('change', () => { k.col = +selC.value; });
-      selD.addEventListener('change', () => { k.desc = selD.value === 'desc'; });
-      const del = row.querySelector('.sk-del');
-      if (del) del.addEventListener('click', () => { state.keys.splice(i, 1); renderKeys(); });
-      box.appendChild(row);
-    });
-  }
-  content.innerHTML = '<div class="sort-keys"></div><div class="form-row"><label></label><div class="fr-input"><button class="btn small" id="sort-add">Add level</button></div></div><div class="form-row"><label></label><div class="fr-input"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="sort-header"> My data has headers</label></div></div>';
-  renderKeys();
-  content.querySelector('#sort-add').addEventListener('click', () => { if (state.keys.length < 6) { state.keys.push({ col: cols[0], desc: false }); renderKeys(); } });
-  content.querySelector('#sort-header').addEventListener('change', e => { state.header = e.target.checked; renderKeys(); });
-  openModal({
-    title: 'Custom Sort', width: 560, content,
-    buttons: [
-      { label: 'Cancel' },
-      { label: 'OK', primary: true, onClick: () => {
-        if (region.r2 - region.r1 < 1) { toast('Nothing to sort', 'warn'); return true; }
-        sortRange(region, state.keys.map(k => ({ col: k.col, desc: k.desc })), { header: state.header });
-        return true;
-      } }
-    ]
-  });
-}
-
-/* ---------------- Filter ---------------- */
-function toggleFilter() {
-  const sh = activeSheet();
-  if (sh.filter) { clearFilter(sh); return; }
-  const rg = activeSelRange();
-  let region;
-  if (SEL.ranges.length === 1 && rg.r2 > rg.r1 && rg.c2 > rg.c1 && !isColSelection(rg) && !isRowSelection(rg)) region = rg;
-  else region = detectRegionAround(SEL.active.r, SEL.active.c);
-  if (region.r2 - region.r1 < 1) { toast('Select a data range with a header row to filter', 'warn'); return; }
-  sh.filter = { range: Object.assign({}, region), cols: {} };
-  applyFilter(sh);
-  renderFilterChips();
-  updateStatusBar();
-  toast('Filter enabled — use the dropdowns in the header row', 'info');
-}
-function clearFilter(sh) {
-  sh = sh || activeSheet();
-  if (!sh.filter) return;
-  const before = { filter: deepClone(sh.filter), hidden: [...sh.filterHidden] };
-  for (const r of sh.filterHidden) sh.rows.set(r, { fhidden: false });
-  sh.filter = null; sh.filterHidden = new Set();
-  pushHistory({
-    label: 'Clear filter',
-    undo() { sh.filter = deepClone(before.filter); sh.filterHidden = new Set(before.hidden); for (const r of sh.filterHidden) sh.rows.set(r, { fhidden: true }); requestPaint(); renderFilterChips(); },
-    redo() { for (const r of sh.filterHidden) sh.rows.set(r, { fhidden: false }); sh.filter = null; sh.filterHidden = new Set(); requestPaint(); renderFilterChips(); }
-  });
-  renderFilterChips();
-  requestPaint();
-  updateStatusBar();
-}
-function applyFilter(sh) {
-  sh = sh || activeSheet();
-  if (!sh.filter) return;
-  const { range, cols } = sh.filter;
-  /* clear previous hidden */
-  for (const r of sh.filterHidden) sh.rows.set(r, { fhidden: false });
-  sh.filterHidden = new Set();
-  const activeCols = Object.keys(cols).map(Number).filter(c => cols[c] && (cols[c].included != null || cols[c].search));
-  if (!activeCols.length) { renderFilterChips(); requestPaint(); return; }
-  for (let r = range.r1 + 1; r <= range.r2; r++) {
-    let keep = true;
-    for (const c of activeCols) {
-      const f = cols[c];
-      const info = displayValue(sh, r, c);
-      let txt = info.text;
-      if (f.search && !txt.toLowerCase().includes(f.search.toLowerCase())) { keep = false; break; }
-      if (f.included != null && !f.included.has(txt)) { keep = false; break; }
-    }
-    if (!keep) { sh.filterHidden.add(r); sh.rows.set(r, { fhidden: true }); }
-  }
-  renderFilterChips();
-  requestPaint();
-}
-function renderFilterChips() {
-  const layer = $('#filter-btn-layer');
-  if (!layer || !R.layout) return;
-  layer.innerHTML = '';
-  const sh = activeSheet();
-  if (!sh.filter || !VIEW.showHeadings) return;
-  const { range, cols } = sh.filter;
-  for (let c = range.c1; c <= range.c2; c++) {
-    const x = colScreenX(sh, c) + colScreenW(sh, c) - 19;
-    const y = R.layout.gridY + 3;
-    if (x < R.layout.gridX - 20 || x > R.layout.w) continue;
-    const f = cols[c];
-    const active = f && (f.included != null || f.search);
-    const badge = active ? '<span class="fc-badge" title="Active filter">' + icon('check') + '</span>' : '';
-    const chip = el('<button class="filter-chip' + (active ? ' active' : '') + '" title="Filter column ' + colName(c) + '" aria-label="Filter column ' + colName(c) + '">' + icon('filter') + badge + '</button>');
-    chip.style.left = x + 'px';
-    chip.style.top = y + 'px';
-    chip.addEventListener('mousedown', e => { e.stopPropagation(); finishEdit(); });
-    chip.addEventListener('click', e => { e.stopPropagation(); openFilterMenu(c, chip); });
-    layer.appendChild(chip);
-  }
-}
-function openFilterMenu(c, anchor) {
-  const sh = activeSheet();
-  const f = sh.filter;
-  if (!f) return;
-  const { range } = f;
-  if (!f.cols[c]) f.cols[c] = { included: null, search: '' };
-  const col = f.cols[c];
-  /* gather distinct values */
-  const counts = new Map();
-  for (let r = range.r1 + 1; r <= range.r2; r++) {
-    const info = displayValue(sh, r, c);
-    const t = info.text;
-    counts.set(t, (counts.get(t) || 0) + 1);
-  }
-  const values = [...counts.entries()].sort((a, b) => {
-    const an = parseFloat(a[0]), bn = parseFloat(b[0]);
-    if (!isNaN(an) && !isNaN(bn)) return an - bn;
-    return a[0] < b[0] ? -1 : 1;
-  });
-  const state = { included: col.included ? new Set(col.included) : null, search: col.search || '' };
-  const content = el('<div><input type="search" placeholder="Search" aria-label="Search filter values"><div class="filter-list"></div><div class="popup-foot"><button class="btn small" data-a="all">Select All</button><button class="btn small" data-a="none">Clear All</button><span style="flex:1"></span><button class="btn small primary" data-a="ok">Apply</button><button class="btn small" data-a="cancel">Cancel</button></div></div>');
-  const list = content.querySelector('.filter-list');
-  function renderList() {
-    list.innerHTML = '';
-    const q = state.search.toLowerCase();
-    let shown = 0;
-    for (const [val, cnt] of values) {
-      if (q && !val.toLowerCase().includes(q)) continue;
-      shown++;
-      const checked = state.included == null || state.included.has(val);
-      const row = el('<label class="filter-row"><input type="checkbox"' + (checked ? ' checked' : '') + '><span class="grow">' + esc(val === '' ? '(Blanks)' : val) + '</span><span class="cnt">' + cnt + '</span></label>');
-      row.querySelector('input').addEventListener('change', e => {
-        if (state.included == null) state.included = new Set(values.map(v => v[0]));
-        if (e.target.checked) state.included.add(val); else state.included.delete(val);
-      });
-      list.appendChild(row);
-    }
-    if (!shown) list.innerHTML = '<div style="padding:10px;color:#8a8886">No matches</div>';
-  }
-  renderList();
-  content.querySelector('input').addEventListener('input', e => { state.search = e.target.value; renderList(); });
-  content.querySelector('[data-a="all"]').addEventListener('click', () => { state.included = null; state.search = ''; content.querySelector('input').value = ''; renderList(); });
-  content.querySelector('[data-a="none"]').addEventListener('click', () => { state.included = new Set(); renderList(); });
-  content.querySelector('[data-a="ok"]').addEventListener('click', () => {
-    col.included = state.included == null || state.included.size === values.length ? null : state.included;
-    col.search = state.search;
-    applyFilter(sh);
-    closePopups();
-  });
-  content.querySelector('[data-a="cancel"]').addEventListener('click', () => closePopups());
-  showPopup(content, anchor, { width: 260 });
-}
-/* right-click → "Filter by This Value": instant one-value filter on the cell's column */
-function quickFilterByValue() {
-  const sh = activeSheet();
-  const r = SEL.active.r, c = SEL.active.c;
-  const info = displayValue(sh, r, c);
-  const val = info.text;
-  if (!sh.filter) {
-    /* create a filter region around this cell (requires a detectable data block) */
-    const region = detectRegionAround(r, c);
-    if (region.r2 - region.r1 < 1) { toast('No data region found around this cell to filter', 'warn'); return; }
-    sh.filter = { range: Object.assign({}, region), cols: {} };
-    toast('Filter enabled — use the dropdowns in the header row', 'info', 2000);
-  }
-  const { range } = sh.filter;
-  if (!sh.filter.cols[c]) sh.filter.cols[c] = { included: null, search: '' };
-  if (r === range.r1) { toast('This cell is part of the header row — pick a value row below it', 'warn'); return; }
-  if (c < range.c1 || c > range.c2) { toast('This column is outside the filtered range', 'warn'); return; }
-  sh.filter.cols[c] = { included: new Set([val]), search: '' };
-  applyFilter(sh);
-  updateStatusBar();
-  const hidden = sh.filterHidden.size;
-  toast('Filtered column ' + colName(c) + ' to “' + (val === '' ? '(Blanks)' : val) + '”' + (hidden ? ' — ' + hidden + ' row' + (hidden === 1 ? '' : 's') + ' hidden' : ''), 'success', 2600);
-}
-
 function parseRangeText(txt) {
   try {
     let sheetName = null, ref = txt;
@@ -7635,27 +7428,11 @@ function parseRangeText(txt) {
     return null;
   } catch (e) { return null; }
 }
-function formatAsTable() {
-  const sh = activeSheet();
-  const rg = activeSelRange();
-  let region;
-  if (rg.r2 > rg.r1 && rg.c2 > rg.c1 && !isColSelection(rg) && !isRowSelection(rg)) region = rg;
-  else region = detectRegionAround(SEL.active.r, SEL.active.c);
-  if (region.r2 <= region.r1) { toast('Select a range with a header row', 'warn'); return; }
-  const before = snapshotSheet(sh);
-  /* header styling */
-  for (let c = region.c1; c <= region.c2; c++) {
-    const cell = sh.cells.get(key(region.r1, c));
-    const base = cell && cell.s ? Object.assign({}, cell.s) : {};
-    writeCell(sh, region.r1, c, { s: normStyle(Object.assign(base, { bold: true, backgroundColor: '#d7e8de', color: '#1c5233' })) });
-  }
-  if (!sh.filter) { sh.filter = { range: Object.assign({}, region), cols: {} }; }
-  rebuildAllDeps();
+function restoreSheet(sh, snap) {
   const after = snapshotSheet(sh);
-  pushHistory({ label: 'Format as Table', undo: () => restoreSheet(sh, before), redo: () => restoreSheet(sh, after) });
-  renderFilterChips();
-  requestPaint(); Persistence.markDirty();
-  toast('Formatted as table with header styling and filters', 'success');
+  rebuildAllDeps();
+  requestPaint();
+  Persistence.markDirty();
 }
 
 /* ---------------- cell styles gallery ---------------- */
@@ -7663,7 +7440,7 @@ const CELL_STYLES = [
   { name: 'Normal', style: {} },
   { name: 'Good', style: { backgroundColor: '#e2efda', color: '#375623' } },
   { name: 'Bad', style: { backgroundColor: '#fce4e4', color: '#9c0006' } },
-  { name: 'Neutral', style: { backgroundColor: '#ffefcz', color: '#9c6500' } },
+  { name: 'Neutral', style: { backgroundColor: '#ffefc0', color: '#9c6500' } },
   { name: 'Input', style: { backgroundColor: '#fffbe6', border: { t: { style: 'thin', color: '#a6a6a6' }, b: { style: 'thin', color: '#a6a6a6' }, l: { style: 'thin', color: '#a6a6a6' }, r: { style: 'thin', color: '#a6a6a6' } } } },
   { name: 'Output', style: { backgroundColor: '#375623', color: '#ffffff', bold: true } },
   { name: 'Heading 1', style: { bold: true, fontSize: 14, color: '#1c5233', border: { b: { style: 'medium', color: '#217346' } } } },
@@ -7673,116 +7450,80 @@ const CELL_STYLES = [
   { name: 'Note', style: { italic: true, color: '#605e5c', backgroundColor: '#f3f2f1' } },
   { name: 'Currency', style: { numberFormat: '"$"#,##0.00', numFmtCat: 'currency' } }
 ];
+const CELL_STYLE_RESET = { fontFamily: DEF.fontFamily, fontSize: DEF.fontPt, bold: false, italic: false, underline: 0, strike: false, color: null, backgroundColor: null, halign: null, valign: null, wrap: false, numberFormat: null, numFmtCat: null, decimals: null, indent: 0, border: null };
 function applyCellStylePreset(preset) {
-  applyStyleToSelection(deepClone(preset.style), { label: 'Cell style: ' + preset.name });
+  /* An empty-style preset (Normal) must clear formatting — merging {} would be a no-op. */
+  const patch = preset.style && Object.keys(preset.style).length ? deepClone(preset.style) : deepClone(CELL_STYLE_RESET);
+  applyStyleToSelection(patch, { label: 'Cell style: ' + preset.name });
+  markActiveCellStyle(preset.name);
 }
-
-/* ---------------- Data validation dialog ---------------- */
-function openValidationDialog() {
-  const sh = activeSheet();
-  const rg = activeSelRange();
-  const content = el('<div>' +
-    '<div class="form-row"><label>Allow</label><div class="fr-input"><select id="dv-type"><option value="wholeNumber">Whole number</option><option value="decimal">Decimal</option><option value="list">List</option><option value="textLength">Text length</option><option value="date">Date</option><option value="custom">Custom formula</option></select></div></div>' +
-    '<div class="form-row" data-p="op"><label>Data</label><div class="fr-input"><select id="dv-op"><option value="between">between</option><option value="notBetween">not between</option><option value="eq">equal to</option><option value="ne">not equal to</option><option value="gt">greater than</option><option value="lt">less than</option><option value="gte">greater or equal</option><option value="lte">less or equal</option></select></div></div>' +
-    '<div class="form-row" data-p="min"><label>Minimum</label><div class="fr-input"><input type="text" id="dv-min"></div></div>' +
-    '<div class="form-row" data-p="max"><label>Maximum</label><div class="fr-input"><input type="text" id="dv-max"></div></div>' +
-    '<div class="form-row" data-p="list" style="display:none"><label>Items (one per line)</label><div class="fr-input"><textarea id="dv-list" placeholder="Apple&#10;Banana&#10;Cherry"></textarea></div></div>' +
-    '<div class="form-row" data-p="formula" style="display:none"><label>Formula</label><div class="fr-input"><input type="text" id="dv-formula" placeholder="e.g. =A1>0  (use @ for this cell)"></div></div>' +
-    '<div class="form-row"><label>Error style</label><div class="fr-input"><select id="dv-style"><option value="stop">Stop — revert invalid entries</option><option value="warning">Warning — allow with confirmation</option></select></div></div>' +
-    '<div class="form-row"><label>Error title</label><div class="fr-input"><input type="text" id="dv-etitle" value="Invalid entry"></div></div>' +
-    '<div class="form-row"><label>Error message</label><div class="fr-input"><input type="text" id="dv-emsg" placeholder="Shown when the value is rejected"></div></div>' +
-    '<div class="form-row"><label>Applies to</label><div class="fr-input"><input type="text" id="dv-range" value="' + addr(rg.r1, rg.c1) + ':' + addr(rg.r2, rg.c2) + '"></div></div>' +
-    '<div class="hint">Existing rules for the sheet are listed when you reopen this dialog. Use Data > Data Validation again to manage.</div>' +
-    '<div id="dv-listbox" class="listbox" style="max-height:120px"></div></div>');
-  const sel = content.querySelector('#dv-type');
-  sel.addEventListener('change', () => {
-    const v = sel.value;
-    content.querySelector('[data-p="op"]').style.display = ['list', 'custom'].includes(v) ? 'none' : '';
-    content.querySelector('[data-p="min"]').style.display = ['list', 'custom'].includes(v) ? 'none' : '';
-    content.querySelector('[data-p="max"]').style.display = ['list', 'custom', 'gt', 'lt', 'gte', 'lte', 'eq', 'ne'].includes(v) && !['list', 'custom'].includes(v) && !['gt', 'lt', 'gte', 'lte', 'eq', 'ne'].includes(content.querySelector('#dv-op').value) ? '' : 'none';
-    content.querySelector('[data-p="max"]').style.display = ['between', 'notBetween'].includes(content.querySelector('#dv-op').value) && !['list', 'custom'].includes(v) ? '' : 'none';
-    content.querySelector('[data-p="list"]').style.display = v === 'list' ? '' : 'none';
-    content.querySelector('[data-p="formula"]').style.display = v === 'custom' ? '' : 'none';
+/* ---------------- cell styles gallery (Themes-style) ---------------- */
+let _activeCellStyleName = null;
+function markActiveCellStyle(name) {
+  _activeCellStyleName = name;
+  document.querySelectorAll('.style-thumb, .style-gallery-card').forEach(x => {
+    x.classList.toggle('active', x.dataset.name === name);
   });
-  function renderDvList() {
-    const box = content.querySelector('#dv-listbox');
-    box.innerHTML = '';
-    if (!sh.dv.length) { box.innerHTML = '<div class="list-row"><span class="sub">No validation rules on this sheet.</span></div>'; return; }
-    sh.dv.forEach(dv => {
-      const row = el('<div class="list-row"><span class="grow">' + esc(dv.type) + '<div class="sub">' + addr(dv.range.r1, dv.range.c1) + ':' + addr(dv.range.r2, dv.range.c2) + '</div></span><button class="btn small" data-del>Remove</button></div>');
-      row.querySelector('[data-del]').addEventListener('click', () => {
-        const before = sh.dv.slice();
-        sh.dv = sh.dv.filter(x => x.id !== dv.id);
-        const after = sh.dv.slice();
-        pushHistory({ label: 'Remove validation', undo: () => { sh.dv = before.slice(); }, redo: () => { sh.dv = after.slice(); } });
-        renderDvList(); updateDvChips();
-      });
-      box.appendChild(row);
-    });
-  }
-  renderDvList();
-  openModal({
-    title: 'Data Validation', width: 560, content,
-    buttons: [{ label: 'Close' }, { label: 'Add Rule', primary: true, onClick: () => {
-      const parsed = parseRangeText(content.querySelector('#dv-range').value.trim());
-      if (!parsed) { toast('Invalid range', 'error'); return false; }
-      const dv = { id: uid(), type: sel.value, range: parsed, errorStyle: content.querySelector('#dv-style').value, errorTitle: content.querySelector('#dv-etitle').value, errorText: content.querySelector('#dv-emsg').value };
-      if (dv.type === 'list') {
-        dv.list = content.querySelector('#dv-list').value.split('\n').map(s => s.trim()).filter(Boolean);
-        if (!dv.list.length) { toast('Enter at least one list item', 'error'); return false; }
-      } else if (dv.type === 'custom') {
-        dv.formula = content.querySelector('#dv-formula').value.trim();
-        if (!dv.formula) { toast('Enter a custom formula', 'error'); return false; }
-      } else {
-        dv.op = content.querySelector('#dv-op').value;
-        const mn = Number(content.querySelector('#dv-min').value);
-        if (isNaN(mn)) { toast('Enter a valid minimum', 'error'); return false; }
-        dv.min = mn;
-        if (['between', 'notBetween'].includes(dv.op)) {
-          const mx = Number(content.querySelector('#dv-max').value);
-          if (isNaN(mx)) { toast('Enter a valid maximum', 'error'); return false; }
-          dv.max = mx;
-        } else dv.max = dv.min;
+}
+function styleBorderSide(b) {
+  if (!b) return '';
+  const w = b.style === 'medium' ? '2px' : (b.style === 'double' ? '3px' : '1px');
+  return w + ' ' + b.style + ' ' + b.color;
+}
+function buildCellStylePreview(preset) {
+  const wrap = el('<div class="st-preview"></div>');
+  const st = preset.style || {};
+  const sampleTexts = st.numberFormat && /currency|\$/.test(st.numberFormat) ? ['$1,234', '$56.00', '$7.99'] : ['Abc', '123', 'X9'];
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      const cell = el('<div class="st-cell"></div>');
+      if (r === 0) {
+        cell.classList.add('st-hot');
+        cell.textContent = sampleTexts[c];
+        if (st.backgroundColor) cell.style.background = st.backgroundColor;
+        if (st.color) cell.style.color = st.color;
+        if (st.bold) cell.style.fontWeight = '700';
+        if (st.italic) cell.style.fontStyle = 'italic';
+        if (st.fontSize) cell.style.fontSize = '7px';
+        if (st.border) {
+          if (st.border.t) cell.style.borderTop = styleBorderSide(st.border.t);
+          if (st.border.b) cell.style.borderBottom = styleBorderSide(st.border.b);
+          if (st.border.l) cell.style.borderLeft = styleBorderSide(st.border.l);
+          if (st.border.r) cell.style.borderRight = styleBorderSide(st.border.r);
+        }
       }
-      const before = sh.dv.slice();
-      sh.dv.push(dv);
-      const after = sh.dv.slice();
-      pushHistory({ label: 'Add validation', undo: () => { sh.dv = before.slice(); updateDvChips(); }, redo: () => { sh.dv = after.slice(); updateDvChips(); } });
-      renderDvList(); updateDvChips();
-      return false;
-    } }]
-  });
-}
-function updateDvChips() {
-  const layer = $('#dv-btn-layer');
-  if (!layer || !R.layout) return;
-  layer.innerHTML = '';
-  const sh = activeSheet();
-  if (!sh.dv.length || Edit.active) return;
-  const r = SEL.active.r, c = SEL.active.c;
-  const dv = sh.dv.find(d => r >= d.range.r1 && r <= d.range.r2 && c >= d.range.c1 && c <= d.range.c2 && d.type === 'list');
-  if (!dv) return;
-  const rect = cellScreenRect(sh, r, c);
-  const chip = el('<button class="dv-chip" title="Choose from list" aria-label="Choose from validation list">' + icon('chevDown') + '</button>');
-  chip.style.left = (rect.x + rect.w - 13) + 'px';
-  chip.style.top = (rect.y + (rect.h - 15) / 2) + 'px';
-  chip.addEventListener('mousedown', e => e.stopPropagation());
-  chip.addEventListener('click', e => {
-    e.stopPropagation();
-    const items = dv.list || [];
-    const pop = el('<div class="popup" style="min-width:130px"></div>');
-    for (const it of items) {
-      const row = el('<div class="popup-item"><span class="pi-label">' + esc(it) + '</span></div>');
-      row.addEventListener('click', () => {
-        commitCellValue(sh, r, c, it);
-        closePopups();
-        requestPaint();
-      });
-      pop.appendChild(row);
+      wrap.appendChild(cell);
     }
-    showPopup(pop, chip, { width: 150 });
+  }
+  return wrap;
+}
+function buildStyleThumb(preset, idx) {
+  const b = el('<button class="style-thumb" type="button" data-name="' + esc(preset.name) + '" title="' + esc(preset.name) + '"></button>');
+  b.appendChild(buildCellStylePreview(preset));
+  b.addEventListener('click', () => { applyCellStylePreset(preset); });
+  return b;
+}
+function buildStyleGalleryMenu() {
+  const menu = el('<div class="ms-dropdown-menu style-gallery-menu"></div>');
+  const header = el('<div class="style-gallery-header">All Cell Styles</div>');
+  menu.appendChild(header);
+  const grid = el('<div class="style-gallery-grid"></div>');
+  CELL_STYLES.forEach((p, i) => {
+    const card = el('<button class="style-gallery-card" type="button" data-name="' + esc(p.name) + '" title="' + esc(p.name) + '"></button>');
+    const thumb = el('<div class="style-thumb style-thumb-lg"></div>');
+    thumb.appendChild(buildCellStylePreview(p));
+    const label = el('<div class="style-gallery-label">' + esc(p.name) + '</div>');
+    card.appendChild(thumb);
+    card.appendChild(label);
+    card.addEventListener('click', e => {
+      e.stopPropagation();
+      applyCellStylePreset(p);
+      closeMsMenus();
+    });
+    grid.appendChild(card);
   });
-  layer.appendChild(chip);
+  menu.appendChild(grid);
+  return menu;
 }
 
 /* ==========================================================================
@@ -9386,6 +9127,8 @@ function showWelcomeScreen(show) {
   ws.style.display = show ? 'flex' : 'none';
   document.body.classList.toggle('no-active-wb', show);
   if (show) renderWelcomeCards();
+  const targets = show ? [ws] : [$('#ribbon'), $('#formula-row'), $('#grid-area')];
+  targets.forEach(t => { if (!t) return; t.classList.remove('screen-fade'); void t.offsetWidth; t.classList.add('screen-fade'); });
 }
 function isWelcomeVisible() {
   const ws = $('#welcomeScreen');
@@ -9714,13 +9457,11 @@ function showPopupMenu(items, x, y) {
   return pop;
 }
 function showCellContextMenu(x, y) {
-  const hasFilter = !!activeSheet().filter;
   const shCtx = activeSheet();
   const hasNote = !!noteAt(shCtx, SEL.active.r, SEL.active.c);
   const cell = shCtx.cells.get(key(SEL.active.r, SEL.active.c));
   const isFormula = !!(cell && cell.f);
   const valTxt = displayValue(shCtx, SEL.active.r, SEL.active.c).text;
-  const quickFilterLabel = 'Filter by ' + (valTxt === '' ? '(Blanks)' : 'This Value') + (valTxt && valTxt.length <= 14 ? ' (“' + valTxt + '”)' : '');
   showPopupMenu([
     { label: 'Cut', icon: 'cut', shortcut: 'Ctrl+X', action: () => doCopy(true) },
     { label: 'Copy', icon: 'copy', shortcut: 'Ctrl+C', action: () => doCopy(false) },
@@ -9731,7 +9472,6 @@ function showCellContextMenu(x, y) {
     { label: 'Insert Column Before', icon: 'colInsert', action: () => insertColsAt('left') },
     { label: 'Insert Column After', icon: 'colInsert', action: () => insertColsAt('right') },
     { sep: true },
-    { label: 'Clear Contents', icon: 'clear', shortcut: 'Del', action: () => clearSelectionContents('contents') },
     { label: 'Delete Rows', icon: 'rowDelete', action: () => { const rows = selRows(); deleteRows(rows[0], rows.length); } },
     { label: 'Delete Columns', icon: 'colDelete', action: () => { const cols = selCols(); deleteCols(cols[0], cols.length); } },
     { sep: true },
@@ -9740,11 +9480,7 @@ function showCellContextMenu(x, y) {
     hasNote ? { label: 'Delete Note', icon: 'clear', action: () => { setNote(shCtx, SEL.active.r, SEL.active.c, ''); toast('Note deleted', 'info', 1200); } } : null,
     { label: 'Merge Across', icon: 'merge', action: () => mergeSelection('across') },
     { label: 'Unmerge', icon: 'unmerge', action: () => mergeSelection('unmerge') },
-    { label: 'Numbering…', icon: 'numfmt', action: () => openNumberFormatDialog() },
-    { label: 'Pick from Validation List', icon: 'validate', action: () => { updateDvChips(); const chip = document.querySelector('.dv-chip'); if (chip) chip.click(); else toast('No list validation applies to this cell', 'warn'); } },
     { sep: true },
-    { label: quickFilterLabel, icon: 'filter', action: () => quickFilterByValue() },
-    { label: hasFilter ? 'Reapply Filter' : 'Filter', icon: 'filter', action: () => { if (hasFilter) { applyFilter(); } else toggleFilter(); } },
     { sep: true },
     { label: 'Trace Precedents', icon: 'auditPrec', disabled: !isFormula, action: () => { Audit.mode = 'prec'; requestPaint(); } },
     { label: 'Trace Dependents', icon: 'auditDep', action: () => { Audit.mode = Audit.mode === 'dep' ? null : 'dep'; requestPaint(); } }
@@ -9757,7 +9493,6 @@ function showRowContextMenu(x, y) {
     { label: 'Insert Rows Below', icon: 'rowInsert', action: () => insertRowsAt('below') },
     { label: 'Delete Rows', icon: 'rowDelete', action: () => deleteRows(rows[0], rows.length) },
     { sep: true },
-    { label: 'Clear Contents', icon: 'clear', action: () => clearSelectionContents('contents') },
     { sep: true },
     { label: 'Row Height…', icon: 'grid', action: () => promptRowHeight() },
     { label: 'AutoFit Row Height', icon: 'grid', action: () => { rows.forEach(r => autoFitSize('row', r)); } },
@@ -9773,7 +9508,6 @@ function showColContextMenu(x, y) {
     { label: 'Insert Columns Right', icon: 'colInsert', action: () => insertColsAt('right') },
     { label: 'Delete Columns', icon: 'colDelete', action: () => deleteCols(cols[0], cols.length) },
     { sep: true },
-    { label: 'Clear Contents', icon: 'clear', action: () => clearSelectionContents('contents') },
     { sep: true },
     { label: 'Column Width…', icon: 'grid', action: () => promptColWidth() },
     { label: 'AutoFit Column Width', icon: 'grid', action: () => { cols.forEach(c => autoFitSize('col', c)); } },
@@ -9897,7 +9631,7 @@ function modalIconFor(title) {
   const t = (title || '').toLowerCase();
   const map = [
     ['delete', 'trash'], ['function', 'sigma'], ['chart', 'chartCol'],
-    ['data validation', 'validate'], ['sort', 'sort'], ['filter', 'filter'], ['saved documents', 'folder'],
+    ['sort', 'sort'], ['filter', 'filter'], ['saved documents', 'folder'],
     ['document', 'file'], ['workbook', 'file'], ['import', 'import'], ['export', 'export'],
     ['print', 'print'], ['save', 'save'], ['named range', 'nameBox'], ['insert', 'plus'],
     ['merge', 'merge'], ['format', 'styles'], ['cells', 'grid'], ['rows', 'rowInsert'],
@@ -9992,31 +9726,6 @@ function promptDialog(title, label, value, onOk) {
 }
 
 /* ---------------- shared dialogs ---------------- */
-function openGoToDialog() {
-  const names = Object.keys(WB.names);
-  const content = el('<div><div class="form-row"><label>Reference</label><div class="fr-input"><input type="text" id="gt-ref" placeholder="A1, B2:C9, Sheet2!A1, MyRange"></div></div><div class="hint">Go to a cell, range, or named range.</div><div id="gt-names"></div></div>');
-  const namesBox = content.querySelector('#gt-names');
-  if (names.length) {
-    const list = el('<div class="listbox"></div>');
-    for (const n of names) {
-      const def = WB.names[n];
-      const row = el('<div class="list-row"><span class="grow">' + esc(def.name) + '<div class="sub">' + esc(def.sheetName || '') + '!' + addr(def.r1, def.c1) + ':' + addr(def.r2, def.c2) + '</div></span></div>');
-      row.addEventListener('click', () => { content.querySelector('#gt-ref').value = def.name; });
-      list.appendChild(row);
-    }
-    namesBox.appendChild(list);
-  }
-  openModal({
-    title: 'Go To', width: 430, content,
-    buttons: [{ label: 'Cancel' }, { label: 'Go', primary: true, onClick: () => {
-      const v = content.querySelector('#gt-ref').value.trim();
-      if (!v) return false;
-      UI.nameBox.value = v;
-      commitNameBox();
-      return true;
-    } }]
-  });
-}
 function openDefineNameDialog() {
   const sh = activeSheet();
   const rg = activeSelRange();
@@ -10063,79 +9772,6 @@ function openDefineNameDialog() {
   if (dlg) dlg.modal.classList.add('define-name');
 }
 
-/* ---------------- Numbering dialog ----------------
-   Number format only. Font, border, alignment and fill all have their own
-   ribbon controls (Home > Font/Alignment/Borders/Fill), so a combined Format
-   Cells dialog only duplicated them behind a second click. */
-function openNumberFormatDialog() {
-  const sh = activeSheet();
-  const rg = activeSelRange();
-  const firstCell = sh.cells.get(key(rg.r1, rg.c1));
-  const base = firstCell && firstCell.s ? Object.assign({}, firstCell.s) : {};
-  const S = {
-    numFmtCat: base.numFmtCat || 'general',
-    numberFormat: base.numberFormat || 'General',
-    decimals: base.decimals
-  };
-  const CATS = [
-    ['general', 'General'], ['number', 'Number'], ['currency', 'Currency'], ['accounting', 'Accounting'],
-    ['shortDate', 'Short Date'], ['longDate', 'Long Date'], ['time', 'Time'], ['percent', 'Percentage'],
-    ['fraction', 'Fraction'], ['text', 'Text'], ['custom', 'Custom']
-  ];
-  const DEC_CATS = ['number', 'currency', 'accounting', 'percent'];
-  const content = el('<div>' +
-    '<div class="form-row"><label>Category</label><div class="fr-input"><select id="fc-cat">' + CATS.map(c => '<option value="' + c[0] + '"' + (c[0] === S.numFmtCat ? ' selected' : '') + '>' + c[1] + '</option>').join('') + '</select></div></div>' +
-    '<div class="form-row" data-dec><label>Decimal places</label><div class="fr-input"><input type="number" id="fc-dec" min="0" max="10" value="' + (S.decimals == null ? 2 : S.decimals) + '" style="width:90px"></div></div>' +
-    '<div class="form-row" data-fmt><label>Type</label><div class="fr-input"><input type="text" id="fc-fmt" placeholder="0.00" value="' + esc(S.numberFormat === 'General' ? '' : S.numberFormat) + '"></div></div>' +
-    '<div class="form-row"><label>Preview</label><div class="fr-input"><div class="preview-box" id="fc-preview">1234.57</div></div></div>' +
-    '</div>');
-  const fmtInput = content.querySelector('#fc-fmt');
-  const decInput = content.querySelector('#fc-dec');
-  function codeForCat(cat) {
-    const d = clamp(parseInt(decInput.value || '2', 10) || 0, 0, 10);
-    switch (cat) {
-      case 'general': return 'General';
-      case 'number': return NUMCAT.number(d);
-      case 'currency': return NUMCAT.currency(d);
-      case 'accounting': return NUMCAT.accounting(d);
-      case 'shortDate': return NUMCAT.shortDate;
-      case 'longDate': return NUMCAT.longDate;
-      case 'time': return NUMCAT.time;
-      case 'percent': return NUMCAT.percent(d);
-      case 'fraction': return NUMCAT.fraction;
-      case 'text': return '@';
-      case 'custom': return fmtInput.value || 'General';
-    }
-    return 'General';
-  }
-  function updatePreview() {
-    const cat = content.querySelector('#fc-cat').value;
-    const code = codeForCat(cat);
-    fmtInput.value = cat === 'custom' ? fmtInput.value : code;
-    const sampleVals = [1234.567, -1234.5, 0.5, dateToSerial(new Date())];
-    content.querySelector('#fc-preview').textContent = sampleVals.map(v => formatValue(v, code)).join('   |   ');
-    content.querySelector('[data-dec]').style.display = DEC_CATS.includes(cat) ? '' : 'none';
-    content.querySelector('[data-fmt]').style.display = cat === 'custom' ? '' : 'none';
-  }
-  content.querySelector('#fc-cat').addEventListener('change', updatePreview);
-  decInput.addEventListener('input', updatePreview);
-  fmtInput.addEventListener('input', updatePreview);
-  updatePreview();
-  openModal({
-    title: 'Numbering', width: 430, content,
-    buttons: [{ label: 'Cancel' }, { label: 'Apply', primary: true, onClick: () => {
-      const cat = content.querySelector('#fc-cat').value;
-      const code = cat === 'custom' ? (fmtInput.value || 'General') : codeForCat(cat);
-      const dec = clamp(parseInt(content.querySelector('#fc-dec').value, 10) || 0, 0, 10);
-      applyStyleToSelection({
-        numberFormat: code === 'General' ? null : code,
-        numFmtCat: code === 'General' ? null : cat,
-        decimals: DEC_CATS.includes(cat) ? dec : null
-      }, { label: 'Number format' });
-      return true;
-    } }]
-  });
-}
 
 const RIBBON_FONT_GROUPS = [
   ['Sans-Serif', ['Calibri', 'Segoe UI', 'Arial', 'Helvetica', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Poppins', 'Nunito', 'Ubuntu', 'Raleway', 'Oswald', 'Work Sans', 'DM Sans', 'Impact']],
@@ -10370,19 +10006,7 @@ function ribbonConfig() {
           cmd('strike', '', () => toggleStyle('strike'), { small: true, toggleKey: 'strike', cmd: 'strike', title: 'Strikethrough' })
         ]},
         { custom: 'fontColor' }, { custom: 'fillColor' },
-        cmd('borders', 'Borders', null, { small: true, split: true, cmd: 'borders', menu: [
-          { label: 'All Borders', icon: 'bdAll', action: () => applyBorders('all') },
-          { label: 'Outside Borders', icon: 'bdOut', action: () => applyBorders('out') },
-          { label: 'Thick Outside Border', icon: 'bdThick', action: () => applyBorders('thick') },
-          { sep: true },
-          { label: 'Top Border', icon: 'bdTop', action: () => applyBorders('top') },
-          { label: 'Bottom Border', icon: 'bdBottom', action: () => applyBorders('bottom') },
-          { label: 'Double Bottom Border', icon: 'bdDblBottom', action: () => applyBorders('dblbottom') },
-          { label: 'Left Border', icon: 'bdLeft', action: () => applyBorders('left') },
-          { label: 'Right Border', icon: 'bdRight', action: () => applyBorders('right') },
-          { sep: true },
-          { label: 'No Border', icon: 'bdNone', action: () => applyBorders('none') }
-        ] })
+        { custom: 'borders' }
       ]},
       { label: 'Arrange', items: [
         { custom: 'arrange', items: [
@@ -10434,146 +10058,48 @@ function ribbonConfig() {
         ]}
       ]},
       { label: 'Styles', items: [
-        cmd('table', 'Format as Table', () => formatAsTable(), { small: true, cmd: 'asTable' }),
-        cmd('grid', 'Cell Styles', null, { split: true, menu: CELL_STYLES.map(p => ({ custom: 'styleChip', preset: p })) }),
-        cmd('numfmt', 'Numbering', () => openNumberFormatDialog(), { cmd: 'numFmtDlg', title: 'Number format: category, decimals and custom type (Ctrl+1)' })
-      ]}
-    ],
-    Formulas: [
-      { label: 'Function Library', items: [
-        cmd('fx', 'Insert Function', () => openInsertFunctionDialog(), { small: true, title: 'Insert Function' }),
-        cmd('sum', 'AutoSum', () => autoSum('SUM'), { split: true, menu: [
-          { label: 'Sum', icon: 'sum', action: () => autoSum('SUM') },
-          { label: 'Average', action: () => autoSum('AVERAGE') },
-          { label: 'Count Numbers', action: () => autoSum('COUNT') },
-          { label: 'Max', action: () => autoSum('MAX') },
-          { label: 'Min', action: () => autoSum('MIN') }
-        ] }),
-        cmd('file', 'Financial', null, { split: true, menu: catFunctions('Financial') }),
-        cmd('validate', 'Logical', null, { split: true, menu: catFunctions('Logical') }),
-        cmd('text', 'Text', null, { split: true, menu: catFunctions('Text') }),
-        cmd('tag', 'Date & Time', null, { split: true, menu: catFunctions('Date & Time') }),
-        cmd('search', 'Lookup & Reference', null, { split: true, menu: catFunctions('Lookup & Reference') }),
-        cmd('sum', 'Math & Trig', null, { split: true, menu: catFunctions('Math & Trig') }),
-        cmd('dots', 'More Functions', null, { split: true, menu: catFunctions('More') })
-      ]},
-      { label: 'Calculation', items: [
-        cmd('calculate', 'Calculation Options', null, { split: true, menu: [
-          { label: 'Automatic', checked: () => Calc.mode === 'auto', action: () => { Calc.mode = 'auto'; toast('Calculation: Automatic', 'info', 1400); } },
-          { label: 'Manual', checked: () => Calc.mode === 'manual', action: () => { Calc.mode = 'manual'; toast('Calculation: Manual (F9 to recalc)', 'info', 1800); } }
-        ] }),
-        cmd('refresh', 'Calculate Now', () => recalcWorkbook(true), { small: true, title: 'Calculate now (F9)' })
-      ]},
-      { label: 'Engine Tools', items: [
-        cmd('gauge', 'Diagnostics', () => openDiagnostics(), { small: true, title: 'Engine diagnostics & benchmarks' }),
-        cmd('datamodel', 'Rebuild Deps', () => { rebuildAllDeps(); toast('Dependency graph rebuilt for ' + DepGraph.fDeps.size + ' formula(s)', 'success'); }, { small: true, title: 'Rebuild the dependency graph for all names and formulas' })
-      ]},
-      { label: 'Formula Auditing', items: [
-        cmd('auditPrec', 'Trace Precedents', () => tracePrecedents(), { small: true, cmd: 'trace', toggleFn: () => Audit.mode === 'prec' || Audit.mode === 'both', title: 'Trace Precedents — arrows from cells used by this formula' }),
-        cmd('auditDep', 'Trace Dependents', () => traceDependents(), { small: true, cmd: 'trace', toggleFn: () => Audit.mode === 'dep' || Audit.mode === 'both', title: 'Trace Dependents — arrows to formulas that use this cell' }),
-        cmd('auditAll', 'Trace All', () => traceAll(), { small: true, cmd: 'traceAll', toggleFn: () => Audit.mode === 'all', title: 'Trace All — multi-level dependency chain across the whole graph, with cross-sheet connectors' }),
-        cmd('auditOff', 'Remove Arrows', () => removeAuditArrows(), { small: true, cmd: 'auditOff', title: 'Remove all tracer arrows' })
+        { custom: 'styleGallery' }
       ]}
     ],
     Data: [
-      { label: 'Sort & Filter', items: [
-        cmd('sortAsc', 'Sort A→Z', () => quickSort(false), { small: true, cmd: 'sort' }),
-        cmd('sortDesc', 'Sort Z→A', () => quickSort(true), { small: true, cmd: 'sort' }),
-        cmd('sort', 'Custom Sort', () => openSortDialog(), { small: true, cmd: 'sort' }),
-        cmd('filter', 'Filter', () => toggleFilter(), { toggleFn: () => !!activeSheet().filter, title: 'Toggle filter' }),
-        cmd('refresh', 'Reapply', () => applyFilter(), { small: true, title: 'Reapply the current filter' })
+      { label: 'Sort', items: [
+        cmd('sortAsc', 'Sort A→Z', () => quickSort(false), { cmd: 'sort' }),
+        cmd('sortDesc', 'Sort Z→A', () => quickSort(true), { cmd: 'sort' }),
       ]},
       { label: 'Data Tools', items: [
-        cmd('split', 'Text to Columns', () => openTextToColumns(), { small: true }),
-        cmd('validate', 'Data Validation', () => openValidationDialog(), { small: true }),
-        cmd('dedupe', 'Remove Duplicates', () => openRemoveDuplicates(), { small: true })
+        cmd('dedupe', 'Remove Duplicates', () => openRemoveDuplicates(), { cmd: 'dataTools' })
       ]},
       { label: 'Editing', items: [
-        cmd('sum', 'AutoSum', () => autoSum('SUM'), { split: true, menu: [
-          { label: 'Sum', icon: 'sum', action: () => autoSum('SUM') },
-          { label: 'Average', action: () => autoSum('AVERAGE') },
-          { label: 'Count Numbers', action: () => autoSum('COUNT') },
-          { label: 'Max', action: () => autoSum('MAX') },
-          { label: 'Min', action: () => autoSum('MIN') }
-        ] }),
-        cmd('clear', 'Clear', null, { split: true, menu: [
-          { label: 'Clear All', action: () => clearSelectionContents('all') },
-          { label: 'Clear Formats', action: () => clearSelectionContents('formats') },
-          { label: 'Clear Contents', shortcut: 'Del', action: () => clearSelectionContents('contents') }
-        ] }),
-        cmd('search', 'Find & Select', null, { split: true, menu: [
-          { label: 'Find…', icon: 'search', shortcut: 'Ctrl+F', action: () => toggleFindPanel(true, 'find') },
-          { label: 'Replace…', shortcut: 'Ctrl+H', action: () => toggleFindPanel(true, 'replace') },
-          { label: 'Go To…', shortcut: 'Ctrl+G', action: () => openGoToDialog() },
-          { sep: true },
-          { label: 'Select All', shortcut: 'Ctrl+A', action: () => selectAll() }
-        ] }),
-        cmd('history', 'History', () => openHistoryDialog(), { small: true, title: 'Undo history — review, replay or revert edits' })
+        cmd('search', 'Find', () => toggleFindPanel(true, 'find'), { title: 'Find — Ctrl+F' }),
+        cmd('arrowRight', 'Go To', () => toggleFindPanel(true, 'goto'), { title: 'Go To cell — Ctrl+G' })
+      ]},
+      { label: 'Formula Auditing', items: [
+        cmd('auditPrec', 'Trace Precedents', () => tracePrecedents(), { cmd: 'trace', toggleFn: () => Audit.mode === 'prec' || Audit.mode === 'both', title: 'Trace Precedents — arrows from cells used by this formula' }),
+        cmd('auditDep', 'Trace Dependents', () => traceDependents(), { cmd: 'trace', toggleFn: () => Audit.mode === 'dep' || Audit.mode === 'both', title: 'Trace Dependents — arrows to formulas that use this cell' }),
+        cmd('auditAll', 'Trace All', () => traceAll(), { cmd: 'traceAll', toggleFn: () => Audit.mode === 'all', title: 'Trace All — multi-level dependency chain across the whole graph, with cross-sheet connectors' }),
       ]}
     ],
     View: [
       { label: 'Show', items: [
-        cmd('grid', 'Gridlines', () => toggleGridlines(), { toggleFn: () => activeSheet().showGridlines, small: true }),
-        cmd('grid', 'Formula Bar', () => toggleFormulaBar(), { toggleFn: () => VIEW.showFormulaBar, small: true }),
-        cmd('grid', 'Headings', () => toggleHeadings(), { toggleFn: () => VIEW.showHeadings, small: true }),
-        cmd('fx', 'Show Formulas', () => { VIEW.showFormulas = !VIEW.showFormulas; requestPaint(); }, { toggleFn: () => VIEW.showFormulas, small: true, title: 'Show formulas instead of results (Ctrl+`)' }),
-        cmd('wrap', 'Wrap Text', () => toggleWrapText(), { toggleFn: () => wrapTextActive(), small: true, title: 'Wrap text — re-fits the row height so wrapped lines are visible' })
-      ]},
-      { label: 'Freeze Panes', items: [
-        cmd('freeze', 'Freeze Top Row', () => setFreeze(1, 0), { small: true }),
-        cmd('freeze', 'Freeze 1st Column', () => setFreeze(0, 1), { small: true }),
-        cmd('freeze', 'Freeze at Cell', () => setFreeze(SEL.active.r, SEL.active.c), { small: true }),
-        cmd('freeze', 'Unfreeze', () => setFreeze(0, 0), { small: true })
+        cmd('grid', 'Gridlines', () => toggleGridlines(), { toggleFn: () => activeSheet().showGridlines }),
+        cmd('fxBar', 'Formula Bar', () => toggleFormulaBar(), { toggleFn: () => VIEW.showFormulaBar }),
+        cmd('headerCells', 'Headings', () => toggleHeadings(), { toggleFn: () => VIEW.showHeadings }),
+        cmd('lineHead', 'Show Formulas', () => { VIEW.showFormulas = !VIEW.showFormulas; requestPaint(); }, { toggleFn: () => VIEW.showFormulas, title: 'Show formulas instead of results (Ctrl+`)' }),
       ]},
       { label: 'Zoom', items: [
-        cmd('zoomIn', 'Zoom In', () => animateZoom(VIEW.zoom * 1.15), { small: true }),
-        cmd('zoomOut', 'Zoom Out', () => animateZoom(VIEW.zoom / 1.15), { small: true }),
-        cmd('zoomIn', '100%', () => animateZoom(1), { small: true }),
-        cmd('zoomIn', 'Zoom to Selection', () => zoomToSelection(), { small: true })
+        cmd('fitWindow', 'Fit to Window', () => zoomFitToWindow(), { title: 'Fit to window' }),
+        cmd('zoom100', '100%', () => animateZoom(1), { title: 'Zoom to 100%' }),
+        cmd('zoomIn', 'Zoom In', () => animateZoom(VIEW.zoom * 1.15), { title: 'Zoom in' }),
+        cmd('zoomOut', 'Zoom Out', () => animateZoom(VIEW.zoom / 1.15), { title: 'Zoom out' })
       ]},
-      { label: 'Help', items: [
-        cmd('help', 'Quick Help', () => openHelpDialog('help'), { small: true }),
-        cmd('keyboard', 'Shortcuts', () => openHelpDialog('shortcuts'), { small: true, title: 'Keyboard shortcuts' }),
-        cmd('info', 'About', () => openHelpDialog('about'), { small: true, title: 'About EmeraldSheets' })
-      ]}
     ]
   };
-}
-function catFunctions(cat) {
-  let items = FUNC_META.filter(f => f.cat === cat);
-  if (cat === 'More') items = FUNC_META.filter(f => !['Financial', 'Logical', 'Text', 'Date & Time', 'Lookup & Reference', 'Math & Trig'].includes(f.cat));
-  if (!items.length) return [{ label: '(none)', disabled: true }];
-  return items.map(f => ({ label: f.name, sub: '', action: () => insertFunctionByName(f.name) }));
-}
-function insertFunctionByName(name) {
-  if (!Edit.active) beginEdit(SEL.active.r, SEL.active.c, { cursorMode: true });
-  const ed = UI.editor;
-  if (!ed.value.startsWith('=')) ed.value = '=' + name + '()';
-  else ed.value = ed.value + name + '(';
-  ed.focus();
-  ed.setSelectionRange(ed.value.length, ed.value.length);
-  Edit.dirty = true;
-  updateFormulaBarForEdit(ed.value);
 }
 function changeFontSize(delta) {
   const sh = activeSheet();
   const cell = sh.cells.get(key(SEL.active.r, SEL.active.c));
   const cur = cell && cell.s && cell.s.fontSize ? cell.s.fontSize : DEF.fontPt;
   applyStyleToSelection({ fontSize: clamp(cur + delta * 2, 6, 96) });
-}
-function wrapTextActive() {
-  const sh = activeSheet();
-  let on = false;
-  forEachSelectedCell((r, c) => { const cell = sh.cells.get(key(r, c)); if (cell && cell.s && cell.s.wrap) on = true; });
-  return on;
-}
-function toggleWrapText() {
-  const next = !wrapTextActive();
-  applyStyleToSelection({ wrap: next });
-  /* Wrapping alone only looks like wrapping if the row is tall enough to show the
-     extra lines — the renderer clips to the cell rect, so without re-fitting the
-     row the text was silently cut off. autoFitSize already accounts for wrap. */
-  for (const r of selRows()) autoFitSize('row', r);
 }
 function changeDecimals(delta) {
   const sh = activeSheet();
@@ -10644,34 +10170,6 @@ function applyStyleToSelectionAt(sh, r, c, existingStyle, patch) {
   writeCell(sh, r, c, { s: merged });
   const nowC = sh.cells.get(key(r, c));
   pushHistory(histCellChange(sh, r, c, prevSnap, nowC ? snapOf(nowC) : null));
-}
-function autoSum(fnName) {
-  const sh = activeSheet();
-  const r = SEL.active.r, c = SEL.active.c;
-  /* scan up for contiguous numbers */
-  let r1 = r - 1;
-  const isNumAt = (rr, cc) => {
-    const cell = sh.cells.get(key(rr, cc));
-    if (!cell) return false;
-    if (cell.f) { const v = getComputedCell(sh.id, rr, cc); return typeof v === 'number'; }
-    return typeof cell.v === 'number';
-  };
-  let end = r1;
-  if (r1 >= 0 && isNumAt(r1, c)) {
-    while (r1 - 1 >= 0 && isNumAt(r1 - 1, c)) r1--;
-    const range = addr(r1, c) + ':' + addr(end, c);
-    insertFormulaText('=' + fnName + '(' + range + ')');
-    return;
-  }
-  /* scan left */
-  let c1 = c - 1;
-  if (c1 >= 0 && isNumAt(r, c1)) {
-    const endC = c1;
-    while (c1 - 1 >= 0 && isNumAt(r, c1 - 1)) c1--;
-    insertFormulaText('=' + fnName + '(' + addr(r, c1) + ':' + addr(r, endC) + ')');
-    return;
-  }
-  insertFormulaText('=' + fnName + '()');
 }
 function insertFormulaText(text) {
   beginEdit(SEL.active.r, SEL.active.c, { initial: text, cursorMode: false });
@@ -10916,7 +10414,7 @@ function openMsMenu(menuItems, btn) {
     if (it.sep) { menu.appendChild(el('<div class="ms-dropdown-sep"></div>')); continue; }
     if (it.section) { menu.appendChild(el('<div class="ms-dropdown-section-label">' + esc(it.section) + '</div>')); continue; }
     if (it.custom === 'styleChip') {
-      const chip = el('<button class="style-chip" style="background:' + (it.preset.style.backgroundColor || '#fff') + ';color:' + (it.preset.style.color || '#3b3a39') + ';font-weight:' + (it.preset.style.bold ? '700' : '400') + ';font-style:' + (it.preset.style.italic ? 'italic' : 'normal') + '">' + esc(it.preset.name) + '</button>');
+      const chip = el('<button class="style-chip" style="background:' + (it.preset.style.backgroundColor || '#fff') + ';color:' + (it.preset.style.color || '#3b3a39') + ';font-weight:' + (it.preset.style.bold ? '700' : '400') + ';font-style:' + (it.preset.style.italic ? 'italic' : 'normal') + ';border-width:' + (it.preset.style.border ? '1px' : '0') + ';border-style:' + (it.preset.style.border ? 'solid' : 'none') + ';border-color:' + (it.preset.style.border || 'transparent') + ';box-shadow:' + (it.preset.style.shadow ? '0 1px 2px rgba(0,0,0,.08)' : 'none') + '">' + esc(it.preset.name) + '</button>');
       chip.addEventListener('click', () => { applyCellStylePreset(it.preset); closeMsMenus(); });
       menu.appendChild(chip);
       continue;
@@ -11150,7 +10648,47 @@ function buildCustomRibbonControl(item) {
       for (const sub of item.items) { if (!sub.custom) sub.small = true; wrap.appendChild(buildRibbonItem(sub)); }
       return wrap;
     }
+    case 'borders': {
+      const btn = el('<button class="ms-dropdown-btn borders-btn" data-cmd="borders" title="Border" aria-label="Border">' + icon('borders') + '<span class="dropdown-value">Border</span></button>');
+      btn.setAttribute('aria-haspopup', 'menu');
+      btn.setAttribute('aria-expanded', 'false');
+      btn.addEventListener('click', () => {
+        if (_msMenuBtn === btn) { closeMsMenus(); return; }
+        closeMsMenus();
+        openMsMenu([
+          { label: 'All Borders', icon: 'bdAll', action: () => applyBorders('all') },
+          { label: 'Outside Borders', icon: 'bdOut', action: () => applyBorders('out') },
+          { label: 'Thick Outside Border', icon: 'bdThick', action: () => applyBorders('thick') },
+          { label: 'Top Border', icon: 'bdTop', action: () => applyBorders('top') },
+          { label: 'Bottom Border', icon: 'bdBottom', action: () => applyBorders('bottom') },
+          { label: 'Double Bottom Border', icon: 'bdDblBottom', action: () => applyBorders('dblbottom') },
+          { label: 'Left Border', icon: 'bdLeft', action: () => applyBorders('left') },
+          { label: 'Right Border', icon: 'bdRight', action: () => applyBorders('right') },
+          { label: 'No Border', icon: 'bdNone', action: () => applyBorders('none') }
+        ], btn);
+        btn.setAttribute('aria-expanded', 'true');
+      });
+      return btn;
+    }
     case 'colors': return document.createElement('div');
+    case 'styleGallery': {
+      const wrap = el('<div class="style-gallery"></div>');
+      const row = el('<div class="style-thumb-row"></div>');
+      CELL_STYLES.slice(0, 6).forEach((p, i) => row.appendChild(buildStyleThumb(p, i)));
+      const dd = el('<div class="ms-dropdown style-more-dd"></div>');
+      const moreBtn = el('<button type="button" class="more-thumb ms-dropdown-btn" aria-haspopup="listbox" aria-expanded="false" title="Browse all cell styles" aria-label="More cell styles"><span class="more-thumb-preview"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span><span class="more-thumb-label">More</span></button>');
+      const gmenu = buildStyleGalleryMenu();
+      moreBtn.addEventListener('click', () => {
+        if (_msMenuBtn === moreBtn) { closeMsMenus(); return; }
+        closeMsMenus();
+        portalMsMenu(gmenu, moreBtn);
+      });
+      dd.appendChild(moreBtn);
+      dd.appendChild(gmenu);
+      wrap.appendChild(row);
+      wrap.appendChild(dd);
+      return wrap;
+    }
     case 'styleChip': {
       const chip = el('<button class="style-chip">' + esc(item.preset.name) + '</button>');
       const st = item.preset.style;
@@ -11218,7 +10756,7 @@ function getRibbonAvailability() {
   });
   const active = sh ? sh.cells.get(key(SEL.active.r, SEL.active.c)) : null;
   /* Sort/table commands fall back to the contiguous region around the active
-     cell when the selection isn't a plain block (quickSort, formatAsTable). */
+     cell when the selection isn't a plain block (quickSort). */
   let regionRows = 0;
   if (sh) {
     let region;
@@ -11284,25 +10822,13 @@ function updateRibbonAvailability() {
   setRibbonCommandsDisabled('merge', !s.multiCell);
 
   /* Traces resolve from the active cell, so they need a formula there; the
-     whole-graph trace works from any cell. Remove Arrows is a no-op with no
-     tracer mode on (removeAuditArrows, sheets.js:6119). */
+     whole-graph trace works from any cell. */
   setRibbonCommandsDisabled('trace', !s.hasFormula);
   setRibbonCommandsDisabled('traceAll', false);
-  setRibbonCommandsDisabled('auditOff', !s.auditOn);
 
   /* Sort / format-as-table need a region with a second row. */
   setRibbonCommandsDisabled('sort', !s.multiRowRegion);
-  setRibbonCommandsDisabled('asTable', !s.multiRowRegion);
-
-  /* Insert tab: the row half is live only on a whole-row selection and the
-     column half only on a whole-column one. Numbering takes any selection;
-     deleting the last visible sheet can't work. */
-  setRibbonCommandsDisabled('insRows', !s.rowCtx);
-  setRibbonCommandsDisabled('delRows', !s.rowCtx);
-  setRibbonCommandsDisabled('insCols', !s.colCtx);
-  setRibbonCommandsDisabled('delCols', !s.colCtx);
-  setRibbonCommandsDisabled('numFmtDlg', !s.hasSelection);
-  setRibbonCommandsDisabled('delSheet', WB.sheets.length <= 1 || WB.sheets.filter(x => !x.hidden).length <= 1);
+  setRibbonCommandsDisabled('dataTools', !s.multiRowRegion);
 
   updateUndoRedoUI();
 }
@@ -11329,8 +10855,6 @@ function updateRibbonState() {
   });
   body.querySelectorAll('[data-rbsync]').forEach(c => { if (c._sync) try { c._sync(); } catch (e) {} });
   body.querySelectorAll('select[_sync]').forEach(s => { if (s._sync) try { s._sync(); } catch (e) {} });
-  const filterBtn = body.querySelector('[title="Toggle filter"]');
-  if (filterBtn) filterBtn.classList.toggle('active', !!sh.filter);
 }
 
 /* ---------------- view toggles / zoom ---------------- */
@@ -11349,7 +10873,6 @@ function toggleFormulaBar() {
 function toggleHeadings() {
   VIEW.showHeadings = !VIEW.showHeadings;
   requestPaint();
-  renderFilterChips();
   Persistence.markDirty();
 }
 function setZoom(z) {
@@ -11359,7 +10882,6 @@ function setZoom(z) {
   cancelSmoothScroll();
   requestPaint();
   renderChartsLayer();
-  renderFilterChips();
   Persistence.markDirty();
 }
 /* ease the zoom to a target (buttons, menus, reset, zoom-to-selection) */
@@ -11386,15 +10908,19 @@ function pulseZoomPct() {
   zp.classList.add('pulse');
   setTimeout(() => zp.classList.remove('pulse'), 500);
 }
-function zoomToSelection() {
+function zoomFitToWindow() {
   const sh = activeSheet();
-  const rg = activeSelRange();
-  const w = (sh.cols.offsetOf(rg.c2 + 1) - sh.cols.offsetOf(rg.c1)) ;
-  const h = (sh.rows.offsetOf(rg.r2 + 1) - sh.rows.offsetOf(rg.r1));
-  const L = R.layout;
-  const target = Math.min((L.gridW - 40) / Math.max(1, w), (L.gridH - 40) / Math.max(1, h));
-  animateZoom(clamp(target, ZOOM_MIN, ZOOM_MAX));
-  ensureVisible(rg.r1, rg.c1, { smooth: true });
+  const cv = sh.cols.total();
+  const rv = sh.rows.total();
+  const host = $('#grid-canvas');
+  const w = host ? host.clientWidth : window.innerWidth;
+  const h = host ? host.clientHeight : window.innerHeight;
+  if (!w || !h || !cv || !rv) return;
+  const hdrW = VIEW.showHeadings ? 48 : 0;
+  const hdrH = VIEW.showHeadings ? DEF.headerH : 0;
+  const z = clamp(Math.min((w - hdrW - 24) / cv, (h - hdrH - 24) / rv), ZOOM_MIN, ZOOM_MAX);
+  animateZoom(z);
+  toast('Fit to window · ' + Math.round(z * 100) + '%', 'success');
 }
 function hideEditor() {
   if (Edit.active) finishEdit();   /* zooming never discards what was typed */
@@ -11595,52 +11121,46 @@ function beginTabRename(sh, tab) {
   input.addEventListener('blur', () => finish(true));
 }
 
-/* ---------------- find & replace panel ---------------- */
+/* ---------------- find & replace bar (Docs/Notes-style) ---------------- */
 const Find = { text: '', replace: '', matchCase: false, inNotes: false, pos: -1, matches: [], hlCell: null };
+let _findBarWired = false;
 function toggleFindPanel(show, tab) {
-  const panel = $('#find-panel');
-  if (!show) { panel.hidden = true; Find.hlCell = null; hideNotePopover(); return; }
-  panel.hidden = false;
-  buildFindPanel(tab === 'replace');
-  panel.querySelector('input').focus();
-  panel.querySelector('input').select();
+  const bar = $('#findBar');
+  if (!show) { bar.style.display = 'none'; Find.hlCell = null; hideNotePopover(); return; }
+  bar.style.display = 'block';
+  wireFindBar();
+  if (tab === 'goto') { setTimeout(() => $('#gt-ref').focus(), 40); return; }
+  $('#fp-find').focus(); $('#fp-find').select();
+  if (Find.text) updateFindCount();
 }
-function buildFindPanel(withReplace) {
-  const panel = $('#find-panel');
-  panel.innerHTML = '';
-  const head = el('<div class="fr-row"><b style="flex:1">' + (withReplace ? 'Replace' : 'Find') + '</b><button class="iconbtn" data-x title="Close" aria-label="Close find panel">' + icon('x') + '</button></div>');
-  const row1 = el('<div class="fr-row"><input type="text" id="fp-find" placeholder="Find what" aria-label="Find what"><button class="btn small" id="fp-prev" title="Find previous">▲</button><button class="btn small" id="fp-next" title="Find next">▼</button></div>');
-  panel.appendChild(head);
-  panel.appendChild(row1);
-  if (withReplace) {
-    const row2 = el('<div class="fr-row"><input type="text" id="fp-replace" placeholder="Replace with" aria-label="Replace with"><button class="btn small" id="fp-r1">Replace</button><button class="btn small" id="fp-ra">All</button></div>');
-    panel.appendChild(row2);
-  }
-  const list = el('<div id="fp-list" class="fp-list" role="listbox" aria-label="Match list"></div>');
-  panel.appendChild(list);
-  const opts = el('<div class="fr-opts"><label><input type="checkbox" id="fp-case"> Match case</label><label><input type="checkbox" id="fp-notes"> Search notes</label><span id="fp-count" class="fr-count"></span></div>');
-  panel.appendChild(opts);
-  head.querySelector('[data-x]').addEventListener('click', () => toggleFindPanel(false));
-  panel.querySelector('#fp-find').value = Find.text;
-  panel.querySelector('#fp-case').checked = Find.matchCase;
-  panel.querySelector('#fp-notes').checked = Find.inNotes;
-  if (withReplace) panel.querySelector('#fp-replace').value = Find.replace;
-  panel.querySelector('#fp-find').addEventListener('input', e => { Find.text = e.target.value; Find.matches = []; Find.pos = -1; updateFindCount(); });
-  panel.querySelector('#fp-find').addEventListener('keydown', e => {
+function wireFindBar() {
+  if (_findBarWired) return;
+  _findBarWired = true;
+  $('#frCloseBtn').addEventListener('click', () => toggleFindPanel(false));
+  const fin = $('#fp-find');
+  fin.value = Find.text;
+  fin.addEventListener('input', e => { Find.text = e.target.value; Find.matches = []; Find.pos = -1; updateFindCount(); });
+  fin.addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); findNext(e.shiftKey ? -1 : 1); }
     else if (e.key === 'ArrowDown') { e.preventDefault(); findNext(1); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); findNext(-1); }
   });
-  panel.querySelector('#fp-case').addEventListener('change', e => { Find.matchCase = e.target.checked; Find.matches = []; Find.pos = -1; updateFindCount(); });
-  panel.querySelector('#fp-notes').addEventListener('change', e => { Find.inNotes = e.target.checked; Find.matches = []; Find.pos = -1; updateFindCount(); });
-  panel.querySelector('#fp-next').addEventListener('click', () => findNext(1));
-  panel.querySelector('#fp-prev').addEventListener('click', () => findNext(-1));
-  if (withReplace) {
-    panel.querySelector('#fp-replace').addEventListener('input', e => { Find.replace = e.target.value; });
-    panel.querySelector('#fp-r1').addEventListener('click', replaceOne);
-    panel.querySelector('#fp-ra').addEventListener('click', replaceAll);
-  }
-  updateFindCount();
+  $('#fp-case').addEventListener('change', e => { Find.matchCase = e.target.checked; Find.matches = []; Find.pos = -1; updateFindCount(); });
+  $('#fp-notes').addEventListener('change', e => { Find.inNotes = e.target.checked; Find.matches = []; Find.pos = -1; updateFindCount(); });
+  $('#fp-next').addEventListener('click', () => findNext(1));
+  $('#fp-prev').addEventListener('click', () => findNext(-1));
+  $('#fp-replace').addEventListener('input', e => { Find.replace = e.target.value; });
+  $('#fp-r1').addEventListener('click', replaceOne);
+  $('#fp-ra').addEventListener('click', replaceAll);
+  $('#gtGoBtn').addEventListener('click', () => {
+    const v = $('#gt-ref').value.trim();
+    if (!v) return;
+    UI.nameBox.value = v;
+    commitNameBox();
+  });
+  $('#gt-ref').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); $('#gtGoBtn').click(); }
+  });
 }
 function collectMatches() {
   const sh = activeSheet();
@@ -11677,69 +11197,6 @@ function updateFindCount() {
   if (!elc) return;
   Find.matches = collectMatches();
   elc.textContent = Find.text ? Find.matches.length + ' match(es) on this sheet' : '';
-  renderMatchList();
-}
-/* clickable list of all matches (cells + notes) under the find input */
-function renderMatchList() {
-  const box = $('#fp-list');
-  if (!box) return;
-  const CAP = 300;
-  const sh = activeSheet();
-  if (!Find.text) { box.innerHTML = '<div class="fp-list-empty">Type to search this sheet · Enter = next match</div>'; return; }
-  const ms = Find.matches;
-  if (!ms.length) { box.innerHTML = '<div class="fp-list-empty">No matches found</div>'; return; }
-  let html = '';
-  ms.slice(0, CAP).forEach((m, i) => {
-    const cell = sh.cells.get(key(m.r, m.c));
-    let text = '';
-    let kind = '';
-    if (m.note) {
-      const n = noteAt(sh, m.r, m.c);
-      text = [String((n && n.text) || '')].concat(n ? noteReplies(n).map(rp => String(rp.t || '')) : []).join(' · ');
-      kind = 'note';
-    } else if (cell) {
-      text = cell.f ? cell.f : (typeof cell.v === 'number' ? generalNum(cell.v) : String(cell.v == null ? '' : cell.v));
-      kind = cell.f ? 'fx' : 'cell';
-    }
-    html += '<div class="fp-item' + (m.note ? ' fp-note' : '') + '" role="option" data-i="' + i + '" tabindex="0" title="' + esc(addr(m.r, m.c)) + '">' +
-      icon(m.note ? 'comment' : 'table') +
-      '<span class="fp-addr">' + addr(m.r, m.c) + '</span>' +
-      '<span class="fp-snip">' + highlightFindText(String(text), Find.text) + '</span>' +
-      (kind === 'fx' ? '<span class="fp-kind" title="Formula match">fx</span>' : '') +
-      (kind === 'note' ? '<span class="fp-kind fp-kind-note" title="Note match">N</span>' : '') +
-      '</div>';
-  });
-  if (ms.length > CAP) html += '<div class="fp-list-empty">…' + (ms.length - CAP) + ' more — use ▲/▼ to cycle all</div>';
-  box.innerHTML = html;
-  box.querySelectorAll('.fp-item').forEach(item => {
-    const go = () => jumpToMatch(+item.dataset.i);
-    item.addEventListener('click', go);
-    item.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
-  });
-  markActiveMatch();
-}
-function markActiveMatch() {
-  const box = $('#fp-list');
-  if (!box) return;
-  box.querySelectorAll('.fp-item.active').forEach(x => x.classList.remove('active'));
-  const cur = SEL.active;
-  const item = Array.from(box.querySelectorAll('.fp-item')).find(it => {
-    const m = Find.matches[+it.dataset.i];
-    return m && m.r === cur.r && m.c === cur.c;
-  });
-  if (item) { item.classList.add('active'); item.scrollIntoView({ block: 'nearest' }); }
-}
-function jumpToMatch(i) {
-  const m = Find.matches[i];
-  if (!m) return;
-  setSelection(m.r, m.c, m.r, m.c);
-  Find.hlCell = m.note ? key(m.r, m.c) : null;
-  if (m.note) {
-    const sh2 = activeSheet();
-    if (noteAt(sh2, m.r, m.c)) showNoteThreadPopover(sh2, m.r, m.c, cellScreenRect(sh2, m.r, m.c), false);
-  } else hideNotePopover();
-  markActiveMatch();
-  requestPaint(); updateFormulaBar();
 }
 function findNext(dir) {
   if (!Find.text) return;
@@ -11758,7 +11215,6 @@ function findNext(dir) {
     const sh2 = activeSheet();
     if (noteAt(sh2, m.r, m.c)) showNoteThreadPopover(sh2, m.r, m.c, cellScreenRect(sh2, m.r, m.c), false);
   } else hideNotePopover();
-  markActiveMatch();
 }
 function replaceOne() {
   if (!Find.matches.length) Find.matches = collectMatches();
@@ -11817,352 +11273,46 @@ function replaceAt(sh, r, c) {
   }
 }
 
-/* ---------------- text to columns ---------------- */
-function openTextToColumns() {
-  const sh = activeSheet();
-  const rg = activeSelRange();
-  if (SEL.ranges.length !== 1) { toast('Select a single column range first', 'warn'); return; }
-  const state = { delim: ',', custom: '', consecutive: false };
-  const content = el('<div>' +
-    '<div class="hint">Splits the text in each selected cell into multiple columns using the delimiter below. A preview is shown.</div>' +
-    '<div class="form-row"><label>Delimiter</label><div class="fr-input"><select id="ttc-d"><option value=",">Comma</option><option value=";">Semicolon</option><option value="\t">Tab</option><option value=" ">Space</option><option value="|">Pipe</option><option value="custom">Custom…</option></select><input type="text" id="ttc-custom" placeholder="Custom character" style="width:110px" disabled></div></div>' +
-    '<div class="form-row"><label></label><div class="fr-input"><label><input type="checkbox" id="ttc-cons"> Treat consecutive delimiters as one</label></div></div>' +
-    '<div class="form-row"><label>Preview</label><div class="fr-input"><div class="table-preview" id="ttc-preview"></div></div></div></div>');
-  const dSel = content.querySelector('#ttc-d');
-  const customIn = content.querySelector('#ttc-custom');
-  dSel.addEventListener('change', () => { customIn.disabled = dSel.value !== 'custom'; updatePreview(); });
-  customIn.addEventListener('input', updatePreview);
-  content.querySelector('#ttc-cons').addEventListener('change', e => { state.consecutive = e.target.checked; updatePreview(); });
-  function curDelim() { return dSel.value === 'custom' ? (customIn.value || ',') : dSel.value === ' ' ? ' ' : dSel.value.replace('\\t', '\t'); }
-  function splitRow(text) {
-    const d = curDelim();
-    let parts = text.split(d);
-    if (state.consecutive && d !== ' ') parts = parts.filter((p, i) => p !== '' || i === 0).length ? text.split(d).filter(p => p !== '') : [''];
-    if (state.consecutive && d === ' ') parts = text.split(/ +/).filter(p => p !== '');
-    return parts;
-  }
-  function updatePreview() {
-    const rows = [];
-    const rr = Math.min(rg.r2, rg.r1 + 8);
-    for (let r = rg.r1; r <= rr; r++) {
-      const info = displayValue(sh, r, rg.c1);
-      rows.push(splitRow(info.text));
-    }
-    const maxC = Math.max(1, ...rows.map(r => r.length));
-    let html = '<table><tr>' + Array.from({ length: maxC }, (_, i) => '<th>' + colName(rg.c1 + i) + '</th>').join('') + '</tr>';
-    for (const row of rows) html += '<tr>' + Array.from({ length: maxC }, (_, i) => '<td>' + esc(row[i] == null ? '' : row[i]) + '</td>').join('') + '</tr>';
-    content.querySelector('#ttc-preview').innerHTML = html + '</table>';
-  }
-  updatePreview();
-  openModal({
-    title: 'Text to Columns', width: 560, content,
-    buttons: [{ label: 'Cancel' }, { label: 'Finish', primary: true, onClick: () => {
-      const before = snapshotSheet(sh);
-      const maxLen = rg.r2 - rg.r1 + 1;
-      for (let r = rg.r1; r <= rg.r2; r++) {
-        const info = displayValue(sh, r, rg.c1);
-        const parts = splitRow(info.text);
-        for (let i = 0; i < parts.length; i++) {
-          const cc = rg.c1 + i;
-          if (cc >= MAX_COLS) break;
-          if (i === 0) continue; /* keep first part in original cell */
-          const parsed = parseUserInput(parts[i]);
-          writeCell(sh, r, cc, { v: parsed.v !== undefined ? parsed.v : null, f: parsed.f || null });
-        }
-      }
-      const after = snapshotSheet(sh);
-      pushHistory({ label: 'Text to columns', undo: () => restoreSheet(sh, before), redo: () => restoreSheet(sh, after) });
-      requestPaint(); Persistence.markDirty();
-      toast('Text split into columns', 'success');
-      return true;
-    } }]
-  });
-}
-
 /* ---------------- remove duplicates ---------------- */
 function openRemoveDuplicates() {
   const sh = activeSheet();
   const rg = activeSelRange();
-  let region;
-  if (SEL.ranges.length === 1 && rg.r2 > rg.r1 && rg.c2 > rg.c1 && !isColSelection(rg) && !isRowSelection(rg)) region = rg;
-  else region = detectRegionAround(SEL.active.r, SEL.active.c);
-  if (region.r2 <= region.r1) { toast('Select a range with at least two rows', 'warn'); return; }
+  if (SEL.ranges.length !== 1 || rg.r2 === rg.r1 || isColSelection(rg) || isRowSelection(rg)) {
+    toast('Select a range with at least two rows first', 'warn'); return;
+  }
   const cols = [];
-  for (let c = region.c1; c <= region.c2; c++) cols.push(c);
-  const checked = new Set(cols);
-  const content = el('<div><div class="hint">Rows are compared by the selected columns. The first occurrence is kept.</div><div id="rd-cols" style="margin-bottom:10px"></div></div>');
-  const box = content.querySelector('#rd-cols');
-  for (const c of cols) {
-    const label = displayValue(sh, region.r1, c).text || colName(c);
-    const row = el('<label class="filter-row" style="display:flex"><input type="checkbox" data-c="' + c + '" checked><span class="grow">Column ' + colName(c) + (label ? ' — ' + esc(String(label).slice(0, 18)) : '') + '</span></label>');
-    row.querySelector('input').addEventListener('change', e => { if (e.target.checked) checked.add(c); else checked.delete(c); });
-    box.appendChild(row);
+  for (let c = rg.c1; c <= rg.c2; c++) cols.push(c);
+  const before = snapshotSheet(sh);
+  const seen = new Set();
+  const keepRows = [];
+  let removed = 0;
+  for (let r = rg.r1; r <= rg.r2; r++) {
+    const keySig = cols.map(c => {
+      const cell = sh.cells.get(key(r, c));
+      const v = cell ? (cell.f ? getComputedCell(sh.id, r, c) : cell.v) : null;
+      return String(v == null ? '' : v).toLowerCase();
+    }).join('');
+    if (seen.has(keySig)) { removed++; continue; }
+    seen.add(keySig);
+    keepRows.push(r);
   }
-  openModal({
-    title: 'Remove Duplicates', width: 460, content,
-    buttons: [{ label: 'Cancel' }, { label: 'Remove', primary: true, onClick: () => {
-      if (!checked.size) { toast('Select at least one column', 'warn'); return false; }
-      const before = snapshotSheet(sh);
-      const seen = new Set();
-      const keepRows = [];
-      let removed = 0;
-      for (let r = region.r1; r <= region.r2; r++) {
-        const sig = cols.map(c => {
-          const cell = sh.cells.get(key(r, c));
-          const v = cell ? (cell.f ? getComputedCell(sh.id, r, c) : cell.v) : null;
-          return isErr(v) ? '#' + c : String(v == null ? '' : v).toLowerCase();
-        }).join('\u0001') + '|' + [...checked].sort().join(',');
-        const keySig = cols.filter(c => checked.has(c)).map(c => {
-          const cell = sh.cells.get(key(r, c));
-          const v = cell ? (cell.f ? getComputedCell(sh.id, r, c) : cell.v) : null;
-          return String(v == null ? '' : v).toLowerCase();
-        }).join('\u0001');
-        if (seen.has(keySig)) { removed++; continue; }
-        seen.add(keySig);
-        keepRows.push(r);
-      }
-      if (removed === 0) { toast('No duplicate rows found', 'info'); return true; }
-      /* compact rows */
-      let w = 0;
-      for (let r = region.r1; r <= region.r2; r++) {
-        const keep = keepRows.includes(r);
-        for (let c = region.c1; c <= region.c2; c++) {
-          const src = keep ? sh.cells.get(key(r, c)) : null;
-          const dstRow = region.r1 + w;
-          if (keep) {
-            const cell = src;
-            writeCell(sh, dstRow, c, cell ? { v: cell.v, f: cell.f, s: cell.s } : { v: null, f: null, s: null });
-          }
-        }
-        if (keep) w++;
-      }
-      for (let r = region.r1 + w; r <= region.r2; r++) for (let c = region.c1; c <= region.c2; c++) writeCell(sh, r, c, { v: null, f: null, s: null });
-      const after = snapshotSheet(sh);
-      pushHistory({ label: 'Remove duplicates', undo: () => restoreSheet(sh, before), redo: () => restoreSheet(sh, after) });
-      requestPaint(); Persistence.markDirty();
-      toast(removed + ' duplicate row(s) removed', 'success');
-      return true;
-    } }]
-  });
-}
-
-/* ---------------- help ---------------- */
-function openHelpDialog(page) {
-  const shortcuts = [['Arrow keys / Tab / Enter', 'Move the active cell'], ['Shift + Arrow', 'Extend selection'], ['Ctrl + Arrow', 'Jump to edge of data region'], ['Ctrl + Home / End', 'Go to A1 / last used cell'], ['F2', 'Edit the active cell'], ['Type any character', 'Start typing in the active cell'], ['Enter / Tab / Esc', 'Commit / commit / cancel an edit'], ['Delete / Backspace', 'Clear cell contents'], ['Ctrl + C / X / V', 'Copy / cut / paste'], ['Ctrl + Z / Y', 'Undo / redo'], ['Ctrl + B / I / U', 'Bold / italic / underline'], ['Ctrl + F / H', 'Find / replace'], ['Ctrl + G', 'Go to'], ['Ctrl + A', 'Select all'], ['Ctrl + S', 'Save to browser'], ['Ctrl + P', 'Print / PDF'], ['F9', 'Recalculate workbook'], ['Ctrl + `', 'Toggle formula view'], ['Ctrl + Page Up/Down', 'Switch worksheets'], ['Double-click header edge', 'AutoFit row/column'], ['Drag fill handle', 'Fill series / copy / formulas'], ['Drag selection border', 'Move cells']];
-  const rows = shortcuts.map(s => '<tr><td>' + esc(s[0]) + '</td><td>' + esc(s[1]) + '</td></tr>').join('');
-  const bodies = {
-    help: '<h3 style="margin-top:0">Welcome to EmeraldSheets</h3><p>EmeraldSheets is a complete spreadsheet that runs entirely in your browser. Everything is stored locally with IndexedDB — nothing is sent to any server.</p><ul><li>Enter formulas starting with <span class="kbd">=</span> — e.g. <span class="kbd">=SUM(A1:A10)</span>, <span class="kbd">=IF(A1&gt;5,"High","Low")</span>.</li><li>Use the ribbon for formatting, number formats, borders, merges, tables and charts.</li><li>Drag the small square at the selection corner to fill series; drag the selection border to move cells.</li><li>Use Data ▸ Filter for dropdown column filters, Data ▸ Validation to restrict entries.</li><li>The Home tab has Import, Export (.xlsx / .csv) and Print (also saves as PDF) buttons. Your work autosaves to this browser.</li></ul>',
-    shortcuts: '<table class="help-table">' + rows + '</table>',
-    about: '<h3 style="margin-top:0">EmeraldSheets</h3><p>A self-contained client-side spreadsheet application. Version 1.0.</p><p>Storage: IndexedDB in this browser. Import/export uses SheetJS from a CDN when available — the app works fully offline without it.</p><p>Privacy: all workbook data stays on this device. No servers, no accounts, no tracking.</p>'
-  };
-  openModal({ title: page === 'shortcuts' ? 'Keyboard Shortcuts' : page === 'about' ? 'About EmeraldSheets' : 'Quick Help', width: 620, content: '<div>' + bodies[page] + '</div>', buttons: [{ label: 'Close', primary: true }] });
-}
-
-/* ---------------- diagnostics (Tools > Diagnostics) ---------------- */
-function runFormulaBench(rows) {
-  rows = Math.min(Math.max(rows || 5000, 100), 20000);
-  const sh = activeSheet();
-  const t0 = performance.now();
-  for (let r = 0; r < rows; r++) {
-    sh.cells.set(key(r, 10), { v: (r % 89) + 1, f: null, s: null, cv: undefined, ast: undefined });
-    sh.cells.set(key(r, 11), { v: null, f: '=K' + (r + 1) + '*2', s: null, cv: undefined, ast: undefined });
-    sh.cells.set(key(r, 12), { v: null, f: '=L' + (r + 1) + '+K' + (r + 1), s: null, cv: undefined, ast: undefined });
-  }
-  if (rows - 1 > sh.usedMax.r) sh.usedMax.r = rows - 1;
-  if (12 > sh.usedMax.c) sh.usedMax.c = 12;
-  growExtent(sh, rows, 13);
-  sh.rows.invalidate();
-  const t1 = performance.now();
-  rebuildAllDeps();
-  const t2 = performance.now();
-  recalcWorkbook(true);
-  const t3 = performance.now();
-  paint();
-  const t4 = performance.now();
-  const probe = sh.cells.get(key(0, 10));
-  if (probe) { probe.v = 1000; probe.cv = undefined; markDirty(sh.id, 0, 10); }
-  const t5 = performance.now();
-  recalcWorkbook(false);
-  const t6 = performance.now();
-  paint();
-  const t7 = performance.now();
-  return { formulas: rows * 2, rows, fillMs: Math.round(t1 - t0), rebuildDepsMs: Math.round(t2 - t1), fullCalcMs: Math.round(t3 - t2), paintMs: Math.round(t4 - t3), touchRecalcMs: Math.round(t6 - t5), touchPaintMs: Math.round(t7 - t6) };
-}
-function clearBenchCells(rows) {
-  const sh = activeSheet();
-  let n = 0;
-  for (let r = 0; r < rows; r++) {
-    for (const c of [10, 11, 12]) { if (sh.cells.delete(key(r, c))) n++; }
-  }
-  sh.rows.invalidate();
-  rebuildAllDeps();
-  requestPaint();
-  return n;
-}
-function collectWorkbookStats() {
-  let cells = 0, formulas = 0, notes = 0, charts = 0, dv = 0, merges = 0;
-  for (const sh of WB.sheets) {
-    cells += sh.cells.size;
-    for (const [, cell] of sh.cells) if (cell && cell.f) formulas++;
-    if (sh.notes) for (const stored of sh.notes.values()) notes += noteThreadsFromValue(stored).length;
-    charts += sh.charts ? sh.charts.length : 0;
-    dv += sh.dv ? sh.dv.length : 0;
-    merges += sh.merges ? sh.merges.length : 0;
-  }
-  let usage = null, quota = null;
-  return {
-    sheets: WB.sheets.length, cells, formulas, notes, charts, dv, merges,
-    names: Object.keys(WB.names || {}).length,
-    history: H.undo.length, redo: H.redo.length, historyLimit: H.limit,
-    activeSheet: activeSheet().name,
-    storage: { usage, quota }
-  };
-}
-function fmtBytes(b) {
-  if (b == null || !isFinite(b)) return '—';
-  if (b < 1024) return b + ' B';
-  if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
-  return (b / 1048576).toFixed(2) + ' MB';
-}
-function openDiagnostics() {
-  const st = collectWorkbookStats();
-  const stat = (label, value, cls) => '<div class="diag-stat' + (cls ? ' ' + cls : '') + '"><div class="diag-stat-v">' + esc(String(value)) + '</div><div class="diag-stat-l">' + esc(label) + '</div></div>';
-  const statsHtml =
-    '<div class="diag-section"><div class="diag-section-t">' + icon('database') + ' Workbook</div>' +
-    '<div class="diag-grid">' +
-    stat('Sheets', st.sheets) + stat('Cells', st.cells.toLocaleString()) + stat('Formulas', st.formulas.toLocaleString()) +
-    stat('Named Ranges', st.names) + stat('Notes', st.notes) + stat('Charts', st.charts) +
-    stat('Validation Rules', st.dv) + stat('Merged Regions', st.merges) +
-    '</div></div>' +
-    '<div class="diag-section"><div class="diag-section-t">' + icon('history') + ' Session History</div>' +
-    '<div class="diag-grid">' +
-    stat('Undo Entries', st.history + ' / ' + st.historyLimit) + stat('Redo Entries', st.redo) + stat('Calc Mode', Calc.mode === 'auto' ? 'Automatic' : 'Manual (F9)') +
-    '</div></div>';
-  const content = el(
-    '<div>' +
-    statsHtml +
-    '<div class="diag-section"><div class="diag-section-t">' + icon('gauge') + ' Storage (IndexedDB)</div>' +
-    '<div class="diag-grid" id="diag-storage"><div class="diag-stat"><div class="diag-stat-v">…</div><div class="diag-stat-l">Used / Quota</div></div></div></div>' +
-    '<div class="diag-section"><div class="diag-section-t">' + icon('calculate') + ' Formula Benchmark</div>' +
-    '<div class="diag-bench-note">Writes temporary constants and formulas into columns K–M of the active sheet, then times dependency-graph rebuild and recalculation. Use “Clear benchmark data” to remove them.</div>' +
-    '<div class="diag-bench-controls">' +
-    '<label class="diag-ctl"><span>Rows</span><select id="diag-bench-rows" aria-label="Benchmark row count"><option value="1000">1,000</option><option value="5000" selected>5,000</option><option value="10000">10,000</option></select></label>' +
-    '<button class="btn primary" id="diag-bench-run">Run Benchmark</button>' +
-    '<button class="btn" id="diag-bench-clear">Clear Benchmark Data</button>' +
-    '</div>' +
-    '<div class="diag-bench-results" id="diag-bench-out" hidden></div>' +
-    '</div>' +
-    '</div>'
-  );
-  const modal = openModal({ title: 'Diagnostics', width: 640, content, buttons: [{ label: 'Close', primary: true }] });
-  /* storage estimate (async) */
-  if (navigator.storage && navigator.storage.estimate) {
-    navigator.storage.estimate().then(est => {
-      const box = content.querySelector('#diag-storage');
-      if (box && est) {
-        const pct = est.quota ? Math.min(100, Math.round((est.usage / est.quota) * 100)) : null;
-        box.innerHTML = stat('Used', fmtBytes(est.usage)) + stat('Quota', fmtBytes(est.quota)) + stat('Utilization', pct == null ? '—' : pct + '%', pct != null && pct > 80 ? 'warn' : '');
-      }
-    }).catch(() => { /* keep placeholder */ });
-  } else {
-    const box = content.querySelector('#diag-storage');
-    if (box) box.innerHTML = stat('estimate()', 'Not supported in this browser');
-  }
-  /* benchmark runner */
-  const out = content.querySelector('#diag-bench-out');
-  content.querySelector('#diag-bench-run').addEventListener('click', () => {
-    const rows = +content.querySelector('#diag-bench-rows').value;
-    out.hidden = false;
-    out.innerHTML = '<div class="diag-bench-running"><span class="spinner"></span> Running…</div>';
-    /* let the dialog paint the running state before the synchronous benchmark blocks */
-    setTimeout(() => {
-      const r = runFormulaBench(rows);
-      const bar = (label, ms, max) => '<div class="bench-row"><div class="bench-label">' + esc(label) + '</div><div class="bench-track"><div class="bench-fill" style="width:' + Math.max(2, Math.min(100, (ms / max) * 100)) + '%"></div></div><div class="bench-ms">' + ms.toLocaleString() + ' ms</div></div>';
-      const maxMs = Math.max(r.fillMs, r.rebuildDepsMs, r.fullCalcMs, r.paintMs, 1);
-      out.innerHTML =
-        '<div class="bench-head">' + r.formulas.toLocaleString() + ' formulas across ' + r.rows.toLocaleString() + ' rows</div>' +
-        bar('Fill test data', r.fillMs, maxMs) +
-        bar('Rebuild dependency graph', r.rebuildDepsMs, maxMs) +
-        bar('Full recalculation', r.fullCalcMs, maxMs) +
-        bar('Repaint', r.paintMs, maxMs) +
-        bar('Single-cell touch recalc', r.touchRecalcMs, Math.max(r.touchRecalcMs, 1)) +
-        bar('Touch repaint', r.touchPaintMs, Math.max(r.touchPaintMs, 1)) +
-        '<div class="bench-foot">All timings are wall-clock milliseconds measured on this device.</div>';
-      toast('Benchmark complete', 'success', 1400);
-    }, 40);
-  });
-  content.querySelector('#diag-bench-clear').addEventListener('click', () => {
-    const rows = +content.querySelector('#diag-bench-rows').value;
-    const n = clearBenchCells(rows);
-    toast('Cleared ' + n + ' benchmark cell(s)', 'info', 1600);
-  });
-  return modal;
-}
-function openHistoryDialog() {
-  const content = el('<div>' +
-    '<div class="hist-hint">' + icon('history') + ' Click any entry to jump the workbook back (or forward) to that point. The latest entry sits at the top of the undo stack.</div>' +
-    '<div class="hist-cols">' +
-    '<div class="hist-col"><div class="hist-col-t">' + icon('undo') + ' Undo Stack <span class="hist-count" data-count="undo">0</span></div><div class="hist-lists" data-lists="undo"></div></div>' +
-    '<div class="hist-col"><div class="hist-col-t">' + icon('redo') + ' Redo Stack <span class="hist-count" data-count="redo">0</span></div><div class="hist-lists" data-lists="redo"></div></div>' +
-    '</div>' +
-    '<div class="hist-note">History holds up to ' + H.limit + ' operations per session. Clearing it cannot be undone.</div>' +
-    '</div>');
-  function renderLists() {
-    const undoList = H.undo.map(e => e.label || '(unnamed)');
-    const redoList = H.redo.map(e => e.label || '(unnamed)');
-    const item = (label, i, total, kind) => {
-      const num = total - i;
-      const steps = total - i;
-      const cls = kind === 'undo' ? (i === total - 1 ? 'hist-item latest' : 'hist-item') : 'hist-item redo';
-      const verb = kind === 'undo' ? 'Undo ' + steps + ' step' + (steps === 1 ? '' : 's') + ' back to here' : 'Redo ' + steps + ' step' + (steps === 1 ? '' : 's') + ' forward to here';
-      return '<li class="' + cls + '" data-kind="' + kind + '" data-i="' + i + '" role="button" tabindex="0" title="' + esc(verb) + '">' +
-        '<span class="hist-num">' + num + '</span><span class="hist-label">' + esc(label) + '</span>' +
-        '<span class="hist-jump" aria-hidden="true">' + (kind === 'undo' ? icon('undo') : icon('redo')) + '</span></li>';
-    };
-    const undoBox = content.querySelector('[data-lists="undo"]');
-    const redoBox = content.querySelector('[data-lists="redo"]');
-    undoBox.innerHTML = undoList.length
-      ? '<ul class="hist-list">' + undoList.map((l, i) => item(l, i, undoList.length, 'undo')).join('') + '</ul>'
-      : '<div class="hist-empty">No undo history yet — every edit, format and structural change is recorded here.</div>';
-    redoBox.innerHTML = redoList.length
-      ? '<ul class="hist-list">' + redoList.map((l, i) => item(l, i, redoList.length, 'redo')).join('') + '</ul>'
-      : '<div class="hist-empty">Nothing to redo.</div>';
-    content.querySelector('[data-count="undo"]').textContent = undoList.length;
-    content.querySelector('[data-count="redo"]').textContent = redoList.length;
-  }
-  function jump(kind, i) {
-    if (kind === 'undo') {
-      const steps = H.undo.length - i;
-      if (steps <= 0) return;
-      const label = H.undo[i] && H.undo[i].label ? H.undo[i].label : '';
-      for (let k = 0; k < steps; k++) undo();
-      toast('Reverted ' + steps + ' step' + (steps === 1 ? '' : 's') + (label ? ' — back before "' + label + '"' : ''), 'info', 1600);
-    } else {
-      const steps = H.redo.length - i;
-      if (steps <= 0) return;
-      const label = H.redo[i] && H.redo[i].label ? H.redo[i].label : '';
-      for (let k = 0; k < steps; k++) redo();
-      toast('Replayed ' + steps + ' step' + (steps === 1 ? '' : 's') + (label ? ' — through "' + label + '"' : ''), 'info', 1600);
+  if (removed === 0) { toast('No duplicate rows found', 'info'); return; }
+  let w = 0;
+  for (let r = rg.r1; r <= rg.r2; r++) {
+    const keep = keepRows.includes(r);
+    for (let c = rg.c1; c <= rg.c2; c++) {
+      if (!keep) continue;
+      const src = sh.cells.get(key(r, c));
+      writeCell(sh, rg.r1 + w, c, src ? { v: src.v, f: src.f, s: src.s } : { v: null, f: null, s: null });
     }
-    renderLists();
+    if (keep) w++;
   }
-  content.addEventListener('click', e => {
-    const li = e.target.closest('.hist-item');
-    if (li) jump(li.dataset.kind, +li.dataset.i);
-  });
-  content.addEventListener('keydown', e => {
-    if (e.key !== 'Enter' && e.key !== ' ') return;
-    const li = e.target.closest('.hist-item');
-    if (li) { e.preventDefault(); jump(li.dataset.kind, +li.dataset.i); }
-  });
-  renderLists();
-  openModal({
-    title: 'Undo History', width: 560, content,
-    buttons: [
-      { label: 'Clear History', danger: true, onClick: () => { confirmDialog('Clear History', 'Discard all undo and redo information? Workbook content is not affected.', () => { H.undo.length = 0; H.redo.length = 0; updateUndoRedoUI(); closeModalStack(); toast('History cleared', 'info', 1400); }); return false; } },
-      { label: 'Close', primary: true }
-    ]
-  });
+  for (let r = rg.r1 + w; r <= rg.r2; r++) for (let c = rg.c1; c <= rg.c2; c++) writeCell(sh, r, c, { v: null, f: null, s: null });
+  const after = snapshotSheet(sh);
+  pushHistory({ label: 'Remove duplicates', undo: () => restoreSheet(sh, before), redo: () => restoreSheet(sh, after) });
+  requestPaint(); Persistence.markDirty();
+  updateStatusBar(); updateFormulaBar(); renderChartsLayer();
+  toast(removed + ' duplicate row(s) removed', 'success');
 }
 
 /* ---------------- command palette (Ctrl+K) ---------------- */
@@ -12476,7 +11626,6 @@ async function boot() {
     redoLen: () => H.redo.length,
     historyLabels: () => H.undo.map(e => e.label || '?'),
     redoLabels: () => H.redo.map(e => e.label || '?'),
-    stats: () => collectWorkbookStats(),
     auditState: () => ({ mode: Audit.mode, target: Audit.target, count: Audit.arrows.length, arrows: Audit.arrows.map(a => a.kind === 'xsheet' ? 'xsheet:' + a.dir + ':' + a.label : a.kind + (a.from ? ' from ' + a.from.r + ',' + a.from.c : '') + (a.to ? ' to ' + a.to.r + ',' + a.to.c : '') + (a.range ? ' rng ' + JSON.stringify(a.range) : '')) }),
     cell: (addr) => { try { const sh = activeSheet(); const p = parseAddr(addr); const m = sh.cells.get(key(p.r, p.c)); if (!m) return null; const cv = m.cv == null ? null : (typeof m.cv === 'object' ? (m.cv.err || m.cv.rows ? (m.cv.err || 'range/array') : 'obj') : m.cv); return { v: m.v, f: m.f, cv }; } catch (e) { return 'err:' + e.message; } },
     xy: (addr) => { try { const sh = activeSheet(); const p = parseAddr(addr); const x = colScreenX(sh, p.c) + colScreenW(sh, p.c) / 2; const y = rowScreenY(sh, p.r) + rowScreenH(sh, p.r) / 2; const cv = document.getElementById('grid-canvas').getBoundingClientRect(); return { x: Math.round(cv.left + x), y: Math.round(cv.top + y), corner: { x: Math.round(cv.left + colScreenX(sh, p.c) + colScreenW(sh, p.c) - 2), y: Math.round(cv.top + rowScreenY(sh, p.r) + rowScreenH(sh, p.r) - 2) } }; } catch (e) { return 'err:' + e.message; } },
@@ -12508,7 +11657,6 @@ async function boot() {
       const t3 = performance.now();
       return { filledCells: rows * 8, fillMs: Math.round(t1 - t0), firstPaintMs: Math.round(t2 - t1), scrollRepaintMs: Math.round(t3 - t2) };
     },
-    benchFormulas: (rows) => runFormulaBench(rows),
     benchClear: () => {
       const sh = activeSheet();
       const n = sh.cells.size;

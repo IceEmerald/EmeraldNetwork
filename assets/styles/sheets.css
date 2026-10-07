@@ -233,22 +233,6 @@ button { cursor: default; }
 }
 #cell-editor.ref-mode { border-color: #b75d0b; }
 .ov-layer { position: absolute; inset: 0; pointer-events: none; z-index: 15; }
-.filter-chip {
-  position: absolute; width: 17px; height: 15px; pointer-events: auto;
-  background: var(--paper); border: 1px solid #a19f9d; border-radius: 2px;
-  display: inline-flex; align-items: center; justify-content: center; color: var(--ink-3);
-  box-shadow: 0 1px 1px rgba(0,0,0,.12);
-}
-.filter-chip:hover { background: var(--accent-tint); color: var(--accent-dark); border-color: var(--accent); }
-.filter-chip.active { background: var(--accent-tint-2); color: var(--accent-darker); border-color: var(--accent); }
-.filter-chip svg { width: 10px; height: 10px; }
-.dv-chip {
-  position: absolute; width: 13px; height: 15px; pointer-events: auto;
-  background: var(--paper); border: 1px solid #a19f9d; border-left: none; border-radius: 0 2px 2px 0;
-  display: inline-flex; align-items: center; justify-content: center; color: var(--ink-3);
-}
-.dv-chip:hover { background: var(--accent-tint); color: var(--accent-dark); }
-.dv-chip svg { width: 8px; height: 8px; }
 
 #fill-tip {
   position: absolute; display: none; z-index: 30; background: #33332f; color: #fff; font-size: 11.5px;
@@ -330,6 +314,44 @@ button { cursor: default; }
   font-size: 12px; border: 1px solid var(--line); background: var(--paper); color: var(--ink-2);
 }
 .style-chip:hover { outline: 2px solid var(--accent); }
+/* ---- Cell Styles gallery (Themes-style thumbnails + More) ---- */
+.style-gallery { display: flex; align-items: center; gap: 4px; }
+.style-thumb-row { display: flex; gap: 4px; align-items: center; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 2px 0; }
+.style-thumb-row::-webkit-scrollbar { display: none; }
+.style-thumb {
+  width: 92px; height: 52px; border-radius: 6px; border: 1px solid rgba(0,0,0,.08);
+  cursor: pointer; transition: transform .18s, box-shadow .18s, border-color .18s;
+  overflow: hidden; position: relative; flex-shrink: 0; padding: 0; background: #fff;
+}
+.style-thumb-lg { width: 100%; height: auto; aspect-ratio: 16 / 9; }
+.style-thumb:hover { border-color: var(--accent); box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+.style-thumb.active, .style-gallery-card.active .style-thumb { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(33,115,70,.18); }
+.st-preview { position: absolute; inset: 10% 8%; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); border: 1px solid #e5e7eb; }
+.st-cell { display: flex; align-items: center; justify-content: center; font-size: 7px; line-height: 1; color: #3b3a39; background: #fff; border: 1px solid #eef0f2; overflow: hidden; white-space: nowrap; min-width: 0; }
+.st-hot { font-size: 7px; }
+.style-more-dd { display: flex; align-items: center; }
+.more-thumb {
+  width: 60px; height: 52px; min-width: 0; flex: 0 0 60px; box-sizing: border-box; padding: 8px 10px;
+  border-radius: 6px; border: 1px solid rgba(0,0,0,.08); background: rgba(255,255,255,.6);
+  box-shadow: 0 1px 3px rgba(0,0,0,.05); color: rgba(44,62,80,.8); cursor: pointer; overflow: hidden; position: relative;
+  transition: .2s; font-weight: 500; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+}
+.more-thumb.ms-dropdown-btn::after { content: "▼"; position: absolute; top: 50%; right: 6px; transform: translateY(-50%); font-size: 10px; color: rgba(44,62,80,.6); line-height: 1; pointer-events: none; transition: transform .2s; }
+.more-thumb.ms-dropdown-btn[aria-expanded="true"]::after, .ms-dropdown.active .more-thumb.ms-dropdown-btn::after { transform: translateY(-50%) rotate(180deg); color: var(--accent); }
+.more-thumb:hover { background: rgba(255,255,255,.9); border-color: var(--accent); color: #2c3e50; box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+.more-thumb[aria-expanded="true"] { background: rgba(33,115,70,.12); border-color: var(--accent); color: var(--accent); }
+.more-thumb.ms-dropdown-btn { min-width: 0; padding: 8px 10px; font-size: 10px; }
+.more-thumb-preview { display: flex; align-items: center; justify-content: center; color: inherit; }
+.more-thumb-preview svg { display: block; width: 18px; height: 18px; }
+.more-thumb-label { font-size: 10px; text-align: center; color: inherit; font-weight: 500; line-height: 1.2; white-space: nowrap; }
+.style-gallery-menu { max-width: 620px; padding: 14px 14px 16px; background: rgba(255,255,255,.99); min-width: 520px !important; }
+.style-gallery-header { font-size: 11px; font-weight: 600; color: #858993; text-transform: uppercase; letter-spacing: .05em; padding: 0 2px 10px; border-bottom: 1px solid #f0f0f0; margin-bottom: 12px; }
+.style-gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px 12px; }
+.style-gallery-card { background: transparent; border: none; padding: 0; cursor: pointer; display: flex; flex-direction: column; gap: 5px; transition: transform .18s; }
+.style-gallery-card:hover .style-thumb { border-color: var(--accent); box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+.style-gallery-label { font-size: 10.5px; font-weight: 500; color: #4b5563; margin-top: 1px; text-align: center; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 600px) { .style-gallery-menu { min-width: 280px !important; max-width: 90vw; } .style-gallery-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; } }
+
 .popup-menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 4px; }
 .popup input[type="text"], .popup input[type="search"] {
   border: 1px solid var(--line); border-radius: 3px; height: 26px; padding: 0 8px; font-size: 12.5px; width: 100%;
@@ -507,17 +529,6 @@ button { cursor: default; }
 /* ==========================================================================
    Find & Replace panel
    ========================================================================== */
-#find-panel {
-  position: absolute; top: 0; right: 14px; z-index: 80; width: 330px; max-width: calc(100vw - 20px);
-  background: var(--paper); border: 1px solid var(--line); border-radius: 0 0 6px 6px; box-shadow: var(--shadow-2);
-  padding: 10px 12px;
-}
-#find-panel .fr-row { display: flex; gap: 6px; margin-bottom: 7px; align-items: center; }
-#find-panel input[type="text"] { flex: 1; height: 27px; border: 1px solid var(--line); border-radius: 3px; padding: 0 8px; font-size: 12.5px; min-width: 0; }
-#find-panel input[type="text"]:focus { border-color: var(--accent); }
-#find-panel .fr-opts { display: flex; gap: 14px; font-size: 12px; color: var(--ink-3); margin: 2px 0 8px; }
-#find-panel .fr-opts label { display: inline-flex; gap: 5px; align-items: center; }
-#find-panel .fr-count { font-size: 11.5px; color: var(--ink-4); flex: 1; }
 
 /* ==========================================================================
    Toasts — white glass pill (Docs/Slides/Notes pattern)
@@ -562,7 +573,7 @@ button { cursor: default; }
    ========================================================================== */
 #print-root { display: none; }
 @media print {
-  #app, #find-panel, #popup-root, #modal-root, #toast, #clip-helper { display: none !important; }
+  #app, , #popup-root, #modal-root, #toast, #clip-helper { display: none !important; }
   body { overflow: visible; background: #fff; }
   #print-root { display: block; }
   #print-root .print-sheet-title { font-size: 14px; font-weight: 600; margin: 0 0 8px; font-family: var(--font-ui); }
@@ -595,8 +606,10 @@ button { cursor: default; }
 
 /* ==========================================================================
    Cell notes (comments) — pin + thread popover + editor
-   Mirrors the Docs comment UI: a bubble pin that only nudges on hover, and a
-   250px thread card (header / body / replies / actions) that opens on click.
+   The pin itself is canvas-drawn (see notePinGeom in sheets.js): hovering only
+   nudges the bubble a little bigger. The 250px thread card (header / body /
+   replies / actions) opens on a LEFT CLICK on the pin and stays until it is
+   dismissed — close button, Escape, a click elsewhere, or moving the selection.
    ========================================================================== */
 .note-pop {
   position: absolute; z-index: 70; max-width: 264px; background: #fffbea;
@@ -612,7 +625,9 @@ button { cursor: default; }
    Same card as Docs' .comment-popup: white, 250px, 8px radius, the soft accent
    header, avatar circle, body, replies and a Reply / Resolve / Delete row. Docs
    uses `width: 250px` and no max-width; we keep a max-width so a very long
-   unbreakable token cannot stretch the card past the grid. */
+   unbreakable token cannot stretch the card past the grid.
+   Every colour here is a solid hex — the tints Docs fakes with rgba() over white
+   are pre-composited, so nothing in the comment UI is ever see-through. */
 .note-pop.note-thread {
   pointer-events: auto; width: 250px; max-width: 250px; padding: 0;
   background: var(--paper, #fff);
@@ -626,7 +641,7 @@ button { cursor: default; }
 .note-thread .nt-item + .nt-item { border-top: 1px solid var(--line-soft); }
 .note-thread .nt-head {
   display: flex; align-items: center; gap: 6px; padding: 8px 10px 6px;
-  flex: 0 0 auto; background: rgba(33,115,70,.10); border-bottom: 1px solid var(--line-soft);
+  flex: 0 0 auto; background: #e9f1ed; border-bottom: 1px solid var(--line-soft);
 }
 .note-thread .nt-avatar {
   flex: 0 0 auto; width: 20px; height: 20px; border-radius: 50%;
@@ -642,7 +657,7 @@ button { cursor: default; }
   border: none; background: transparent; border-radius: 4px; color: var(--ink-4); cursor: pointer;
   font-family: var(--font-ui); font-size: 16px; line-height: 1;
 }
-.note-thread .nt-close:hover { background: rgba(0,0,0,.06); color: var(--ink-2); }
+.note-thread .nt-close:hover { background: #f0f0f0; color: var(--ink-2); }
 .note-thread .nt-body {
   padding: 6px 10px; font-size: 12.25px; line-height: 1.4; color: var(--ink);
   min-height: 0; white-space: pre-wrap; word-break: break-word; overflow-y: auto;
@@ -663,27 +678,16 @@ button { cursor: default; }
   font-family: var(--font-ui); font-size: 11px; font-weight: 500; color: var(--ink-2);
   transition: background .12s;
 }
-.note-thread .nt-reply-btn { background: rgba(0,0,0,.04); }
-.note-thread .nt-reply-btn:hover { background: rgba(0,0,0,.08); }
-.note-thread .nt-resolve-btn { background: rgba(33,115,70,.10); color: var(--accent); }
-.note-thread .nt-resolve-btn:hover { background: rgba(33,115,70,.15); }
+.note-thread .nt-reply-btn { background: #f5f5f5; }
+.note-thread .nt-reply-btn:hover { background: #ebebeb; }
+.note-thread .nt-resolve-btn { background: #e9f1ed; color: var(--accent); }
+.note-thread .nt-resolve-btn:hover { background: #deeae3; }
 .note-thread .nt-resolve-btn.on { background: var(--chrome-2); color: var(--ink-3); }
-.note-thread .nt-delete-btn { background: rgba(220,38,38,.08); color: #dc2626; }
-.note-thread .nt-delete-btn:hover { background: rgba(220,38,38,.16); }
+.note-thread .nt-delete-btn { background: #fceeee; color: #dc2626; }
+.note-thread .nt-delete-btn:hover { background: #f9dcdc; }
 /* Resolved threads read as done, like Docs' .comment-resolved anchors. */
-.note-thread.is-resolved .nt-body, .note-thread .nt-item.is-resolved .nt-body { opacity: .6; }
+.note-thread.is-resolved .nt-body, .note-thread .nt-item.is-resolved .nt-body { color: #8a8886; }
 
-/* --- filter chips (v4): active check badge --- */
-.filter-chip { position: relative; }
-.filter-chip .fc-badge {
-  position: absolute; top: -5px; right: -5px; width: 13px; height: 13px;
-  border-radius: 50%; background: var(--accent); color: #fff;
-  display: none; align-items: center; justify-content: center;
-  box-shadow: 0 0 0 1.6px #fff, 0 1px 2px rgba(0,0,0,.25);
-}
-.filter-chip .fc-badge svg { width: 8px; height: 8px; stroke-width: 3; }
-.filter-chip.active .fc-badge { display: inline-flex; }
-.filter-chip.active { box-shadow: 0 0 0 2px var(--accent-tint-2); }
 
 /* --- ribbon audit buttons (v4) — subtle accent when tracing is active --- */
 .rbtn.on[data-toggle] { background: linear-gradient(180deg, #eef5f0, var(--accent-tint)); box-shadow: inset 0 0 0 1px var(--accent-tint-2); }
@@ -994,7 +998,6 @@ button { cursor: default; }
 .namebox-dd:hover { background: var(--chrome-2); color: var(--accent-dark); }
 
 /* ---- Find panel input focus ---- */
-#find-panel input:focus { box-shadow: 0 0 0 1.5px var(--accent-tint-2); }
 
 /* ---- Dialog form rows: tighter label rhythm ---- */
 .form-row > label { color: var(--ink-2); }
@@ -1050,16 +1053,6 @@ button { cursor: default; }
 .ch-series-empty { font-size: 11px; color: var(--ink-4); padding: 6px 8px; font-style: italic; }
 
 /* ---- Find panel: option row alignment + notes toggle ---- */
-#find-panel .fr-opts { align-items: center; }
-#find-panel .fr-opts label {
-  display: inline-flex; align-items: center; gap: 5px;
-  margin-right: 14px;
-  font-size: 12px; color: var(--ink-2);
-  cursor: pointer; user-select: none;
-  white-space: nowrap;
-}
-#find-panel .fr-opts input[type="checkbox"] { accent-color: var(--accent); }
-#find-panel .fr-opts label:hover { color: var(--accent-dark); }
 
 /* ---- Chart frames: subtle head gradient on hover for affordance ---- */
 .chart-frame .chart-head { transition: background .15s ease; }
@@ -1077,112 +1070,8 @@ button { cursor: default; }
 }
 
 /* ===================================================================
-   POLISH LAYER v6 — diagnostics & history dialogs + detail refinement
+   POLISH LAYER v6 — history dialogs + detail refinement
    =================================================================== */
-
-/* ---- Diagnostics dialog: section rhythm ---- */
-.diag-section { margin-bottom: 16px; }
-.diag-section:last-child { margin-bottom: 2px; }
-.diag-section-t {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 11px; font-weight: 600; letter-spacing: .04em;
-  text-transform: uppercase; color: var(--ink-3);
-  margin: 0 0 8px; padding-bottom: 5px;
-  border-bottom: 1px solid var(--line);
-}
-.diag-section-t svg { width: 13px; height: 13px; color: var(--accent); }
-
-/* stat cards grid */
-.diag-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
-  gap: 8px;
-}
-.diag-stat {
-  background: linear-gradient(180deg, #fbfcfb, #f4f6f4);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 8px 10px 7px;
-  min-width: 0;
-  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
-}
-.diag-stat:hover {
-  border-color: var(--accent-tint-2);
-  box-shadow: 0 2px 8px rgba(21, 87, 61, .09);
-  transform: translateY(-1px);
-}
-.diag-stat-v {
-  font-size: 15px; font-weight: 650; color: var(--ink);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.diag-stat-l {
-  font-size: 10.5px; color: var(--ink-3); margin-top: 1px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.diag-stat.warn { border-color: #d7a29a; background: linear-gradient(180deg, #fdf6f5, #f9ebe8); }
-.diag-stat.warn .diag-stat-v { color: #a4262c; }
-
-/* ---- Benchmark controls + results ---- */
-.diag-bench-note {
-  font-size: 11.5px; color: var(--ink-3); line-height: 1.45;
-  background: var(--accent-tint);
-  border: 1px solid var(--accent-tint-2);
-  border-radius: 5px;
-  padding: 6px 9px;
-  margin-bottom: 9px;
-}
-.diag-bench-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.diag-ctl { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); }
-.diag-ctl select {
-  font: inherit; font-size: 12px;
-  border: 1px solid var(--line-strong); border-radius: 4px;
-  padding: 4px 6px; background: #fff; color: var(--ink);
-}
-.diag-ctl select:focus-visible { outline: 2px solid var(--accent-tint-2); outline-offset: 0; border-color: var(--accent); }
-
-.diag-bench-results { margin-top: 10px; }
-.diag-bench-running {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 12.5px; color: var(--ink-2);
-  padding: 10px 2px;
-}
-.spinner {
-  width: 13px; height: 13px; flex: none;
-  border: 2px solid var(--accent-tint-2);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: sb-spin .7s linear infinite;
-}
-@keyframes sb-spin { to { transform: rotate(360deg); } }
-
-.bench-head {
-  font-size: 12px; font-weight: 600; color: var(--ink-2);
-  margin-bottom: 7px;
-}
-.bench-row {
-  display: grid; grid-template-columns: 168px 1fr 62px;
-  align-items: center; gap: 8px;
-  padding: 3px 0;
-}
-.bench-label { font-size: 11.5px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bench-track {
-  height: 8px; border-radius: 4px;
-  background: #edf0ed;
-  border: 1px solid #e2e6e2;
-  overflow: hidden;
-}
-.bench-fill {
-  height: 100%;
-  border-radius: 4px;
-  background: linear-gradient(90deg, var(--accent), #4c9c78);
-  animation: bench-grow .5s cubic-bezier(.2, .7, .3, 1);
-}
-@keyframes bench-grow { from { width: 0 !important; } }
-.bench-ms {
-  font-size: 11.5px; font-variant-numeric: tabular-nums;
-  color: var(--ink); text-align: right; font-weight: 600;
-}
-.bench-foot { font-size: 10.5px; color: var(--ink-3); margin-top: 7px; font-style: italic; }
 
 /* ---- Undo History dialog ---- */
 .hist-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -1264,12 +1153,10 @@ button { cursor: default; }
 .btn.danger:hover { background: #fdf3f2; }
 
 @media (prefers-reduced-motion: reduce) {
-  .modal-overlay .modal, .bench-fill, .spinner { animation: none; }
-  .diag-stat { transition: none; }
+  .modal-overlay .modal, .spinner { animation: none; }
 }
 @media (max-width: 640px) {
   .hist-cols { grid-template-columns: 1fr; }
-  .bench-row { grid-template-columns: 110px 1fr 54px; }
 }
 
 /* ==========================================================================
@@ -1369,58 +1256,7 @@ mark.nt-hl { color: #4a3a05; }
    ========================================================================== */
 
 /* ---- Find panel: match list ---- */
-#find-panel { width: 380px; }
-#find-panel .fp-list {
-  margin: 2px 0 8px;
-  border: 1px solid var(--line); border-radius: 4px;
-  background: #fff;
-  max-height: 196px; overflow-y: auto;
-  box-shadow: inset 0 1px 2px rgba(0,0,0,.03);
-  animation: fpListIn .14s ease-out;
-}
 @keyframes fpListIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
-#find-panel .fp-item {
-  display: flex; gap: 7px; align-items: center;
-  padding: 4px 8px; font-size: 12px;
-  cursor: pointer;
-  border-bottom: 1px solid var(--line-soft);
-  transition: background .1s ease;
-}
-#find-panel .fp-item:last-of-type { border-bottom: none; }
-#find-panel .fp-item:hover { background: var(--accent-tint); }
-#find-panel .fp-item.active {
-  background: var(--accent-tint-2);
-  box-shadow: inset 2px 0 0 var(--accent);
-}
-#find-panel .fp-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-#find-panel .fp-item svg { width: 13px; height: 13px; flex: none; color: var(--ink-3); }
-#find-panel .fp-note > svg:first-child { color: #b58a2c; }
-#find-panel .fp-addr {
-  flex: none; min-width: 46px;
-  font-weight: 600; color: var(--accent-dark);
-  font-variant-numeric: tabular-nums;
-}
-#find-panel .fp-snip {
-  flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  color: var(--ink-2);
-}
-#find-panel .fp-snip mark {
-  background: #ffe28a; color: #4a3a05;
-  border-radius: 2px; padding: 0 1px;
-  box-shadow: inset 0 -1px 0 #f0c33c;
-}
-#find-panel .fp-kind {
-  flex: none; font-size: 10px; line-height: 1;
-  font-style: italic; font-family: Georgia, 'Times New Roman', serif;
-  color: var(--ink-3); border: 1px solid var(--line);
-  border-radius: 3px; padding: 2px 3px 1px;
-  background: #faf9f8;
-}
-#find-panel .fp-kind-note { color: #7f6000; background: #fff8e1; border-color: #e2c886; font-style: normal; font-weight: 600; }
-#find-panel .fp-list-empty {
-  padding: 12px 10px; font-size: 12px; color: var(--ink-4);
-  text-align: center; font-style: italic;
-}
 
 /* ---- Chart dialog: data labels + axis titles ---- */
 .ch-axis-inputs { display: flex; gap: 6px; }
@@ -1431,15 +1267,14 @@ mark.nt-hl { color: #4a3a05; }
   transition: border-color .12s ease, box-shadow .12s ease;
 }
 .ch-axis-inputs input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px var(--accent-tint-2); }
-#find-panel .ch-axis-inputs input[type="text"] { flex: 1; }
+ .ch-axis-inputs input[type="text"] { flex: 1; }
 
 /* ---- v8 guards ---- */
 @media (prefers-reduced-motion: reduce) {
-  #find-panel .fp-list, #find-panel .fp-item, .ch-axis-inputs input { animation: none; transition: none; }
+   .ch-axis-inputs input { animation: none; transition: none; }
 }
 @media (max-width: 640px) {
-  #find-panel { width: calc(100vw - 24px); right: 12px; }
-  .ch-axis-inputs { flex-direction: column; }
+    .ch-axis-inputs { flex-direction: column; }
 }
 
 /* ============================================================
@@ -1544,7 +1379,7 @@ mark.nt-hl { color: #4a3a05; }
 
 /* ---- Global micro-transitions on controls ---- */
 .btn, .iconbtn, .rb-btn, .sheet-tab, .fn-cat, .fn-item, .menu-item, .popup .item,
-.filter-chip, .dv-chip, #add-sheet { transition: background .12s ease, color .12s ease,
+#add-sheet { transition: background .12s ease, color .12s ease,
   border-color .12s ease, box-shadow .12s ease, opacity .12s ease; }
 .btn:active, .iconbtn:active, .rb-btn:active { transform: translateY(0.5px); }
 
@@ -1645,7 +1480,6 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 @keyframes tabIn { from { opacity: 0; transform: translateY(6px) scale(.96); } to { opacity: 1; transform: none; } }
 
 /* ---- Filter / DV chips: soft settle when (re)created ---- */
-.filter-chip, .dv-chip { animation: chipIn 140ms ease-out; }
 @keyframes chipIn { from { opacity: 0; transform: translateY(-2px) scale(.94); } to { opacity: 1; transform: none; } }
 
 /* ---- Modal head: hairline gradient + snappier close button ---- */
@@ -1654,7 +1488,6 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 .modal-x:hover { background: var(--chrome-2); color: var(--danger); transform: rotate(90deg); }
 
 /* ---- Find panel + autocomplete: slide-fade coherent with popups ---- */
-#find-panel { animation: fpIn 160ms cubic-bezier(.2, .85, .3, 1); }
 @keyframes fpIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 
 /* ---- Formula bar: focus glow smooths in ---- */
@@ -1664,9 +1497,8 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 @media (prefers-reduced-motion: reduce) {
   #app, .ribbon-panel, .modal-overlay.closing, .modal-overlay.closing .modal,
   .popup.closing, .chart-frame.ch-enter, .chart-frame.ch-enter .chart-canvas-wrap,
-  #sb-zoom-pct.pulse, .filter-chip, .dv-chip,
-  .sheet-tab.tab-enter, #find-panel { animation: none !important; }
-  #ribbon-body .ribbon-panel { transition: none !important; will-change: auto; }
+  #sb-zoom-pct.pulse,
+  .sheet-tab.tab-enter,   #ribbon-body .ribbon-panel { transition: none !important; will-change: auto; }
   .popup-item .pi-check, .popup-item .pi-icon, .modal-x { transition: none !important; }
 }
 
@@ -2142,7 +1974,7 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
   justify-content: center;
   gap: 4px;
   min-width: 60px;
-  padding: 8px 12px;
+  padding: 8px 10px;
   background: rgba(255, 255, 255, .6);
   border: 1px solid rgba(0, 0, 0, .08);
   border-radius: 6px;
@@ -2189,17 +2021,28 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
    .ms-dropdown-btn::after below, so the one ribbon reads as one set: same
    "▼" (U+25BC) rather than the smaller "▾", same 10px, same
    rgba(44,62,80,.6), same .2s rotate into the accent when the menu opens. */
+.ribbon-btn.split { position: relative; }
 .ribbon-btn.split::after {
   content: "▼";
   font-size: 10px;
-  margin-top: -2px;
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
   color: rgba(44, 62, 80, .6);
   font-family: "Segoe UI Symbol", "Arial Unicode MS", "DejaVu Sans", sans-serif;
   transition: transform .2s;
 }
-.ribbon-btn.split[aria-expanded="true"]::after { transform: rotate(180deg); color: var(--ui-accent); }
+.ribbon-btn.split[aria-expanded="true"]::after { transform: translateY(-50%) rotate(180deg); }
 .ribbon-btn-icon.split::after { margin-top: 0; margin-left: 3px; }
-/* --- ribbon availability (Notes/Slides/Docs parity) ---
+
+/* Borders split button matches the Text/Highlights dropdown buttons */
+.borders-btn svg { width: 14px; height: 14px; flex: none; margin-right: 4px; color: rgba(44, 62, 80, .6); }
+.borders-btn svg * { stroke-width: 1.5; }
+.borders-btn { min-width: 0 !important; padding-right: 20px; }
+.borders-btn .dropdown-value { flex: 0 0 auto; }
+
+/* ---------- ribbon availability (Notes/Slides/Docs parity) ---
    updateRibbonAvailability() flips [disabled] on any ribbon control whose
    precondition isn't met, so it greys out instead of running into a dead end.
    Same values as docs.css:4896 so all four apps dim identically. Group labels
@@ -2354,7 +2197,8 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 .ms-dropdown-sep { height: 1px; background: rgba(0, 0, 0, .07); margin: 4px 6px; }
 .ms-dropdown-section-label { padding: 6px 14px 4px; font-size: 10px; color: rgb(156, 163, 175); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid rgba(0, 0, 0, .05); }
 .ms-dropdown-section-label:first-child { border-top: none; }
-.ms-dropdown-menu .style-chip { width: auto; min-width: 120px; border: none; margin: 2px 4px; }
+.ms-dropdown-menu .style-chip { width: 100%; min-width: 100%; border: 1px solid var(--line-soft); margin: 3px 0; text-align: left; padding: 6px 10px; height: auto; justify-content: flex-start; box-shadow: none; line-height: 1.3; white-space: normal; word-break: break-word; }
+.ms-dropdown-menu .style-chip:hover { outline: 2px solid var(--accent); outline-offset: 0; }
 .color-grid-menu { min-width: 200px !important; padding: 10px !important; }
 .color-list-menu { min-width: 180px !important; max-height: 240px !important; overflow-y: auto !important; padding: 0 !important; }
 .color-list-menu .ms-dropdown-item { padding: 10px 16px; font-size: 13px; }
@@ -2868,6 +2712,10 @@ body.no-active-wb #formula-row,
 body.no-active-wb #grid-row,
 body.no-active-wb #status-bar { display: none; }
 
+/* Fade/slide when toggling between the welcome screen and the editor */
+.screen-fade { animation: screenFade .24s ease-out; }
+@keyframes screenFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
 .welcome-screen {
   display: none; /* JS toggles between flex (welcome) and none (editor) */
   align-items: stretch;
@@ -3148,4 +2996,155 @@ body.no-active-wb #status-bar { display: none; }
 @media (max-width: 640px) {
   .welcome-content { padding: 24px 16px; }
   .sheet-list-display { grid-template-columns: 1fr; }
+}
+/* ===================== Find & Replace / Go To bar (bottom-right) =====================
+   Same compact design as the Notes app's findReplaceBar, with the Docs teal
+   accent: rounded card pinned to the bottom-right corner, slide-in animation,
+   find row with prev/next + live count, replace row, Go To row, options. */
+#findBar {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 9500;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 4px 5px rgba(0, 0, 0, 0.14);
+  padding: 12px 14px 10px;
+  width: 320px;
+  font-family: var(--font-ui);
+  animation: frSlideIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes frSlideIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+
+#findBar .fr-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 10px;
+  color: var(--ink-3);
+}
+
+#findBar .fr-title { font-size: 13px; font-weight: 600; flex: 1; }
+
+#findBar .fr-close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  color: var(--ink-3);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+#findBar .fr-close-btn:hover { background: var(--accent-tint); color: var(--ink-2); }
+
+#findBar .fr-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 6px;
+  position: relative;
+}
+
+#findBar .fr-input {
+  flex: 1;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: var(--font-ui);
+  outline: none;
+  transition: border-color 0.15s;
+  min-width: 0;
+  background: #fff;
+  color: var(--ink-2);
+}
+
+#findBar .fr-input:focus { border-color: var(--accent); }
+#findBar .fr-input.fr-no-match { border-color: #ef4444; background: #fff5f5; }
+
+#findBar .fr-goto-num { flex: 0.8; }
+
+#findBar .fr-nav-btn {
+  background: #f3f4f6;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  cursor: pointer;
+  padding: 4px 6px;
+  display: flex;
+  align-items: center;
+  color: var(--ink-3);
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+#findBar .fr-nav-btn:hover { background: var(--accent-tint); }
+#findBar .fr-nav-btn:disabled { opacity: 0.4; cursor: default; }
+
+#findBar .fr-count {
+  font-size: 11px;
+  color: var(--ink-3);
+  white-space: nowrap;
+  min-width: 44px;
+  text-align: right;
+}
+
+#findBar .fr-action-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-family: var(--font-ui);
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+#findBar .fr-action-btn:hover { background: var(--accent-dark); }
+#findBar .fr-action-btn:disabled { opacity: 0.4; cursor: default; }
+
+#findBar .fr-divider {
+  border: none;
+  border-top: 1px solid var(--line-soft);
+  margin: 8px 0 9px;
+}
+
+#findBar .fr-goto-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 6px;
+}
+
+#findBar .fr-options { margin-top: 2px; display: flex; gap: 12px; flex-wrap: wrap; }
+
+#findBar .fr-opt-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--ink-3);
+  cursor: pointer;
+  user-select: none;
+}
+
+#findBar .fr-opt-label input { cursor: pointer; accent-color: var(--accent); }
+
+
+@media print {
+  #findBar { display: none !important; }
 }

@@ -92,8 +92,6 @@
     <main id="grid-area">
       <canvas id="grid-canvas"></canvas>
       <textarea id="cell-editor" aria-label="Cell editor" spellcheck="false"></textarea>
-      <div id="filter-btn-layer" aria-hidden="true"></div>
-      <div id="dv-btn-layer" aria-hidden="true"></div>
       <div id="chart-layer" aria-label="Floating charts"></div>
       <div id="fill-tip" aria-hidden="true"></div>
       <div id="size-tip" aria-hidden="true"></div>
@@ -182,7 +180,40 @@
 </div>
 
 <!-- Overlays -->
-<div id="find-panel" role="dialog" aria-label="Find and Replace" hidden></div>
+<div id="findBar" style="display:none;" role="dialog" aria-label="Find and replace">
+  <div class="fr-header">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <span class="fr-title">Find &amp; Replace</span>
+    <button class="fr-close-btn" id="frCloseBtn" title="Close (Esc)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="fr-row">
+    <input type="text" id="fp-find" class="fr-input" placeholder="Find…" autocomplete="off" spellcheck="false" aria-label="Find" />
+    <button class="fr-nav-btn" id="fp-prev" title="Previous match">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <button class="fr-nav-btn" id="fp-next" title="Next match">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+    <span class="fr-count" id="fp-count"></span>
+  </div>
+  <div class="fr-row" id="fp-replace-row">
+    <input type="text" id="fp-replace" class="fr-input" placeholder="Replace with…" autocomplete="off" spellcheck="false" aria-label="Replace with" />
+    <button class="fr-action-btn" id="fp-r1">Replace</button>
+    <button class="fr-action-btn" id="fp-ra">All</button>
+  </div>
+  <hr class="fr-divider" />
+  <div class="fr-goto-label">Go to</div>
+  <div class="fr-row">
+    <input type="text" id="gt-ref" class="fr-input" placeholder="A1, B2:C9, Sheet2!A1" autocomplete="off" spellcheck="false" aria-label="Go to reference" />
+    <button class="fr-action-btn" id="gtGoBtn">Go</button>
+  </div>
+  <div class="fr-options">
+    <label class="fr-opt-label"><input type="checkbox" id="fp-case" /> Match case</label>
+    <label class="fr-opt-label"><input type="checkbox" id="fp-notes" /> Search notes</label>
+  </div>
+</div>
 <div id="modal-root"></div>
 <div id="popup-root"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
