@@ -37,23 +37,23 @@
         <div class="su-shell">
             <aside class="su-rail" aria-label="Suite navigation">
                 <a class="rail-item active" href="emeraldsuite.html" title="Home">
-                    <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
                     <span>Home</span>
                 </a>
                 <a class="rail-item" href="notes.html" title="Notes">
-                    <img src="/assets/images/notesicon.webp" width="24" height="24" alt="">
+                    <img src="/assets/images/notesicon.webp" width="26" height="26" alt="">
                     <span>Notes</span>
                 </a>
                 <a class="rail-item" href="docs.html" title="Documents">
-                    <img src="/assets/images/docsicon.webp" width="24" height="24" alt="">
+                    <img src="/assets/images/docsicon.webp" width="26" height="26" alt="">
                     <span>Documents</span>
                 </a>
                 <a class="rail-item" href="slides.html" title="Slides">
-                    <img src="/assets/images/slidesicon.webp" width="24" height="24" alt="">
+                    <img src="/assets/images/slidesicon.webp" width="26" height="26" alt="">
                     <span>Slides</span>
                 </a>
                 <a class="rail-item" href="sheets.html" title="Sheets">
-                    <img src="/assets/images/sheetsicon.webp" width="24" height="24" alt="">
+                    <img src="/assets/images/sheetsicon.webp" width="26" height="26" alt="">
                     <span>Sheets</span>
                 </a>
             </aside>
@@ -61,46 +61,41 @@
             <main class="suite-main">
                 <section class="suite-hero">
                     <h1 class="suite-greeting" id="greeting">Welcome back.</h1>
-                    <p class="suite-subtitle">All your notes, documents, presentations, and spreadsheets in one place.</p>
                 </section>
 
-                <h2 class="su-section-title">Your apps</h2>
+                <h2 class="su-section-title">Quick access</h2>
                 <section class="apps-grid" aria-label="Create in EmeraldSuite">
                     <a class="app-tile" href="notes.html" style="--c:#a21caf;--soft:rgba(162,28,175,0.12)">
-                        <span class="app-tile-icon"><img src="/assets/images/notesicon.webp" width="26" height="26" alt="EmeraldNotes"></span>
+                        <span class="app-tile-icon"><img src="/assets/images/notesicon.webp" width="28" height="28" alt="EmeraldNotes"></span>
                         <span class="app-tile-info">
                             <span class="app-tile-name">EmeraldNotes</span>
                             <span class="app-tile-desc">Notes</span>
                         </span>
-                        <span class="app-tile-count" id="statNumNotes">0</span>
                     </a>
                     <a class="app-tile" href="docs.html" style="--c:#0891b2;--soft:rgba(8,145,178,0.12)">
-                        <span class="app-tile-icon"><img src="/assets/images/docsicon.webp" width="26" height="26" alt="EmeraldDocs"></span>
+                        <span class="app-tile-icon"><img src="/assets/images/docsicon.webp" width="28" height="28" alt="EmeraldDocs"></span>
                         <span class="app-tile-info">
                             <span class="app-tile-name">EmeraldDocs</span>
                             <span class="app-tile-desc">Documents</span>
                         </span>
-                        <span class="app-tile-count" id="statNumDocs">0</span>
                     </a>
                     <a class="app-tile" href="slides.html" style="--c:#f97316;--soft:rgba(249,115,22,0.12)">
-                        <span class="app-tile-icon"><img src="/assets/images/slidesicon.webp" width="26" height="26" alt="EmeraldSlides"></span>
+                        <span class="app-tile-icon"><img src="/assets/images/slidesicon.webp" width="28" height="28" alt="EmeraldSlides"></span>
                         <span class="app-tile-info">
                             <span class="app-tile-name">EmeraldSlides</span>
                             <span class="app-tile-desc">Presentations</span>
                         </span>
-                        <span class="app-tile-count" id="statNumSlides">0</span>
                     </a>
                     <a class="app-tile" href="sheets.html" style="--c:#217346;--soft:rgba(33,115,70,0.12)">
-                        <span class="app-tile-icon"><img src="/assets/images/sheetsicon.webp" width="26" height="26" alt="EmeraldSheets"></span>
+                        <span class="app-tile-icon"><img src="/assets/images/sheetsicon.webp" width="28" height="28" alt="EmeraldSheets"></span>
                         <span class="app-tile-info">
                             <span class="app-tile-name">EmeraldSheets</span>
                             <span class="app-tile-desc">Spreadsheets</span>
                         </span>
-                        <span class="app-tile-count" id="statNumSheets">0</span>
                     </a>
                 </section>
 
-                <h2 class="su-section-title">Quick access</h2>
+                <h2 class="su-section-title">Your files</h2>
                 <section class="suite-files">
                     <div class="files-toolbar">
                         <div class="filter-bar" id="filterBar">
@@ -111,40 +106,17 @@
                             <button class="filter-btn" data-filter="sheets"><img class="fd" src="/assets/images/sheetsicon.webp" alt="">Spreadsheets</button>
                         </div>
                         <div class="toolbar-actions">
-                            <div class="files-count" id="filesCount"></div>
-                            <div class="new-wrap">
-                                <button class="btn-new" id="newFileBtn" aria-haspopup="true" aria-expanded="false" title="Create a new file">
-                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-                                    <span>New</span>
-                                    <svg class="btn-new-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                            <div class="sort-dd">
+                                <button class="sort-dd-btn" id="sortSelectBtn" aria-haspopup="listbox" aria-expanded="false" title="Sort order">
+                                    <span id="sortSelectLabel">Recently edited</span>
+                                    <svg class="caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
                                 </button>
-                                <div class="new-menu" id="newMenu" hidden>
-                                    <a href="notes.html" style="--c:#a21caf;--soft:rgba(162,28,175,0.12)">
-                                        <span class="new-menu-icon"><img src="/assets/images/notesicon.webp" width="18" height="18" alt=""></span>
-                                        <span><b>New note</b><small>Quick notes &amp; ideas</small></span>
-                                    </a>
-                                    <a href="docs.html" style="--c:#0891b2;--soft:rgba(8,145,178,0.12)">
-                                        <span class="new-menu-icon"><img src="/assets/images/docsicon.webp" width="18" height="18" alt=""></span>
-                                        <span><b>New document</b><small>Word documents</small></span>
-                                    </a>
-                                    <a href="slides.html" style="--c:#f97316;--soft:rgba(249,115,22,0.12)">
-                                        <span class="new-menu-icon"><img src="/assets/images/slidesicon.webp" width="18" height="18" alt=""></span>
-                                        <span><b>New presentation</b><small>Slides</small></span>
-                                    </a>
-                                    <a href="sheets.html" style="--c:#217346;--soft:rgba(33,115,70,0.12)">
-                                        <span class="new-menu-icon"><img src="/assets/images/sheetsicon.webp" width="18" height="18" alt=""></span>
-                                        <span><b>New spreadsheet</b><small>Spreadsheets</small></span>
-                                    </a>
+                                <div class="sort-dd-menu" id="sortMenu" hidden role="listbox">
+                                    <button class="sort-dd-item active" data-sort="recent" role="option">Recently edited</button>
+                                    <button class="sort-dd-item" data-sort="name" role="option">Name (A–Z)</button>
+                                    <button class="sort-dd-item" data-sort="nameDesc" role="option">Name (Z–A)</button>
                                 </div>
                             </div>
-                            <select class="sort-select" id="sortSelect" title="Sort order">
-                                <option value="recent">Recently edited</option>
-                                <option value="name">Name (A–Z)</option>
-                                <option value="nameDesc">Name (Z–A)</option>
-                            </select>
-                            <button class="icon-btn" id="refreshBtn" title="Refresh file list">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
-                            </button>
                         </div>
                     </div>
 

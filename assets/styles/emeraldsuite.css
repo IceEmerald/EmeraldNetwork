@@ -296,21 +296,6 @@ body {
     text-overflow: ellipsis;
 }
 
-.app-tile-count {
-    margin-left: auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 26px;
-    height: 26px;
-    padding: 0 8px;
-    border-radius: 999px;
-    background: var(--soft, var(--ui-accent-soft));
-    color: var(--c, var(--ui-accent));
-    font-size: 12px;
-    font-weight: 800;
-    flex-shrink: 0;
-}
 
 /* ---------------- Main ---------------- */
 .suite-main {
@@ -339,10 +324,9 @@ body {
     margin: 0 0 20px;
     color: #111827;
 }
+.suite-greeting span { color: var(--ui-accent); }
 
-.suite-greeting span {
-    color: var(--ui-accent);
-}
+
 
 .suite-search {
     position: relative;
@@ -1379,19 +1363,19 @@ body {
 /* ====================================================================
    MS365-style overhaul (2026): topbar + icon rail + clean cards
    ==================================================================== */
-.suite-app { background: #faf9f8; color: #1f1f1f; }
+.suite-app { background: #ffffff; color: #1f1f1f; }
 .su-top {
   position: sticky; top: 0; z-index: 60;
   display: flex; align-items: center; gap: 20px;
-  height: 60px; padding: 0 24px;
-  background: #fff;
+  height: 62px; padding: 0 24px 0 20px;
+  background: #faf9f8;
 }
 .su-top .logo { display: flex; align-items: center; gap: 9px; margin-top: 3px; text-decoration: none; color: inherit; flex: none; }
 .su-search {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
   width: min(560px, 46vw); max-width: 560px;
   display: flex; align-items: center; gap: 8px;
-  background: #f3f2f1; border: 1px solid #edebe9; border-radius: 8px;
+  background: #ffffff; border-radius: 8px; box-shadow: 0 4px 6px -1px rgb(221 221 221 / 10%);
   padding: 7px 12px; color: #605e5c;
 }
 .su-search:focus-within { background: #fff; border-color: var(--ui-accent-border); box-shadow: 0 0 0 3px var(--ui-accent-soft); }
@@ -1410,7 +1394,8 @@ body {
 
 .su-shell { display: flex; align-items: stretch; flex: 1; min-height: 0; }
 .su-rail {
-  width: 60px; flex: none; background: #fff; border-right: 1px solid #edebe9;
+  position: sticky; top: 62px; z-index: 1; align-self: flex-start; height: calc(100vh - 62px);
+  width: 68px; flex: none; background: #faf9f8;
   display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0;
 }
 .rail-item {
@@ -1423,7 +1408,7 @@ body {
 .rail-item.active { color: var(--ui-accent); }
 
 .suite-main { flex: 1; min-width: 0; padding: 28px 32px 56px; max-width: 1240px; margin: 0 auto; width: 100%; }
-.suite-hero { padding: 8px 0 18px; }
+.suite-hero { padding: 7rem 0 18px; }
 .suite-greeting { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; color: #201f1e; margin: 0 0 4px; }
 .suite-subtitle { font-size: 13px; color: #8a8886; margin: 0; }
 
@@ -1442,10 +1427,6 @@ body {
 .app-tile-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .app-tile-name { font-size: 14px; font-weight: 700; color: #201f1e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .app-tile-desc { font-size: 11.5px; color: #8a8886; }
-.app-tile-count {
-  margin-left: auto; font-size: 12px; font-weight: 700; color: var(--ui-accent);
-  background: var(--ui-accent-soft); border-radius: 999px; padding: 2px 9px; flex: none;
-}
 
 /* Files toolbar — filter chips like MS365 */
 .files-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 0 12px; }
@@ -1557,14 +1538,90 @@ body {
 .su-section-title { font-size: 13px; font-weight: 700; color: #605e5c; text-transform: uppercase; letter-spacing: .06em; margin: 22px 0 10px; }
 .suite-hero .su-section-title { margin-top: 4px; }
 .app-tile { position: relative; }
-.app-tile::before {
-  content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 4px;
-  border-radius: 4px; background: var(--c, #d8d8d8); opacity: 0; transition: opacity .2s;
-}
-.app-tile:hover::before { opacity: 1; }
 .card-thumb { display: flex; align-items: center; justify-content: center; }
 .card-thumb img, .card-thumb svg { width: 44px; height: 44px; opacity: .9; }
 
 /* Author display rules above were overriding the hidden attribute */
 .empty-state[hidden] { display: none; }
 .new-menu[hidden], .file-menu[hidden] { display: none; }
+
+/* Keep the logo square (style.css .logo .icon-primary was stretching it) */
+.su-top .logo .icon-primary { width: 30px; height: 30px; object-fit: contain; margin-bottom: 0; }
+
+/* Storage icon: no filled box */
+.su-storage-btn { background: transparent !important; border: none !important; box-shadow: none; }
+
+/* Search input font fix */
+.su-search input, .su-search input::placeholder { font-family: 'DM Sans', -apple-system, sans-serif; letter-spacing: 0; }
+
+/* Search icon matches placeholder color */
+.su-search svg { color: #8a8886; }
+
+/* Animated soft background graphic on the main window, fading to white */
+.su-shell { position: relative; }
+.su-shell::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(560px 380px at 12% 0%, rgba(35, 154, 77, .16), transparent 62%),
+    radial-gradient(720px 520px at 88% 6%, rgba(8, 145, 178, .12), transparent 62%),
+    radial-gradient(820px 560px at 50% -12%, rgba(249, 115, 22, .10), transparent 62%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 78%);
+          mask-image: linear-gradient(to bottom, black 0%, transparent 78%);
+}
+.suite-main > * { position: relative; z-index: 1; }
+@keyframes suBgDrift {
+  from { transform: translate3d(-1.5%, -1%, 0) scale(1); }
+  to   { transform: translate3d(1.5%, 1.5%, 0) scale(1.07); }
+}
+
+/* Quick access polish: cleaner toolbar + cards */
+.suite-files { margin-top: 4px; }
+.files-toolbar { padding-bottom: 2px; }
+.filter-btn { box-shadow: 0 1px 2px rgba(0,0,0,.03); }
+.filter-btn.active { box-shadow: none; }
+.files-grid { gap: 14px; }
+.file-card { border-color: #ececec; }
+.card-thumb { height: 118px; }
+.card-body { padding: 12px 14px 14px; }
+.card-title { font-size: 14px; }
+.card-meta { margin-top: 5px; }
+.sort-select, .icon-btn { height: 34px; }
+
+/* Filter chips as the Slides "Timing > Start" segmented toggle */
+.filter-bar {
+  display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 2px;
+  background: rgba(0, 0, 0, 0.04); border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 7px; box-shadow: rgba(0, 0, 0, 0.04) 0 1px 2px inset;
+}
+.filter-btn {
+  padding: 6px 12px; background: transparent; border: none; box-shadow: none;
+  border-radius: 6px; font-size: 12.5px; font-weight: 600; color: rgba(44, 62, 80, 0.7);
+  transition: background .18s, color .18s, box-shadow .18s;
+}
+.filter-btn:hover { color: rgba(44, 62, 80, 0.95); background: rgba(255, 255, 255, 0.6); }
+.filter-btn.active { background: #fff; color: var(--ui-accent); box-shadow: rgba(0,0,0,.08) 0 1px 2px, rgba(35,154,77,.15) 0 0 0 1px; }
+.filter-btn .fd { width: 14px; height: 14px; }
+
+/* Custom sort dropdown */
+.sort-dd { position: relative; }
+.sort-dd-btn {
+  display: inline-flex; align-items: center; gap: 7px; height: 34px;
+  background: #fff; border: 1px solid #edebe9; border-radius: 8px;
+  padding: 0 11px; font-size: 12.5px; color: #605e5c; cursor: pointer; font-family: 'DM Sans', -apple-system, sans-serif;
+}
+.sort-dd-btn:hover { border-color: var(--ui-accent-border); }
+.sort-dd-btn .caret { transition: transform .15s; }
+.sort-dd-btn[aria-expanded="true"] .caret { transform: rotate(180deg); }
+.sort-dd-menu {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 70;
+  background: #fff; border: 1px solid #edebe9; border-radius: 12px;
+  box-shadow: 0 10px 34px rgba(0,0,0,.14); padding: 6px; min-width: 170px;
+  animation: menuIn .16s ease-out;
+}
+.sort-dd-menu[hidden] { display: none; }
+.sort-dd-item {
+  display: block; width: 100%; text-align: left; background: none; border: none;
+  padding: 7px 10px; border-radius: 8px; font-size: 12.5px; color: #605e5c; cursor: pointer; font-family: 'DM Sans', -apple-system, sans-serif;
+}
+.sort-dd-item:hover { background: #f3f2f1; color: #201f1e; }
+.sort-dd-item.active { color: var(--ui-accent); font-weight: 600; background: var(--ui-accent-soft); }

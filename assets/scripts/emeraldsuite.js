@@ -68,6 +68,7 @@
     const state = {
         files: [],
         filter: 'all',
+        filters: new Set(),
         search: '',
         sort: 'recent',
         syncing: false,
@@ -406,8 +407,8 @@
     /* ---------------- rendering ---------------- */
     function visibleFiles() {
         let files = state.files.slice();
-        if (state.filter !== 'all') {
-            files = files.filter(f => f.type === state.filter);
+        if (state.filters.size && state.filter !== 'all') {
+            files = files.filter(f => state.filters.has(f.type));
         }
         if (state.search) {
             const q = state.search.toLowerCase();
@@ -466,45 +467,29 @@
     }
 
     function render() {
-        renderTiles();
         renderFilters();
         renderGrid();
     }
 
-    function renderTiles() {
-        const counts = { notes: 0, docs: 0, slides: 0, sheets: 0 };
-        state.files.forEach(f => { counts[f.type] = (counts[f.type] || 0) + 1; });
-        const map = { notes: 'statNumNotes', docs: 'statNumDocs', slides: 'statNumSlides', sheets: 'statNumSheets' };
-        Object.keys(map).forEach(k => {
-            const el = $(map[k]);
-            if (el) el.textContent = String(counts[k] || 0);
-        });
-    }
-
     function renderFilters() {
         const btns = document.querySelectorAll('.filter-btn');
-        btns.forEach(b => b.classList.toggle('active', b.dataset.filter === state.filter));
+        btns.forEach(b => {
+            const v = b.dataset.filter;
+            b.classList.toggle('active', v === 'all' ? state.filter === 'all' : state.filters.has(v));
+        });
     }
 
     function renderGrid() {
         const grid = $('filesGrid');
         const empty = $('emptyState');
-        const countEl = $('filesCount');
         if (!grid) return;
 
         const files = visibleFiles();
 
-        if (countEl) {
-            const total = state.files.length;
-            countEl.textContent = files.length === total
-                ? total + (total === 1 ? ' file' : ' files')
-                : files.length + ' of ' + total + ' files';
-        }
-
         if (files.length === 0) {
             grid.innerHTML = '';
             empty.hidden = false;
-            const app = state.filter !== 'all' ? APPS[state.filter] : null;
+            const app = state.filter !== 'all' && state.filters.size === 1 ? APPS[[...state.filters][0]] : null;
             const img = $('emptyImg');
             const title = $('emptyTitle');
             const text = $('emptyText');
@@ -723,45 +708,45 @@
             renderGrid();
         });
 
-        $('sortSelect').addEventListener('change', (e) => {
-            state.sort = e.target.value;
-            renderGrid();
-        });
+        const sortBtn = $('sortSelectBtn'), sortMenu = $('sortMenu'), sortLabel = $('sortSelectLabel');
+        if (sortBtn && sortMenu) {
+            const setSortOpen = (open) => {
+                sortMenu.hidden = !open;
+                sortBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+            };
+            sortBtn.addEventListener('click', (e) => { e.stopPropagation(); setSortOpen(sortMenu.hidden); });
+            document.addEventListener('click', (e) => { if (!sortMenu.hidden && !sortMenu.contains(e.target) && !sortBtn.contains(e.target)) setSortOpen(false); });
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !sortMenu.hidden) setSortOpen(false); });
+            sortMenu.querySelectorAll('.sort-dd-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    state.sort = item.dataset.sort;
+                    sortLabel.textContent = item.textContent;
+                    sortMenu.querySelectorAll('.sort-dd-item').forEach(x => x.classList.toggle('active', x === item));
+                    setSortOpen(false);
+                    renderGrid();
+                });
+            });
+        }
 
         const filterBar = $('filterBar');
         if (filterBar) {
             filterBar.addEventListener('click', (e) => {
                 const btn = e.target.closest('.filter-btn');
                 if (!btn) return;
-                state.filter = btn.dataset.filter;
+                const v = btn.dataset.filter;
+                if (v === 'all') {
+                    state.filter = 'all';
+                    state.filters.clear();
+                } else {
+                    state.filter = 'custom';
+                    if (state.filters.has(v)) state.filters.delete(v);
+                    else state.filters.add(v);
+                    if (!state.filters.size) { state.filter = 'all'; }
+                }
                 renderFilters();
                 renderGrid();
             });
         }
-
-        /* New dropdown */
-        const newBtn = $('newFileBtn');
-        const newMenu = $('newMenu');
-        function setNewOpen(open) {
-            if (!newMenu) return;
-            newMenu.hidden = !open;
-            if (newBtn) newBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-        }
-        if (newBtn && newMenu) {
-            newBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                setNewOpen(newMenu.hidden);
-            });
-            document.addEventListener('click', (e) => {
-                if (!newMenu.hidden && !newMenu.contains(e.target) && !newBtn.contains(e.target)) setNewOpen(false);
-            });
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape' && !newMenu.hidden) { setNewOpen(false); newBtn.focus(); }
-            });
-            window.addEventListener('blur', () => { if (!newMenu.hidden) setNewOpen(false); });
-        }
-
-        $('refreshBtn').addEventListener('click', () => refresh({}));
 
         /* modals */
         $('renameClose').addEventListener('click', () => closeModal('renameOverlay'));
@@ -818,6 +803,10 @@
         setGreeting();
         bindUI();
 
+        /* auto-refresh when the tab regains focus/visibility */
+        window.addEventListener('focus', () => refresh({ silent: true }));
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh({ silent: true }); });
+
         /* cross-tab sync for notes/docs/slides (EmeraldIDBStorage channel) */
         const s = storage();
         if (s && s.subscribe) {
@@ -850,12 +839,10 @@
         const el = $('greeting');
         if (!el) return;
         const h = new Date().getHours();
-        let g = 'Welcome back.';
-        if (h < 5) g = 'Working late?';
-        else if (h < 12) g = 'Good morning.';
-        else if (h < 18) g = 'Good afternoon.';
-        else g = 'Good evening.';
-        el.innerHTML = g + ' <span>Everything in one place.</span>';
+        let g = 'Good evening';
+        if (h < 12) g = 'Good morning';
+        else if (h < 18) g = 'Good afternoon';
+        el.innerHTML = g + ', welcome to <span>EmeraldSuite</span>!';
     }
 
     document.addEventListener('DOMContentLoaded', init);
