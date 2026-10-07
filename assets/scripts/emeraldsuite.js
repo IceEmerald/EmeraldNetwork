@@ -781,6 +781,37 @@
         /* sync indicator click = sync now */
         const syncEl = $('syncIndicator');
         if (syncEl) syncEl.addEventListener('click', () => refresh({}));
+
+        /* storage usage popup */
+        const sBtn = $('storageBtn'), sPop = $('storagePop');
+        if (sBtn && sPop) {
+            const fmt = (b) => b == null ? '—' : (b >= 1073741824 ? (b / 1073741824).toFixed(2) + ' GB' : b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : b >= 1024 ? (b / 1024).toFixed(1) + ' KB' : b + ' B');
+            const hidePop = () => {
+                if (sPop.hidden) return;
+                sPop.classList.add('closing');
+                setTimeout(() => { sPop.hidden = true; sPop.classList.remove('closing'); }, 150);
+            };
+            sBtn.addEventListener('click', async () => {
+                if (!sPop.hidden) { hidePop(); return; }
+                sPop.classList.remove('closing');
+                sPop.hidden = false;
+                let used = null, quota = null;
+                try {
+                    if (navigator.storage && navigator.storage.estimate) {
+                        const e = await navigator.storage.estimate();
+                        used = e.usage; quota = e.quota;
+                    }
+                } catch (e) {}
+                $('storageUsed').textContent = fmt(used);
+                $('storageFree').textContent = (quota != null && used != null) ? fmt(Math.max(0, quota - used)) : '—';
+                const pct = (quota && used != null) ? Math.min(100, (used / quota) * 100) : 0;
+                $('storageFill').style.width = pct + '%';
+                $('storagePct').textContent = quota ? Math.round(pct) + '% of estimated storage used' : 'Storage estimate unavailable in this browser.';
+            });
+            document.addEventListener('mousedown', (e) => {
+                if (!sPop.hidden && !sPop.contains(e.target) && !sBtn.contains(e.target)) hidePop();
+            });
+        }
     }
 
     function init() {
