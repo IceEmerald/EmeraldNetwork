@@ -5,7 +5,6 @@
     --ui-accent-selected: rgba(35, 154, 77, 0.15);
     --ui-accent-border: rgba(35, 154, 77, 0.30);
     --ui-accent-ring: rgba(43, 208, 89, 0.35);
-    --suite-bg: #F5F6F5;
 }
 
 * {
@@ -14,6 +13,10 @@
 
 html {
     scrollbar-gutter: auto;
+    /* Smooth scrolling for the wheel/trackpad and programmatic jumps. NOT set
+       under prefers-reduced-motion below — see the override at the end of
+       this file. */
+    scroll-behavior: smooth;
 }
 
 .suite-app * {
@@ -22,8 +25,15 @@ html {
 
 html,
 body {
-    background: var(--suite-bg);
-    overscroll-behavior: none;
+    /* Explicit #fff, and `background-color` to match style.css:230 which sets
+       `background-color: var(--background)`. Same property, and this file
+       loads second, so it wins — stated literally rather than relying on the
+       shorthand/longhand difference or on load order. */
+    background-color: #ffffff;
+    /* `contain` (was `none`) keeps the rubber-band overscroll effect — the
+       subtle pull past the top/bottom edge — instead of suppressing it. The
+       white page behind is ours, so nothing external gets exposed. */
+    overscroll-behavior: contain;
 }
 
 .suite-app {
@@ -1961,3 +1971,8 @@ body {
 }
 .sort-dd-item:hover { background: #f3f2f1; color: #201f1e; }
 .sort-dd-item.active { color: var(--ui-accent); font-weight: 600; background: var(--ui-accent-soft); }
+/* Smooth scrolling is motion the user didn't ask for — turn it off when the
+   OS requests reduced motion, matching every other animation on this page. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
