@@ -1550,7 +1550,12 @@ body {
    The variant comes from [data-daypart] on .suite-app, set by the same
    daypartFor() call that picks the greeting, so text and art always agree.
    --------------------------------------------------------------------------- */
-.su-shell { position: relative; overflow: hidden; }
+/* `clip`, NOT `hidden`: the sky layers below need to be clipped, but
+   `overflow: hidden` would turn .su-shell into a scroll container, and the
+   sidebar's `position: sticky` resolves against the nearest scrollport —
+   so the rail would stop following the viewport and scroll away with the page.
+   `overflow: clip` clips the same content without creating a scrollport. */
+.su-shell { position: relative; overflow: clip; }
 .su-shell::before,
 .su-shell::after {
   content: ""; position: absolute; left: 0; right: 0; top: 0; height: 62vh;
