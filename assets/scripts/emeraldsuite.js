@@ -5,43 +5,43 @@
 
     const APPS = {
         notes: {
-            name: 'EmeraldNotes', file: 'notes.html', label: 'Note', urlLabel: 'Notes',
+            name: 'EmeraldNotes', file: '/notes', label: 'Note', urlLabel: 'Notes',
             color: '#a21caf',
             soft: 'rgba(162,28,175,0.10)',
             border: 'rgba(162,28,175,0.32)',
             fill: 'rgba(162,28,175,0.26)',
             empty: '/assets/images/nonotes.webp',
-            emptyAction: 'notes.html',
+            emptyAction: '/notes',
             emptyCta: 'Create a note'
         },
         docs: {
-            name: 'EmeraldDocs', file: 'docs.html', label: 'Document', urlLabel: 'Documents',
+            name: 'EmeraldDocs', file: '/docs', label: 'Document', urlLabel: 'Documents',
             color: '#0891b2',
             soft: 'rgba(8,145,178,0.10)',
             border: 'rgba(8,145,178,0.32)',
             fill: 'rgba(8,145,178,0.26)',
             empty: '/assets/images/nodocs.webp',
-            emptyAction: 'docs.html',
+            emptyAction: '/docs',
             emptyCta: 'Create a document'
         },
         slides: {
-            name: 'EmeraldSlides', file: 'slides.html', label: 'Presentation', urlLabel: 'Presentations',
+            name: 'EmeraldSlides', file: '/slides', label: 'Presentation', urlLabel: 'Presentations',
             color: '#f97316',
             soft: 'rgba(249,115,22,0.10)',
             border: 'rgba(249,115,22,0.32)',
             fill: 'rgba(249,115,22,0.26)',
             empty: '/assets/images/noslides.webp',
-            emptyAction: 'slides.html',
+            emptyAction: '/slides',
             emptyCta: 'Create a presentation'
         },
         sheets: {
-            name: 'EmeraldSheets', file: 'sheets.html', label: 'Spreadsheet', urlLabel: 'Spreadsheets',
+            name: 'EmeraldSheets', file: '/sheets', label: 'Spreadsheet', urlLabel: 'Spreadsheets',
             color: '#217346',
             soft: 'rgba(33,115,70,0.10)',
             border: 'rgba(33,115,70,0.32)',
             fill: 'rgba(33,115,70,0.26)',
             empty: '/assets/images/nosheets.webp',
-            emptyAction: 'sheets.html',
+            emptyAction: '/sheets',
             emptyCta: 'Create a spreadsheet'
         }
     };
