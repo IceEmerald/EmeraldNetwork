@@ -67,12 +67,27 @@
                     <h1 class="suite-greeting" id="greeting">Welcome back.</h1>
                 </section>
 
-                <h2 class="su-section-title">Recent files</h2>
-                <section class="recent-wrap" aria-label="Recent files">
-                    <div class="recent-grid" id="recentGrid" role="list"></div>
-                    <div class="recent-empty" id="recentEmpty" hidden>Open a file and it will show up here.</div>
-                </section>
+                <!-- Collapsed while a search is active (see .searching on
+                     .suite-main).
 
+                     Each .collapsible must hold EXACTLY ONE child. The
+                     grid-template-rows: 1fr → 0fr trick only sizes the
+                     declared row; a second child lands in an implicit
+                     auto-sized row and never animates. So the heading +
+                     section pair is wrapped in .collapsible-inner, which is
+                     what actually gets clipped. -->
+                <div class="collapsible" id="recentBlock">
+                    <div class="collapsible-inner">
+                        <h2 class="su-section-title">Recent files</h2>
+                        <section class="recent-wrap" aria-label="Recent files">
+                            <div class="recent-grid" id="recentGrid" role="list"></div>
+                            <div class="recent-empty" id="recentEmpty" hidden>Open a file and it will show up here.</div>
+                        </section>
+                    </div>
+                </div>
+
+                <div class="collapsible" id="quickBlock">
+                <div class="collapsible-inner">
                 <h2 class="su-section-title">Quick access</h2>
                 <section class="apps-grid" aria-label="Create in EmeraldSuite">
                     <a class="app-tile" href="notes.html" style="--c:#a21caf;--soft:rgba(162,28,175,0.12)">
@@ -104,6 +119,8 @@
                         </span>
                     </a>
                 </section>
+                </div>
+                </div>
 
                 <h2 class="su-section-title">Your files</h2>
                 <section class="suite-files">

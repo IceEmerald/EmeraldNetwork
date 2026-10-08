@@ -741,6 +741,11 @@
 
         $('searchInput').addEventListener('input', (e) => {
             state.search = e.target.value.trim();
+            /* Collapses Recent files + Quick access while there's a query, so
+               "Your files" and its results move up under the cursor. Cleared
+               as soon as the box is empty. */
+            const main = document.querySelector('.suite-main');
+            if (main) main.classList.toggle('searching', !!state.search);
             renderGrid();
         });
 

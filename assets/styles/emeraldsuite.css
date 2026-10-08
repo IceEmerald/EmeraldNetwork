@@ -1835,6 +1835,47 @@ body {
 .files-grid { gap: 14px; }
 .file-card { border-color: #ececec; }
 
+/* Search focus mode: Recent files + Quick access fade and collapse so the
+   filtered results in "Your files" move up under the cursor. Uses grid-template-rows
+   1fr → 0fr rather than display:none so the height animates smoothly, and the
+   inner wrapper (min-height:0) is what actually clips — animating the outer
+   element's height would fight the padding and margins. */
+/* The blocks aren't hidden while searching — they recede: height collapses so
+   "Your files" moves up, while a blur + fade reads them as out-of-focus
+   background rather than removed content. */
+.collapsible {
+  display: grid; grid-template-rows: 1fr;
+  transition: grid-template-rows .34s ease, opacity .3s ease,
+              filter .3s ease, transform .34s ease, margin .34s ease;
+  min-height: 0;
+  transform-origin: 50% 0;
+}
+/* The single child that gets collapsed and clipped. min-height:0 is required —
+   without it the grid item refuses to shrink below its content and the row
+   stays open. */
+.collapsible-inner { min-height: 0; overflow: hidden; }
+.suite-main.searching .collapsible {
+  grid-template-rows: 0fr;
+  opacity: .22;
+  filter: blur(7px);
+  transform: scale(.985) translateY(-6px);
+  pointer-events: none;
+  /* collapse the section spacing too, so nothing is left stranded */
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+/* filter is on the wrapper, but the grid track must still clip its child —
+   otherwise the blurred content bleeds past the collapsed height. */
+.collapsible-inner > * { transition: opacity .3s ease; }
+.suite-main.searching .collapsible-inner > * { opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .collapsible,
+  .collapsible-inner > * { transition: none; }
+  .suite-main.searching .collapsible { grid-template-rows: 0fr; }
+  .suite-main.searching .collapsible-inner > * { opacity: 1; }
+}
+
 /* Your files — list rows. Same hooks as .file-card, laid out horizontally:
    preview, title + meta, edited time. */
 .files-grid { display: block; }
