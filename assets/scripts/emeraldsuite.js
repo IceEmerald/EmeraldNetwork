@@ -903,15 +903,54 @@
         buildSky(part);
     }
 
+    /* Star colours, weighted the way a real field looks: mostly white, a good
+       share of blue-white giants, a few warm giants. */
+    const STAR_TINTS = [
+        ['#ffffff', 5],
+        ['#e8f1ff', 3],
+        ['#cfe0ff', 2],
+        ['#fff4e2', 2],
+        ['#ffd9a8', 1]
+    ];
+
+    function hexToRgba(hex, a) {
+        const n = parseInt(hex.slice(1), 16);
+        return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+    }
+
+    function pickStarTint() {
+        const total = STAR_TINTS.reduce((n, t) => n + t[1], 0);
+        let r = Math.random() * total;
+        for (const [hex, w] of STAR_TINTS) {
+            r -= w;
+            if (r <= 0) return hex;
+        }
+        return STAR_TINTS[0][0];
+    }
+
     /* Decorative sky layer for the time-of-day themes.
 
-       evening — a scatter of stars, each twinkling on its own period, plus one
-       shooting star on a long loop.
-       morning — godray shafts fanning from the sun in the top-right toward the
-       centre, each a soft white bar with its own shimmer period.
+       evening — a dense Milky Way star field: stars biased onto a diagonal
+       galactic band, plus shooting stars.
+       morning — godray shafts fanning from the sun in the top-right.
 
        Both are built as nodes rather than extra gradient layers because every
        element animates on its own clock, which one background cannot do. */
+
+    /* ~70% of stars are placed along the galactic band (a diagonal corridor
+       through the sky), the rest scattered — which is what gives a Milky Way
+       its bright diagonal ridge instead of an even sprinkle. */
+    function starPosition() {
+        const BAND = 0.7;
+        if (Math.random() < BAND) {
+            const x = Math.random() * 100;
+            const centre = 46 - x * 0.34;              /* band centre line */
+            const spread = 13 + Math.random() * 11;
+            return { x: x, y: Math.max(-2, Math.min(58, centre + (Math.random() * 2 - 1) * spread)) };
+        }
+        return { x: Math.random() * 100, y: Math.random() * 58 };
+    }
+
     function buildSky(part) {
         const sky = $('skyLayer');
         if (!sky) return;
@@ -920,24 +959,33 @@
         if (part !== 'evening') return;
 
         const frag = document.createDocumentFragment();
-        for (let i = 0; i < 26; i++) {
+        for (let i = 0; i < 78; i++) {
             const star = document.createElement('i');
             star.className = 'su-star';
-            const size = 1 + Math.round(Math.random() * 2);
+
+            const size = 1 + Math.round(Math.random() * 2.6);
             if (size >= 3) star.classList.add('big');
-            star.style.width = size + 'px';
-            star.style.height = size + 'px';
-            /* keep stars in the upper sky so they never sit under the file list */
-            star.style.left = (Math.random() * 98).toFixed(2) + '%';
-            star.style.top = (Math.random() * 62).toFixed(2) + '%';
-            star.style.setProperty('--dur', (2.6 + Math.random() * 3.4).toFixed(2) + 's');
-            star.style.setProperty('--delay', (Math.random() * 4).toFixed(2) + 's');
+
+            const tint = pickStarTint();
+            star.style.width = size.toFixed(1) + 'px';
+            star.style.height = size.toFixed(1) + 'px';
+            star.style.setProperty('--tint', tint);
+            /* halo for the larger stars, derived from the same hue */
+            if (size >= 3) star.style.setProperty('--glow', hexToRgba(tint, .55));
+
+            const pos = starPosition();
+            star.style.left = pos.x.toFixed(2) + '%';
+            star.style.top = pos.y.toFixed(2) + '%';
+            star.style.setProperty('--dur', (2.4 + Math.random() * 4.2).toFixed(2) + 's');
+            star.style.setProperty('--delay', (Math.random() * 5).toFixed(2) + 's');
             frag.appendChild(star);
         }
-        const shoot = document.createElement('i');
-        shoot.className = 'su-shooting';
-        shoot.style.animationDelay = (3 + Math.random() * 6).toFixed(2) + 's';
-        frag.appendChild(shoot);
+        for (let i = 0; i < 2; i++) {
+            const shoot = document.createElement('i');
+            shoot.className = 'su-shooting';
+            shoot.style.animationDelay = (2 + Math.random() * 7 + i * 5).toFixed(2) + 's';
+            frag.appendChild(shoot);
+        }
         sky.appendChild(frag);
     }
 

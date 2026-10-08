@@ -1555,8 +1555,8 @@ body {
 .su-shell::after {
   content: ""; position: absolute; left: 0; right: 0; top: 0; height: 62vh;
   pointer-events: none; z-index: 0;
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,.55) 46%, transparent 92%);
-          mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,.55) 46%, transparent 92%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,.55) 38%, transparent 76%);
+          mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,.55) 38%, transparent 76%);
   will-change: transform;
 }
 
@@ -1675,81 +1675,67 @@ body {
   animation: suRayShimmer var(--dur, 9s) ease-in-out var(--delay, 0s) infinite alternate;
 }
 
-/* ---- evening: midnight sky (static wash) ----
-   The stars are separate DOM nodes (.su-sky) rather than another gradient
-   layer: each star needs its own twinkle period, and a single background can
-   only animate as one unit. */
+/* ---- evening: Milky Way band ----
+   Built in three layers to get real depth:
+     ::before — nebula: deep space base, then coloured gas clouds (teal low
+                left, blue centre, magenta right), a warm galactic-core glow,
+                and dark dust lanes laid on top to break the clouds up.
+     ::after  — a fine dust of tiny background stars baked into gradients.
+     .su-sky  — the bright foreground stars + shooting star, as DOM nodes.
+
+   The clouds breathe independently of each other so the whole field never
+   pulses in unison, which is what makes flat CSS skies look cheap. */
 [data-daypart="evening"] .su-shell::before {
   background:
-    radial-gradient(1150px 720px at 0% -10%, rgba(23, 32, 74, .42), transparent 68%),
-    radial-gradient(1250px 780px at 100% -8%, rgba(49, 33, 92, .38), transparent 68%),
-    radial-gradient(1700px 620px at 50% -26%, rgba(15, 23, 42, .28), transparent 72%),
-    linear-gradient(to bottom, rgba(30, 41, 82, .34), transparent 60%);
+    /* dark dust lanes — dark on light clouds, so they go last (on top).
+       Kept light so the whole scene reads as a luminous, milky night rather
+       than a heavy black one. */
+    radial-gradient(300px 90px at 26% 40%, rgba(10, 16, 40, .30), transparent 72%),
+    radial-gradient(180px 60px at 52% 22%, rgba(10, 16, 40, .26), transparent 72%),
+    radial-gradient(240px 70px at 74% 34%, rgba(10, 16, 40, .28), transparent 72%),
+    /* warm galactic core, sitting on the band */
+    radial-gradient(460px 220px at 62% 30%, rgba(255, 245, 228, .44), transparent 70%),
+    radial-gradient(240px 130px at 60% 31%, rgba(255, 238, 214, .46), transparent 68%),
+    /* magenta / rose gas */
+    radial-gradient(620px 300px at 78% 26%, rgba(214, 116, 168, .40), transparent 70%),
+    radial-gradient(380px 210px at 84% 34%, rgba(238, 142, 182, .32), transparent 70%),
+    /* violet */
+    radial-gradient(700px 340px at 58% 16%, rgba(134, 100, 196, .38), transparent 70%),
+    /* blue gas */
+    radial-gradient(820px 400px at 46% 28%, rgba(88, 134, 214, .40), transparent 70%),
+    radial-gradient(520px 260px at 34% 34%, rgba(104, 154, 224, .32), transparent 70%),
+    /* teal / cyan, low left like the reference */
+    radial-gradient(880px 380px at 14% 46%, rgba(58, 172, 178, .40), transparent 70%),
+    radial-gradient(560px 280px at 8% 54%, rgba(74, 192, 186, .34), transparent 70%),
+    radial-gradient(420px 220px at 22% 56%, rgba(90, 206, 196, .28), transparent 72%),
+    /* deep space base — a soft indigo haze, not near-black. The gas clouds sit on
+       this layer, so the darker the base the more they mute into it. */
+    radial-gradient(1500px 900px at 50% -10%, rgba(30, 40, 78, .34), transparent 74%),
+    /* Lifted and clearing early: the page returns to white well before the file
+       list, and the whole band reads airy rather than dense. */
+    linear-gradient(to bottom, rgba(46, 58, 104, .38), rgba(58, 74, 124, .26) 34%, transparent 72%);
+  animation: suNebulaBreathe 26s ease-in-out infinite alternate;
 }
-[data-daypart="evening"] .su-shell::after { background: none; }
 
-/* ---- black hole, evening only ---- */
-.su-blackhole { display: none; }
-[data-daypart="evening"] .su-blackhole {
-  display: block;
-  position: absolute;
-  left: 76%; top: 14%;
-  width: 190px; height: 190px;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  z-index: 0;
-  /* whole-object blur so it reads as something distant on the celestial sphere
-     rather than an on-screen UI ornament; blur lives on the parent so the disc,
-     glow and photon ring all soften together */
-  filter: blur(7px);
-  opacity: .75;
-}
-/* outer glow warming the sky behind it */
-.su-blackhole .bh-glow {
-  position: absolute; inset: -160%;
-  background: radial-gradient(circle,
-    rgba(255, 150, 60, .20) 0%,
-    rgba(255, 90, 30, .09) 38%,
-    transparent 66%);
-}
-/* the accretion disk seen almost edge-on: a wide flat ring. The ring gradient
-   leaves the centre transparent so the black shadow sits inside it. Hot side
-   is biased with a warm overlay — relativistic beaming as seen in film. */
-.su-blackhole .bh-disk {
-  position: absolute; left: 50%; top: 50%;
-  width: 250%; height: 52%;
-  transform: translate(-50%, -50%) rotate(-13deg);
-  border-radius: 50%;
-  background: radial-gradient(ellipse at 50% 50%,
-    transparent 0%, transparent 32%,
-    rgba(255, 232, 180, .95) 39%,
-    rgba(255, 170, 90, .85) 50%,
-    rgba(210, 90, 25, .42) 58%,
-    transparent 70%);
-  /* the approaching side is brighter */
-  box-shadow: inset 60px 0 80px -40px rgba(255, 240, 200, .7);
-}
-/* dark core sits inside the ring's hole */
-.su-blackhole .bh-shadow {
-  position: absolute; left: 50%; top: 50%;
-  width: 34%; height: 34%;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: #000;
-  /* softer, more contained halo so the core lost lost lostreads as a clean disc
-     rather than a hard black blob stamped over the disk */
-  filter: blur(1.2px);
-  box-shadow: 0 0 14px 5px rgba(0, 0, 0, .78);
-}
-/* the photon ring hugging the shadow */
-.su-blackhole .bh-ring {
-  position: absolute; left: 50%; top: 50%;
-  width: 38%; height: 38%;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  border: 1.5px solid rgba(255, 214, 150, .95);
-  filter: blur(.5px);
-  box-shadow: 0 0 8px rgba(255, 180, 100, .5);
+/* fine background dust of stars, baked in — cheap, and they sit behind the
+   bright DOM stars so the field reads as having depth */
+[data-daypart="evening"] .su-shell::after {
+  background:
+    radial-gradient(1px 1px at 12% 8%,  rgba(255,255,255,.70), transparent 60%),
+    radial-gradient(1px 1px at 19% 31%, rgba(255,255,255,.55), transparent 60%),
+    radial-gradient(1.5px 1.5px at 27% 14%, rgba(214,232,255,.80), transparent 60%),
+    radial-gradient(1px 1px at 34% 46%, rgba(255,255,255,.50), transparent 60%),
+    radial-gradient(1.5px 1.5px at 41% 22%, rgba(255,246,230,.75), transparent 60%),
+    radial-gradient(1px 1px at 48% 9%,  rgba(255,255,255,.60), transparent 60%),
+    radial-gradient(1px 1px at 55% 38%, rgba(206,226,255,.65), transparent 60%),
+    radial-gradient(1.5px 1.5px at 63% 18%, rgba(255,255,255,.70), transparent 60%),
+    radial-gradient(1px 1px at 70% 44%, rgba(255,255,255,.45), transparent 60%),
+    radial-gradient(1px 1px at 77% 12%, rgba(232,240,255,.65), transparent 60%),
+    radial-gradient(1.5px 1.5px at 85% 29%, rgba(255,248,236,.70), transparent 60%),
+    radial-gradient(1px 1px at 92% 17%, rgba(255,255,255,.55), transparent 60%),
+    radial-gradient(1px 1px at 6% 22%,  rgba(255,255,255,.50), transparent 60%),
+    radial-gradient(1px 1px at 60% 6%,  rgba(255,255,255,.40), transparent 60%);
+  animation: suNebulaBreathe 34s ease-in-out infinite alternate-reverse;
 }
 
 /* ---- starfield + shooting star (built by JS into #skyLayer) ---- */
@@ -1757,17 +1743,24 @@ body {
   display: none;
   position: absolute; left: 0; right: 0; top: 0; height: 62vh;
   pointer-events: none; z-index: 0; overflow: hidden;
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,.6) 50%, transparent 94%);
-          mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,.6) 50%, transparent 94%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,.55) 34%, transparent 70%);
+          mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,.55) 34%, transparent 70%);
 }
 [data-daypart="evening"] .su-sky { display: block; }
 /* Morning uses the same layer for its godrays (stars/shooting star aren't built). */
 [data-daypart="morning"] .su-sky { display: block; }
+/* Bright foreground stars. --tint varies the hue per star (white, blue-white,
+   warm) so the field has colour variety instead of uniform dots. */
 .su-star {
-  position: absolute; border-radius: 50%; background: #fff;
+  position: absolute; border-radius: 50%; background: var(--tint, #fff);
   animation: suTwinkle var(--dur, 4s) ease-in-out var(--delay, 0s) infinite alternate;
 }
-.su-star.big { box-shadow: 0 0 6px 1px rgba(255, 255, 255, .5); }
+.su-star.big { box-shadow: 0 0 7px 1px var(--glow, rgba(255, 255, 255, .5)); }
+.su-star.big::after {
+  content: ""; position: absolute; inset: -5px; border-radius: 50%;
+  background: radial-gradient(circle, var(--glow, rgba(255,255,255,.5)) 0%, transparent 70%);
+  opacity: .5;
+}
 .su-shooting {
   position: absolute; top: 4%; right: -6%; height: 2px; width: 150px;
   border-radius: 2px; opacity: 0;
@@ -1776,9 +1769,9 @@ body {
   animation: suShoot 13s cubic-bezier(.35, 0, .6, 1) infinite;
 }
 
-/* Dark wash sits under the greeting, so a light halo keeps the dark text
-   legible without changing its colour. */
-[data-daypart="evening"] .suite-greeting { text-shadow: 0 1px 12px rgba(255, 255, 255, .85); }
+/* The scene is light enough now that the greeting's dark text reads on its
+   own; the halo stays as a safety net over the denser mid-band. */
+[data-daypart="evening"] .suite-greeting { text-shadow: 0 1px 12px rgba(255, 255, 255, .25); }
 
 .suite-main > * { position: relative; z-index: 1; }
 
@@ -1787,6 +1780,13 @@ body {
    dissolve — these are meant to read as clouds, not as haze. */
 @keyframes suCloudBreathe {
   from { opacity: .88; }
+  to   { opacity: 1; }
+}
+/* The nebula breathes very gently and on a long cycle. Two layers run this with
+   opposite directions (see .su-shell::before / ::after) so they never rise and
+   fall together — that shared phase is what makes a CSS sky look artificial. */
+@keyframes suNebulaBreathe {
+  from { opacity: .82; }
   to   { opacity: 1; }
 }
 /* One shaft breathing on its own period; --dur/--delay set per ray in JS.
@@ -1814,7 +1814,9 @@ body {
   .su-star,
   .su-shooting,
   [data-daypart="morning"] .su-shell::before,
-  [data-daypart="morning"] .su-shell::after {
+  [data-daypart="morning"] .su-shell::after,
+  [data-daypart="evening"] .su-shell::before,
+  [data-daypart="evening"] .su-shell::after {
     animation: none;
   }
   .su-shooting { display: none; }
@@ -1913,21 +1915,3 @@ body {
 }
 .sort-dd-item:hover { background: #f3f2f1; color: #201f1e; }
 .sort-dd-item.active { color: var(--ui-accent); font-weight: 600; background: var(--ui-accent-soft); }
-/* filter pills: youthful pill-style buttons */
-.filter-bar.filter-pills .filter-btn {
-  padding: 7px 15px;
-  border-radius: 9999px;
-  font-weight: 600;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
-  color: #4a5568;
-  transition: background .2s, color .2s, box-shadow .2s;
-  margin: 0 6px 0 0;
-}
-.filter-bar.filter-pills .filter-btn:hover { background: #edf2f7; color: #2d3748; }
-.filter-bar.filter-pills .filter-btn.active {
-  background: var(--ui-accent);
-  color: #fff;
-  border-color: transparent;
-  box-shadow: 0 2px 8px rgba(33,115,70,.25);
-}
