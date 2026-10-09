@@ -541,7 +541,6 @@
         border-radius: 12px;
         margin-right: 12px;
         margin-bottom: 12px;
-        border: 1px solid rgba(0, 0, 0, 0.05);
         transition: margin 0.4s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), border-radius 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         overflow: hidden;
         will-change: flex, margin, border-radius;

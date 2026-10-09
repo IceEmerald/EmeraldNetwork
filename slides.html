@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Architects+Daughter&family=Caveat:wght@400;700&family=Comfortaa:wght@400;700&family=Cookie&family=Courgette&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Dancing+Script:wght@400;700&family=DM+Mono:ital,wght@0,400;0,500&family=DM+Serif+Display&family=Dosis:wght@400;700&family=Fira+Code:wght@400;500&family=Fira+Sans:wght@400;700&family=Fredoka+One&family=Great+Vibes&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;700&family=Inconsolata:wght@400;700&family=Indie+Flower&family=Josefin+Sans:wght@400;700&family=Josefin+Slab:wght@400;700&family=Kalam:wght@400;700&family=Karla:wght@400;700&family=Kaushan+Script&family=Lato:ital,wght@0,400;0,700;1,400&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Lobster&family=Lora:ital,wght@0,400;0,700;1,400&family=Merriweather:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@400;700&family=Mulish:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Nunito:wght@400;700&family=Nunito+Sans:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Oxygen:wght@400;700&family=Pacifico&family=Permanent+Marker&family=Poppins:wght@400;700&family=PT+Serif:ital,wght@0,400;0,700;1,400&family=Quicksand:wght@400;700&family=Raleway:wght@400;700&family=Righteous&family=Roboto:wght@400;700&family=Sacramento&family=Shadows+Into+Light&family=Source+Code+Pro:wght@400;700&family=Source+Sans+3:wght@400;700&family=Spectral:wght@400;700&family=Teko:wght@400;700&family=Titillium+Web:wght@400;700&family=Ubuntu:wght@400;700&family=Varela+Round&family=Vollkorn:wght@400;700&family=Work+Sans:wght@400;700&family=Yanone+Kaffeesatz:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/assets/styles/style.css" />
     <link rel="stylesheet" href="/assets/styles/slides.css" />
+    <link rel="stylesheet" href="/assets/styles/suite-rail.css" />
     <link rel="icon" type="image/x-icon" href="/assets/images/slidesicon.webp">
 </head>
 <body class="no-active-note">
@@ -1471,6 +1472,28 @@
 
             <!-- WELCOME SCREEN (inside editor-area so it overlays the canvas) -->
             <div class="welcome-screen" id="welcomeScreen">
+                <aside class="su-rail" aria-label="Suite navigation">
+                    <a class="rail-item" href="/emeraldsuite" title="Home">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+                        <span>Home</span>
+                    </a>
+                    <a class="rail-item" href="/notes" title="Notes">
+                        <img src="/assets/images/notesicon.webp" width="26" height="26" alt="">
+                        <span>Notes</span>
+                    </a>
+                    <a class="rail-item" href="/docs" title="Documents">
+                        <img src="/assets/images/docsicon.webp" width="26" height="26" alt="">
+                        <span>Documents</span>
+                    </a>
+                    <a class="rail-item active" href="/slides" title="Slides">
+                        <img src="/assets/images/slidesicon.webp" width="26" height="26" alt="">
+                        <span>Slides</span>
+                    </a>
+                    <a class="rail-item" href="/sheets" title="Sheets">
+                        <img src="/assets/images/sheetsicon.webp" width="26" height="26" alt="">
+                        <span>Sheets</span>
+                    </a>
+                </aside>
                 <div class="welcome-content">
                     <div class="welcome-header">
                         <div style="margin-top:2rem;"></div>
