@@ -39,6 +39,14 @@
                 </svg>
                 <span class="sidebar-btn-label">New Chat</span>
             </button>
+            <button class="sidebar-btn live-chat-btn" id="liveChatBtn" onclick="startLiveVoice()">
+                <svg class="live-chat-btn-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                    <path d="M12 19v3"></path>
+                </svg>
+                <span class="sidebar-btn-label">New Live Chat</span>
+            </button>
             <button class="sidebar-btn" onclick="openSearch()">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path>
@@ -89,6 +97,9 @@
 
 
             <div style="display:flex;align-items:center;gap:6px;margin-left:auto;">
+                <!-- Call timer. Sits where Temporary Chat normally does,
+                     which is hidden while a live chat is on screen. -->
+                <span class="live-timer" id="liveTimer">00:00</span>
                 <span class="temp-badge" id="tempBadge" style="display: none;">Temporary</span>
                 <button class="icon-btn" id="tempChatBtn" title="Temporary chat" onclick="toggleTempChat()" style="display: none;">
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -159,7 +170,37 @@
 
         </div>
 
-        <!-- ─── Input ─────────────────────────── -->
+        <!-- ─── Live Chat View ───────────────────────
+             Takes over the main screen (not the sidebar) while a live
+             session runs. Swapped in by adding `.live-active` to
+             #chatMain; .chat-content is hidden at the same time. -->
+        <div class="live-view" id="liveView" aria-live="polite">
+
+            <!-- The orb only appears once a session is actually running. -->
+            <div class="live-stage" id="liveStage" hidden>
+                <canvas class="live-orb" id="liveOrb" width="440" height="440"></canvas>
+            </div>
+
+            <!-- Transcript reuses the regular .message markup, so a live
+                 conversation and a typed one look identical.
+
+                 The inner .live-scroll wrapper does the scrolling, exactly
+                 as .chat-content does for text chat. Without it the
+                 transcript itself carried the scrollbar, which made the
+                 message column 10px narrower than text chat's and drew the
+                 bar over the content instead of beside it. -->
+            <div class="live-scroll">
+            <div class="live-transcript" id="liveTranscript">
+                <div class="live-blank" id="liveBlank">
+                    <img src="/assets/images/favicon.webp" alt="EmeraldNetwork" style="max-width: 80px; max-height: 80px;">
+                    <div class="welcome-text-group">
+                        <h1 class="welcome-heading" id="liveBlankHeading">EmeraldCore Live</h1>
+                    </div>
+                </div>
+            </div>
+            </div>
+
+        </div>
          
         <div class="chat-input-wrap">
             <div class="chat-input-box">
@@ -183,6 +224,53 @@
                     <textarea class="chat-textarea" id="chatInput" placeholder="Ask anything..." rows="1" style="height: auto;"></textarea>
                     <button class="input-goto-btn" id="gotoAnswerBtn" type="button" title="Go to the generating answer" onclick="gotoStreamingChat()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9 8.5 8.5 0 0 1 8.5 8.5z"/><path d="M9 12h6.5"/><path d="M12.5 9l3.5 3-3.5 3"/></svg><span>Go to active message</span></button>
                     <button class="send-btn" id="sendBtn" title="Send" onclick="handleSend()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"></path></svg></button>
+                </div>
+                <p class="input-footer-note">EmeraldBot may produce inaccurate information. Verify important details.</p>
+            </div>
+            </div>
+
+            <!-- ─── Live Controls ──────────────────────
+                 Occupies the same slot and shell as the normal composer
+                 so the bar appears to morph in place. Sibling of the
+                 composer box above, inside .chat-input-wrap. Hidden
+                 unless #chatMain has .live-active. -->
+            <div class="chat-input-box live-controls" id="liveControls">
+                <div class="input-container live-controls-row">
+                    <button class="live-ctl-btn live-ctl-start" id="lvStartBtn" onclick="startLiveSession()">
+                        <svg class="live-ctl-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                            <path d="M12 19v3"></path>
+                        </svg>
+                        <span class="live-ctl-label">Start live chat</span>
+                    </button>
+
+                    <button class="live-ctl-btn" id="lvMuteBtn" onclick="toggleLiveMute()" title="Mute microphone" aria-pressed="false" disabled>
+                        <svg class="live-ctl-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                            <path d="M12 19v3"></path>
+                        </svg>
+                        <svg class="live-ctl-icon" id="lvMuteSlash" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+                            <path d="M9 9v3a3 3 0 0 0 5.1 2.1"></path>
+                            <path d="M15 10.5V5a3 3 0 0 0-5.9-.7"></path>
+                            <path d="M5 10v2a7 7 0 0 0 11.2 5.6"></path>
+                            <path d="M19 10v2a7 7 0 0 1-.6 2.8"></path>
+                            <path d="M12 19v3"></path>
+                            <path d="M3 3l18 18"></path>
+                        </svg>
+                        <span class="live-ctl-label" id="lvMuteLabel">Mute</span>
+                    </button>
+
+                    <button class="live-ctl-btn live-ctl-end" id="lvEndBtn" onclick="endLiveVoice()" title="End live chat" disabled>
+                        <svg class="live-ctl-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M2.5 6.5A16 16 0 0 1 12 4a16 16 0 0 1 9.5 2.5"></path>
+                            <path d="M5 11v6a1 1 0 0 0 1 1h3v-7H6a1 1 0 0 0-1 1z"></path>
+                            <path d="M19 11v6a1 1 0 0 1-1 1h-3v-7h3a1 1 0 0 1 1 1z"></path>
+                            <path d="M12 4v5"></path>
+                        </svg>
+                        <span class="live-ctl-label">End chat</span>
+                    </button>
                 </div>
                 <p class="input-footer-note">EmeraldBot may produce inaccurate information. Verify important details.</p>
             </div>
@@ -381,6 +469,7 @@
     <script src="/assets/scripts/idb-storage.js"></script>
     <script src="/assets/scripts/zipreader.js"></script>
     <script src="/assets/scripts/aichat.js"></script>
+    <script src="/assets/scripts/aichat-livevoice.js"></script>
 
 
     <!-- ─── File Preview Modal ──────────────────── -->

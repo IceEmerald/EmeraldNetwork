@@ -7992,3 +7992,1029 @@ body.light-mode .searching-text pre {
         font-size: 0.8rem;
     }
 }
+/* ══════════════════════════════════════════════════════════════
+   Live Chat — EmeraldCore Live v1
+   Takes over the main screen while a live session runs. Tokens are
+   namespaced --lv-* and reuse the exact accent already used by
+   .sidebar-btn:hover svg (rgb(80,200,120)) and --rs-bar-active.
+   ══════════════════════════════════════════════════════════════ */
+
+/* Tokens live on .chat-main.live-active so BOTH the live view and the
+   control bar (which sits in the composer slot, outside .live-view)
+   inherit them. --lv-accent is the exact value already used by
+   .sidebar-btn:hover svg (rgb(80,200,120)) and --rs-bar-active. */
+.chat-main.live-active {
+    --lv-accent: rgb(80, 200, 120);
+    /* How solid the live orb's body is filled. It is the one part of the
+       orb that cannot be theme-agnostic: a translucent creature all but
+       disappears against white, so light mode needs it far more opaque.
+       Read by the canvas in aichat-livevoice.js. */
+    --lv-orb-body-alpha: 0.62;
+    /* Stroke and aura strength for the orb. On a dark surface the orb is
+       a light source, so its lines are pale and its halo additive; on
+       white both vanish, so light mode needs a far more saturated stroke
+       and a weaker, tint-like halo. */
+    --lv-orb-line: rgb(94, 234, 168);
+    --lv-orb-aura: 0.30;
+    --lv-accent-soft: rgba(80, 200, 120, 0.10);
+    --lv-accent-border: rgba(80, 200, 120, 0.28);
+    --lv-accent-ring: rgba(80, 200, 120, 0.35);
+    --lv-surface: rgb(30, 30, 30);
+    --lv-surface-2: rgb(37, 37, 37);
+    --lv-border: rgba(255, 255, 255, 0.07);
+    --lv-text: rgb(210, 210, 210);
+    --lv-muted: rgb(136, 136, 136);
+    --lv-danger: rgb(192, 57, 43);
+    --lv-danger-hover: rgb(231, 76, 60);
+}
+
+.live-view {
+    position: relative;
+    flex: 1 1 0%;
+    display: none;
+    flex-direction: column;
+    min-height: 0;
+    /* Horizontal padding removed. .chat-content has none in text chat, so
+       this 20px was the entire reason the live transcript sat 20px right
+       of text chat's and the scrollbar 20px in from the panel edge. The
+       transcript re-applies the inset for its own content, and the stage
+       and scroll wrapper position themselves against the edges directly. */
+    padding: 66px 0 6px;
+    gap: 14px;
+    overflow: hidden;
+}
+
+/* The orb only takes the space it needs; it is hidden before a
+   session starts, in which case the transcript claims the screen. */
+/* The orb takes all the space above the transcript and centres itself
+   in it, so it sits mid-screen rather than pinned to the top. */
+.live-stage {
+    /* Taken out of the flex flow so it centres on the live view itself
+       rather than on whatever space the transcript happens to leave. As a
+       flex child it was squeezed by the transcript, so the orb visibly
+       rose and fell depending on how much had been said. The insets
+       mirror .live-view's padding so it still centres within the real
+       content area, and they are overridden in the mobile block where
+       that padding differs. */
+    position: absolute;
+    top: 66px;
+    right: 20px;
+    bottom: 6px;
+    left: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Decorative — must never intercept a click meant for the controls
+       underneath it. */
+    pointer-events: none;
+}
+
+/* An explicit `display` in author CSS outranks the UA rule behind the
+   `hidden` attribute, so it has to be restated here. */
+.live-stage[hidden] {
+    display: none;
+}
+
+.live-transcript {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    max-width: 800px;
+    width: 100%;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    /* Matches .messages-area (aichat.css:1122) so live turns sit on the
+       same grid and rhythm as typed ones. */
+    /* Padding matches .messages-area. The wrapper pulls the scrollbar out to
+       the panel edge with a negative margin and puts that space back as
+       padding here, so the message column keeps the same width and
+       position as text chat's. */
+    padding: 30px 20px;
+    gap: 22px;
+    /* No scrollbar-gutter here. Text chat scrolls in .chat-content, which
+       already reserves the gutter; this box sits inside it, so reserving
+       a second one shifted the live transcript left of where text chat
+       sits and left a stray scrollbar that scrolled nothing. */
+    /* Sits at the bottom, next to the controls; turns stack upward. */
+    justify-content: flex-end;
+}
+
+.chat-main.live-active .chat-content {
+    display: none;
+}
+
+.chat-main.live-active .live-view {
+    display: flex;
+    transition: filter 0.15s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Opening the live screen and switching between live chats share one
+   treatment: the blur-to-unblur of .chat-content (aichat.css:871).
+   Nothing here translates — the old up-from-below fade is gone. */
+.chat-main.live-active .live-view.is-switching {
+    animation: none;
+}
+
+.live-view.is-switching {
+    filter: blur(6px);
+    opacity: 0;
+    pointer-events: none;
+}
+
+body.light-mode .live-view.is-switching {
+    filter: blur(5px);
+}
+
+.chat-main.live-active .chat-input-box:not(.live-controls) {
+    display: none;
+}
+
+.chat-main.live-active .live-controls {
+    display: block;
+}
+
+/* ── Call timer ───────────────────────────────────────────────
+   Lives in the topbar, in the slot Temporary Chat normally occupies
+   (that button is hidden while a live chat is on screen). Hidden by
+   default so text chat is unaffected.
+   ────────────────────────────────────────────────────────── */
+
+.live-timer {
+    display: none;
+    font-family: "DM Sans", sans-serif;
+    /* Matches .icon-btn / .btn-tooltip (Temporary Chat) exactly:
+       13.28px, weight 500, same grey, same padding — so the swap
+       between them is invisible. */
+    font-size: 0.83rem;
+    font-weight: 500;
+    color: rgb(170, 170, 170);
+    padding: 7px 10px;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.chat-main.live-active .live-timer {
+    display: inline-block;
+}
+
+/* The live model is fixed, so the topbar dropdown is meaningless during
+   a call — show it as a static label instead. Temporary chat likewise
+   doesn't apply to a live session. */
+.chat-main.live-active .model-selector-chevron,
+.chat-main.live-active #tempChatBtn {
+    display: none;
+}
+
+.chat-main.live-active .model-selector-btn {
+    cursor: default;
+}
+
+.chat-main.live-active .model-selector-btn:hover {
+    background: transparent;
+}
+
+/* ── Start-of-call morph ────────────────────────────────────
+   Pressing "Start live chat" runs a three-stage transition driven by
+   a class on .live-view; the coordinates come from JS, which measures
+   the logo and the orb and feeds them in as custom properties.
+
+     1. the greeting blurs away
+     2. the logo flies to centre, grows and blurs up
+     3. it hands off to the living blob, which settles back to size
+
+   The blank card is pinned with position:fixed for the duration so the
+   layout can move to its final shape underneath without the card
+   jumping. Everything is undone in cleanup().
+   ────────────────────────────────────────────────────────── */
+
+/* The logo flies to the centre, grows to the blob's size and blurs up to
+   --lv-peak-blur, which is set from the orb's real size at runtime. At
+   that blur radius nothing about either shape is legible, so the swap
+   below cannot read as a cut. */
+.live-view.lv-morph .live-blank img {
+    transform: translate(var(--lv-tx, 0px), var(--lv-ty, 0px))
+               scale(var(--lv-sc, 1));
+    filter: blur(var(--lv-peak-blur, 14px));
+    will-change: transform, filter;
+    transition: transform 0.68s cubic-bezier(0.22, 0.61, 0.36, 1),
+                filter 0.68s ease;
+}
+
+/* The greeting dissolves slowly. It used to fade in about a quarter of
+   a second, which at a glance looked like it was simply deleted. */
+.live-view.lv-morph .live-blank .welcome-heading {
+    opacity: 0;
+    filter: blur(10px);
+    transition: opacity 0.54s cubic-bezier(0.4, 0, 0.6, 1),
+                filter 0.54s ease;
+}
+
+/* The wait. Once the logo has reached centre and full blur, it stays
+   there — fully defocused, nothing legible — until the connection is
+   live and .lv-orb-in arrives. The pulse keeps the frame alive so the
+   screen reads as "connecting" rather than frozen: the glow breathes
+   while it waits. */
+.live-view.lv-morph.lv-at-peak .live-blank img {
+    animation: lv-peak-breathe 1.9s ease-in-out infinite;
+}
+
+@keyframes lv-peak-breathe {
+    0%, 100% {
+        opacity: 0.82;
+        transform: translate(var(--lv-tx, 0px), var(--lv-ty, 0px))
+                   scale(calc(var(--lv-sc, 1) * 0.985));
+    }
+    50% {
+        opacity: 1;
+        transform: translate(var(--lv-tx, 0px), var(--lv-ty, 0px))
+                   scale(calc(var(--lv-sc, 1) * 1.015));
+    }
+}
+
+/* Reduced motion: hold the glow statically. It still waits for the
+   connection, it just does not breathe. */
+@media (prefers-reduced-motion: reduce) {
+    .live-view.lv-morph.lv-at-peak .live-blank img {
+        animation: none;
+    }
+}
+
+/* The swap. Added once the logo has arrived and gone fully soft, and at
+   the same instant the orb is told to come in, so the two cross-fade
+   rather than one replacing the other. .lv-at-peak is dropped in the same
+   tick, which stops the breathe animation so the departing card fades
+   once instead of pulsing out. */
+.live-view.lv-dissolve .live-blank {
+    opacity: 0;
+    pointer-events: none;
+    animation: none;
+    transition: opacity 0.56s ease;
+}
+
+/* Resting state is fully visible; the hidden/blurred treatment below
+   applies only while the morph is running. */
+.live-orb {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+}
+
+/* Held at the same blur the logo reached and at the same size, so the
+   two are indistinguishable the instant the cross-fade begins. */
+.live-view.lv-morph .live-orb {
+    opacity: 0;
+    transform: scale(1);
+    filter: blur(var(--lv-peak-blur, 14px));
+}
+
+/* The blob emerges out of the blur the logo left behind and resolves. */
+.live-view.lv-morph.lv-orb-in .live-orb {
+    opacity: 1;
+    filter: blur(0);
+    transition: opacity 0.56s ease, filter 0.78s ease;
+}
+
+/* The conversation hands over to the blob.
+
+   Starting a call from a live chat that already has turns in it — the
+   history screen, or restarting after End — leaves that transcript on
+   screen for the whole morph. It used to sit there at full opacity while
+   the blob grew behind it, and because .live-running is already on, it
+   had also just reflowed into the call layout: the old turns rearranged
+   themselves mid-animation and competed with the glow for the middle of
+   the screen.
+
+   So the transcript is faded out and softened for the duration, leaving
+   the blob the stage to itself, and brought back once the orb resolves.
+   The timing deliberately trails the orb: .lv-orb-in resolves the glow
+   over 0.56s, and the text returns only after that, so the two never
+   cross-fade and the blob is never behind readable text.
+
+   Scoped to .lv-morph, so this only runs on the start hand-over — the
+   rest of the live call is untouched.
+
+   No transition on the way out, deliberately. A fade left the chat it was
+   leaving on screen for a third of a second while it dissolved, so the
+   loading state still started from "here is the previous conversation"
+   before becoming the blob. Cutting instead makes the loading screen one
+   fixed thing the moment it begins, whatever was being read a moment
+   earlier. The return below is still a fade. */
+/* These target the messages, NOT the scroll wrapper or the transcript.
+
+   .live-blank is a sibling of the messages inside .live-transcript, and
+   during the morph it is pinned with `position: fixed` so it can fly to
+   the orb. A `filter` on any ancestor of a fixed element — including
+   .live-scroll here — turns that ancestor into the containing block for
+   fixed positioning, so the pin's left/top stop being viewport
+   coordinates. The card silently landed ~280px right of where it was
+   pinned, and the logo consequently flew to a point that was not the orb
+   at all: the glow sat off to one side and never resolved into the blob.
+
+   `opacity` is safe here (it creates a stacking context, not a containing
+   block), but blur is not, so the fade and the softening are applied to
+   the turns themselves. The card keeps the viewport as its containing
+   block and the flight lands on the orb again. */
+.live-view.lv-morph .live-transcript > .message {
+    opacity: 0;
+    filter: blur(6px);
+    transition: none;
+}
+
+/* Back in, once the blob has resolved — and not before.
+
+   The delay is the whole point. .lv-orb-in resolves the orb's blur over
+   0.78s, and until that finishes the blob is still soft; fading the text
+   in underneath it put readable words behind a half-formed blob. 0.82s
+   starts the return only once the blur has reached zero, so the first
+   thing visible after the blob is finished is the conversation.
+
+   These two numbers are paired with MORPH.textDelay / MORPH.textFade in
+   aichat-livevoice.js, which sizes the morph's hand-off to outlast this
+   fade. Changing one without the other cuts the text off mid-fade. */
+.live-view.lv-morph.lv-orb-in .live-transcript > .message {
+    opacity: 1;
+    filter: blur(0);
+    transition: opacity 0.42s ease 0.82s, filter 0.42s ease 0.82s;
+}
+
+/* ── Orb ───────────────────────────────────────────────────── */
+
+/* .live-stage is positioned in the layout section above — it is taken out
+   of flow so the orb centres regardless of transcript height. Only the
+   orb's own box belongs here. */
+
+.live-orb {
+    /* Sized from the same variable the transcript reserves room with
+       (aichat.css .live-view). Two separate spellings of this number is
+       how the turns ended up drawn over the blob. */
+    width: var(--live-orb-size, 230px);
+    height: var(--live-orb-size, 230px);
+    /* Clamped on both axes. The drawing is laid out against the canvas
+       half-width, so as long as the box stays square nothing is ever
+       cropped. */
+    max-width: min(42vw, 40vh);
+    max-height: min(42vw, 40vh);
+    display: block;
+}
+
+/* ── Transcript ──────────────────────────────────────────── */
+/* The transcript uses the regular .message / .message-text markup so a
+   live conversation is visually identical to a typed one. Only the
+   scroll container and the empty state are ours. */
+
+/* Mirrors .welcome-screen (aichat.css:892) so a new live chat looks
+   like a new normal chat. Reuses .welcome-heading / .welcome-sub for
+   the type; only the box model differs because this one sits inside a
+   scroll container rather than filling the viewport. */
+.live-blank {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 26px;
+    text-align: center;
+    padding: 20px;
+    margin: auto 0;
+}
+
+/* With the orb hidden the transcript would otherwise collapse to the
+   top. Give it the same box the normal welcome screen occupies —
+   .welcome-screen is min-height calc(-140px + 100vh) starting at the
+   top of the chat area (aichat.css:894) — so the greeting lands at
+   exactly the same height on both screens. The top inset goes with it,
+   since that space only exists to clear the orb and the timer lives in
+   the topbar, not here. */
+/* The view's horizontal inset is dropped so the transcript's own 20px
+   gives the blank exactly the same content width as .welcome-screen.
+   A narrower box wraps the greeting onto more lines and shifts it
+   down, which is what put the two out of alignment. */
+.chat-main.live-active .live-view.is-welcome {
+    padding: 0;
+}
+
+/* When there is no blank card the transcript should still hug the
+   bottom, above the controls — the orb is hidden in that state and
+   would otherwise leave nothing to push it down. */
+.live-view:not(.is-welcome) .live-transcript {
+    /* The stage is out of flow now, so nothing pushes this down. It spans
+       the view and pins its own content to the bottom, which keeps the
+       orb centred regardless of how many turns are on screen. */
+    flex: 1 1 auto;
+    margin-top: 0;
+}
+
+/* Text chat gets its scrollbar from .chat-content, which wraps the
+       800px .messages-area — so the messages box itself is a clean 800px
+       and the bar sits outside it.
+
+       Live has no such wrapper (.chat-content is display:none), so the
+       transcript had to carry the scrollbar, which made it 790px and put
+       the bar inside the message column. Re-measured, that put live
+       messages at x=435 against text chat's x=450 and drew the scrollbar
+       over the content.
+
+       The wrapper restores text chat's arrangement exactly: the bar
+       lives outside the 800px box, and both views measure identically. */
+/* The blob is centred in this same box, so its size is declared here
+   once and every rule that has to make room for it reads this variable.
+   Keeping the two in lockstep is what stops the turns drifting onto the
+   blob: the offset used to be re-derived by hand at each breakpoint
+   while the orb size changed underneath it. */
+.live-view {
+    --live-orb-size: min(230px, 42vw, 40vh);
+    /* Breathing room between a turn and the edge of the blob. */
+    --live-orb-gap: 28px;
+}
+
+/* .live-stage is styled once, above, where its `[hidden]` override lives.
+   A second copy here would re-declare `display: flex` at a higher
+   specificity, which silently defeats the `hidden` attribute and leaves
+   the orb on screen in every phase — including a stored chat and the
+   New Live Chat screen. */
+
+/* Sits between the live view and the controls and does the scrolling,
+   mirroring .chat-content in text chat. The transcript inside is the
+   content and never scrolls itself. */
+.live-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    /* Reserved on the wrapper, exactly as .chat-content does, so the
+       transcript below it measures as a clean 800px and the bar sits
+       beside the content rather than over it. */
+    scrollbar-gutter: stable;
+    display: flex;
+    flex-direction: column;
+    /* No padding of its own: the transcript inside carries the same 20px
+       .messages-area uses. Adding it here as well would double the inset
+       and leave the message column 20px narrower than text chat's. Being
+       the scroller, this wrapper is what puts the scrollbar on the panel
+       edge, exactly where text chat's sits. */
+}
+
+/* With a dedicated scroller the transcript must not clip or scroll —
+   otherwise there are two nested scroll regions again. */
+.live-scroll .live-transcript {
+    overflow-y: visible;
+    scrollbar-gutter: auto;
+    flex: 0 0 auto;
+    max-height: none;
+}
+
+/* Bottom-aligns a short transcript while leaving a long one fully
+   scrollable.
+
+   justify-content: flex-end cannot do both. It pushes overflow ABOVE the
+   scroll origin, so the overflow never counts toward scrollHeight: a long
+   history rendered, but scrollHeight stayed equal to clientHeight and
+   nothing could be scrolled back to — the oldest turns were rendered
+   above the visible area in unreachable space. Measured, 40 turns:
+   flex-end reported 633px of scrollable content, flex-start reported
+   3321px for the same DOM.
+
+   flex-start keeps every turn inside the scrollable area. Short chats
+   still sit at the bottom because the transcript box spans the full
+   height and the controls are pinned below it. */
+.live-view:not(.is-welcome) .live-transcript {
+    justify-content: flex-start;
+}
+
+/* While a call is running the orb owns the middle of the screen, so the
+   user's half of the exchange is kept exactly as text chat renders it —
+   left aligned, avatar outside — and only the model's replies are centred
+   beneath the blob. Splitting them this way keeps the exchange readable
+   while still reading as a call.
+
+   Scoped to .live-running so a stored live chat, which has no orb on
+   screen, falls back to the plain text-chat layout entirely. */
+/* The orb-clearing offset now lives on the scroll wrapper, since that is
+   the box that occupies the view. The transcript inside is just content. */
+.live-view.live-running .live-scroll {
+    /* The orb is absolutely positioned and vertically centred in this
+       same area, so the transcript does not have to clear it at all —
+       it fills the box and the two simply sit at opposite ends of the
+       same column: the user's turn at the top, above the blob, and the
+       model's reply at the bottom, below it.
+
+       An earlier version reserved orb-sized padding instead, computed
+       from the orb's bottom edge. That is what pinned everything below
+       the blob, and it broke on any viewport whose aspect ratio changed
+       the orb's extent. Flexbox placement needs no such arithmetic, so
+       it holds at every screen shape by construction. */
+    max-height: none;
+}
+
+.live-view.live-running .live-transcript {
+    /* Fills the scroll area so the turns can be positioned against it
+       rather than against their own content. While the transcript is only
+       as tall as what it holds, any auto margin has no room to act. */
+    flex: 1 1 auto;
+    /* The orb is centred in this box, so the space above the blob and the
+       space below it are equal. Pinning the user's turn to the very top
+       and the reply to the very bottom (justify-content: space-between)
+       therefore leaves them marooned at opposite ends of a tall screen
+       with the blob stranded in a large empty middle.
+
+       Centring the pair instead keeps them both hugging the blob, which
+       is the whole intent of the layout. The gap between the two halves
+       comes from the reply's own margin below, so the orb's band is
+       reserved without any viewport arithmetic. */
+    justify-content: center;
+}
+
+.live-view.live-running .live-transcript > .message:not(.message--user) {
+    /* .message is a flex row, so the body has to be centered inside it
+       as well — centring the row alone would still left-align the text.
+
+       align-self is what actually centers it: this is a column-direction
+       flex container, where a plain width:100% shrinks the item to its
+       content instead of filling the row.
+
+       margin-top is the orb's own band: exactly as tall as the
+       blob plus a little air, so the reply begins one blob-width below
+       the user's turn and lands directly under the blob. Both turns sit
+       close to it because the transcript centres the pair; this margin is
+       what separates them, not the leftover height of a tall window.
+
+       Spelled in orb units rather than as a viewport offset: the blob is
+       centred in this same box, so its band is simply its own size at
+       any window shape. The vh/vw arithmetic this replaced had to be
+       re-derived per breakpoint and drifted out of step with the orb,
+       which is what put replies on top of it. */
+    margin-top: calc(var(--live-orb-size, 230px) + var(--live-orb-gap, 28px));
+    align-self: center;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    max-width: 620px;
+    width: 100%;
+    /* Both halves get the same cap: the space from the transcript's middle
+       out to the blob's nearest edge, less the gap.
+
+       The orb is centred in this box, so each half has exactly
+       50% - halfOrb - gap of room before it would touch the blob. Capping
+       both to that keeps a long turn from shoving its opposite half into
+       the blob — centring alone does not prevent that, because a tall
+       user turn shifts the whole pair up. Each side scrolls internally
+       rather than being cut off. */
+    max-height: calc(50% - var(--live-orb-size, 230px) / 2 - var(--live-orb-gap, 28px));
+    overflow-y: auto;
+}
+
+.live-view.live-running .live-transcript > .message--user {
+    /* Same cap as the reply above, for the same reason: a long user turn
+       would otherwise push the reply up over the blob. The text-chat
+       layout (row-reverse, avatar outside) is left untouched. */
+    max-height: calc(50% - var(--live-orb-size, 230px) / 2 - var(--live-orb-gap, 28px));
+    overflow-y: auto;
+}
+
+/* A second reply in the same run — a completed turn with the next one
+   streaming in behind it — stacks directly under the first rather than
+   opening a second blob-sized band, which would push it off screen. */
+.live-view.live-running .live-transcript > .message:not(.message--user) ~ .message:not(.message--user) {
+    margin-top: 0;
+}
+
+/* Between the user's turn and the reply the transcript holds only the
+   orb, so the pair centres correctly and lands on either side of the
+   blob. With no reply yet there is nothing below it, and centring alone
+   drops the user's turn straight onto the blob.
+
+   This restores the same shape the pair has when a reply is present: the
+   turn at the top, then the orb's full band beneath it. The band is a
+   percentage of the transcript's own height, which is what keeps it
+   correct at any window shape — and the same height-derived value the
+   reply's margin-top already uses, so the lone turn sits exactly where
+   the turn-plus-reply pair would put it.
+
+   :has() scopes this to the no-reply state, so the normal pair is
+   untouched. */
+.live-view.live-running .live-transcript:not(:has(> .message:not(.message--user))) {
+    justify-content: flex-start;
+}
+
+.live-view.live-running .live-transcript:not(:has(> .message:not(.message--user))) > .message--user {
+    margin-bottom: calc(50% - var(--live-orb-size, 230px) / 2 - var(--live-orb-gap, 28px));
+}
+
+.live-view.live-running .live-transcript > .message:not(.message--user) .message-body {
+    max-width: 100%;
+    text-align: center;
+}
+
+/* During a call the reply is centred on the blob, so its rating buttons
+   centre with it. In history this rule does not apply and the buttons sit
+   under the bubble on the left, exactly as they do in text chat.
+
+   Sized off the line height rather than a fixed height: the row is
+   flex-end with auto margins, so it contributes only its own height to
+   the reply — and the reply is height-capped against the blob, so every
+   pixel here is a pixel the text has to give up. */
+.live-view.live-running .live-transcript > .message:not(.message--user) .message-actions {
+    justify-content: center;
+    margin-top: 6px;
+}
+
+.live-view.live-running .live-transcript > .message:not(.message--user) .msg-action-btn {
+    padding: 2px 6px;
+}
+
+/* A centred reply does not need a sender label or an avatar stacked above
+   it — the orb already says who is talking. */
+.live-view.live-running .live-transcript > .message:not(.message--user) .message-avatar,
+.live-view.live-running .live-transcript > .message:not(.message--user) .message-sender {
+    display: none;
+}
+
+/* In history — a stored chat that is not running — the transcript is
+   the whole screen and should scroll like the text chat does, rather
+   than being capped to a fraction of the view. The cap is only there to
+   keep the orb visible during a live call, and history has no orb. */
+.live-view:not(.is-welcome):not(.live-running) .live-scroll {
+    max-height: none;
+}
+
+/* History gets the same top inset as text chat: none.
+
+   .live-view carries 66px up top to hold the blob clear of the top bar,
+   and text chat carries none at all — its first turn sits 30px down,
+   straight out of .messages-area's padding. With that 66px still
+   applied, a stored live chat started 66px lower than the typed chat it
+   is supposed to be indistinguishable from.
+
+   Scoped to not(.live-running): during a call the transcript and .live-stage
+   must stay the same box, because the blob is centred in one and the
+   turns are positioned against the other. Dropping the padding there
+   would shift the scroll area up and pull the blob off centre.
+
+   This touches the flex children only. .live-stage is absolutely
+   positioned with its own top:66px, so the orb does not move. */
+.live-view:not(.live-running) {
+    padding-top: 0;
+}
+
+.live-view.is-welcome .live-transcript {
+    flex: 0 0 auto;
+    max-height: none;
+    justify-content: flex-start;
+    /* The blank card supplies its own 20px, matching .welcome-screen.
+       Leaving the transcript's inset too would double it and wrap the
+       greeting onto more lines. */
+    padding: 0;
+}
+
+/* The normal welcome screen carries a quick-action row below the
+   greeting, and centring all three together lifts the logo and heading.
+   A live chat has no such row, so the same space is reserved underneath
+   to keep the greeting at the same height. That row is 54px wide, stacks
+   into a column below 768px and is display:none below 768px, so its
+   height (plus its gap) is measured at runtime and fed in as
+   --lv-welcome-reserve rather than hard-coded. It is 0 when the row is
+   hidden, in which case no gap may be added either. */
+.live-view.is-welcome .live-blank {
+    min-height: calc(-140px + 100vh);
+    margin: 0;
+    padding-bottom: calc(20px + var(--lv-welcome-reserve, 0px));
+    /* Nudged a little below the normal welcome screen rather than
+       exactly level with it — dead level made the two read as one
+       element duplicated. The content is vertically centred, so extra
+       top padding moves it down by half of what is added. Change
+       --lv-welcome-drop to adjust the amount. */
+    padding-top: calc(20px + var(--lv-welcome-drop, 40px));
+}
+
+/* Interim (still-being-spoken) text. */
+.live-turn--pending .message-text {
+    color: var(--lv-muted);
+    font-style: italic;
+}
+
+/* ── Controls (replaces the composer in place) ──────────── */
+
+.live-controls {
+    display: none;
+}
+
+/* The shell hugs whichever buttons are present, so it is widest while
+   Start is showing and shrinks to just Mute + End once the call is up.
+   A block-level box would stretch to .chat-input-box's 800px, so width
+   is driven by the content instead. The transition lets the box resize
+   with the buttons rather than snapping. */
+.chat-main.live-active .live-controls {
+    width: fit-content;
+    max-width: 100%;
+    /* A shrink-wrapped box is no longer a full-width block, so the
+       inherited `margin: 0 auto` no longer centres it — auto margins only
+       resolve against free space, and there is none on either side now.
+       Explicit centring keeps the bar in the same place it was before it
+       started tracking the buttons. */
+    margin-left: auto;
+    margin-right: auto;
+    transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Both levels have to shrink-wrap, not just the outer box: the row is a
+   flex container that would otherwise fill whatever the outer box gives
+   it, leaving fit-content nothing to hug. */
+.chat-main.live-active .live-controls .input-container {
+    width: fit-content;
+    max-width: 100%;
+    /* The shell is a block-level flex box inside a wider parent, so it
+       would otherwise sit flush against the left edge. Once Start is
+       hidden and the outer box is wider than the buttons, that left the
+       bar visibly off-centre. Auto margins centre it at every size. */
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.live-controls-row {
+    justify-content: center;
+    gap: 10px;
+    /* Buttons size to their label; nothing here should force the row
+       wider than the widest button present. */
+    width: auto;
+}
+
+/* The live controls keep the composer shell so they read as the same
+   input box the text chat uses, rather than bare buttons floating on the
+   page.
+
+   Only the structural properties are restored here — background, border
+   colour and radius deliberately come from .input-container and its
+   light-mode counterpart. Re-declaring the colours would out-specify the
+   light-mode rule and leave this box dark in a light theme. */
+.chat-main.live-active .live-controls .input-container {
+    border-radius: 28px;
+    padding: 10px 12px;
+    box-shadow: none;
+}
+
+.live-ctl-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 22px;
+    border: 1px solid var(--lv-border);
+    background: var(--lv-surface-2);
+    color: var(--lv-text);
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.15s, opacity 0.2s;
+}
+
+.live-ctl-btn:hover {
+    background: rgb(45, 45, 45);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.live-ctl-btn:active {
+    transform: scale(0.97);
+}
+
+.live-ctl-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+    transform: none;
+}
+
+.live-ctl-icon {
+    flex-shrink: 0;
+}
+
+/* Spinner shown on Start while the connection is being established. */
+.live-ctl-start.is-loading .live-ctl-icon {
+    animation: lvSpin 0.9s linear infinite;
+}
+
+@keyframes lvSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* While loading, mute/end stay visible but inert so the bar doesn't
+   reflow when the state changes. */
+.live-controls[data-phase="loading"] .live-ctl-end,
+.live-controls[data-phase="loading"] .live-ctl-btn:not(.live-ctl-start) {
+    opacity: 0.35;
+    pointer-events: none;
+}
+
+.live-ctl-btn[aria-pressed="true"] {
+    color: var(--lv-danger-hover);
+    border-color: rgba(192, 57, 43, 0.35);
+    background: rgba(192, 57, 43, 0.1);
+}
+
+.live-ctl-end {
+    background: var(--lv-danger);
+    border-color: transparent;
+    color: rgb(255, 255, 255);
+}
+
+.live-ctl-end:hover {
+    background: var(--lv-danger-hover);
+    border-color: transparent;
+}
+
+.live-ctl-end .live-ctl-icon {
+    transform: rotate(135deg);
+}
+
+/* ── Sidebar button ──────────────────────────────────────────
+   Deliberately has no "selected" state, matching New Chat. Which
+   conversation is open is already shown by .history-item.active in
+   the Recents list; highlighting this button too would read as a
+   second, conflicting selection.
+   ────────────────────────────────────────────────────────── */
+
+.live-chat-btn .live-chat-btn-icon {
+    transition: color 0.2s;
+}
+
+/* Idle pulse on the mic glyph — a quiet "this is live" affordance. */
+@keyframes lvMicIdle {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.72;
+        transform: scale(1.07);
+    }
+}
+
+.live-chat-btn .live-chat-btn-icon {
+    animation: lvMicIdle 2.6s ease-in-out infinite;
+    transform-origin: center;
+}
+
+.live-chat-btn:hover .live-chat-btn-icon {
+    animation: none;
+}
+
+/* ══════════════════════════════════════════════════════════
+   Light mode
+   ══════════════════════════════════════════════════════════ */
+
+body.light-mode.chat-main.live-active {
+    --lv-surface: rgb(245, 245, 247);
+    --lv-surface-2: rgb(238, 238, 240);
+    --lv-border: rgba(0, 0, 0, 0.08);
+    --lv-text: rgb(26, 26, 26);
+    --lv-muted: rgb(120, 120, 120);
+    --lv-accent: rgb(35, 154, 77);
+    /* See the note on the dark-mode token: light mode needs a far more
+       opaque body for the creature to read at all. */
+    --lv-orb-body-alpha: 0.88;
+    --lv-orb-line: rgb(13, 148, 94);
+    --lv-orb-aura: 0.17;
+    --lv-accent-soft: rgba(35, 154, 77, 0.09);
+    --lv-accent-border: rgba(35, 154, 77, 0.26);
+    --lv-danger: rgb(192, 57, 43);
+}
+
+body.light-mode .live-ctl-btn {
+    background: rgb(240, 240, 240);
+    border-color: rgba(0, 0, 0, 0.09);
+    color: rgb(26, 26, 26);
+}
+
+body.light-mode .live-ctl-btn:hover {
+    background: rgb(233, 233, 235);
+    border-color: rgba(0, 0, 0, 0.14);
+}
+
+body.light-mode .live-ctl-end {
+    background: rgb(192, 57, 43);
+    color: rgb(255, 255, 255);
+}
+
+body.light-mode .live-ctl-end:hover {
+    background: rgb(231, 76, 60);
+}
+
+/* Primary action before a session exists. Emerald accent so it reads
+   as the thing to press; hidden the moment a call is running. */
+.live-ctl-start {
+    background: var(--lv-accent);
+    border-color: transparent;
+    color: rgb(255, 255, 255);
+    padding: 9px 20px;
+}
+
+.live-ctl-start:hover {
+    background: rgb(92, 210, 132);
+    border-color: transparent;
+}
+
+body.light-mode .live-ctl-start {
+    background: rgb(35, 154, 77);
+    color: rgb(255, 255, 255);
+}
+
+body.light-mode .live-ctl-start:hover {
+    background: rgb(31, 138, 68);
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+
+/* Matches .messages-area at this width (the max-width: 768px block
+   elsewhere in this file: 12px top, 15px sides). Without it a stored
+   live chat kept the desktop 30px/20px and started visibly lower than
+   the typed chat it is meant to be indistinguishable from.
+
+   Deliberately keyed to 768px, the same breakpoint text chat uses, and
+   not to the 640px one below — that left 641px–768px with the two views
+   disagreeing about where a conversation starts.
+
+   The bottom stays at the desktop 30px rather than text chat's 80px:
+   that space clears the input box, which sits in the flow below
+   .chat-content. The live controls are a sibling of the scroll wrapper
+   and already occupy their own row, so 80px here would only open a gap
+   above them.
+
+   Scoped to history. During a call this transcript is centred and the
+   pair of turns is positioned against the blob, which assumes equal
+   padding top and bottom — 12px against 30px would shift the whole
+   column down by half the difference and pull the reply off the blob's
+   lower edge. :not(.is-welcome) keeps the greeting's own padding:0
+   intact, since that rule would otherwise tie on specificity. */
+@media (max-width: 768px) {
+    .live-view:not(.live-running):not(.is-welcome) .live-transcript {
+        padding: 12px 15px 30px;
+    }
+}
+
+@media (max-width: 640px) {
+    .live-view {
+        /* Overrides the desktop variable above, which the transcript also
+           reads, so the reserved band shrinks with the orb here instead
+           of needing its own hand-derived offset. */
+        --live-orb-size: min(168px, 42vw, 40vh);
+        /* Horizontal padding dropped here too, matching the desktop rule:
+           text chat has none, and keeping it left the mobile scrollbar
+           14px in from the panel edge. */
+        padding: 62px 0 6px;
+        gap: 11px;
+    }
+
+    .live-stage {
+        /* Tracks the reduced .live-view padding above. */
+        top: 62px;
+        right: 14px;
+        left: 14px;
+    }
+
+    .live-orb {
+        width: var(--live-orb-size, 168px);
+        height: var(--live-orb-size, 168px);
+    }
+
+    /* No .live-scroll override here on purpose: the layout is plain
+       flexbox placement now (user at the top, reply at the bottom), so
+       it needs no orb-offset arithmetic and this breakpoint inherits the
+       desktop behaviour unchanged. The old override still set a
+       padding-top computed from this orb's size, which would have pinned
+       the whole transcript below the blob again on phones. */
+
+    .live-ctl-btn {
+        padding: 8px 14px;
+        font-size: 0.8rem;
+    }
+
+    /* Mute / End go icon-only, but Start keeps its label — it is the
+       primary action and has no other affordance. */
+    .live-ctl-btn .live-ctl-label {
+        display: none;
+    }
+
+    .live-ctl-start .live-ctl-label {
+        display: inline;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .chat-main.live-active .live-view {
+        animation: none;
+        transition: none;
+    }
+
+    .live-view.is-switching {
+        filter: none;
+        opacity: 0;
+    }
+
+    .live-chat-btn .live-chat-btn-icon {
+        animation: none !important;
+    }
+}
