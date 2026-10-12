@@ -75,6 +75,7 @@
     micLevel: 0, // 0..1 smoothed
     modelLevel: 0, // 0..1 smoothed
     startedAt: 0,
+    elapsedMs: 0, // milliseconds banked by the clock; survives pause/resume
     timerId: null,
     rafId: null,
     turns: [], // { role, text, at }
@@ -1122,18 +1123,31 @@ function updateLiveActions(running) {
     if (text && text.trim()) addTurn(role, text);
   }
 
-  /* ── Timer ───────────────────────────────────────────────── */
+  /* ── Timer ─────────────────────────────────────────────────
+     A stopwatch for the conversation, not the individual call. The
+     running time is banked whenever the clock stops, so pausing (End,
+     leaving the screen) and resuming carries on from where it left off
+     instead of snapping back to 00:00. Only a new live chat — which
+     goes through resetLive — starts it over. */
+
+  /* Formats a millisecond count as mm:ss and writes it to the clock. */
+  function paintTimer(ms) {
+    const secs = Math.floor(ms / 1000);
+    const mm = String(Math.floor(secs / 60)).padStart(2, "0");
+    const ss = String(secs % 60).padStart(2, "0");
+    const t = el("liveTimer");
+    if (t) t.textContent = mm + ":" + ss;
+  }
+
+  /* Banked time plus the run currently in progress, if any. */
+  function liveElapsedMs() {
+    return LV.elapsedMs + (LV.startedAt ? Date.now() - LV.startedAt : 0);
+  }
 
   function startTimer() {
     stopTimer();
     LV.startedAt = Date.now();
-    const paint = () => {
-      const secs = Math.floor((Date.now() - LV.startedAt) / 1000);
-      const mm = String(Math.floor(secs / 60)).padStart(2, "0");
-      const ss = String(secs % 60).padStart(2, "0");
-      const t = el("liveTimer");
-      if (t) t.textContent = mm + ":" + ss;
-    };
+    const paint = () => paintTimer(liveElapsedMs());
     paint();
     LV.timerId = setInterval(paint, 1000);
   }
@@ -1142,9 +1156,13 @@ function updateLiveActions(running) {
     if (LV.timerId != null) {
       clearInterval(LV.timerId);
       LV.timerId = null;
+      /* Bank the time that has run so resuming continues rather than
+         restarting from zero. */
+      if (LV.startedAt) LV.elapsedMs += Date.now() - LV.startedAt;
+      LV.startedAt = 0;
     }
-    const t = el("liveTimer");
-    if (t) t.textContent = "00:00";
+    /* Frozen at the accrued value, not blanked. */
+    paintTimer(LV.elapsedMs);
   }
 
   /* ── View swap ───────────────────────────────────────────── */
@@ -1247,7 +1265,7 @@ function updateLiveActions(running) {
      ────────────────────────────────────────────────────────── */
 
   function liveTitle() {
-    return "Live Chat — " + new Date().toLocaleDateString();
+    return "New Live Chat";
   }
 
   /* Creates the conversation the moment a session actually starts, so
@@ -1263,6 +1281,7 @@ function updateLiveActions(running) {
         title: liveTitle(),
         messages: [],
         live: true,
+        elapsedMs: 0,
         createdAt: now,
         updatedAt: now
       };
@@ -1294,17 +1313,27 @@ function updateLiveActions(running) {
     /* Only persist turns that aren't already stored. Without this a
        resumed session would re-append everything said so far. */
     const fresh = LV.turns.slice(LV.savedCount);
-    if (!fresh.length) return false;
     try {
       let conv = currentLiveConv();
 
       /* A conversation should already exist (created at Start). This is
          only a safety net for the case where it went missing. */
       if (!conv) {
+        if (!fresh.length) return false;
         const id = beginLiveConversation();
         conv = id && typeof getConv === "function" ? getConv(id) : null;
         if (!conv) return false;
         conv.live = true;
+      }
+
+      /* Keep the clock with the conversation even when nothing new was
+         said, so ending and resuming carries the elapsed time forward. */
+      conv.elapsedMs = liveElapsedMs();
+
+      if (!fresh.length) {
+        conv.updatedAt = Date.now();
+        if (typeof upsertConv === "function") upsertConv(conv);
+        return false;
       }
 
       /* One turn = one message, exactly as it appeared live, so a
@@ -1338,6 +1367,10 @@ function updateLiveActions(running) {
   /* Builds the on-screen state for a stored live conversation. */
 function applyLiveConversation(conv) {
     resetLive();
+    /* The clock resumes from the saved value, so reopening a live chat
+       shows how long it has run rather than starting over. */
+    LV.elapsedMs = Number(conv.elapsedMs) || 0;
+    paintTimer(LV.elapsedMs);
     enterLiveView();
 
     /* loadConversation normally does this. Live chats bypass it so the
@@ -1446,6 +1479,12 @@ function applyLiveConversation(conv) {
 
   function resetLive() {
     stopTimer();
+    /* A fresh live chat starts its clock over; pause/resume within a
+       conversation is handled by banking in stopTimer, so only this
+       reset clears the accrued time. */
+    LV.elapsedMs = 0;
+    LV.startedAt = 0;
+    paintTimer(0);
     stopLoop();
     LV.targetMicLevel = 0;
     LV.targetModelLevel = 0;

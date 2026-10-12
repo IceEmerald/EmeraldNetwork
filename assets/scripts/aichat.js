@@ -6936,6 +6936,13 @@ function _esHtml(md) {
   try { if (typeof DOMPurify !== "undefined") return DOMPurify.sanitize(html); } catch (e) {}
   return html;
 }
+/* Sanitise without re-rendering. Used for HTML this file builds itself,
+   where a second markdown pass would mangle the inline markup. */
+function _esSanitizeHtml(html) {
+  const h = String(html == null ? "" : html);
+  try { if (typeof DOMPurify !== "undefined") return DOMPurify.sanitize(h); } catch (e) {}
+  return h;
+}
 function _esPlainText(s) {
   return String(s == null ? "" : s).replace(/<[^>]*>/g, " ").replace(/[#*_>`~]/g, " ").replace(/\s+/g, " ").trim();
 }
@@ -6986,37 +6993,381 @@ function _esSplitSlides(data) {
     return { title, content: body };
   });
 }
-function _esSlideElement(el, z, fallbackColor) {
-  const raw = el.text != null ? el.text : el.html != null ? el.html : "";
-  return {
-    id: _esUid("el_"), type: "text",
-    x: Number.isFinite(+el.x) ? +el.x : 60,
-    y: Number.isFinite(+el.y) ? +el.y : 60,
-    w: Number.isFinite(+el.w) ? +el.w : 840,
-    h: Number.isFinite(+el.h) ? +el.h : 120,
-    r: 0, z,
-    html: _esHtml(raw),
-    fontFamily: el.fontFamily || "DM Sans",
-    fontSize: Number.isFinite(+el.fontSize) ? +el.fontSize : 24,
-    bold: !!el.bold, italic: !!el.italic, underline: false,
-    color: el.color || fallbackColor || "#1a1a1a",
-    textAlign: el.textAlign || "left",
-    opacity: 1
-  };
+/* Shapes the Slides renderer can actually paint (slides.js shapeSVG).
+   A name outside this list would draw an empty SVG, so it is swapped for
+   the nearest sensible default instead of being passed through. */
+const _ES_SHAPES = new Set([
+  "rect", "rounded", "snipSame", "snipDiagonal", "roundSame", "roundDiagonal",
+  "snipRound", "plaque", "chamfer", "frameRect", "crossRect", "ribbon",
+  "foldCorner", "ellipse", "triangle", "rightTriangle", "diamond", "pentagon",
+  "hexagon", "heptagon", "octagon", "decagon", "dodecagon", "parallelogram",
+  "trapezoid", "cross", "plus", "donut", "teardrop", "heart", "lightning",
+  "sun", "moon", "cloud", "blockArc", "wave", "noSymbol", "smile", "cube",
+  "can", "scroll", "bracketL", "bracketR", "braceL", "braceR", "diagonalStripe",
+  "chord", "pie", "leftParen", "rightParen", "corner", "halfFrame", "arrow",
+  "arrowLeft", "arrowUp", "arrowDown", "arrowLR", "arrowUD", "arrowQuad",
+  "arrowNotched", "arrowBent", "arrowUturn", "arrowStriped", "arrowChevron",
+  "arrowPentagon", "arrowCalloutR", "arrowCalloutL", "arrowCalloutU",
+  "arrowCalloutD", "arrowCircular", "star", "starRibbon", "calloutRect",
+  "calloutRound", "calloutEllipse", "calloutCloud", "line", "lineArrow",
+  "lineDouble", "lineElbow", "lineCurve"
+]);
+const _ES_SHAPE_ALIAS = {
+  circle: "ellipse", oval: "ellipse", square: "rect", box: "rounded",
+  rectangle: "rect", roundrect: "rounded", roundedrect: "rounded",
+  cornerrect: "rounded", card: "rounded", star4: "star", arrowright: "arrow",
+  arrowleft: "arrowLeft", chevron: "arrowChevron", bar: "rect"
+};
+function _esNum(v, fallback) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
 }
-function _esBuildSlide(s, data) {
+function _esCssColor(v, fallback) {
+  /* Only pass through something the browser can paint — a malformed
+     colour silently falls back to inherited black in the canvas and
+     leaves text invisible on a dark background. */
+  const s = String(v == null ? "" : v).trim();
+  if (!s) return fallback;
+  if (/^(#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})|rgba?\(|hsla?\(|[a-z]+$)/i.test(s)) return s;
+  return fallback;
+}
+/* One element in the Slides element model (see slides.js createElementDOM).
+   Text is the fallback because a payload can only ever contain something
+   the app will draw; an unreadable type used to vanish entirely. */
+function _esSlideElement(el, z, fallbackColor) {
+  const src = el && typeof el === "object" ? el : {};
+  const box = {
+    id: _esUid("el_"),
+    x: _esNum(src.x, 60), y: _esNum(src.y, 60),
+    w: _esNum(src.w, 840), h: _esNum(src.h, 120),
+    r: _esNum(src.r, 0), z: _esNum(src.z, z || 1),
+    opacity: _esNum(src.opacity, 1)
+  };
+  const type = String(src.type || "text").toLowerCase();
+
+  if (type === "shape") {
+    const raw = String(src.shape || "rect").trim();
+    const key = _ES_SHAPE_ALIAS[raw.toLowerCase()] || raw;
+    return Object.assign(box, {
+      type: "shape",
+      shape: _ES_SHAPES.has(key) ? key : "rounded",
+      fill: _esCssColor(src.fill, "#f97316"),
+      stroke: _esCssColor(src.stroke, "none"),
+      strokeWidth: Math.max(0, Math.min(40, _esNum(src.strokeWidth, 0)))
+    });
+  }
+
+  if (type === "image") {
+    const srcUrl = String(src.src || src.url || "");
+    return Object.assign(box, {
+      type: "image",
+      src: srcUrl,
+      alt: String(src.alt == null ? "" : src.alt),
+      crop: { l: 0, t: 0, r: 0, b: 0 },
+      borderWidth: _esNum(src.borderWidth, 0),
+      borderColor: _esCssColor(src.borderColor, "none")
+    });
+  }
+
+  const raw = src.text != null ? src.text : src.html != null ? src.html : "";
+  return Object.assign(box, {
+    type: "text",
+    /* rawHtml is HTML this file composed itself (the card labels, which
+       carry inline accent colours). It is sanitised but NOT run back
+       through the markdown renderer — that would re-wrap it and can drop
+       the very spans that colour the text. */
+    html: src.rawHtml != null ? _esSanitizeHtml(src.rawHtml) : _esHtml(raw),
+    fontFamily: String(src.fontFamily || "DM Sans"),
+    fontSize: _esNum(src.fontSize, 24),
+    bold: !!src.bold, italic: !!src.italic, underline: !!src.underline,
+    color: _esCssColor(src.color, fallbackColor || "#1a1a1a"),
+    /* Paint behind the text. This is the cheapest way to give a run of
+       text a coloured box without positioning a separate shape. */
+    highlight: _esCssColor(src.highlight, "transparent"),
+    textAlign: ["left", "center", "right", "justify"].includes(String(src.textAlign))
+      ? String(src.textAlign) : "left",
+    listType: src.listType === "ul" || src.listType === "ol" ? src.listType : ""
+  });
+}
+
+/* ── Deck auto-design ───────────────────────────────────────────
+   When the model returns the plain shape — {"title": "...", "content":
+   "markdown"} — building it literally produced two text boxes on a
+   white rectangle, which is why generated decks looked like a text
+   dump rather than a designed deck.
+
+   So that shape is now laid out, not dumped. The content is parsed into
+   items and composed into a real layout: a tinted background, an accent
+   bar, coloured headings and the body set into cards, with the palette
+   rotating per slide so a deck reads as one system instead of a stack of
+   unrelated pages.
+
+   A model that DOES send `elements` is left completely alone — this is
+   only the fallback, and it never overrides an explicit design. */
+
+const _ES_CANVAS_W = 960;
+const _ES_CANVAS_H = 540;
+
+/* Palettes are picked per slide. Every one pairs a tinted page with a
+   surface, an ink for body text and an accent strong enough to carry a
+   heading — contrast is fixed here rather than left to the model. */
+const _ES_PALETTES = [
+  { bg: "#f0fdf4", surface: "#ffffff", ink: "#052e16", muted: "#3f6212", accent: "#059669", onAccent: "#ffffff" },
+  { bg: "#eef2ff", surface: "#ffffff", ink: "#1e1b4b", muted: "#4338ca", accent: "#4f46e5", onAccent: "#ffffff" },
+  { bg: "#fff7ed", surface: "#ffffff", ink: "#431407", muted: "#9a3412", accent: "#ea580c", onAccent: "#ffffff" },
+  { bg: "#f0f9ff", surface: "#ffffff", ink: "#082f49", muted: "#0369a1", accent: "#0284c7", onAccent: "#ffffff" },
+  { bg: "#fdf2f8", surface: "#ffffff", ink: "#500724", muted: "#9d174d", accent: "#db2777", onAccent: "#ffffff" },
+  { bg: "#faf5ff", surface: "#ffffff", ink: "#3b0764", muted: "#7e22ce", accent: "#9333ea", onAccent: "#ffffff" },
+  { bg: "#fefce8", surface: "#ffffff", ink: "#422006", muted: "#a16207", accent: "#ca8a04", onAccent: "#422006" },
+  { bg: "#0f172a", surface: "#1e293b", ink: "#f1f5f9", muted: "#94a3b8", accent: "#38bdf8", onAccent: "#0f172a" },
+  { bg: "#052e2b", surface: "#0f3d38", ink: "#ecfeff", muted: "#5eead4", accent: "#2dd4bf", onAccent: "#052e2b" }
+];
+function _esPalette(i) {
+  return _ES_PALETTES[Math.abs(_esNum(i, 0)) % _ES_PALETTES.length];
+}
+
+/* Turns the content markdown into discrete items so they can be placed
+   in cards instead of being poured into one overflowing text box.
+   Returns [{ marker, label, text }] — label is a leading bold phrase
+   ("**Latency:** 40ms") split out so it can be coloured on its own. */
+function _esSlideItems(md) {
+  const lines = String(md == null ? "" : md).replace(/\r/g, "").split("\n");
+  const items = [];
+  let cur = null;
+  const push = () => { if (cur && cur.text.trim()) items.push(cur); cur = null; };
+  let mode = "";
+
+  for (const raw of lines) {
+    const line = raw.replace(/\s+$/, "");
+    if (!line.trim()) { if (mode !== "para") push(); mode = ""; continue; }
+
+    const h = line.match(/^\s{0,3}(#{1,6})\s+(.*)$/);
+    const b = line.match(/^\s*(?:[-*+•‣▪])\s+(.*)$/);
+    const n = line.match(/^\s*(\d{1,2})[.)]\s+(.*)$/);
+    /* "**Revenue:** up 42%" on its own line is a labelled row, not prose
+       that happens to start with a bold word. Left to the paragraph rule
+       below it swallowed the whole list into one card and only the first
+       label was ever coloured. */
+    const l = line.match(/^\s*\*\*(.+?)\*\*\s*[:：—–-]?\s*(.*)$/);
+
+    if (h) { push(); mode = "h"; cur = { marker: "", label: "", text: h[2].trim() }; push(); continue; }
+    if (l) {
+      push();
+      mode = "lab";
+      cur = { marker: "", label: l[1].trim(), text: (l[2] || "").trim() };
+      continue;
+    }
+    if (b) { if (mode === "n" || mode === "ul") push(); mode = "ul"; if (!cur || mode === "para") cur = { marker: "", label: "", text: "", bullet: true }; cur.bullet = true; cur.text = (cur.text ? cur.text + " " : "") + b[1].trim(); continue; }
+    if (n) { if (mode === "ul" || mode === "n") push(); mode = "n"; cur = { marker: n[1], label: "", text: n[2].trim() }; continue; }
+
+    /* A table row or a fenced block would otherwise be chopped into
+       separate cards that no longer read as the table they came from. */
+    if (/^\s*\|.*\|\s*$/.test(line) || /^\s*(```|~~~)/.test(line) || /^\s*([-*_]\s*){3,}$/.test(line)) {
+      push(); mode = "raw";
+      cur = { marker: "", label: "", text: line.trim() };
+      continue;
+    }
+    if (mode === "raw" && cur) { cur.text += "\n" + line.trim(); continue; }
+    if (cur && (mode === "ul" || mode === "n" || mode === "h" || mode === "lab")) { cur.text += " " + line.trim(); continue; }
+    if (cur && mode === "para") { cur.text += " " + line.trim(); continue; }
+    mode = "para";
+    cur = { marker: "", label: "", text: line.trim() };
+  }
+  push();
+
+  /* Split a leading bold phrase into its own label so it can carry the
+     accent colour instead of sitting in the body colour. Also covers a
+     label buried mid-item, e.g. a bullet that opens with one. */
+  items.forEach((it) => {
+    if (!it.label) {
+      const m = it.text.match(/^\*\*(.+?)\*\*\s*[:：—–-]?\s*(.*)$/s);
+      if (m && m[1].trim()) { it.label = m[1].trim(); it.text = (m[2] || "").trim() || it.label; }
+    }
+    it.label = String(it.label || "").replace(/[:：]\s*$/, "").trim();
+    it.text = it.text.replace(/\*\*/g, "").replace(/^#+\s*/, "").trim();
+    /* A label with nothing after it still deserves its own card. */
+    if (!it.text) it.text = it.label;
+  });
+  return items.filter((it) => it.text);
+}
+
+/* Escape for the small amount of inline HTML the cards build by hand.
+   Everything else goes through _esHtml + DOMPurify as before. */
+function _esEsc(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/* A card: rounded panel, accent marker and the text set inside it.
+   Returned as plain element specs so the normal builder validates them. */
+function _esCard(p, x, y, w, h, text, z, opts) {
+  const o = opts || {};
+  const padX = o.padX != null ? o.padX : 18;
+  const padY = o.padY != null ? o.padY : 14;
+  const els = [];
+  els.push({
+    type: "shape", shape: "rounded", x, y, w, h, z,
+    fill: p.surface, stroke: p.accent, strokeWidth: o.strokeWidth != null ? o.strokeWidth : 1, opacity: o.opacity != null ? o.opacity : 1
+  });
+  /* Numbered lists get a filled badge, everything else a slim rule —
+     the marker is what makes a column of boxes read as a list. */
+  if (o.marker) {
+    if (o.badge) {
+      els.push({ type: "shape", shape: "rounded", x: x + padX, y: y + padY, w: 26, h: 26, z: z + 1, fill: p.accent, stroke: "none", strokeWidth: 0 });
+      els.push(_esSlideElement({ text: o.marker, x: x + padX, y: y + padY + 3, w: 26, h: 22, fontSize: 14, bold: true, color: p.onAccent, textAlign: "center" }, z + 2, p.onAccent));
+    } else {
+      els.push({ type: "shape", shape: "rounded", x: x + padX, y: y + padY + 2, w: 4, h: o.textH != null ? o.textH : 20, z: z + 1, fill: p.accent, stroke: "none", strokeWidth: 0 });
+    }
+  }
+  const indent = o.marker ? (o.badge ? 26 + 10 : 4 + 10) : 0;
+  /* `text` is the positional argument — reading it off `o` here rendered
+     every card as the literal string "undefined". */
+  const body = _esHtml(text);
+  const rawHtml = o.label
+    ? '<p style="margin:0"><strong style="color:' + p.accent + '">' + _esEsc(o.label) + "</strong>" +
+      (body ? '<br><span style="color:' + p.muted + '">' + body + "</span>" : "") + "</p>"
+    : body;
+  els.push(_esSlideElement({
+    rawHtml, x: x + padX + indent, y: y + padY,
+    /* Padding is taken once per side. Subtracting it twice squeezed a
+       three-column card's text down to half its available width. */
+    w: Math.max(40, w - padX * 2 - indent),
+    h: h - padY * 2,
+    fontSize: o.fontSize || 15, color: p.ink, textAlign: "left"
+  }, z + 2, p.ink));
+  return els;
+}
+
+/* Cover / section slide: tinted page, oversized title, accent rule and
+   a couple of soft shapes so it does not read as a blank rectangle. */
+function _esDesignCover(title, subtitle, p, notes) {
+  const els = [];
+  let z = 1;
+  /* The canvas is overflow:visible, so a shape hanging off the edge
+     would draw over the app chrome rather than bleeding off the page —
+     every decoration stays inside the 960x540 box. */
+  els.push({ type: "shape", shape: "ellipse", x: 712, y: 44, w: 196, h: 196, z: z++, fill: p.accent, stroke: "none", strokeWidth: 0, opacity: 0.18 });
+  els.push({ type: "shape", shape: "ellipse", x: 56, y: 344, w: 120, h: 120, z: z++, fill: p.accent, stroke: "none", strokeWidth: 0, opacity: 0.14 });
+  els.push({ type: "shape", shape: "rect", x: 0, y: 0, w: 14, h: _ES_CANVAS_H, z: z++, fill: p.accent, stroke: "none", strokeWidth: 0 });
+
+  const t = String(title || "").trim();
+  if (t) {
+    els.push(_esSlideElement({
+      text: t, x: 76, y: 176, w: 700, h: 132,
+      fontSize: t.length > 64 ? 36 : t.length > 34 ? 44 : 54,
+      bold: true, color: p.ink, textAlign: "left"
+    }, z++, p.ink));
+  }
+  const s = String(subtitle || "").trim();
+  if (s) {
+    els.push(_esSlideElement({ text: s, x: 78, y: 318, w: 620, h: 96, fontSize: 20, color: p.muted, textAlign: "left" }, z++, p.muted));
+  }
+  els.push({ type: "shape", shape: "rounded", x: 76, y: 140, w: 92, h: 8, z: z++, fill: p.accent, stroke: "none", strokeWidth: 0 });
+  return { background: { type: "color", value: p.bg }, elements: els, notes: String(notes == null ? "" : notes) };
+}
+
+/* Content slide: accent header band, coloured heading, then the parsed
+   body laid out as a grid of cards that reflows with the item count. */
+function _esDesignContent(title, items, p, notes) {
+  const els = [];
+  let z = 1;
+  const t = String(title || "").trim();
+
+  els.push({ type: "shape", shape: "rect", x: 0, y: 0, w: _ES_CANVAS_W, h: 8, z: z++, fill: p.accent, stroke: "none", strokeWidth: 0 });
+  if (t) {
+    els.push(_esSlideElement({
+      text: t, x: 64, y: 38, w: 832, h: 62,
+      fontSize: t.length > 52 ? 30 : t.length > 28 ? 34 : 38,
+      bold: true, color: p.ink, textAlign: "left"
+    }, z++, p.ink));
+    els.push({ type: "shape", shape: "rounded", x: 66, y: 104, w: 56, h: 6, z: z++, fill: p.accent, stroke: "none", strokeWidth: 0 });
+  }
+
+  const top = t ? 138 : 72;
+  const bottom = 496;
+  const availH = bottom - top;
+  const gap = 16;
+  const n = items.length;
+  const cols = n <= 1 ? 1 : n <= 2 ? 2 : n <= 4 ? 2 : 3;
+  const rows = Math.max(1, Math.ceil(n / cols));
+  const cardW = Math.round((832 - gap * (cols - 1)) / cols);
+  const cardH = Math.round(Math.min(190, (availH - gap * (rows - 1)) / rows));
+  const numbered = items.length > 1 && items.every((it) => !!it.marker && /^\d+$/.test(it.marker));
+  const bulleted = !numbered && items.length > 1 && items.every((it) => !!it.bullet);
+  /* The badge is a fixed 26px and needs breathing room; long-form text
+       in a narrow column does not. */
+  const fontSize = cols === 3 ? 14 : n > 4 ? 15 : 16;
+
+  items.forEach((it, i) => {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    /* Centre a short final row instead of leaving it hard against the
+       left edge. */
+    const inRow = Math.min(cols, n - row * cols);
+    const rowW = inRow * cardW + (inRow - 1) * gap;
+    const x = 64 + Math.round((832 - rowW) / 2) + col * (cardW + gap);
+    const y = top + row * (cardH + gap);
+    /* A list without any marker at all is just a stack of boxes; the
+       accent tick or number badge is what makes it read as a list. */
+    const marker = numbered ? String(Number(it.marker)) : bulleted ? "•" : "";
+    const els2 = _esCard(p, x, y, cardW, cardH, it.text, z, {
+      label: it.label, marker, badge: numbered, textH: fontSize + 4, fontSize
+    });
+    els.push.apply(els, els2);
+    z += 3;
+  });
+
+  return { background: { type: "color", value: p.bg }, elements: els, notes: String(notes == null ? "" : notes) };
+}
+function _esBuildSlide(s, data, index) {
   const src = s && typeof s === "object" ? s : {};
-  const bg = src.background || data.background || "#ffffff";
-  const textColor = src.textColor || data.textColor || "#1a1a1a";
-  const slide = { id: _esUid("sld_"), background: { type: "color", value: String(bg) }, elements: [], notes: String(src.notes == null ? "" : src.notes) };
+  const notes = String(src.notes == null ? "" : src.notes);
+  const ix = _esNum(index, 0);
+  /* An explicit background/textColor from the model is respected — the
+     auto-design only fills in what was not chosen for it. */
+  const hasBg = !!(src.background || (data && data.background));
+  const hasText = !!(src.textColor || (data && data.textColor));
+  const bg = src.background || (data && data.background) || "#ffffff";
+  const textColor = src.textColor || (data && data.textColor) || "#1a1a1a";
+  const slide = { id: _esUid("sld_"), background: { type: "color", value: String(bg) }, elements: [], notes };
   let els = [];
+
   if (Array.isArray(src.elements) && src.elements.length) {
     els = src.elements.map((el, j) => _esSlideElement(el || {}, j + 1, textColor));
+    /* A model-provided element list can still leave the page blank; give
+       it the deck background rather than pure white. */
+    if (!hasBg) {
+      const p = _esPalette(ix);
+      slide.background = { type: "color", value: p.bg };
+      if (!hasText) {
+        els = els.map((el) => Object.assign({}, el, { color: el.color === "#1a1a1a" ? p.ink : el.color }));
+      }
+    }
   } else {
-    let z = 1;
-    if (src.title) els.push(_esSlideElement({ text: src.title, x: 60, y: 44, w: 840, h: 90, fontSize: 40, bold: true, color: textColor }, z++, textColor));
-    if (src.content) els.push(_esSlideElement({ text: src.content, x: 60, y: 168, w: 840, h: 320, fontSize: 22, color: textColor }, z++, textColor));
-    if (!els.length) els.push(_esSlideElement({ text: "", x: 60, y: 44, w: 840, h: 90, fontSize: 40, bold: true, color: textColor }, z++, textColor));
+    /* Plain title/content — design it instead of dumping it as two text
+       boxes on white. */
+    const p = _esPalette(ix);
+    const title = String(src.title == null ? "" : src.title).trim();
+    const content = String(src.content == null ? "" : src.content);
+    const items = _esSlideItems(content);
+    const designed = !hasBg && !hasText && (title || items.length);
+    if (designed) {
+      /* A slide with a heading and no body is a cover or a section
+         divider — it gets the oversized treatment wherever it sits in the
+         deck. Anything with body text gets the card layout. */
+      const isCover = items.length === 0;
+      const built = isCover
+        ? _esDesignCover(title, title ? "" : (data && data.title) || "", p, notes)
+        : _esDesignContent(title, items, p, notes);
+      slide.background = built.background;
+      els = built.elements.map((el, j) => _esSlideElement(el, j + 1, textColor));
+    } else {
+      let z = 1;
+      if (title) els.push(_esSlideElement({ text: title, x: 60, y: 44, w: 840, h: 90, fontSize: 40, bold: true, color: textColor }, z++, textColor));
+      if (content) els.push(_esSlideElement({ text: content, x: 60, y: 168, w: 840, h: 320, fontSize: 22, color: textColor }, z++, textColor));
+      if (!els.length) els.push(_esSlideElement({ text: "", x: 60, y: 44, w: 840, h: 90, fontSize: 40, bold: true, color: textColor }, z++, textColor));
+    }
   }
   slide.elements = els;
   if (Array.isArray(src.animations) && src.animations.length) {
@@ -7036,7 +7387,7 @@ async function _esImportSlides(data) {
   const id = "pres_" + Date.now() + "_" + generateSecureId(9);
   const now = Date.now();
   const title = _esPlainText(data.title) || "Imported Presentation";
-  const slides = _esSplitSlides(data).map((s) => _esBuildSlide(s, data));
+  const slides = _esSplitSlides(data).map((s, i) => _esBuildSlide(s, data, i));
   const pres = { id, title, createdAt: now, updatedAt: now, slides };
   let idx = await _esStoreGet("emeraldcore.storage.suite.slides");
   idx = Array.isArray(idx) ? idx : [];
@@ -7440,6 +7791,7 @@ async function _suiteAutoContext(userText) {
       " There is nothing to edit, so CREATE the file with <es-app>{\"app\":\"...\", ...}</es-app> — no \"id\" is needed." +
       ' Payload shapes: notes {"app":"notes","title":"...","content":"markdown"}; docs {"app":"docs","title":"...","content":"markdown"};' +
       ' slides {"app":"slides","title":"...","slides":[{"title":"...","content":"..."}]}; sheets {"app":"sheets","title":"...","sheetName":"Sheet1","rows":[["A1","B1"]]}.' +
+      _esSlideSpec() +
       " Emit exactly one payload and do not also emit <es-edit>.";
   }
   items.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
@@ -7459,6 +7811,7 @@ async function _suiteAutoContext(userText) {
       " Change ONLY what the user asked; keep the rest intact." +
       " To CREATE a brand-new file instead, use <es-app>{...}</es-app> (the import card, no id needed)." +
       " For an existing note/doc that is long, prefer compact patches instead of re-sending everything: {\"app\":\"...\",\"id\":\"...\",\"patches\":[{\"op\":\"replace\",\"find\":\"exact existing text\",\"text\":\"replacement\"}]} — ops: replace, delete, insert_after, insert_before, append, prepend. \"find\" must be copied exactly from [FILE CONTENTS]." +
+      _esSlideSpec() +
       " Still touch nothing else, and emit exactly one payload.";
   }
   if (block.length > 26000) block = block.slice(0, 26000) + "\n[...truncated...]";
@@ -7468,11 +7821,29 @@ async function _suiteAutoContext(userText) {
   return _efDirective() + "\n" + block;
 }
 
+/* Deck design schema, appended wherever a slides payload is described.
+   Without it the model only ever sent {"title","content"}, which is why
+   generated decks came out as unstyled text on white. Kept in one place so
+   the create and edit paths cannot drift apart. */
+function _esSlideSpec() {
+  return " SLIDE DESIGN — a slide canvas is 960x540 px and every position is in pixels from the top-left. " +
+    'A slide may be {"title":"...","content":"markdown"} (auto-laid-out with a palette, cards and headings) OR be fully designed with "background" (a CSS colour) and "elements": [...]. ' +
+    'Elements: {"type":"text","x":..,"y":..,"w":..,"h":..,"text":"markdown **bold** ok","fontSize":24,"bold":true,"italic":false,"color":"#1a1a1a","textAlign":"left|right|center","highlight":"rgba(0,0,0,0.05)"}; ' +
+    '{"type":"shape","x":..,"y":..,"w":..,"h":..,"shape":"rect|rounded|ellipse|triangle|diamond|hexagon|pentagon|star|arrow|calloutRect|calloutRound|donut|plus|line|lineArrow|chevron-ish arrowChevron|corner","fill":"#hex or rgba()","stroke":"#hex or none","strokeWidth":0}; ' +
+    '{"type":"image","x":..,"y":..,"w":..,"h":..,"src":"https://...","alt":"..."}. ' +
+    "Design it like a real deck, not a text dump: give EVERY slide a background colour (tinted, not plain white); " +
+    "put text in cards/panels by drawing a shape behind it (give the shape a lower \"z\" than the text) or by setting the text element's \"highlight\"; " +
+    "colour your headings and key terms rather than leaving every line the same colour; use 1 accent colour consistently across the deck plus 1-2 supporting colours; " +
+    "keep body text >=15px, titles 30-54px, and always leave margins (~60px) so nothing touches the edge; " +
+    "and use shapes to break up dense text (bullets, callout boxes, number badges, dividers) instead of one long paragraph. " +
+    "Aim for 6-12 slides for a normal topic. Prefer the simple {\"title\",\"content\"} form unless a specific custom layout is genuinely needed.";
+}
+
 /* The permission header sent with every EmeraldSuite context block. Kept as its
    own function so it is built once, up front, and cannot be truncated away. */
 function _efDirective() {
   if (_efWriteRequested) {
-    return "[EMERALDSUITE EDIT PERMISSION — GRANTED] The user EXPLICITLY asked you to change something in this message, so you may write a file. Emit AT MOST ONE payload: <es-edit>{\"app\":\"...\",\"id\":\"...\",\"title\":\"...\",\"content\":\"full new content (markdown)\"}</es-edit> — the FULL new content, with the same \"app\" and \"id\" from the catalog below. For slides: {\"app\":\"slides\",\"id\":\"...\",\"title\":\"...\",\"slides\":[...]} — for sheets: {\"app\":\"sheets\",\"id\":\"...\",\"title\":\"...\",\"rows\":[[...]],\"sheetName\":\"Sheet1\"}. To CREATE a brand-new file use <es-app>{...}</es-app> (no id needed). For a long existing note/doc prefer compact patches over re-sending the whole file: {\"app\":\"...\",\"id\":\"...\",\"patches\":[{\"op\":\"replace\",\"find\":\"exact existing text\",\"text\":\"replacement\"}]} with ops replace/delete/insert_after/insert_before/append/prepend. Change ONLY what was asked, keep the rest intact, touch no other file, and never mix the two tags in one response.";
+    return "[EMERALDSUITE EDIT PERMISSION — GRANTED] The user EXPLICITLY asked you to change something in this message, so you may write a file. Emit AT MOST ONE payload: <es-edit>{\"app\":\"...\",\"id\":\"...\",\"title\":\"...\",\"content\":\"full new content (markdown)\"}</es-edit> — the FULL new content, with the same \"app\" and \"id\" from the catalog below. For slides: {\"app\":\"slides\",\"id\":\"...\",\"title\":\"...\",\"slides\":[...]} — for sheets: {\"app\":\"sheets\",\"id\":\"...\",\"title\":\"...\",\"rows\":[[...]],\"sheetName\":\"Sheet1\"}. To CREATE a brand-new file use <es-app>{...}</es-app> (no id needed). For a long existing note/doc prefer compact patches over re-sending the whole file: {\"app\":\"...\",\"id\":\"...\",\"patches\":[{\"op\":\"replace\",\"find\":\"exact existing text\",\"text\":\"replacement\"}]} with ops replace/delete/insert_after/insert_before/append/prepend. Change ONLY what was asked, keep the rest intact, touch no other file, and never mix the two tags in one response." + _esSlideSpec();
   }
   return "[EMERALDSUITE EDIT PERMISSION — DENIED] The user did NOT ask you to change, create, save, rewrite or delete anything. The files below are READ-ONLY reference material. NEVER output <es-edit> or <es-app> in this response, not even partially, and never claim you have changed or saved a file. Naming a file, asking what is in it, asking for a summary, review, comparison, explanation or advice is NOT a request to edit it — answer in plain text only. If the user seems to want a change but never clearly asked for one, describe what you would change and wait for them to confirm.";
 }
@@ -7731,8 +8102,8 @@ async function _efApplyEdit(fEditRes, msgId) {
       if (!meta) return { app, id, ok: false, error: "not-found" };
       const title = hasTitle ? _esPlainText(edit.title) : (meta.title || (prev && prev.title) || "Untitled Presentation");
       let slides = (prev && Array.isArray(prev.slides)) ? prev.slides : [];
-      if (Array.isArray(edit.slides) && edit.slides.length) slides = edit.slides.map((s) => _esBuildSlide(s, edit));
-      else if (hasBody) slides = _esSplitSlides(edit).map((s) => _esBuildSlide(s, edit));
+      if (Array.isArray(edit.slides) && edit.slides.length) slides = edit.slides.map((s, i) => _esBuildSlide(s, edit, i));
+      else if (hasBody) slides = _esSplitSlides(edit).map((s, i) => _esBuildSlide(s, edit, i));
       else if (hasPatches) {
         // The prompt scopes patches to notes/docs. If one arrives for a deck,
         // apply it to whichever slide holds the anchor rather than rebuilding
