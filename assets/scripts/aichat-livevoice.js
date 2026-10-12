@@ -1196,11 +1196,18 @@ function updateLiveActions(running) {
     if (nameEl) nameEl.textContent = LIVE_LABEL;
 
     /* Intercept the chip click for as long as the call is up. The
-       model cannot be switched mid-session, so the menu must not open. */
-    LV._chipGuard = function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    };
+       model cannot be switched mid-session, so the menu must not open.
+
+       Created once and reused: add/removeEventListener only match by
+       function identity, so re-creating it on every entry would make
+       exitLiveView() remove the new (never-attached) function and leave
+       the previous guard stuck on the chip forever. */
+    if (!LV._chipGuard) {
+      LV._chipGuard = function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      };
+    }
     const chip = el("modelSelectorBtn");
     if (chip && !LV._chipBound) {
       chip.addEventListener("click", LV._chipGuard, true);
@@ -1641,7 +1648,7 @@ function applyLiveConversation(conv) {
            splice two conversations together, so it is remembered
            alongside the conversation it belongs to. */
         LV.sessionHandle = h || null;
-        LV.sessionConv = h ? (LV.convId || null) : null;
+        LV.sessionConv = h ? (typeof state !== "undefined" ? state.convId : null) : null;
       }
     });
   }
@@ -2007,8 +2014,14 @@ function applyLiveConversation(conv) {
     /* ── levels ───────────────────────────────────────────── */
 
     function pushLevel(arr, target) {
+      /* Int16 (the model's incoming PCM) has to be normalized first. The mic
+         path already delivers Float32 in [-1, 1], so feeding raw int16 made
+         the RMS ~32768x too large: `rms * 7` saturated instantly, pinning
+         onModelLevel to 1 for any audio at all — and, because both paths
+         share one accumulator, inflating the mic reading too. */
+      const scale = arr instanceof Int16Array ? 1 / 32768 : 1;
       for (let i = 0; i < arr.length; i++) {
-        const v = arr[i];
+        const v = arr[i] * scale;
         levelSum += v * v;
         levelSamples++;
       }
@@ -2286,7 +2299,14 @@ function applyLiveConversation(conv) {
       ready = false;
 
       /* If the server never answers the setup, the call would sit in
-         "connecting" with no timer and no way back. Give it a deadline. */
+         "connecting" with no timer and no way back. Give it a deadline.
+
+         A pre-handshake close schedules a reconnect without clearing this
+         timer, so the next connect() would overwrite the reference and
+         orphan the previous one — un-cancellable by teardown(), and still
+         armed to close whatever socket is current 12s later. Always drop
+         the old deadline before arming a new one. */
+      if (setupTimer) clearTimeout(setupTimer);
       setupTimer = setTimeout(() => {
         if (stopped || ready) return;
         try { socket.close(); } catch (e) { /* already closing */ }
@@ -2332,7 +2352,7 @@ function applyLiveConversation(conv) {
         /* Carry the previous context across a reconnect, but only when
            the handle belongs to this conversation. */
         const handle =
-          LV.sessionHandle && LV.sessionConv === (LV.convId || null)
+          LV.sessionHandle && LV.sessionConv === (typeof state !== "undefined" ? state.convId : null)
             ? LV.sessionHandle
             : null;
         if (handle && !minimalSetup) body.sessionResumption = { handle };

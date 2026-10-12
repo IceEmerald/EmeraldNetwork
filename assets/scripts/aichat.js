@@ -760,7 +760,7 @@ function setupMarked() {
         const raw = typeof c === "object" ? c.text ?? "" : String(c ?? "");
         try {
           const inline = marked.parseInline(raw);
-          return typeof DOMPurify !== "undefined" ? DOMPurify.sanitize(inline, { ADD_ATTR: ["target", "loading", "referrerpolicy", "onerror", "onload", "data-web-img"] }) : inline;
+          return typeof DOMPurify !== "undefined" ? DOMPurify.sanitize(inline, { ADD_ATTR: ["target", "loading", "referrerpolicy", "data-web-img"] }) : inline;
         } catch {
           return escapeHtml(raw);
         }
@@ -1063,7 +1063,7 @@ function renderMarkdown(raw) {
   text = text.replace(/\x02CODEBLOCK(\d+)\x02/g, (_, i) => codeBlocks[+i]);
   let html = marked.parse(text);
   if (typeof DOMPurify !== "undefined") {
-    html = DOMPurify.sanitize(html, { ADD_ATTR: ["target", "loading", "referrerpolicy", "onerror", "onload", "data-web-img"] });
+    html = DOMPurify.sanitize(html, { ADD_ATTR: ["target", "loading", "referrerpolicy", "data-web-img"] });
   }
   // Re-insert web image HTML after DOMPurify (img is allowed by default)
   html = html.replace(/WEBIMAGE(\d+)WEBIMAGE/g, (_, i) => {
@@ -3090,7 +3090,7 @@ async function handleSend(opts) {
   const fileParts = buildFileParts(files);
   if (fileParts.length) history[history.length - 1].parts.push(...fileParts);
 
-  // EmeraldSuite context is always injected; the write gate decides writes
+// EmeraldSuite context is always injected when the turn is about a file.
   _efResetWriteGate();
   if (!_silent) {
     try {
@@ -3383,12 +3383,9 @@ async function handleSend(opts) {
     const _quizParseFailed = _quizResult.parseFailed;
     displayText = _quizResult.before;
     const _appRaw = (quizData || _quizParseFailed) ? { appData: null, parseFailed: false, before: displayText, after: "" } : _extractEmeraldApp(displayText);
-    // Write gate: an <es-app> card creates a file, so drop it unless the user
-    // asked for one. The tag is still stripped, so no raw JSON reaches the UI.
-    const _appBlocked = !!_appRaw.appData && !_efWriteRequested;
-    const appData = _appBlocked ? null : _appRaw.appData;
-    const beforeAppText = _appBlocked ? [_appRaw.before, _appRaw.after].filter(Boolean).join("\n\n") : _appRaw.before;
-    const afterAppText = _appBlocked ? "" : _appRaw.after;
+    const appData = _appRaw.appData;
+    const beforeAppText = _appRaw.before;
+    const afterAppText = _appRaw.after;
     const _appParseFailed = _appRaw.parseFailed;
     displayText = beforeAppText;
     let _fEditRes = null;
@@ -3396,9 +3393,7 @@ async function handleSend(opts) {
       const _fe = _extractFileEdit(fullText);
       if (_fe.edit || _fe.parseFailed) {
         displayText = _fe.before;
-        // Write gate: same rule for edits — the payload is discarded unless the
-        // user's own message asked for the change.
-        _fEditRes = (_fe.edit && !_efWriteRequested) ? { blocked: true } : _fe;
+        _fEditRes = _fe;
       }
     }
     let _fileEditOutcome = null;
@@ -3445,11 +3440,9 @@ async function handleSend(opts) {
       renderEsAppCard(textEl, appData, afterAppText, msgId);
     } else if (_appParseFailed) {
       renderEsAppErrorCard(textEl);
-    } else if (_appBlocked) {
-      renderFileEditBadge(aiDiv, { ok: false, error: "not-requested" });
     }
     if (_fEditRes) {
-      _fileEditOutcome = await _efApplyEdit(_fEditRes, msgId);
+      _fileEditOutcome = await _efApplyEdit(_fEditRes, msgId, text);
       renderFileEditBadge(aiDiv, _fileEditOutcome);
     }
     const _groundingSources = extractGroundingSources(_groundingMetadata);
@@ -3881,10 +3874,9 @@ textEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.editStarted
     const _quizParseFailed = _quizResult.parseFailed;
     displayText = _quizResult.before;
     const _appRaw = (quizData || _quizParseFailed) ? { appData: null, parseFailed: false, before: displayText, after: "" } : _extractEmeraldApp(displayText);
-    const _appBlocked = !!_appRaw.appData && !_efWriteRequested;
-    const appData = _appBlocked ? null : _appRaw.appData;
-    const beforeAppText = _appBlocked ? [_appRaw.before, _appRaw.after].filter(Boolean).join("\n\n") : _appRaw.before;
-    const afterAppText = _appBlocked ? "" : _appRaw.after;
+    const appData = _appRaw.appData;
+    const beforeAppText = _appRaw.before;
+    const afterAppText = _appRaw.after;
     const _appParseFailed = _appRaw.parseFailed;
     displayText = beforeAppText;
     let _fEditRes = null;
@@ -3892,7 +3884,7 @@ textEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.editStarted
       const _fe = _extractFileEdit(fullText);
       if (_fe.edit || _fe.parseFailed) {
         displayText = _fe.before;
-        _fEditRes = (_fe.edit && !_efWriteRequested) ? { blocked: true } : _fe;
+        _fEditRes = _fe;
       }
     }
     let _fileEditOutcome = null;
@@ -3939,11 +3931,9 @@ textEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.editStarted
       renderEsAppCard(textEl, appData, afterAppText, newId);
     } else if (_appParseFailed) {
       renderEsAppErrorCard(textEl);
-    } else if (_appBlocked) {
-      renderFileEditBadge(aiDiv, { ok: false, error: "not-requested" });
     }
     if (_fEditRes) {
-      _fileEditOutcome = await _efApplyEdit(_fEditRes, newId);
+      _fileEditOutcome = await _efApplyEdit(_fEditRes, newId, regenUserText);
       renderFileEditBadge(aiDiv, _fileEditOutcome);
     }
     const _groundingSources = extractGroundingSources(_groundingMetadata);
@@ -5471,7 +5461,14 @@ function renderQuizWidget(qid, data) {
       const inlineInput = `<input type="text" class="quiz-fill-inline" id="${qid}_q${qi}_fill"
         oninput="_quizFillInput('${qid}',${qi},this.value)"
         placeholder="\u2026" autocomplete="off" spellcheck="false" size="14">`;
-      let joined = parts.map((p, i) => (p ? _mdInline(renderMarkdown(p)) : "") + (i < parts.length - 1 ? inlineInput : "")).join("");
+      /* A fill question carries a single "answer" string, so only the first
+         blank can be answerable. Emitting one input per blank gave them all
+         the same element id — so getElementById() during grading only ever
+         found the first — and each blank overwrote the same answers[qi] slot,
+         leaving the rest ungraded and still enabled after submit. Extra
+         blanks render as an inert underline instead. */
+      const staticBlank = `<span class="quiz-fill-static" aria-hidden="true"></span>`;
+      let joined = parts.map((p, i) => (p ? _mdInline(renderMarkdown(p)) : "") + (i < parts.length - 1 ? (i === 0 ? inlineInput : staticBlank) : "")).join("");
       // If the question has no ___ placeholder at all, append an input at the
       // end so the user actually has something to type into.
       if (!hasPlaceholder) {
@@ -6710,7 +6707,12 @@ function _extractQuiz(text) {
           const n2 = parseInt(v, 10);
           return isNaN(n2) || n2 < 0 || n2 >= n ? li : n2;
         });
-      } else if (norm.type === "fill" || norm.type === "essay") {
+      } else if (rawType === "fill" || rawType === "essay") {
+        /* Must test the lowercased `rawType`, not `norm.type`: the renderer
+           compares `q.type` against "fill"/"essay" exactly, so a mixed-case
+           "Fill" that fell through to the mcq branch below was rendered and
+           graded as a multiple-choice question. */
+        norm.type = rawType;
         if (typeof norm.answer !== "string") norm.answer = String(norm.answer ?? "");
       } else {
         norm.type = norm.type || "mcq";
@@ -6810,6 +6812,33 @@ function _esAccent(app) {
   return (app && _ES_APPS[app] && _ES_APPS[app].color) || "#0891b2";
 }
 const _ES_ANIM_TYPES = ["appear", "fade", "fly", "zoom", "spin", "bounce"];
+/* slides.js exposes exactly three triggers; "auto" is not one of them. */
+const _ES_ANIM_STARTS = ["click", "with", "after"];
+/* SlidesApp.TRANSITIONS (slides.js:3455-3499). */
+const _ES_TRANSITIONS = [
+  "none", "fade", "push", "wipe", "split", "reveal", "cut", "cover", "uncover", "random-bars", "shape", "blinds",
+  "morph", "fade-black", "zoom", "cube", "flip", "gallery", "vortex", "newsflash", "honeycomb", "glitch", "dissolve",
+  "checkerboard", "clock", "ripple", "doors", "switch", "curtains", "fracture", "peel-off", "glitter", "comb",
+  "pan", "rotate", "orbit", "fly-through", "conveyor"
+];
+/* SheetsApp font list (slides.html:123-154) — the model may use any string,
+   but these are the ones actually installed in the app's own picker. */
+const _ES_FONTS = [
+  "DM Sans", "Arial", "Helvetica", "Verdana", "Roboto", "Open Sans", "Lato", "Montserrat", "Poppins",
+  "Nunito", "Ubuntu", "Raleway", "Oswald", "Work Sans",
+  "Georgia", "Times New Roman", "Merriweather", "Lora", "Libre Baskerville", "DM Serif Display", "Crimson Text",
+  "Fira Code", "IBM Plex Mono", "Courier New",
+  "Dancing Script", "Caveat", "Pacifico", "Lobster", "Permanent Marker"
+];
+/* sheets.js BORDER_W (sheets.js:2884). These four are the ONLY values the
+   renderer maps to a width — "solid"/"dashed"/"dotted" do not exist and fall
+   back to 1px, so accepting them here would silently lie to the model. */
+const _ES_BORDER_STYLES = ["thin", "medium", "thick", "double"];
+const _ES_SHEET_ALIGN_H = ["left", "center", "right"];
+const _ES_SHEET_ALIGN_V = ["top", "middle", "bottom"];
+const _ES_NUM_CATS = ["general", "number", "currency", "accounting", "shortDate", "longDate", "time", "percent", "fraction", "text"];
+const _ES_CHART_TYPES = ["column", "bar", "line", "pie", "scatter"];
+const _ES_CHART_LABEL_POS = ["out", "in", "ctr"];
 function _esAppKind(data) {
   const a = String((data && data.app) || "").toLowerCase().trim();
   return _ES_APPS[a] ? a : null;
@@ -6957,6 +6986,9 @@ async function _esImportNotes(data) {
   let arr = await _esStoreGet("emeraldcore.storage.suite.notes");
   arr = Array.isArray(arr) ? arr : [];
   arr.unshift({ id, title: _esPlainText(data.title) || "Imported Note", content: _esHtml(data.content), createdAt: now, modifiedAt: now });
+  /* Notes carry a background colour (notes.js updateNoteColor). It was never
+     settable from here, so "make me a yellow note" silently did nothing. */
+  if (data.color) arr[0].color = String(data.color);
   await _esStoreSet("emeraldcore.storage.suite.notes", arr);
   return id;
 }
@@ -7023,14 +7055,109 @@ function _esNum(v, fallback) {
   return Number.isFinite(n) ? n : fallback;
 }
 function _esCssColor(v, fallback) {
-  /* Only pass through something the browser can paint — a malformed
+  /* Only pass through something the browser can paint - a malformed
      colour silently falls back to inherited black in the canvas and
      leaves text invisible on a dark background. */
   const s = String(v == null ? "" : v).trim();
   if (!s) return fallback;
+  /* The canvas accepts CSS gradients for fill/stroke and backgrounds
+     (slides.js svgPaint:134-142), so rejecting them here meant a gradient
+     the model correctly asked for was thrown away and the shape fell back
+     to the default fill. Characters are still restricted to the gradient
+     syntax so no arbitrary declaration can be smuggled through. */
+  if (/^(?:repeating-)?(?:linear|radial|conic)-gradient\([a-z0-9\s,.%#()/deg-]+\)$/i.test(s)) return s;
   if (/^(#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})|rgba?\(|hsla?\(|[a-z]+$)/i.test(s)) return s;
   return fallback;
 }
+/* ── Generated images ──────────────────────────────────────────────
+   Images produced by the image worker come back as data URLs and are stored
+   on the conversation message, not in any EmeraldSuite file. Without a way to
+   name one, "generate a logo then put it on slide 1" was impossible: the
+   add_image op only accepted a URL. This keeps the most recent few in
+   session memory so the model can reference them as "generated" / "last" /
+   "gen1", "gen2"… The data URL is written into the file on use, which is the
+   same thing notes.js and docs.js already do for pasted images. */
+const _ES_GEN_IMAGES = [];
+const _ES_GEN_MAX = 6;
+
+function _esRegisterGeneratedImage(dataUrl, prompt, mode) {
+  const src = String(dataUrl || "");
+  if (!/^data:image\//i.test(src)) return;
+  const i = _ES_GEN_IMAGES.findIndex((g) => g.dataUrl === src);
+  if (i >= 0) { _ES_GEN_IMAGES[i].prompt = prompt || _ES_GEN_IMAGES[i].prompt; return; }
+  _ES_GEN_IMAGES.push({ dataUrl: src, prompt: String(prompt || ""), mode: mode || "generate" });
+  while (_ES_GEN_IMAGES.length > _ES_GEN_MAX) _ES_GEN_IMAGES.shift();
+}
+
+/* Resolve a src the model wrote into something a file can store.
+   Returns "" when the reference cannot be honoured, so the caller reports the
+   op as missed rather than writing a broken image element. */
+function _esResolveImageSrc(src, alt) {
+  const raw = String(src == null ? "" : src).trim();
+  if (!raw) return "";
+  if (/^data:image\//i.test(raw) || /^https?:\/\//i.test(raw) || /^\//.test(raw) || /^blob:/i.test(raw)) return raw;
+  // Placeholder that points back at the image the model just made.
+  const pool = _ES_GEN_IMAGES;
+  if (!pool.length) return "";
+  let entry = null;
+  const m = /^gen\s*(\d+)$/i.exec(raw);
+  /* gen1 is the OLDEST image still kept, genN the newest, so the index maps
+     straight onto the retained window. Out-of-range clamps to the newest. */
+  if (m) entry = pool[Math.min(pool.length, Math.max(1, Number(m[1]))) - 1] || null;
+  else if (/^(last|generated|gen|latest|previous)$/i.test(raw)) entry = pool[pool.length - 1];
+  if (!entry) return "";
+  return entry.dataUrl;
+}
+/* Human-readable list for the prompt, so the model can pick a real index. */
+function _esGenImagesNote() {
+  if (!_ES_GEN_IMAGES.length) return "";
+  const items = _ES_GEN_IMAGES.slice(-_ES_GEN_MAX).map((g, i) =>
+    "gen" + (i + 1) + " = \"" + (g.prompt || "generated image").slice(0, 70) + "\""
+  );
+  return " Images already generated in this conversation, usable as \"src\" in add_image: " + items.join("; ") +
+    ". Use the exact \"gen1\"..\"gen" + _ES_GEN_IMAGES.length + "\" token, or \"last\" for the newest.";
+}
+
+/* Slide background. The app trusts `type` and assigns `value` straight to
+   canvas.style.background (slides.js:1709), so a gradient stored as
+   type:"color" paints as an invalid value and the slide falls back to white.
+   Type has to be derived from the value, exactly as the app's own swatch
+   handler does (slides.js:3193). */
+function _esSlideBg(value) {
+  const v = String(value == null ? "" : value).trim();
+  if (!v) return { type: "color", value: "#ffffff" };
+  if (/\b(?:repeating-)?(?:linear|radial|conic)-gradient\s*\(/i.test(v)) return { type: "gradient", value: v };
+  if (/^data:image\//i.test(v) || /^https?:\/\//i.test(v)) return { type: "image", value: v };
+  return { type: "color", value: v };
+}
+
+/* Image adjustments (slides.js:1103-1115). Each is skipped at its identity
+   value, which is what the app's own panel does, so an element only carries
+   the keys that actually change something. */
+function _esImageFx(fx) {
+  const o = {};
+  if (!fx || typeof fx !== "object") return null;
+  const n = (v, fb) => { const x = Number(v); return Number.isFinite(x) ? x : fb; };
+  const b = n(fx.brightness, 100); if (b !== 100) o.brightness = Math.max(0, Math.min(200, b));
+  const c = n(fx.contrast, 100); if (c !== 100) o.contrast = Math.max(0, Math.min(200, c));
+  const s = n(fx.saturate, 100); if (s !== 100) o.saturate = Math.max(0, Math.min(200, s));
+  const h = n(fx.hue, 0); if (h !== 0) o.hue = ((h % 360) + 360) % 360;
+  for (const k of ["grayscale", "sepia", "invert"]) {
+    const v = n(fx[k], 0);
+    if (v > 0) o[k] = Math.max(0, Math.min(1, v > 1 ? v / 100 : v));
+  }
+  const bl = n(fx.blur, 0); if (bl > 0) o.blur = Math.max(0, Math.min(40, bl));
+  return Object.keys(o).length ? o : null;
+}
+
+/* Normalised link target. slides.js routes clicks through safeOpenUrl, which
+   only allows http/https/mailto, so anything else is dropped rather than
+   stored and silently inert. */
+function _esElLink(v) {
+  const s = String(v == null ? "" : v).trim();
+  return /^(?:https?:|mailto:)/i.test(s) ? s : "";
+}
+
 /* One element in the Slides element model (see slides.js createElementDOM).
    Text is the fallback because a payload can only ever contain something
    the app will draw; an unreadable type used to vanish entirely. */
@@ -7041,36 +7168,52 @@ function _esSlideElement(el, z, fallbackColor) {
     x: _esNum(src.x, 60), y: _esNum(src.y, 60),
     w: _esNum(src.w, 840), h: _esNum(src.h, 120),
     r: _esNum(src.r, 0), z: _esNum(src.z, z || 1),
-    opacity: _esNum(src.opacity, 1)
+    opacity: Math.max(0, Math.min(1, _esNum(src.opacity, 1)))
   };
   const type = String(src.type || "text").toLowerCase();
+  const link = _esElLink(src.link);
 
   if (type === "shape") {
     const raw = String(src.shape || "rect").trim();
     const key = _ES_SHAPE_ALIAS[raw.toLowerCase()] || raw;
-    return Object.assign(box, {
+    const out = Object.assign(box, {
       type: "shape",
       shape: _ES_SHAPES.has(key) ? key : "rounded",
       fill: _esCssColor(src.fill, "#f97316"),
       stroke: _esCssColor(src.stroke, "none"),
       strokeWidth: Math.max(0, Math.min(40, _esNum(src.strokeWidth, 0)))
     });
+    /* A raw <svg> body is only honoured for shape:"icon" (slides.js:1826) and
+       is sanitised before use, so it is passed through as-is for that case. */
+    if (out.shape === "icon" && typeof src.svg === "string" && src.svg.trim()) {
+      out.svg = _esSanitizeHtml(src.svg);
+    }
+    if (link) out.link = link;
+    return out;
   }
 
-  if (type === "image") {
+  if (type === "image" || type === "video" || type === "audio") {
     const srcUrl = String(src.src || src.url || "");
-    return Object.assign(box, {
-      type: "image",
-      src: srcUrl,
-      alt: String(src.alt == null ? "" : src.alt),
-      crop: { l: 0, t: 0, r: 0, b: 0 },
-      borderWidth: _esNum(src.borderWidth, 0),
-      borderColor: _esCssColor(src.borderColor, "none")
-    });
+    const out = Object.assign(box, { type, src: srcUrl });
+    if (type === "image") {
+      out.alt = String(src.alt == null ? "" : src.alt);
+      /* crop is stored as FRACTIONS 0..1, not pixels (slides.js:1841-1850). */
+      const f = (v) => { const x = Number(v); return Number.isFinite(x) ? Math.max(0, Math.min(0.9, x)) : 0; };
+      const crop = { l: f(src.crop && src.crop.l), t: f(src.crop && src.crop.t), r: f(src.crop && src.crop.r), b: f(src.crop && src.crop.b) };
+      if (crop.l || crop.t || crop.r || crop.b) out.crop = crop;
+      const bw = Math.max(0, Math.min(20, _esNum(src.borderWidth, 0)));
+      if (bw) out.borderWidth = bw;
+      if (bw) out.borderColor = _esCssColor(src.borderColor, "#000000");
+      const fx = _esImageFx(src.fx);
+      if (fx) out.fx = fx;
+    }
+    if (type === "video" && src.poster) out.poster = String(src.poster);
+    if (link) out.link = link;
+    return out;
   }
 
   const raw = src.text != null ? src.text : src.html != null ? src.html : "";
-  return Object.assign(box, {
+  const out = Object.assign(box, {
     type: "text",
     /* rawHtml is HTML this file composed itself (the card labels, which
        carry inline accent colours). It is sanitised but NOT run back
@@ -7082,12 +7225,19 @@ function _esSlideElement(el, z, fallbackColor) {
     bold: !!src.bold, italic: !!src.italic, underline: !!src.underline,
     color: _esCssColor(src.color, fallbackColor || "#1a1a1a"),
     /* Paint behind the text. This is the cheapest way to give a run of
-       text a coloured box without positioning a separate shape. */
-    highlight: _esCssColor(src.highlight, "transparent"),
+       text a coloured box without positioning a separate shape.
+       "none"/"" mean no highlight — slides.js reads `el.highlight ||
+       'transparent'`, so a literal "none" would be painted as the CSS
+       keyword and could still resolve to a visible colour. */
+    highlight: (src.highlight === "none" || src.highlight === "") ? "transparent"
+      : _esCssColor(src.highlight, "transparent"),
     textAlign: ["left", "center", "right", "justify"].includes(String(src.textAlign))
       ? String(src.textAlign) : "left",
     listType: src.listType === "ul" || src.listType === "ol" ? src.listType : ""
   });
+  /* Hyperlinks work on text elements too (slides.js:1731, ctrl-click). */
+  if (link) out.link = link;
+  return out;
 }
 
 /* ── Deck auto-design ───────────────────────────────────────────
@@ -7157,8 +7307,12 @@ function _esSlideItems(md) {
       cur = { marker: "", label: l[1].trim(), text: (l[2] || "").trim() };
       continue;
     }
-    if (b) { if (mode === "n" || mode === "ul") push(); mode = "ul"; if (!cur || mode === "para") cur = { marker: "", label: "", text: "", bullet: true }; cur.bullet = true; cur.text = (cur.text ? cur.text + " " : "") + b[1].trim(); continue; }
-    if (n) { if (mode === "ul" || mode === "n") push(); mode = "n"; cur = { marker: n[1], label: "", text: n[2].trim() }; continue; }
+    /* "para" must be flushed too: it was missing here, so a paragraph
+       directly followed by a list item had its `cur` overwritten instead of
+       pushed and its text was lost. (The old `|| mode === "para"` test sat
+       after `mode` had already been reassigned, so it could never be true.) */
+    if (b) { if (mode === "n" || mode === "ul" || mode === "para") push(); mode = "ul"; if (!cur) cur = { marker: "", label: "", text: "", bullet: true }; cur.bullet = true; cur.text = (cur.text ? cur.text + " " : "") + b[1].trim(); continue; }
+    if (n) { if (mode === "ul" || mode === "n" || mode === "para") push(); mode = "n"; cur = { marker: n[1], label: "", text: n[2].trim() }; continue; }
 
     /* A table row or a fenced block would otherwise be chopped into
        separate cards that no longer read as the table they came from. */
@@ -7330,7 +7484,7 @@ function _esBuildSlide(s, data, index) {
   const hasText = !!(src.textColor || (data && data.textColor));
   const bg = src.background || (data && data.background) || "#ffffff";
   const textColor = src.textColor || (data && data.textColor) || "#1a1a1a";
-  const slide = { id: _esUid("sld_"), background: { type: "color", value: String(bg) }, elements: [], notes };
+  const slide = { id: _esUid("sld_"), background: _esSlideBg(bg), elements: [], notes };
   let els = [];
 
   if (Array.isArray(src.elements) && src.elements.length) {
@@ -7369,16 +7523,40 @@ function _esBuildSlide(s, data, index) {
       if (!els.length) els.push(_esSlideElement({ text: "", x: 60, y: 44, w: 840, h: 90, fontSize: 40, bold: true, color: textColor }, z++, textColor));
     }
   }
-  slide.elements = els;
+slide.elements = els;
+  /* Transitions are a first-class slide property (slides.js:3765/3863) and
+     were unreachable from here, so a deck could never carry one. */
+  if (src.transition && typeof src.transition === "object") {
+    const tr = src.transition;
+    const ttype = _ES_TRANSITIONS.includes(String(tr.type || "").toLowerCase()) ? String(tr.type).toLowerCase() : "none";
+    const dur = Number(tr.duration);
+    const out = { type: ttype, duration: Number.isFinite(dur) && dur > 0 ? Math.min(10, dur) : 0.7 };
+    if (tr.onClick === false) out.onClick = false;
+    if (tr.autoAfter === true) {
+      const secs = Number(tr.afterSec);
+      out.autoAfter = true;
+      out.afterSec = Number.isFinite(secs) && secs > 0 ? Math.min(600, Math.round(secs)) : 5;
+    }
+    if (ttype !== "none" || out.autoAfter) slide.transition = out;
+  }
   if (Array.isArray(src.animations) && src.animations.length) {
     slide.animations = src.animations.map((a) => {
       const t = Number(a && a.target);
       const targetEl = els[Number.isFinite(t) ? t : 0];
       if (!targetEl) return null;
       const type = _ES_ANIM_TYPES.includes(String(a.type).toLowerCase()) ? String(a.type).toLowerCase() : "fade";
-      const start = ["click", "with", "after", "auto"].includes(String(a.start).toLowerCase()) ? String(a.start).toLowerCase() : "click";
+      /* "auto" was whitelisted here but no consumer in slides.js handles it —
+         it silently fell through to the click branch. Only the three real
+         triggers are accepted. */
+      const start = _ES_ANIM_STARTS.includes(String(a.start || "").toLowerCase()) ? String(a.start).toLowerCase() : "click";
       const dur = Number(a.duration);
-      return { id: _esUid("anm_"), elementId: targetEl.id, type, start, duration: Number.isFinite(dur) && dur > 0 ? dur : 0.5 };
+      const delay = Number(a.delay);
+      const out = {
+        id: _esUid("anm_"), elementId: targetEl.id, type, start,
+        duration: Number.isFinite(dur) && dur > 0 ? Math.min(10, dur) : 0.5
+      };
+      if (Number.isFinite(delay) && delay > 0) out.delay = Math.min(60, delay);
+      return out;
     }).filter(Boolean);
   }
   return slide;
@@ -7402,75 +7580,237 @@ function _esColIndex(letter) {
   for (let i = 0; i < s.length; i++) n = n * 26 + (s.charCodeAt(i) - 64);
   return n - 1;
 }
+/* Cell borders. The canonical path is s.border.{t,r,b,l} (singular "border",
+   single-letter keys — sheets.js:607), each side either null or { style, color }.
+   Only thin|medium|thick|double exist; anything else renders as 1px, so an
+   unvalidated "dashed" would look applied while not being so. */
+function _esBorderSide(v) {
+  if (v == null || v === false) return null;
+  if (typeof v === "string") return { style: _ES_BORDER_STYLES.includes(v) ? v : "thin", color: "#4a4a4a" };
+  if (typeof v !== "object") return null;
+  const st = String(v.style == null ? "thin" : v.style).toLowerCase();
+  return { style: _ES_BORDER_STYLES.includes(st) ? st : "thin", color: String(v.color || "#4a4a4a") };
+}
+function _esBorder(v) {
+  if (!v || typeof v !== "object") return null;
+  const b = { t: _esBorderSide(v.t || v.top), r: _esBorderSide(v.r || v.right), b: _esBorderSide(v.b || v.bottom), l: _esBorderSide(v.l || v.left) };
+  return (b.t || b.r || b.b || b.l) ? b : null;
+}
 function _esCellStyle(st) {
   const o = {};
   if (!st) return null;
   if (st.bold) o.bold = true;
   if (st.italic) o.italic = true;
-  if (st.underline) o.underline = st.underline === 2 ? 2 : 1;
+  if (st.underline) o.underline = st.underline === 2 || st.underline === "double" ? 2 : 1;
   if (st.strike) o.strike = true;
   if (st.color) o.color = String(st.color);
   if (st.backgroundColor || st.fill) o.backgroundColor = String(st.backgroundColor || st.fill);
-  if (st.halign) o.halign = String(st.halign);
-  if (st.valign) o.valign = String(st.valign);
+  const halign = String(st.halign || st.horizontal || "").toLowerCase();
+  if (_ES_SHEET_ALIGN_H.includes(halign)) o.halign = halign;
+  const valign = String(st.valign || st.vertical || "").toLowerCase();
+  if (_ES_SHEET_ALIGN_V.includes(valign)) o.valign = valign;
   if (st.wrap) o.wrap = true;
-  if (Number.isFinite(+st.fontSize)) o.fontSize = +st.fontSize;
+  if (Number.isFinite(+st.fontSize)) o.fontSize = Math.max(1, Math.min(400, +st.fontSize));
   if (st.fontFamily) o.fontFamily = String(st.fontFamily);
-  if (st.numberFormat) o.numberFormat = String(st.numberFormat);
+  /* "General" is the app's absence-of-format value and normalises to null
+     (sheets.js:603), so storing it would be a lie. */
+  if (st.numberFormat && st.numberFormat !== "General") o.numberFormat = String(st.numberFormat);
+  const cat = String(st.numFmtCat || "").toLowerCase();
+  if (_ES_NUM_CATS.includes(cat)) o.numFmtCat = cat;
+  if (Number.isFinite(+st.decimals)) o.decimals = Math.max(0, Math.min(10, Math.round(+st.decimals)));
+  if (Number.isFinite(+st.indent)) o.indent = Math.max(0, Math.round(+st.indent));
+  const border = _esBorder(st.border || st.borders);
+  if (border) o.border = border;
   return Object.keys(o).length ? o : null;
 }
-function _esBuildSheetData(data) {
-  const id = _esUid("sh_");
-  const cells = {}, rows = {}, cols = {};
-  const matrix = Array.isArray(data.rows) ? data.rows : [];
+/* Chart spec → sheets.js chart object (constructor at sheets.js:8752-8766).
+   `range` is A1 notation and is parsed by the app, so it is passed through
+   unchanged after a shape check. */
+function _esChart(c, sheetId) {
+  if (!c || typeof c !== "object") return null;
+  const type = String(c.type || "column").toLowerCase();
+  const range = String(c.range || "").trim();
+  if (!/^\$?[A-Za-z]{1,3}\$?\d+:\$?[A-Za-z]{1,3}\$?\d+$/.test(range)) return null;
+  const num = (v, fb) => { const n = Number(v); return Number.isFinite(n) ? n : fb; };
+  const out = {
+    id: _esUid("cht_"),
+    type: _ES_CHART_TYPES.includes(type) ? type : "column",
+    title: String(c.title == null ? "" : c.title),
+    range: range.replace(/\$/g, ""),
+    seriesInRows: !!c.seriesInRows,
+    sheetId: sheetId,
+    x: num(c.x, 0), y: num(c.y, 0), w: Math.max(120, num(c.w, 440)), h: Math.max(80, num(c.h, 300))
+  };
+  if (Array.isArray(c.colors) && c.colors.length) out.colors = c.colors.map(String);
+  if (Array.isArray(c.seriesNames) && c.seriesNames.length) out.seriesNames = c.seriesNames.map(String);
+  if (Array.isArray(c.seriesTypes) && c.seriesTypes.length) {
+    out.seriesTypes = c.seriesTypes.map((t) => (["column", "bar", "line"].includes(String(t)) ? String(t) : null));
+  }
+  if (typeof c.dataLabels === "boolean") out.dataLabels = c.dataLabels;
+  const lp = String(c.labelPos || "").toLowerCase();
+  if (_ES_CHART_LABEL_POS.includes(lp)) out.labelPos = lp;
+  if (c.labelFmt) out.labelFmt = String(c.labelFmt);
+  if (c.axisTitles && typeof c.axisTitles === "object") out.axisTitles = Object.assign({}, c.axisTitles);
+  return out;
+}
+
+/* Serialized sheet (sheets.js serializeSheet, :2633-2640). `cells` is a plain
+   object keyed "row,col" (zero-based, sheets.js:47), `merges` is an array of
+   [r1,c1,r2,c2], and axis entries are { s: size px, h: hidden, fh: filtered }. */
+function _esBuildSheetData(data, seed) {
+  const src = data && typeof data === "object" ? data : {};
+  const id = (seed && seed.id) || _esUid("sh_");
+  const cells = {};
+  const rows = {}, cols = {};
+  const matrix = Array.isArray(src.rows) ? src.rows : [];
+
+  /* A leading "=" means a formula. These were stored as literal text before,
+     so no AI-authored sheet could ever compute anything. The app keeps the
+     source WITH the leading "=" and strips it when parsing (sheets.js:892). */
+  const putCell = (r, c, val, style) => {
+    if (val == null || val === "") {
+      if (style) cells[r + "," + c] = { v: "", f: null, s: style };
+      return;
+    }
+    if (typeof val === "object" && val !== null) {
+      // { v, f, s } form, for full control.
+      const f = val.f != null ? String(val.f) : null;
+      const v = f ? null : (val.v != null ? val.v : "");
+      cells[r + "," + c] = { v: v === undefined ? "" : v, f: (f && !f.startsWith("=")) ? "=" + f : f, s: _esCellStyle(val.s || val.style) };
+      return;
+    }
+    if (typeof val === "string" && val.charAt(0) === "=") {
+      cells[r + "," + c] = { v: null, f: val, s: style || null };
+      return;
+    }
+    let v = val;
+    if (typeof val === "string") {
+      const n = Number(val);
+      if (val.trim() !== "" && Number.isFinite(n) && /^-?\d*\.?\d+([eE][+-]?\d+)?$/.test(val.trim())) v = n;
+      else if (val.trim().toLowerCase() === "true") v = true;
+      else if (val.trim().toLowerCase() === "false") v = false;
+    }
+    cells[r + "," + c] = { v, f: null, s: style || null };
+  };
+
   matrix.forEach((rowArr, r) => {
     if (!Array.isArray(rowArr)) return;
     rowArr.forEach((val, c) => {
       if (val === null || val === undefined || val === "") return;
-      cells[r + "," + c] = { v: val, f: null, s: null };
+      putCell(r, c, val, null);
     });
   });
-  if (data.cellStyles && typeof data.cellStyles === "object") {
-    for (const ref in data.cellStyles) {
-      const m = /^([A-Za-z]+)(\d+)$/.exec(ref);
+
+  /* Alternative cell form: {"A1": value, "B2": {v,f,s}} — cheaper for the
+     model to emit than a full rows matrix when it is only touching a few
+     cells, and what the "set one cell" op path uses. */
+  if (src.cells && typeof src.cells === "object" && !Array.isArray(src.cells)) {
+    for (const ref in src.cells) {
+      const m = /^([A-Za-z]{1,3})(\d{1,7})$/.exec(ref.trim());
+      if (!m) continue;
+      const r = parseInt(m[2], 10) - 1, c = _esColIndex(m[1]);
+      if (r < 0 || c < 0) continue;
+      putCell(r, c, src.cells[ref], null);
+    }
+  }
+
+  if (src.cellStyles && typeof src.cellStyles === "object") {
+    for (const ref in src.cellStyles) {
+      const m = /^([A-Za-z]{1,3})(\d{1,7})$/.exec(ref.trim());
       if (!m) continue;
       const r = parseInt(m[2], 10) - 1, c = _esColIndex(m[1]);
       if (r < 0 || c < 0) continue;
       const key = r + "," + c;
-      const st = _esCellStyle(data.cellStyles[ref]);
+      const st = _esCellStyle(src.cellStyles[ref]);
       if (!cells[key]) cells[key] = { v: "", f: null, s: null };
       if (st) cells[key].s = st;
     }
   }
-  if (Array.isArray(data.columnWidths)) {
-    data.columnWidths.forEach((w, c) => { const n = Number(w); if (Number.isFinite(n) && n > 0) cols[c] = { s: Math.round(n), h: 0, fh: 0 }; });
-  } else if (data.columnWidths && typeof data.columnWidths === "object") {
-    for (const k in data.columnWidths) {
-      const c = /^[A-Za-z]+$/.test(k) ? _esColIndex(k) : parseInt(k, 10);
-      const n = Number(data.columnWidths[k]);
-      if (Number.isFinite(c) && c >= 0 && Number.isFinite(n) && n > 0) cols[c] = { s: Math.round(n), h: 0, fh: 0 };
+
+  const axis = (spec, key) => {
+    if (Array.isArray(spec)) {
+      spec.forEach((w, i) => { const n = Number(w); if (Number.isFinite(n) && n > 0) key[i] = { s: Math.round(n), h: 0, fh: 0 }; });
+    } else if (spec && typeof spec === "object") {
+      for (const k in spec) {
+        const i = /^[A-Za-z]+$/.test(k) ? _esColIndex(k) : parseInt(k, 10);
+        const n = Number(spec[k]);
+        if (Number.isFinite(i) && i >= 0 && Number.isFinite(n) && n > 0) key[i] = { s: Math.round(n), h: 0, fh: 0 };
+      }
     }
+  };
+  axis(src.columnWidths, cols);
+  axis(src.rowHeights, rows);
+
+  /* Merges serialize as [r1,c1,r2,c2] with inclusive bounds. */
+  const merges = [];
+  const pushMerge = (r1, c1, r2, c2) => {
+    const a = Math.min(r1, r2), b = Math.max(r1, r2), x = Math.min(c1, c2), y = Math.max(c1, c2);
+    if (!(a >= 0 && x >= 0)) return;
+    if (merges.some((m) => m[0] === a && m[1] === x && m[2] === b && m[3] === y)) return;
+    merges.push([a, x, b, y]);
+  };
+if (Array.isArray(src.merges)) {
+        src.merges.forEach((m) => {
+          if (Array.isArray(m) && m.length >= 4) pushMerge(+m[0] || 0, +m[1] || 0, +m[2] || 0, +m[3] || 0);
+          else if (m && typeof m === "object") pushMerge(+m.r1 || 0, +m.c1 || 0, +m.r2 || 0, +m.c2 || 0);
+        });
+      }
+      /* A1-style ranges ("A1:B2") are also accepted. Handled independently of
+         `merges` rather than in an else, so a payload may supply both. */
+      if (Array.isArray(src.ranges)) {
+        src.ranges.forEach((rg) => {
+          const m = /^\s*([A-Za-z]{1,3})(\d{1,7})\s*:\s*([A-Za-z]{1,3})(\d{1,7})\s*$/.exec(String(rg || ""));
+          if (!m) return;
+          pushMerge(parseInt(m[2], 10) - 1, _esColIndex(m[1]), parseInt(m[4], 10) - 1, _esColIndex(m[3]));
+        });
+      }
+
+  const charts = [];
+  if (Array.isArray(src.charts)) {
+    for (const c of src.charts) { const ch = _esChart(c, id); if (ch) charts.push(ch); }
   }
-  const fr = data.freeze && typeof data.freeze === "object" ? data.freeze : {};
+
+  const fr = src.freeze && typeof src.freeze === "object" ? src.freeze : {};
+  const tab = src.tabColor ? String(src.tabColor) : null;
   return {
-    id, name: _esPlainText(data.sheetName) || "Sheet1",
-    tabColor: data.tabColor || null, hidden: false,
-    cells, rows, cols, merges: [], notes: [],
+    id, name: _esPlainText(src.sheetName || src.name) || "Sheet1",
+    tabColor: tab, hidden: !!src.hidden,
+    cells, rows, cols, merges, notes: [],
     freeze: { r: Math.max(0, parseInt(fr.r, 10) || 0), c: Math.max(0, parseInt(fr.c, 10) || 0) },
-    charts: [], dv: [], filter: null, showGridlines: true
+    charts, showGridlines: src.showGridlines === false ? false : true
+  };
+}
+
+/* Multi-sheet workbooks. `sheets` (array) was ignored before, so a request
+   for a workbook with a Summary and a Detail tab silently produced one tab. */
+function _esBuildWorkbook(data, wbId, now) {
+  const src = data && typeof data === "object" ? data : {};
+  const title = _esPlainText(src.title) || "Imported Spreadsheet";
+  let sheets = [];
+  if (Array.isArray(src.sheets) && src.sheets.length) {
+    sheets = src.sheets
+      .map((s) => (s && typeof s === "object" ? _esBuildSheetData(s) : null))
+      .filter(Boolean);
+  } else {
+    sheets = [_esBuildSheetData(src)];
+  }
+  const requested = _esPlainText(src.activeSheet || src.activeSheetName);
+  const active = (requested && sheets.find((s) => s.name.toLowerCase() === requested.toLowerCase())) || sheets[0];
+  return {
+    sheets,
+    data: {
+      v: 1, id: wbId, title, createdAt: now,
+      sheets, activeSheetId: active.id, names: {},
+      calcMode: src.calcMode === "manual" ? "manual" : "auto",
+      view: { zoom: 1, showFormulaBar: true, showHeadings: true, showFormulas: false }
+    }
   };
 }
 async function _esImportSheets(data) {
   const wbId = "book_" + Date.now() + "_" + generateSecureId(9);
   const now = Date.now();
-  const title = _esPlainText(data.title) || "Imported Spreadsheet";
-  const sheet = _esBuildSheetData(data);
-  const wbData = {
-    v: 1, id: wbId, title, createdAt: now,
-    sheets: [sheet], activeSheetId: sheet.id, names: {}, calcMode: "auto",
-    view: { zoom: 1, showFormulaBar: true, showHeadings: true, showFormulas: false }
-  };
-  await _esSheetsPut(wbId, { id: wbId, data: wbData, savedAt: now });
+  const built = _esBuildWorkbook(data, wbId, now);
+  await _esSheetsPut(wbId, { id: wbId, data: built.data, savedAt: now });
   return wbId;
 }
 async function openEsAppImport(id) {
@@ -7544,19 +7884,25 @@ document.addEventListener("click", function(e) {
    This is what keeps "fix the typo" working right after a file edit while
    leaving "what's the capital of France?" completely unaware files exist. */
 
-/* ── Write gate ────────────────────────────────────────────────
-   The model can only be trusted loosely, so the user's own message is the
-   authority: a file is written or created ONLY when that message explicitly
-   asks for the change. Merely mentioning a file, asking what is in it, asking
-   for advice, or asking the AI to summarize/compare it stays READ-ONLY, and a
-   stray <es-edit>/<es-app> payload is stripped and thrown away. Computed per
-   request by _suiteAutoContext(), checked before every write. */
-let _efWriteRequested = false;
-/* Called before every request so a turn can never inherit the previous turn's
-   verdict. _suiteAutoContext() now always runs and overwrites this, but it
-   awaits IndexedDB and can throw, so the reset stays as the floor. */
+/* ── Write gate — REMOVED ───────────────────────────────────────
+   There used to be a per-request gate here: _efDetectWriteRequest()
+   regex-tested the user's message for edit verbs, and anything that did not
+   match was labelled read-only, its <es-edit>/<es-app> payload stripped and
+   discarded on arrival.
+
+   It blocked far more than it protected. "go ahead", "do it", "same but blue",
+   "sort the dates" and "fix that typo" all name no file kind, so the regex
+   read them as read-only and the model produced a correct payload that was
+   then thrown away — the user saw the change described and nothing happen.
+   Deciding whether a message implies a change is a judgement call, and a
+   keyword list cannot make one.
+
+   The model now decides, and _efDirective() states the rules it must respect.
+   The safety comes from the payload shape rather than a gate: ops touch only
+   what they name, so a wrong guess damages one element instead of a file. */
 function _efResetWriteGate() {
-  _efWriteRequested = false;
+  /* Kept as a no-op: the call sites still run before a request, and removing
+     them everywhere would be churn for no behaviour change. */
 }
 
 const _EF_WRITE_VERB = /\b(edit|update|rewrite|revise|fix|change|modify|replace|rename|retitle|reword|proofread|correct|improve|expand|shorten|lengthen|reformat|reorder|reorgani[sz]e|organi[sz]e|sort|add|append|prepend|insert|remove|delete|erase|trim|clear|fill|write|save|overwrite|create|draft|compose|generate|apply|convert|translate|continue|finish|complete|tweak|adjust|boost|merge|split|build|make|clean|tidy|polish|redo|revamp|restyle|retheme|redesign|unify|standardi[sz]e|shorter|longer|simpler|clearer|neater|formal|casual|bulleted|bullet\s*point|turn|transform|rephrase|paraphrase|restructure|condense|expand|iterate|iterate\s*on|improve\s*it|start\s*over|overhaul|correct|drop|include|incorporate|add\s+in|throw\s+in)\b/i;
@@ -7634,39 +7980,6 @@ function _suiteContextAllowed(userText) {
   return false;
 }
 
-/* Asking ABOUT content is not asking to change it. Checked before the verbs so
-   "summarize my docs" cannot rewrite the documents — the file noun alone used to
-   reach "hasFileRef && !isWhQuestion" and return true, silently overwriting a
-   file the user only wanted read. Anything here is safe to auto-write later. */
-const _EF_READONLY_ASK = /\b(summari[sz]e|summary|recap|list|show|read|review|compare|contrast|explain|describe|analy[sz]e|analysis|find|search|count|check|extract|tell me about|walk me through|break down|feedback|thoughts on|what('s| is| are)|how many|which|where)\b/i;
-
-function _efDetectWriteRequest(userText) {
-  const t = String(userText || "").trim();
-  if (!t) return false;
-  const hasWriteVerb = _EF_WRITE_VERB.test(t);
-  const hasNewFile = _EF_NEW_FILE.test(t);
-  const hasFileRef = _EF_FILE_REF.test(t);
-  const isQuestion = /\?$/.test(t);
-  const hasDirectAsk = _EF_DIRECT_ASK.test(t);
-  const isWhQuestion = _EF_WH_QUESTION.test(t);
-
-  if (_EF_ADVICE_QUESTION.test(t)) return false;
-  // A read-only ask wins over a verb, except when the user pairs it with a real
-  // instruction ("summarize it AND save it") — that is a write.
-  if (_EF_READONLY_ASK.test(t) && !(hasWriteVerb && hasDirectAsk)) return false;
-  if (hasWriteVerb || hasNewFile) return true;
-  if (_efSuiteLatch && _EF_APPROVAL.test(t)) return true;
-  if (hasFileRef && (hasDirectAsk || !isWhQuestion)) return true;
-  // A bare follow-up approving an earlier request — "go ahead", "do it",
-  // "continue", "apply it" — is a write instruction too. It names no file
-  // kind, so it used to be read as read-only and the payload was rejected even
-  // though the turn before it had just been granted the file. Safe because
-  // this only unblocks a payload; it cannot invent one.
-  if (hasDirectAsk && !isQuestion && !isWhQuestion) return true;
-  if (isQuestion && !hasDirectAsk && !hasFileRef) return false;
-  if (isWhQuestion && !hasWriteVerb && !hasNewFile && !hasDirectAsk) return false;
-  return false;
-}
 
 function _efLabel(app) { return (_ES_APPS[app] && _ES_APPS[app].label) || app; }
 
@@ -7689,9 +8002,65 @@ async function _efRead(app, id) {
       if (!d || !Array.isArray(d.slides)) return { app, id, title: "", text: "", exists: false };
       const parts = [];
       d.slides.forEach((s, i) => {
-        const title = _esPlainText(s && s.title) || "Slide " + (i + 1);
+        /* Slides are stored as the element model — { elements: [{ html }] } —
+           with no `title`/`content` of their own, so reading those two
+           properties yielded "Slide N" plus notes and the AI never actually
+           saw the slide's text. Pull the text out of the elements, ordered
+           top-to-bottom then left-to-right, and keep the old properties as a
+           fallback for anything saved before this shape existed. */
+        const body = _esPlainText(s && s.content);
+        let lines;
+        if (!body && s && Array.isArray(s.elements)) {
+          /* Reading order: top to bottom, then left to right. z is the paint
+             order, not the layout order, so it must not decide this. */
+          lines = s.elements
+            .filter((el) => el && el.type !== "image")
+            .slice()
+            .sort((a, b) => (Number(a.y) || 0) - (Number(b.y) || 0) || (Number(a.x) || 0) - (Number(b.x) || 0))
+            .map((el) => _esPlainText(el.html != null ? el.html : el.text))
+            .filter(Boolean);
+        }
+        const first = lines && lines.length ? lines[0] : "";
+        const title = _esPlainText(s && s.title) || (first || "Slide " + (i + 1));
+        const rest = lines && lines.length ? lines.slice(1).join("\n") : "";
         const notes = _esPlainText(s && s.notes);
-        parts.push("## " + title + (notes ? "  (notes: " + notes + ")" : "") + "\n" + _esPlainText(s && s.content));
+        parts.push("## Slide " + (i + 1) + " — " + title + (notes ? "  (notes: " + notes + ")" : "") + "\n" + (body || rest));
+
+        /* An element map, so an op can target "element 2 on slide 3" without
+           the model having to re-send the slide to learn its own id. */
+        if (s && Array.isArray(s.elements) && s.elements.length) {
+          let map = "[elements] ";
+          s.elements.forEach((el, ei) => {
+            const bits = [];
+            if (el.type === "text") {
+              if (el.fontSize) bits.push("size=" + el.fontSize);
+              if (el.bold) bits.push("bold");
+              if (el.italic) bits.push("italic");
+              if (el.underline) bits.push("underline");
+              if (el.fontFamily) bits.push("font=" + el.fontFamily);
+              if (el.textAlign && el.textAlign !== "left") bits.push("align=" + el.textAlign);
+              if (el.listType) bits.push("list=" + el.listType);
+            }
+            if (el.type === "shape" && el.shape) bits.push("shape=" + el.shape);
+            if (el.type === "image" || el.type === "video" || el.type === "audio") bits.push("src=" + String(el.src || "").slice(0, 60));
+            map += (ei + 1) + "=" + (el.type || "text") +
+              " @" + el.x + "," + el.y + " " + el.w + "x" + el.h +
+              (el.r ? " rot=" + el.r : "") +
+              (el.color ? " color=" + el.color : "") +
+              (bits.length ? " [" + bits.join(" ") + "]" : "") + "; ";
+          });
+          if (Array.isArray(s.animations) && s.animations.length) {
+            map += " [animations] ";
+            s.animations.forEach((a, ai) => {
+              map += (ai + 1) + "=" + a.type + "/" + (a.start || "click") +
+                (a.duration ? "/" + a.duration + "s" : "") + "; ";
+            });
+          }
+          if (s.transition && s.transition.type && s.transition.type !== "none") {
+            map += " [transition] " + s.transition.type + (s.transition.duration ? "/" + s.transition.duration + "s" : "");
+          }
+          parts.push(map);
+        }
       });
       return { app, id, title: d.title || "Untitled Presentation", text: parts.join("\n\n"), exists: true };
     }
@@ -7699,8 +8068,30 @@ async function _efRead(app, id) {
       const doc = await _efSheetsGet(id);
       const data = doc && doc.data;
       if (!data) return { app, id, title: "", text: "", exists: false };
-      const sheet = Array.isArray(data.sheets) && data.sheets.length ? data.sheets[0] : null;
-      return { app, id, title: data.title || "Untitled Spreadsheet", text: sheet ? (sheet.name ? "Sheet: " + sheet.name + "\n" : "") + _efSheetToMd(sheet) : "(empty)", exists: true };
+      const sheets = Array.isArray(data.sheets) ? data.sheets : [];
+      /* Name every tab up front — a workbook can hold several and an op that
+         omits "sheet" lands on the active one, so the model has to be able
+         to see them all. */
+      let head = "[tabs] ";
+      sheets.forEach((s, i) => {
+        head += (i + 1) + "=" + (s.name || "Sheet") + (s.id === data.activeSheetId ? " (active)" : "") +
+          ((s.charts && s.charts.length) ? " charts=" + s.charts.length : "") +
+          ((s.merges && s.merges.length) ? " merges=" + s.merges.length : "") + "; ";
+      });
+      const body = sheets.map((s) => {
+        let b = "### Tab: " + (s.name || "Sheet") + "\n";
+        if (s.charts && s.charts.length) {
+          b += "charts: " + s.charts.map((c, ci) =>
+            (ci + 1) + "=" + (c.type || "column") + " " + (c.range || "") + (c.title ? ' "' + c.title + '"' : "")
+          ).join("; ") + "\n";
+        }
+        if (s.merges && s.merges.length) {
+          b += "merges: " + s.merges.map((m) => "r" + m[0] + "c" + m[1] + ":r" + m[2] + "c" + m[3]).join(", ") + "\n";
+        }
+        b += _efSheetToMd(s);
+        return b;
+      }).join("\n\n");
+      return { app, id, title: data.title || "Untitled Spreadsheet", text: head + "\n" + (body || "(empty)"), exists: true };
     }
   } catch (e) { console.warn("File read failed:", e); }
   return { app, id, title: "", text: "", exists: false };
@@ -7717,6 +8108,10 @@ function _efSheetToMd(sheet) {
   if (maxC > 19) maxC = 19;
   const val = (r, c) => {
     const m = sheet.cells[r + "," + c]; if (!m) return "";
+    /* A formula cell stores its source in `f` with v:null, so reading only
+       `v` made every computed column read as empty — the model then saw an
+       empty sheet where the real numbers were. */
+    if (m.f) return String(m.f);
     let v = m.v; if (v === null || v === undefined || typeof v === "object") v = "";
     return String(v);
   };
@@ -7740,19 +8135,14 @@ function _efSheetToMd(sheet) {
 /* Auto-read every EmeraldSuite file (catalog + latest contents) from storage.
    Injected only when the user's message is about that content — see
    _suiteContextAllowed(). userText = the user's own message this turn; it also
-   decides whether the model may write anything at all (write gate above).
+   decides whether the model's file context is injected at all.
    Returns null when the suite is irrelevant, which is the common case for
    general chat, so the model stays a normal assistant there. */
 async function _suiteAutoContext(userText) {
   // The suite is only discussed when the user brings it up. Checked FIRST, before
   // any storage read: an unrelated question should not even pull the private
   // catalog out of IndexedDB, let alone put it in front of the model.
-  if (!_suiteContextAllowed(userText)) {
-    _efWriteRequested = false;
-    return null;
-  }
-  // Set first, synchronously, so no request can ever inherit a stale verdict.
-  _efWriteRequested = _efDetectWriteRequest(userText);
+  if (!_suiteContextAllowed(userText)) return null;
   const items = [];
   const note = async (app, id, title, upd) => {
     const r = await _efRead(app, id);
@@ -7786,12 +8176,15 @@ async function _suiteAutoContext(userText) {
     // with no idea the tag existed: "create a note about X" on an empty suite
     // got answered in plain text and no file was ever made. Still tell it how
     // to create one when the turn asked for a change.
-    if (!_efWriteRequested) return null;
+/* No files yet — but the model still needs the create syntax, otherwise
+       "make me a note about X" on an empty suite is answered in plain text
+       and no file is ever made. */
     return _efDirective() + "\n[EMERALDSUITE FILES]\nThe user has no files in EmeraldSuite yet.\n" +
-      " There is nothing to edit, so CREATE the file with <es-app>{\"app\":\"...\", ...}</es-app> — no \"id\" is needed." +
+      " There is nothing to edit, so CREATE the file with <es-app>{...}</es-app> — no \"id\" is needed." +
       ' Payload shapes: notes {"app":"notes","title":"...","content":"markdown"}; docs {"app":"docs","title":"...","content":"markdown"};' +
-      ' slides {"app":"slides","title":"...","slides":[{"title":"...","content":"..."}]}; sheets {"app":"sheets","title":"...","sheetName":"Sheet1","rows":[["A1","B1"]]}.' +
-      _esSlideSpec() +
+      ' slides {"app":"slides","title":"...","background":"#hex","slides":[{"title":"...","content":"...","background":"#hex","transition":{"type":"fade","duration":0.7},"animations":[{"target":0,"type":"fade","start":"click","duration":0.5}]}]};' +
+      ' sheets {"app":"sheets","title":"...","sheets":[{"sheetName":"Sheet1","rows":[["A1","B1"]],"cellStyles":{"A1":{"bold":true,"backgroundColor":"#eef"}},"merges":["A1:B1"],"columnWidths":{"A":160},"charts":[{"range":"A1:C10","type":"column","title":"Sales"}]}]}.' +
+      _esSlideSpec() + _esOpsSpec() +
       " Emit exactly one payload and do not also emit <es-edit>.";
   }
   items.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
@@ -7805,19 +8198,16 @@ async function _suiteAutoContext(userText) {
     if (body.length > 5000) body = body.slice(0, 5000) + "\n[...truncated...]";
     block += "\n### " + _efLabel(it.app) + " — \"" + it.title.replace(/\n/g, " ") + "\" (ID: " + it.id + ")\n" + body + "\n";
   }
-  if (_efWriteRequested) {
-    block += "\nThe user EXPLICITLY ASKED you to change something in this turn, so you MAY write ONE file: respond with your normal text plus <es-edit>{\"app\":\"the-app\",\"id\":\"the-file-id\",\"title\":\"...\",\"content\":\"full new content (markdown)\"}</es-edit>" +
-      " — the FULL new file content, with the same \"app\" and \"id\" from the catalog. For slides: {\"app\":\"slides\",\"id\":\"...\",\"title\":\"...\",\"slides\":[...]} — for sheets: {\"app\":\"sheets\",\"id\":\"...\",\"title\":\"...\",\"rows\":[[...]],\"sheetName\":\"Sheet1\"}." +
-      " Change ONLY what the user asked; keep the rest intact." +
-      " To CREATE a brand-new file instead, use <es-app>{...}</es-app> (the import card, no id needed)." +
-      " For an existing note/doc that is long, prefer compact patches instead of re-sending everything: {\"app\":\"...\",\"id\":\"...\",\"patches\":[{\"op\":\"replace\",\"find\":\"exact existing text\",\"text\":\"replacement\"}]} — ops: replace, delete, insert_after, insert_before, append, prepend. \"find\" must be copied exactly from [FILE CONTENTS]." +
-      _esSlideSpec() +
-      " Still touch nothing else, and emit exactly one payload.";
-  }
+  block += "\nYou may edit these files whenever it helps — decide for yourself whether this message calls for a change.\n" +
+      'PREFER targeted ops: <es-edit>{"app":"the-app","id":"the-file-id","ops":[...]}</es-edit>, which changes only what it names. Use ops for recolouring, resizing, moving, inserting text/shapes/images, adding a chart, setting a border, merging, adding or animating a slide, appending to a note, and so on.\n' +
+      'Use {"app":"...","id":"...","content":"full new markdown"} ONLY when the whole file should be replaced, and <es-app>{...}</es-app> to CREATE a brand-new file.\n' +
+      "But answer in plain text and write nothing when the user only asked a question or wanted a summary, review, comparison or explanation.\n" +
+      "Change ONLY what the request calls for, touch no other file, and emit exactly one payload." +
+      _esOpsSpec() + _esSlideSpec();
   if (block.length > 26000) block = block.slice(0, 26000) + "\n[...truncated...]";
   // The directive is prepended, never appended: the catalog above is truncated
-  // for large file sets, and a clipped "read-only" rule would silently reopen
-  // the hole where the model rewrites a file nobody asked it to touch.
+  // for large file sets, and a clipped rules block would silently reopen the
+  // hole where the model edits a file nobody asked it to touch.
   return _efDirective() + "\n" + block;
 }
 
@@ -7825,12 +8215,65 @@ async function _suiteAutoContext(userText) {
    Without it the model only ever sent {"title","content"}, which is why
    generated decks came out as unstyled text on white. Kept in one place so
    the create and edit paths cannot drift apart. */
+/* The feature vocabulary. The model can only pick from what it is told
+   exists, and these are the REAL enums the apps accept — anything else
+   silently degrades to a default with no feedback. Injected ONLY when a
+   write has been authorised, so ordinary chat pays nothing for the tokens. */
+function _esOpsSpec() {
+  return (
+    "\n[EMERALDSUITE EDIT OPS — prefer these over resending a file]\n" +
+    'Payload: <es-edit>{"app":"...","id":"...","ops":[ {...}, {...} ]}</es-edit>\n' +
+    'ops change ONLY what they name; every other part of the file is left exactly as it is. Use ops for any targeted change; use "content"/"slides"/"rows" only when rewriting the whole file is genuinely what was asked. You may send several ops in one payload and they apply in order.\n' +
+    "Indices are 1-BASED. Address a slide as \"slide\":1 or \"slide\":\"last\"; an element as \"el\":1. Omit them and slide 1 / element 1 is used. Sheets address by \"sheet\":\"Name\" or number; omit to use the active tab.\n" +
+    "SLIDES ops: set_slide_bg{slide,background} | add_slide{at,title,content|elements,background,transition,animations} | delete_slide{slide} | duplicate_slide{slide} | move_slide{from,to} | " +
+    "set_title{slide,el,title} | set_notes{slide,notes} | set_transition{slide,transition,duration,autoAfter,afterSec,clear} | " +
+    "add_text{slide,text,x,y,w,h,fontSize,fontFamily,bold,italic,underline,color,highlight,textAlign,listType} | " +
+    "add_shape{slide,shape,x,y,w,h,fill,stroke,strokeWidth} | " +
+    "add_image{slide,src,alt,x,y,w,h,crop:{l,t,r,b},borderWidth,borderColor,fx:{brightness,contrast,saturate,hue,grayscale,sepia,invert,blur}} | " +
+    "set_slide_bg{slide,background} (a hex colour, \"linear-gradient(135deg,#hex,#hex)\", an https image URL, or an image reference below) | " +
+    "set_el{slide,el,x,y,w,h,r,z,opacity,bold,italic,underline,fontSize,fontFamily,color,highlight,textAlign,listType,text,fill,stroke,strokeWidth,link,borderWidth,borderColor,fx} | " +
+    "move_el{slide,el,x,y} or move_el{slide,el,dx,dy} | resize_el{slide,el,w,h} or resize_el{slide,el,scale} | " +
+    "animate{slide,el,animation,start,duration,delay} | delete_animation{slide,index} | delete_el{slide,el} | duplicate_el{slide,el}\n" +
+    "  slide background: a hex colour, \"linear-gradient(135deg,#hex,#hex)\", or an https image URL. " +
+    "shapes: rect rounded ellipse triangle rightTriangle diamond pentagon hexagon octagon decagon star star4 star6 star8 star12 seal1 seal2 arrow arrowLeft arrowRight arrowUp arrowDown arrowUturn arrowChevron arrowBent arrowNotched arrowStriped arrowCalloutR arrowCalloutD arrowCircular arrowQuad chevron bar calloutRect calloutRound calloutEllipse calloutCloud heart lightning sun moon cloud wave smile cube can scroll donut teardrop plus cross ribbon plaque chamfer frameRect foldCorner pie bracketL bracketR heartRibbon sunStar gear snowflake fcProcess fcDecision fcData fcDocument fcTerminator fcPreparation fcConnector fcDelay fcDisplay fcManualOp fcSort none. Unknown names fall back to rounded, so use these.\n" +
+    "  text: fontSize in px; fontFamily one of DM Sans, Arial, Helvetica, Verdana, Roboto, Open Sans, Lato, Montserrat, Poppins, Nunito, Ubuntu, Raleway, Oswald, Work Sans, Georgia, Times New Roman, Merriweather, Lora, Libre Baskerville, DM Serif Display, Crimson Text, Fira Code, IBM Plex Mono, Courier New, Dancing Script, Caveat, Pacifico, Lobster, Permanent Marker; color/highlight are any CSS colour; textAlign left|center|right|justify; listType ul|ol|\".\n" +
+    "  animations: appear fade fly zoom spin bounce. start: click|with|after. duration and delay are in SECONDS (duration 0.1-10, delay 0-60).\n" +
+    "  transitions: none fade push wipe split reveal cut cover uncover shape blinds random-bars morph fade-black zoom cube flip gallery vortex newsflash honeycomb glitch dissolve checkerboard clock ripple doors switch curtains fracture peel-off glitter comb pan rotate orbit fly-through conveyor. duration in seconds (0.1-10).\n" +
+    "  crop is a FRACTION 0-0.9 per side, not pixels. fx percentages are 0-200 for brightness/contrast/saturate, 0-360 for hue, 0-1 for grayscale/sepia/invert, px for blur.\n" +
+    "SHEETS ops: set_cell{cell|range,value|formula|style} | set_style{range,style} | set_border{range,border:{t,r,b,l},clear} | clear_cells{range} | " +
+    "set_col_width{col,width} | set_row_height{row,height} | merge{range} | unmerge{range} | " +
+    "add_chart{range,type,title,colors,seriesNames,dataLabels,labelPos,x,y,w,h} | delete_chart{index} | " +
+    "add_sheet{name,rows,at,activate} | delete_sheet{sheet} | rename_sheet{sheet,name} | set_tab_color{sheet,color} | " +
+    "set_freeze{rows,cols} | set_gridlines{value} | set_calc_mode{mode}\n" +
+    "  cell and range use A1 notation: cell:\"B2\", range:\"A1:D20\". Give the used block, not whole-column ranges. " +
+    "value is a number, string or bool; a STRING beginning with \"=\" is stored as a live formula (e.g. \"=SUM(B2:B10)\", \"=AVERAGE(C2:C9)\").\n" +
+    "  style: {bold,italic,underline:1|2,strike,color,backgroundColor,halign:left|center|right,valign:top|middle|bottom,wrap,fontFamily,fontSize,numberFormat,numFmtCat,decimals,indent}. " +
+    "border sides are the keys t,r,b,l and each side is {style,color} where style is EXACTLY one of thin|medium|thick|double — there is no dashed, dotted or solid; anything else renders as 1px.\n" +
+    "  chart types: column bar line pie scatter. range like \"A1:C10\". labelPos out|in|ctr. add_chart places it at x,y with size w,h in px.\n" +
+    "  Formula functions available include SUM AVERAGE COUNT COUNTA COUNTIF COUNTIFS SUMIF SUMIFS SUMPRODUCT MIN MAX MEDIAN ABS SQRT POWER ROUND AND OR NOT XOR IF IFERROR IFS SWITCH CONCATENATE CONCAT TEXTJOIN LEFT RIGHT MID LEN UPPER LOWER TRIM REPLACE SUBSTITUTE FIND SEARCH VLOOKUP HLOOKUP XLOOKUP INDEX MATCH INDIRECT ROW COLUMN ROWS COLUMNS TODAY NOW DATE YEAR MONTH DAY PMT FV PV NPV IRR SPARKLINE.\n" +
+    "NOTES/DOCS ops: append_html{html} | prepend_html{html} | append{markdown} | prepend{markdown} | replace_html{html} | replace_all{find,text} | delete_html{find} | insert_before{find,html|markdown} | insert_after{find,html|markdown} | " +
+    'add_image{src,alt,anchor}\n' +
+    'Set "title" on the payload to rename; "color" renames a note background; "header"/"footer" set a doc\'s running header/footer.\n' +
+    "  IMAGE SOURCES: \"src\" accepts an https image URL, or a token naming an image ALREADY GENERATED earlier in this conversation. " +
+    "That is how you put something you just made into a file: emit the [GENERATE_IMAGE] tag as usual, then in a later message (or the same reply, if the image is already in context) use add_image with the matching token." +
+    _esGenImagesNote() + "\n" +
+    "  allowed html tags: p br strong em u b i ul ol li h1-h6 div span a table thead tbody tfoot tr td th colgroup col font img s strike sub sup input. " +
+    "There is NO <pre>, <hr>, <blockquote> or <code> — those get unwrapped, so a code block must be a <div> with a monospace font-family.\n" +
+    '  image: <img src="https://..." alt="..." style="max-width:100%;height:auto;border-radius:6px;"> (https/data-image only)\n' +
+    '  checklist: <div class="todo-item"><input type="checkbox" class="todo-checkbox"><span class="todo-label"> text</span></div>\n' +
+    "  table: <table><thead><tr><th>H</th></tr></thead><tbody><tr><td>v</td></tr></tbody></table>\n" +
+    "  docs only, page break: <div class=\"emdocs-page-break\"><span class=\"pb-label\">— Page Break —</span></div><p><br></p>\n"
+  );
+}
+
 function _esSlideSpec() {
   return " SLIDE DESIGN — a slide canvas is 960x540 px and every position is in pixels from the top-left. " +
-    'A slide may be {"title":"...","content":"markdown"} (auto-laid-out with a palette, cards and headings) OR be fully designed with "background" (a CSS colour) and "elements": [...]. ' +
-    'Elements: {"type":"text","x":..,"y":..,"w":..,"h":..,"text":"markdown **bold** ok","fontSize":24,"bold":true,"italic":false,"color":"#1a1a1a","textAlign":"left|right|center","highlight":"rgba(0,0,0,0.05)"}; ' +
-    '{"type":"shape","x":..,"y":..,"w":..,"h":..,"shape":"rect|rounded|ellipse|triangle|diamond|hexagon|pentagon|star|arrow|calloutRect|calloutRound|donut|plus|line|lineArrow|chevron-ish arrowChevron|corner","fill":"#hex or rgba()","stroke":"#hex or none","strokeWidth":0}; ' +
-    '{"type":"image","x":..,"y":..,"w":..,"h":..,"src":"https://...","alt":"..."}. ' +
+    'A slide may be {"title":"...","content":"markdown"} (auto-laid-out with a palette, cards and headings) OR be fully designed with "background" and "elements": [...]. ' +
+    '"background" may be a hex colour, a "linear-gradient(135deg,#hex,#hex)" string, or an https image URL — the right type is inferred from the value.\n' +
+    'Elements: {"type":"text","x":..,"y":..,"w":..,"h":..,"text":"markdown **bold** ok","fontSize":24,"bold":true,"italic":false,"underline":false,"fontFamily":"DM Sans","color":"#1a1a1a","highlight":"rgba(0,0,0,0.05)","textAlign":"left|center|right","listType":"ul|ol","r":0,"z":1,"opacity":1,"link":"https://..."}; ' +
+    '{"type":"shape","x":..,"y":..,"w":..,"h":..,"shape":"rect|rounded|ellipse|triangle|diamond|hexagon|pentagon|star|arrow|arrowRight|calloutRect|calloutRound|donut|plus|line|lineArrow|arrowChevron|heart|cloud","fill":"#hex or rgba() or linear-gradient()","stroke":"#hex or none","strokeWidth":0}; ' +
+    '{"type":"image","x":..,"y":..,"w":..,"h":..,"src":"https://...","alt":"...","borderWidth":0,"borderColor":"#hex","crop":{"l":0,"t":0,"r":0,"b":0},"fx":{"brightness":100,"contrast":100,"saturate":100,"hue":0,"grayscale":0,"blur":0}} (crop is a 0-0.9 fraction per side, fx brightness/contrast/saturate are 0-200).\n' +
+    'A slide may also carry "transition":{"type":"fade","duration":0.7,"autoAfter":false,"afterSec":5} and "animations":[{"target":0,"type":"fade","start":"click","duration":0.5,"delay":0}] where "target" is the 0-based index into that slide\'s "elements". Animation types: appear fade fly zoom spin bounce; start: click|with|after; duration and delay in seconds.\n' +
     "Design it like a real deck, not a text dump: give EVERY slide a background colour (tinted, not plain white); " +
     "put text in cards/panels by drawing a shape behind it (give the shape a lower \"z\" than the text) or by setting the text element's \"highlight\"; " +
     "colour your headings and key terms rather than leaving every line the same colour; use 1 accent colour consistently across the deck plus 1-2 supporting colours; " +
@@ -7841,11 +8284,33 @@ function _esSlideSpec() {
 
 /* The permission header sent with every EmeraldSuite context block. Kept as its
    own function so it is built once, up front, and cannot be truncated away. */
+/* What the model is told about writing to files.
+
+   There used to be a hard gate here: the browser regex-tested the user's
+   message for edit verbs, and anything that did not match was told
+   "PERMISSION — DENIED", with the payload discarded on arrival if it wrote
+   anyway. That blocked far more than it protected — "go ahead", "do it" and
+   "make it like that instead" all name no file kind and were read as
+   read-only, so the turn after the model produced a perfectly good payload
+   threw it away. It also decided for the model: whether a message implies a
+   change is a judgement call, and a keyword list cannot make it.
+
+   So the model now decides, and the rules it must respect are stated instead
+   of being pattern-matched. The safety comes from the ops themselves, which
+   touch only what they name — a wrong guess damages one element, not a file. */
 function _efDirective() {
-  if (_efWriteRequested) {
-    return "[EMERALDSUITE EDIT PERMISSION — GRANTED] The user EXPLICITLY asked you to change something in this message, so you may write a file. Emit AT MOST ONE payload: <es-edit>{\"app\":\"...\",\"id\":\"...\",\"title\":\"...\",\"content\":\"full new content (markdown)\"}</es-edit> — the FULL new content, with the same \"app\" and \"id\" from the catalog below. For slides: {\"app\":\"slides\",\"id\":\"...\",\"title\":\"...\",\"slides\":[...]} — for sheets: {\"app\":\"sheets\",\"id\":\"...\",\"title\":\"...\",\"rows\":[[...]],\"sheetName\":\"Sheet1\"}. To CREATE a brand-new file use <es-app>{...}</es-app> (no id needed). For a long existing note/doc prefer compact patches over re-sending the whole file: {\"app\":\"...\",\"id\":\"...\",\"patches\":[{\"op\":\"replace\",\"find\":\"exact existing text\",\"text\":\"replacement\"}]} with ops replace/delete/insert_after/insert_before/append/prepend. Change ONLY what was asked, keep the rest intact, touch no other file, and never mix the two tags in one response." + _esSlideSpec();
-  }
-  return "[EMERALDSUITE EDIT PERMISSION — DENIED] The user did NOT ask you to change, create, save, rewrite or delete anything. The files below are READ-ONLY reference material. NEVER output <es-edit> or <es-app> in this response, not even partially, and never claim you have changed or saved a file. Naming a file, asking what is in it, asking for a summary, review, comparison, explanation or advice is NOT a request to edit it — answer in plain text only. If the user seems to want a change but never clearly asked for one, describe what you would change and wait for them to confirm.";
+  return "[EMERALDSUITE EDIT PERMISSION — YOU DECIDE] You may create and edit the user's EmeraldSuite files whenever it is genuinely helpful, and you judge for yourself whether this message calls for it. " +
+    'Your PREFERRED payload is targeted ops: <es-edit>{"app":"...","id":"...","ops":[...]}</es-edit>, which changes only what it names and leaves the rest of the file untouched. Use that for recolouring, resizing, moving, inserting, adding a chart, setting a border, adding or animating a slide, appending to a note — and also for carrying out a change the user implies rather than states ("go ahead", "do it", "same but blue", "fix that typo", "actually make it a table"). ' +
+    'When the whole file genuinely should be replaced, use {"app":"...","id":"...","content":"full new markdown"}; to CREATE a brand-new file use <es-app>{...}</es-app> (no id needed). ' +
+    "Use the same \"app\" and \"id\" from the catalog.\n" +
+    "RULES, in priority order:\n" +
+    "1. If the user asked a question, asked for a summary, review, comparison, explanation or opinion, or is just chatting — answer in plain text and write NOTHING. Reading a file is not permission to change it.\n" +
+    "2. If the user described a state they want (\"I need the dates sorted\", \"this should be a bar chart\"), treat that as a request to make it so.\n" +
+    "3. If a change is obvious, low-risk and clearly serves what they asked for, make it. You do not need the word \"edit\". Adding, restyling, moving, resizing, recolouring, inserting and formatting are all fine to do unasked.\n" +
+    "4. DELETING IS DIFFERENT. Deleting a slide or element, clearing cells, or replacing a whole document body removes their work and there is NO undo. Only do it when they actually asked for something to go away (delete, remove, clear, drop, shorten, \"get rid of\", \"no longer need\"). If a deletion would be a reasonable next step but they did not ask for it, do the safe part now and ask about the deletion in one line - never do it silently, and never quietly skip it either.\n" +
+    "5. Never touch a second file. Emit AT MOST ONE payload, and never mix <es-edit> with <es-app> in one response. Put every change they asked for into that single payload - they apply in order.\n" +
+    "6. Never claim you saved, changed or deleted something unless the payload actually succeeded. If something was held back for confirmation, say so.\n" +
+    _esOpsSpec() + _esSlideSpec();
 }
 
 /* String-aware JSON repair for <es-edit> / <es-app> payloads.
@@ -7955,8 +8420,10 @@ function _extractFileEdit(text) {
   if (!parseFailed) {
     const valid = edit && typeof edit === "object" && !Array.isArray(edit) &&
       (edit.title != null || edit.content != null || Array.isArray(edit.slides) ||
-       Array.isArray(edit.patches) ||
-       edit.rows != null || edit.cells != null || edit.data != null);
+       Array.isArray(edit.patches) || Array.isArray(edit.ops) ||
+       edit.rows != null || edit.cells != null || edit.data != null ||
+       Array.isArray(edit.sheets) || Array.isArray(edit.charts) ||
+       Array.isArray(edit.merges) || edit.cellStyles != null);
     if (!valid) { parseFailed = true; edit = null; }
   }
   return { before, after, edit, parseFailed };
@@ -8017,10 +8484,753 @@ function _efApplyPatches(text, patches) {
   return { text: out, applied, missed: list.length - applied };
 }
 
-async function _efApplyEdit(fEditRes, msgId) {
+/* ── Irreversible ops ────────────────────────────────────────────
+   The model now decides for itself whether a message calls for a change,
+   which removes the false negatives the old keyword gate caused. What is
+   left is one real hazard: a misjudgement that DELETES. Adding a shape,
+   recolouring text or moving a box is cheap to notice and trivially undone
+   ("undo that", "put it back"); deleting a slide or clearing cells is not,
+   and the file has no undo stack of its own.
+
+   So only the destructive ops get a floor, and only when the user's message
+   contains no removal signal at all. Everything else — every additive and
+   cosmetic op — is applied unconditionally, which is why "go ahead", "same
+   but blue" and "sort them" keep working. When a destructive op is held back
+   the model is told why, so it can ask rather than silently under-deliver. */
+const _ES_DESTRUCTIVE_OPS = new Set([
+  "delete_slide", "delete_el", "delete_animation",
+  "delete_sheet", "delete_chart", "clear_cells",
+  "delete_html", "replace_html"
+]);
+/* Wording that genuinely asks for something to go away. Deliberately broad:
+   under-triggering here is what would annoy the user, and over-triggering
+   only allows a delete the user did plausibly ask for. */
+const _ES_REMOVE_SIGNAL = /\b(delete|delet(e|ing|ion)|remove|removing|removal|clear|clearing|erase|erasing|drop|dropping|get rid of|prune|purge|wipe|wipe out|cut|cutting|trim|trimming|scrap|scrap(s|ped)?|shorten|shortening|condense|condensing|throw (it |them )?away|no longer (need|want)|without (the|those|them)|discard|take (it |them )?out|lose the|kill the)\b/i;
+
+function _esFilterDestructive(ops, userText) {
+  const list = Array.isArray(ops) ? ops : [];
+  if (!list.length) return { ops: list, held: [], asked: false };
+  if (_ES_REMOVE_SIGNAL.test(String(userText || ""))) return { ops: list, held: [], asked: true };
+  const keep = [], held = [];
+  for (const o of list) {
+    const kind = String((o && o.op) || "").toLowerCase();
+    if (_ES_DESTRUCTIVE_OPS.has(kind)) held.push(kind);
+    else keep.push(o);
+  }
+  return { ops: keep, held, asked: false };
+}
+
+/* ══ TARGETED EDIT OPS ═══════════════════════════════════════════════
+   The original contract was "resend the whole file": {"app","id","content"}
+   or a full "slides"/"rows" array. That forces the model to echo a file it
+   only read a truncated copy of, and for slides/sheets it REPLACED the
+   stored model wholesale — so a two-word change discarded every hand-made
+   design, animation, transition, chart and extra tab.
+
+   ops[] changes exactly what it names and leaves everything else byte-for-
+   byte alone. Each op targets by INDEX (1-based, as the model counts) or by
+   the stored id, so "make the title on slide 2 bigger" never needs the
+   caller to re-send the deck.
+
+   Unknown ops are reported, never silently dropped — a model that typo'd
+   should learn it, not believe it edited something. */
+function _esOpIndex(op, alt) {
+  const n = Number(op != null ? op : alt);
+  if (!Number.isFinite(n)) return -1;
+  return n > 0 ? Math.floor(n) : Math.floor(n) - 1; // 1-based -> 0-based
+}
+/* Locate a slide: by id, by 1-based number, or "last"/"first". */
+function _esFindSlide(slides, spec) {
+  if (!Array.isArray(slides) || !slides.length) return -1;
+  const raw = spec == null ? 1 : String(spec).trim();
+  if (raw === "" || raw === "last" || raw === "-1") return slides.length - 1;
+  if (raw === "first" || raw === "1") return 0;
+  if (slides.some((s) => s && s.id === raw)) return slides.findIndex((s) => s.id === raw);
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 0;
+  const i = Math.floor(n) - 1;
+  return i >= 0 && i < slides.length ? i : -1;
+}
+function _esFindEl(slide, spec) {
+  const els = (slide && Array.isArray(slide.elements)) ? slide.elements : [];
+  if (!els.length) return -1;
+  const raw = spec == null ? 1 : String(spec).trim();
+  if (raw === "last") return els.length - 1;
+  if (els.some((e) => e && e.id === raw)) return els.findIndex((e) => e.id === raw);
+  if (raw === "" || raw === "first") return 0;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 0;
+  const i = Math.floor(n) - 1;
+  return i >= 0 && i < els.length ? i : -1;
+}
+/* Apply a style/geometry patch to a slide element, touching only the keys
+   the caller actually supplied so everything else is preserved. */
+function _esPatchElement(el, p) {
+  if (!el || !p || typeof p !== "object") return false;
+  let touched = false;
+  const setNum = (key, min, max) => {
+    if (p[key] == null) return;
+    const n = Number(p[key]);
+    if (!Number.isFinite(n)) return;
+    el[key] = Math.max(min, Math.min(max, n)); touched = true;
+  };
+  const setBool = (key) => {
+    if (p[key] == null) return;
+    el[key] = !!p[key]; touched = true;
+  };
+  setNum("x", -2000, 4000); setNum("y", -2000, 4000);
+  setNum("w", 8, 4000); setNum("h", 8, 4000);
+  setNum("r", -360, 360); setNum("opacity", 0, 1); setNum("z", 0, 10000);
+  setBool("bold"); setBool("italic"); setBool("underline");
+  if (p.fontSize != null) { const n = Number(p.fontSize); if (Number.isFinite(n) && n > 0) { el.fontSize = Math.min(400, n); touched = true; } }
+  if (p.fontFamily) { el.fontFamily = String(p.fontFamily); touched = true; }
+  if (p.color != null) { el.color = _esCssColor(p.color, el.color); touched = true; }
+  if (p.highlight != null) { el.highlight = p.highlight === "none" || p.highlight === "" ? "transparent" : _esCssColor(p.highlight, "transparent"); touched = true; }
+  if (p.textAlign != null || p.align != null) {
+    const a = String(p.textAlign != null ? p.textAlign : p.align).toLowerCase();
+    if (["left", "center", "right", "justify"].includes(a)) { el.textAlign = a; touched = true; }
+  }
+  if (p.listType != null) { el.listType = p.listType === "ul" || p.listType === "ol" ? String(p.listType) : ""; touched = true; }
+  if (p.fill != null && el.type === "shape") { el.fill = _esCssColor(p.fill, el.fill); touched = true; }
+  if (p.stroke != null && el.type === "shape") { el.stroke = _esCssColor(p.stroke, el.stroke); touched = true; }
+  if (p.strokeWidth != null && el.type === "shape") {
+    const n = Number(p.strokeWidth); if (Number.isFinite(n)) { el.strokeWidth = Math.max(0, Math.min(40, n)); touched = true; }
+  }
+  if (p.link !== undefined) { const l = _esElLink(p.link); if (l) { el.link = l; touched = true; } }
+  if (p.borderWidth != null && el.type === "image") {
+    const n = Number(p.borderWidth); if (Number.isFinite(n)) { el.borderWidth = Math.max(0, Math.min(20, n)); touched = true; }
+  }
+  if (p.borderColor != null && el.type === "image") { el.borderColor = _esCssColor(p.borderColor, "#000000"); touched = true; }
+  if (p.fx != null && el.type === "image") { const fx = _esImageFx(p.fx); if (fx) { el.fx = fx; touched = true; } }
+  if (p.text != null && el.type === "text") { el.html = _esHtml(p.text); touched = true; }
+  return touched;
+}
+
+/* ── SLIDES ops ───────────────────────────────────────────────────── */
+function _esOpsSlides(slides, ops) {
+  let applied = 0;
+  const notes = [];
+  for (const op of ops) {
+    if (!op || typeof op !== "object") { notes.push("skipped a non-object op"); continue; }
+    const kind = String(op.op || "").toLowerCase();
+    let si = -1;
+    switch (kind) {
+      case "add_slide":
+      case "delete_slide":
+      case "move_slide":
+      case "duplicate_slide":
+      case "set_slide_bg":
+      case "set_transition":
+      case "set_notes":
+      case "set_title":
+      case "add_text":
+      case "add_shape":
+      case "add_image":
+      case "animate":
+      case "delete_animation":
+      case "set_el":
+      case "move_el":
+      case "resize_el":
+      case "style_el":
+      case "delete_el":
+      case "duplicate_el":
+        si = kind === "add_slide" ? -1 : _esFindSlide(slides, op.slide != null ? op.slide : op.slideIndex);
+        break;
+      default:
+        notes.push("unknown slide op \"" + kind + "\"");
+        continue;
+    }
+
+    if (kind === "add_slide") {
+      const at = op.at != null ? _esOpIndex(op.at) : slides.length;
+      const built = _esBuildSlide(op.slide && typeof op.slide === "object" ? op.slide : op, op, at);
+      slides.splice(Math.max(0, Math.min(slides.length, at)), 0, built);
+      applied++;
+      continue;
+    }
+    if (kind === "delete_slide") {
+      if (si < 0) { notes.push("no slide " + op.slide); continue; }
+      if (slides.length <= 1) { notes.push("cannot delete the only slide"); continue; }
+      slides.splice(si, 1);
+      applied++;
+      continue;
+    }
+    if (kind === "duplicate_slide") {
+      if (si < 0) { notes.push("no slide " + op.slide); continue; }
+      const src = slides[si];
+      const copy = JSON.parse(JSON.stringify(src));
+      copy.id = _esUid("sld_");
+      (copy.elements || []).forEach((e) => { e.id = _esUid("el_"); });
+      // Animation elementIds point at the old ids, so re-point them.
+      const idMap = {};
+      (copy.elements || []).forEach((e, i) => { idMap[(src.elements || [])[i] && (src.elements || [])[i].id] = e.id; });
+      (copy.animations || []).forEach((a) => { if (idMap[a.elementId]) a.elementId = idMap[a.elementId]; a.id = _esUid("anm_"); });
+      slides.splice(si + 1, 0, copy);
+      applied++;
+      continue;
+    }
+    if (kind === "move_slide") {
+      const from = _esFindSlide(slides, op.from != null ? op.from : op.slide);
+      let to = _esOpIndex(op.to);
+      if (from < 0) { notes.push("no slide " + (op.from != null ? op.from : op.slide)); continue; }
+      if (!Number.isFinite(Number(op.to))) to = slides.length - 1;
+      to = Math.max(0, Math.min(slides.length - 1, to));
+      const [moved] = slides.splice(from, 1);
+      slides.splice(to, 0, moved);
+      applied++;
+      continue;
+    }
+    if (si < 0 || !slides[si]) { notes.push("no slide " + (op.slide != null ? op.slide : 1)); continue; }
+    const s = slides[si];
+
+    if (kind === "set_slide_bg") {
+      const v = op.background != null ? op.background : (op.value != null ? op.value : op.gradient);
+      if (v == null) { notes.push("set_slide_bg needs \"background\""); continue; }
+      /* A background may be a generated/web image as well as a colour, and
+         the type is inferred from the resolved value — so resolve the
+         reference first or "gen1" would be stored as a bogus colour. */
+      const asImage = _esResolveImageSrc(v, op.alt);
+      s.background = _esSlideBg(asImage || v);
+      applied++;
+      continue;
+    }
+    if (kind === "set_transition") {
+      const ttype = String(op.transition != null ? op.transition : op.type || "none").toLowerCase();
+      if (op.clear === true) delete s.transition;
+      else {
+        const dur = Number(op.duration);
+        s.transition = {
+          type: _ES_TRANSITIONS.includes(ttype) ? ttype : "none",
+          duration: Number.isFinite(dur) && dur > 0 ? Math.min(10, dur) : 0.7
+        };
+        if (op.onClick === false) s.transition.onClick = false;
+        if (op.autoAfter === true) {
+          const secs = Number(op.afterSec);
+          s.transition.autoAfter = true;
+          s.transition.afterSec = Number.isFinite(secs) && secs > 0 ? Math.min(600, Math.round(secs)) : 5;
+        }
+      }
+      applied++;
+      continue;
+    }
+    if (kind === "set_notes") {
+      s.notes = String(op.notes == null ? "" : op.notes);
+      applied++;
+      continue;
+    }
+    if (kind === "set_title") {
+      // Titles live inside a text element, not a field, so this replaces the
+      // topmost text box — which is what "rename the title" means here.
+      const tIdx = _esFindEl(s, op.el);
+      if (tIdx < 0) { notes.push("set_title: slide " + (si + 1) + " has no element"); continue; }
+      const el = s.elements[tIdx];
+      if (el.type !== "text") { notes.push("set_title: element " + (tIdx + 1) + " is not text"); continue; }
+      el.html = _esHtml(op.title);
+      applied++;
+      continue;
+    }
+    if (kind === "add_text" || kind === "add_shape" || kind === "add_image") {
+      if (!Array.isArray(s.elements)) s.elements = [];
+      const spec = Object.assign({}, op.element || {}, op);
+      spec.type = kind === "add_text" ? "text" : (kind === "add_shape" ? "shape" : "image");
+      if (!spec.z) spec.z = s.elements.reduce((m, e) => Math.max(m, e.z || 1), 0) + 1;
+      if (kind === "add_image") {
+        /* Accepts a web URL, a data URL, or a reference to an image this
+           conversation already generated ("gen1", "last", ...). */
+        const resolvedSrc = _esResolveImageSrc(spec.src != null ? spec.src : spec.url, spec.alt);
+        if (!resolvedSrc) {
+          notes.push(spec.src ? "add_image: \"" + String(spec.src).slice(0, 40) + "\" is not a usable image source" +
+            (_ES_GEN_IMAGES.length ? "" : " and no image has been generated in this chat") : "add_image needs \"src\"");
+          continue;
+        }
+        spec.src = resolvedSrc;
+        spec.url = undefined;
+      }
+      s.elements.push(_esSlideElement(spec, spec.z, spec.color));
+      applied++;
+      continue;
+    }
+    if (kind === "animate" || kind === "delete_animation") {
+      s.animations = Array.isArray(s.animations) ? s.animations : [];
+      if (kind === "delete_animation") {
+        const i = _esOpIndex(op.index != null ? op.index : op.animation);
+        if (i < 0 || i >= s.animations.length) { notes.push("no animation " + (op.index != null ? op.index : 1)); continue; }
+        s.animations.splice(i, 1);
+        applied++;
+        continue;
+      }
+      const ei = _esFindEl(s, op.el != null ? op.el : op.element);
+      const target = ei >= 0 ? s.elements[ei] : null;
+      if (!target) { notes.push("animate: no element " + (op.el != null ? op.el : 1)); continue; }
+      const type = String(op.animation != null ? op.animation : op.type || "fade").toLowerCase();
+      const start = String(op.start || "click").toLowerCase();
+      const dur = Number(op.duration);
+      const delay = Number(op.delay);
+      const a = {
+        id: _esUid("anm_"), elementId: target.id,
+        type: _ES_ANIM_TYPES.includes(type) ? type : "fade",
+        start: _ES_ANIM_STARTS.includes(start) ? start : "click",
+        duration: Number.isFinite(dur) && dur > 0 ? Math.min(10, dur) : 0.5
+      };
+      if (Number.isFinite(delay) && delay > 0) a.delay = Math.min(60, delay);
+      s.animations.push(a);
+      applied++;
+      continue;
+    }
+
+    // Element-level ops.
+    if (!Array.isArray(s.elements)) s.elements = [];
+    if (kind === "delete_el") {
+      const i = _esFindEl(s, op.el);
+      if (i < 0) { notes.push("no element " + (op.el != null ? op.el : 1)); continue; }
+      s.elements.splice(i, 1);
+      applied++;
+      continue;
+    }
+    if (kind === "duplicate_el") {
+      const i = _esFindEl(s, op.el);
+      if (i < 0) { notes.push("no element " + (op.el != null ? op.el : 1)); continue; }
+      const copy = JSON.parse(JSON.stringify(s.elements[i]));
+      copy.id = _esUid("el_");
+      copy.x = Number(copy.x) + 20; copy.y = Number(copy.y) + 20;
+      s.elements.splice(i + 1, 0, copy);
+      applied++;
+      continue;
+    }
+    const i = _esFindEl(s, op.el);
+    if (i < 0) { notes.push("no element " + (op.el != null ? op.el : 1) + " on slide " + (si + 1)); continue; }
+    const el = s.elements[i];
+    if (kind === "move_el") {
+      let moved = false;
+      if (op.x != null && Number.isFinite(Number(op.x))) { el.x = Number(op.x); moved = true; }
+      if (op.y != null && Number.isFinite(Number(op.y))) { el.y = Number(op.y); moved = true; }
+      if (op.dx != null && Number.isFinite(Number(op.dx))) { el.x = Number(el.x) + Number(op.dx); moved = true; }
+      if (op.dy != null && Number.isFinite(Number(op.dy))) { el.y = Number(el.y) + Number(op.dy); moved = true; }
+      if (!moved) { notes.push("move_el needs x/y or dx/dy"); continue; }
+      applied++;
+      continue;
+    }
+    if (kind === "resize_el") {
+      let did = false;
+      const w = Number(op.w != null ? op.w : op.width);
+      const h = Number(op.h != null ? op.h : op.height);
+      if (Number.isFinite(w) && w > 0) { el.w = Math.min(4000, w); did = true; }
+      if (Number.isFinite(h) && h > 0) { el.h = Math.min(4000, h); did = true; }
+      if (op.scale != null && Number.isFinite(Number(op.scale)) && Number(op.scale) > 0) {
+        const k = Number(op.scale);
+        el.w = Math.max(8, Math.min(4000, Math.round(Number(el.w) * k)));
+        el.h = Math.max(8, Math.min(4000, Math.round(Number(el.h) * k)));
+        did = true;
+      }
+      if (!did) { notes.push("resize_el needs w/h (or scale)"); continue; }
+      applied++;
+      continue;
+    }
+    // set_el / style_el
+    if (!_esPatchElement(el, op)) { notes.push(kind + " on element " + (i + 1) + " changed nothing (no known fields)"); continue; }
+    applied++;
+  }
+  return { slides, applied, notes };
+}
+
+/* ── SHEETS ops ───────────────────────────────────────────────────── */
+function _esA1(ref) {
+  const m = /^\s*([A-Za-z]{1,3})(\d{1,7})\s*$/.exec(String(ref == null ? "" : ref));
+  if (!m) return null;
+  return { r: parseInt(m[2], 10) - 1, c: _esColIndex(m[1]) };
+}
+/* A range is {r1,c1,r2,c2} inclusive. Accepts "A1:C10" or an array. */
+function _esRange(spec) {
+  if (Array.isArray(spec) && spec.length >= 4) {
+    const r1 = Number(spec[0]), c1 = Number(spec[1]), r2 = Number(spec[2]), c2 = Number(spec[3]);
+    if ([r1, c1, r2, c2].every((n) => Number.isFinite(n))) return { r1: Math.min(r1, r2), c1: Math.min(c1, c2), r2: Math.max(r1, r2), c2: Math.max(c1, c2) };
+  }
+  const m = /^\s*([A-Za-z]{1,3})(\d{1,7})\s*:\s*([A-Za-z]{1,3})(\d{1,7})\s*$/.exec(String(spec == null ? "" : spec));
+  if (m) {
+    const a = _esA1(m[1] + m[2]), b = _esA1(m[3] + m[4]);
+    if (a && b) return { r1: Math.min(a.r, b.r), c1: Math.min(a.c, b.c), r2: Math.max(a.r, b.r), c2: Math.max(a.c, b.c) };
+  }
+  const one = _esA1(spec);
+  if (one) return { r1: one.r, c1: one.c, r2: one.r, c2: one.c };
+  return null;
+}
+function _esPickSheet(wbData, spec) {
+  const sheets = (wbData && Array.isArray(wbData.sheets)) ? wbData.sheets : [];
+  if (!sheets.length) return -1;
+  if (spec == null || spec === "") return Math.max(0, sheets.findIndex((s) => s.id === wbData.activeSheetId));
+  const byId = sheets.findIndex((s) => s.id === String(spec));
+  if (byId >= 0) return byId;
+  const raw = String(spec).trim().toLowerCase();
+  const byName = sheets.findIndex((s) => String(s.name || "").toLowerCase() === raw);
+  if (byName >= 0) return byName;
+  const n = Number(spec);
+  if (Number.isFinite(n)) { const i = Math.floor(n) - 1; if (i >= 0 && i < sheets.length) return i; }
+  return Math.max(0, sheets.findIndex((s) => s.id === wbData.activeSheetId));
+}
+function _esOpsSheets(wbData, ops) {
+  const notes = [];
+  let applied = 0;
+  if (!Array.isArray(wbData.sheets) || !wbData.sheets.length) {
+    wbData.sheets = [_esBuildSheetData({ sheetName: "Sheet1" })];
+    wbData.activeSheetId = wbData.sheets[0].id;
+  }
+  for (const op of ops) {
+    if (!op || typeof op !== "object") { notes.push("skipped a non-object op"); continue; }
+    const kind = String(op.op || "").toLowerCase();
+    const si = _esPickSheet(wbData, op.sheet != null ? op.sheet : op.sheetName);
+    const sh = wbData.sheets[si];
+    if (!sh) { notes.push("no sheet " + (op.sheet != null ? op.sheet : "")); continue; }
+    if (!sh.cells || typeof sh.cells !== "object") sh.cells = {};
+
+    const cellOp = (fn) => {
+      const rng = _esRange(op.range != null ? op.range : (op.cell != null ? op.cell : op.ref));
+      if (!rng) { notes.push(kind + " needs \"cell\" (A1) or \"range\" (A1:C10)"); return; }
+      let n = 0;
+      for (let r = rng.r1; r <= rng.r2; r++) {
+        for (let c = rng.c1; c <= rng.c2; c++) {
+          if (fn(r, c, r + "," + c)) n++;
+        }
+      }
+      if (n) applied++; else notes.push(kind + " matched no cells");
+    };
+
+    switch (kind) {
+      case "set_cell":
+        cellOp((r, c, key) => {
+          const spec = op.value !== undefined ? op.value
+            : (op.formula != null ? { f: op.formula }
+              : (op.v !== undefined ? op.v : null));
+          if (spec === null) return false;
+          if (spec && typeof spec === "object") {
+            const f = spec.f != null ? String(spec.f) : null;
+            const cur = sh.cells[key] || { v: "", f: null, s: null };
+            if (spec.style || spec.s) cur.s = _esCellStyle(spec.style || spec.s);
+            if (f) { cur.f = f.startsWith("=") ? f : "=" + f; cur.v = null; }
+            else if (spec.v !== undefined) { cur.v = spec.v; cur.f = null; }
+            sh.cells[key] = cur;
+            return true;
+          }
+          if (typeof spec === "string" && spec.charAt(0) === "=") {
+            sh.cells[key] = { v: null, f: spec, s: (sh.cells[key] && sh.cells[key].s) || null };
+            return true;
+          }
+          let v = spec;
+          if (typeof spec === "string") {
+            const t = spec.trim();
+            if (/^-?\d*\.?\d+([eE][+-]?\d+)?$/.test(t) && Number.isFinite(Number(t))) v = Number(t);
+            else if (t.toLowerCase() === "true") v = true;
+            else if (t.toLowerCase() === "false") v = false;
+          }
+          sh.cells[key] = { v, f: null, s: (sh.cells[key] && sh.cells[key].s) || null };
+          return true;
+        });
+        break;
+      case "set_style":
+        cellOp((r, c, key) => {
+          const st = _esCellStyle(op.style || op);
+          if (!st) return false;
+          const cur = sh.cells[key] || { v: "", f: null, s: null };
+          cur.s = Object.assign({}, cur.s || {}, st);
+          sh.cells[key] = cur;
+          return true;
+        });
+        break;
+      case "set_border":
+        cellOp((r, c, key) => {
+          /* With "clear":true the caller may name NO sides at all — the whole
+             point is "remove these borders". _esBorder() returns null for an
+             empty description, which used to bail out and leave the borders
+             exactly as they were, so a documented clear did nothing. */
+          const sides = _esBorder(op.border || op);
+          if (!sides && op.clear !== true) return false;
+          const cur = sh.cells[key] || { v: "", f: null, s: null };
+          const base = (cur.s && cur.s.border) || { t: null, r: null, b: null, l: null };
+          const next = Object.assign({}, base);
+          for (const sd of ["t", "r", "b", "l"]) {
+            if (sides && sides[sd]) next[sd] = sides[sd];
+            else if (op.clear === true) next[sd] = null;
+          }
+          cur.s = Object.assign({}, cur.s || {}, { border: next });
+          sh.cells[key] = cur;
+          return true;
+        });
+        break;
+      case "clear_cells":
+        cellOp((r, c, key) => { if (!sh.cells[key]) return false; delete sh.cells[key]; return true; });
+        break;
+      case "set_col_width": {
+        const c = op.col != null ? _esColIndex(op.col) : _esA1(String(op.cell || "")).c;
+        const n = Number(op.width != null ? op.width : op.w);
+        if (!Number.isFinite(c) || c < 0 || !Number.isFinite(n) || n <= 0) { notes.push("set_col_width needs \"col\" (letter or index) and a positive \"width\""); break; }
+        sh.cols = sh.cols || {};
+        sh.cols[c] = { s: Math.round(n), h: 0, fh: 0 };
+        applied++;
+        break;
+      }
+      case "set_row_height": {
+        const r = op.row != null ? Number(op.row) - 1 : _esA1(String(op.cell || "")).r;
+        const n = Number(op.height != null ? op.height : op.h);
+        if (!Number.isFinite(r) || r < 0 || !Number.isFinite(n) || n <= 0) { notes.push("set_row_height needs \"row\" (1-based) and a positive \"height\""); break; }
+        sh.rows = sh.rows || {};
+        sh.rows[r] = { s: Math.round(n), h: 0, fh: 0 };
+        applied++;
+        break;
+      }
+      case "merge": {
+        const rng = _esRange(op.range != null ? op.range : op.cells);
+        if (!rng) { notes.push("merge needs \"range\" (A1:C1)"); break; }
+        if (!Array.isArray(sh.merges)) sh.merges = [];
+        if (op.unmerge === true) {
+          const before = sh.merges.length;
+          sh.merges = sh.merges.filter((m) => !(m[0] <= rng.r2 && m[1] <= rng.c2 && m[2] >= rng.r1 && m[3] >= rng.c1));
+          if (sh.merges.length === before) notes.push("merge: nothing to unmerge");
+          else applied++;
+        } else {
+          const cand = [rng.r1, rng.c1, rng.r2, rng.c2];
+          if (!sh.merges.some((m) => m[0] === cand[0] && m[1] === cand[1] && m[2] === cand[2] && m[3] === cand[3])) {
+            sh.merges.push(cand); applied++;
+          }
+        }
+        break;
+      }
+      case "unmerge": {
+        const rng = _esRange(op.range != null ? op.range : op.cells);
+        if (!rng) { notes.push("unmerge needs \"range\""); break; }
+        const before = (sh.merges || []).length;
+        sh.merges = (sh.merges || []).filter((m) => !(m[0] <= rng.r2 && m[1] <= rng.c2 && m[2] >= rng.r1 && m[3] >= rng.c1));
+        if ((sh.merges || []).length === before) notes.push("unmerge: no match");
+        else applied++;
+        break;
+      }
+      case "add_chart": {
+        if (!Array.isArray(sh.charts)) sh.charts = [];
+        const ch = _esChart(Object.assign({}, op, { range: op.range != null ? op.range : (op.cellRange != null ? op.cellRange : "") }), sh.id);
+        if (!ch) { notes.push("add_chart needs a valid \"range\" like A1:C10"); break; }
+        sh.charts.push(ch);
+        applied++;
+        break;
+      }
+      case "delete_chart": {
+        const list = Array.isArray(sh.charts) ? sh.charts : [];
+        const i = _esOpIndex(op.index != null ? op.index : op.chart);
+        if (i < 0 || i >= list.length) { notes.push("no chart " + (op.index != null ? op.index : 1)); break; }
+        list.splice(i, 1);
+        sh.charts = list;
+        applied++;
+        break;
+      }
+      case "set_freeze": {
+        const r = Math.max(0, Number(op.rows) || 0);
+        const c = Math.max(0, Number(op.cols) || 0);
+        sh.freeze = { r, c };
+        applied++;
+        break;
+      }
+      case "set_tab_color":
+        sh.tabColor = op.color ? String(op.color) : null;
+        applied++;
+        break;
+      case "set_gridlines":
+        sh.showGridlines = op.value === false || op.hidden === true ? false : true;
+        applied++;
+        break;
+      case "add_sheet": {
+        const ns = _esBuildSheetData({ sheetName: op.name || "Sheet", rows: op.rows, cells: op.cells });
+        const at = op.at != null ? _esOpIndex(op.at) : wbData.sheets.length;
+        wbData.sheets.splice(Math.max(0, Math.min(wbData.sheets.length, at)), 0, ns);
+        if (op.activate === true) wbData.activeSheetId = ns.id;
+        applied++;
+        break;
+      }
+      case "delete_sheet": {
+        if (wbData.sheets.length <= 1) { notes.push("cannot delete the only tab"); break; }
+        if (si < 0 || si >= wbData.sheets.length) { notes.push("no sheet " + op.sheet); break; }
+        wbData.sheets.splice(si, 1);
+        if (wbData.activeSheetId === sh.id) wbData.activeSheetId = wbData.sheets[0].id;
+        applied++;
+        break;
+      }
+      case "rename_sheet":
+        sh.name = _esPlainText(op.name) || sh.name;
+        applied++;
+        break;
+      case "set_calc_mode":
+        wbData.calcMode = String(op.mode).toLowerCase() === "manual" ? "manual" : "auto";
+        applied++;
+        break;
+      default:
+        notes.push("unknown sheet op \"" + kind + "\"");
+    }
+  }
+  return { wbData, applied, notes };
+}
+
+/* ── NOTES / DOCS ops (content-level, targeted) ───────────────────── */
+function _esOpsHtml(ops, get, set) {
+  const notes = [];
+  let applied = 0;
+  let cur = get();
+  for (const op of ops) {
+    if (!op || typeof op === "string") { notes.push("skipped a non-object op"); continue; }
+    if (typeof op !== "object") { notes.push("skipped a non-object op"); continue; }
+    const kind = String(op.op || "").toLowerCase();
+    switch (kind) {
+      /* Images in a note/doc are plain <img> in the HTML. Accepts a web URL,
+         a data URL, or a reference to an image this conversation generated. */
+      case "add_image": {
+        const resolved = _esResolveImageSrc(op.src != null ? op.src : op.url, op.alt);
+        if (!resolved) {
+          notes.push("add_image: \"" + String(op.src == null ? "" : op.src).slice(0, 40) + "\" is not a usable image source" +
+            (_ES_GEN_IMAGES.length ? "" : " and no image has been generated in this chat"));
+          break;
+        }
+        const alt = escapeHtmlAttr(String(op.alt == null ? "image" : op.alt));
+        const img = '<img src="' + escapeHtmlAttr(resolved) + '" alt="' + alt + '" style="max-width:100%;height:auto;border-radius:6px;">';
+        if (op.anchor != null && op.anchor !== "") {
+          const find = String(op.anchor);
+          const i = cur.indexOf(find);
+          if (i < 0) { notes.push("add_image: anchor not found"); break; }
+          cur = cur.slice(0, i) + img + cur.slice(i);
+        } else {
+          cur = cur + img;
+        }
+        applied++;
+        break;
+      }
+      case "append_html": cur = cur + String(op.html == null ? "" : op.html); applied++; break;
+      case "prepend_html": cur = String(op.html == null ? "" : op.html) + cur; applied++; break;
+      case "append": cur = cur + _esHtml(op.markdown); applied++; break;
+      case "prepend": cur = _esHtml(op.markdown) + cur; applied++; break;
+      case "replace_html": cur = String(op.html == null ? "" : op.html); applied++; break;
+      case "replace_all": {
+        const find = String(op.find == null ? "" : op.find);
+        const body = String(op.text == null ? (op.html != null ? op.html : "") : op.text);
+        if (!find) { notes.push("replace_all needs \"find\""); break; }
+        if (cur.indexOf(find) < 0) { notes.push("replace_all: text not found"); break; }
+        cur = cur.split(find).join(body);
+        applied++;
+        break;
+      }
+      case "delete_html": {
+        const find = String(op.find == null ? "" : op.find);
+        if (!find) { notes.push("delete_html needs \"find\""); break; }
+        if (cur.indexOf(find) < 0) { notes.push("delete_html: text not found"); break; }
+        cur = cur.split(find).join("");
+        applied++;
+        break;
+      }
+      case "insert_before": {
+        const find = String(op.find == null ? "" : op.find);
+        const i = cur.indexOf(find);
+        if (i < 0) { notes.push("insert_before: anchor not found"); break; }
+        cur = cur.slice(0, i) + String(op.html != null ? op.html : _esHtml(op.markdown)) + cur.slice(i);
+        applied++;
+        break;
+      }
+      case "insert_after": {
+        const find = String(op.find == null ? "" : op.find);
+        const i = cur.indexOf(find);
+        if (i < 0) { notes.push("insert_after: anchor not found"); break; }
+        const at = i + find.length;
+        cur = cur.slice(0, at) + String(op.html != null ? op.html : _esHtml(op.markdown)) + cur.slice(at);
+        applied++;
+        break;
+      }
+      default: notes.push("unknown content op \"" + kind + "\"");
+    }
+  }
+  set(cur);
+  return { applied, notes };
+}
+
+async function _efApplyOps(app, id, ops, meta, gate) {
+  /* Every op was a destructive one and the user asked for no removal, so
+     nothing was applied. Say exactly that rather than "no-content", so the
+     badge can tell the user the model held back rather than having failed. */
+  if (gate && gate.held && gate.held.length && (!Array.isArray(ops) || !ops.length)) {
+    return { app, id, ok: false, error: "needs-confirmation", held: gate.held };
+  }
+  if (!Array.isArray(ops) || !ops.length) return { app, id, ok: false, error: "no-content" };
+  const list = ops.filter((o) => o && typeof o === "object");
+  if (!list.length) return { app, id, ok: false, error: "no-content" };
+  /* Rename/colour/header live on the PAYLOAD, never on an op. They used to be
+     read by scanning the ops for a "title" key, so an add_chart with a title
+     silently renamed the whole workbook and set_title renamed the note. */
+  const M_ = (meta && typeof meta === "object") ? meta : {};
+  const payloadTitle = _esPlainText(M_.title);
+  const now = Date.now();
+  try {
+    if (app === "slides") {
+      let idx = await _esStoreGet("emeraldcore.storage.suite.slides");
+      idx = Array.isArray(idx) ? idx : [];
+      const meta = idx.find((m) => m.id === id);
+      if (!meta) return { app, id, ok: false, error: "not-found" };
+      let prev = null;
+      try { const d = await _esStoreGet("emeraldcore.storage.suite.slides." + id); if (d && d.id) prev = d; } catch (e) {}
+      const slides = prev && Array.isArray(prev.slides) ? prev.slides : [];
+      const r = _esOpsSlides(slides, list);
+      if (!r.applied) return { app, id, ok: false, error: "patch-not-found", notes: r.notes };
+      const pres = { id, title: (prev && prev.title) || meta.title || "Untitled Presentation", createdAt: (prev && prev.createdAt) || now, updatedAt: now, slides: r.slides };
+      meta.updatedAt = now; meta.slideCount = r.slides.length;
+      if (prev && prev.title) pres.title = prev.title;
+      await _esStoreSet("emeraldcore.storage.suite.slides", idx);
+      await _esStoreSet("emeraldcore.storage.suite.slides." + id, pres);
+      _esAgentPostSync({ type: "es-edit", app: "slides", id });
+      return { app, id, ok: true, title: pres.title, applied: r.applied, notes: r.notes, held: (gate && gate.held) || [] };
+    }
+    if (app === "sheets") {
+      const prev = await _efSheetsGet(id);
+      if (!prev || !prev.data) return { app, id, ok: false, error: "not-found" };
+      const wbData = JSON.parse(JSON.stringify(prev.data));
+      const r = _esOpsSheets(wbData, list);
+      if (!r.applied) return { app, id, ok: false, error: "patch-not-found", notes: r.notes };
+      if (payloadTitle) wbData.title = payloadTitle;
+      await _esSheetsPut(id, { id, data: wbData, savedAt: now });
+      _esAgentPostSync({ type: "es-edit", app: "sheets", id });
+      return { app, id, ok: true, title: wbData.title, applied: r.applied, notes: r.notes, held: (gate && gate.held) || [] };
+    }
+    if (app === "notes") {
+      const key = "emeraldcore.storage.suite.notes";
+      const arr = await _esStoreGet(key);
+      const list2 = Array.isArray(arr) ? arr : [];
+      const note = list2.find((n) => n.id === id);
+      if (!note) return { app, id, ok: false, error: "not-found" };
+      const r = _esOpsHtml(list, () => note.content || "", (v) => { note.content = v; });
+      if (!r.applied) return { app, id, ok: false, error: "patch-not-found", notes: r.notes };
+      if (payloadTitle) note.title = payloadTitle;
+      if (M_.color != null) note.color = String(M_.color);
+      note.modifiedAt = new Date().toISOString();
+      await _esStoreSet(key, list2);
+      return { app, id, ok: true, title: note.title, applied: r.applied, notes: r.notes, held: (gate && gate.held) || [] };
+    }
+    if (app === "docs") {
+      const key = "emeraldcore.storage.suite.docs." + id;
+      const prev = await _esStoreGet(key);
+      if (!prev) return { app, id, ok: false, error: "not-found" };
+      const r = _esOpsHtml(list, () => prev.content || "", (v) => { prev.content = v; });
+      if (!r.applied) return { app, id, ok: false, error: "patch-not-found", notes: r.notes };
+      if (payloadTitle) prev.title = payloadTitle;
+      if (M_.header != null) prev.header = String(M_.header);
+      if (M_.footer != null) prev.footer = String(M_.footer);
+      prev.savedAt = now;
+      const plainText = _esPlainText(prev.content);
+      let idx = await _esStoreGet("emeraldcore.storage.suite.docs");
+      idx = Array.isArray(idx) ? idx : [];
+      const meta = idx.find((m) => m.id === id);
+      if (meta) { meta.title = prev.title; meta.updatedAt = now; meta.wordCount = _esWordCount(plainText); }
+      await _esStoreSet("emeraldcore.storage.suite.docs", idx);
+      await _esStoreSet(key, prev);
+      return { app, id, ok: true, title: prev.title, applied: r.applied, notes: r.notes, held: (gate && gate.held) || [] };
+    }
+  } catch (e) {
+    console.warn("Ops edit failed:", e);
+    return { app, id, ok: false, error: "write-failed" };
+  }
+  return { app, id, ok: false, error: "unsupported" };
+}
+
+async function _efApplyEdit(fEditRes, msgId, userText) {
   if (!fEditRes) return { ok: false, error: "bad-payload" };
-  // Payload the write gate rejected: the user never asked for a change.
-  if (fEditRes.blocked) return { ok: false, error: "not-requested" };
   // The model emitted a tag but its JSON would not parse. Guessing at unescaped
   // quotes risks rewriting the file, so this is reported rather than guessed.
   if (!fEditRes.edit && fEditRes.parseFailed) return { ok: false, error: "bad-payload" };
@@ -8029,6 +9239,16 @@ async function _efApplyEdit(fEditRes, msgId) {
   const id = String((edit && edit.id) || "").trim();
   if (!app || !_ES_APPS[app]) return { ok: false, error: "no-app" };
   if (!id) return { ok: false, error: "no-id" };
+/* Targeted ops are preferred over a whole-file rewrite whenever present:
+     they cannot clobber the parts of the file the model did not intend to
+     change, which is the whole point of the agentic path. */
+if (Array.isArray(edit.ops) && edit.ops.length) {
+      const gated = _esFilterDestructive(edit.ops, userText);
+      /* Pass gated.ops even when EMPTY. Falling back to edit.ops here would
+         undo the backstop precisely when it matters most - a payload made up
+         entirely of deletions would be applied after being held. */
+      return _efApplyOps(app, id, gated.ops, edit, gated);
+    }
   try {
     // A payload only has to carry the fields it actually changes. _extractFileEdit
     // already accepts a content-only payload (title may legitimately be absent),
@@ -8085,7 +9305,20 @@ async function _efApplyEdit(fEditRes, msgId) {
       } else { content = (prev && prev.content) || "<p><br></p>"; plainText = _esPlainText(content); }
       meta.title = title; meta.updatedAt = now; meta.wordCount = _esWordCount(plainText);
       await _esStoreSet("emeraldcore.storage.suite.docs", idx);
-      await _esStoreSet("emeraldcore.storage.suite.docs." + id, { id, title, content, savedAt: now, theme: edit.theme === "dark" ? "dark" : ((prev && prev.theme) || "light"), header: "", footer: "", footnotes: [], endnotes: [], comments: [] });
+      /* Header, footer, footnotes, endnotes and comments live outside
+         `content` but were rewritten to empty on EVERY edit, so a single
+         "fix this typo" silently destroyed them. Carry the stored values
+         forward, and let the payload set them explicitly when asked. */
+      const keepList = (v, fb) => (Array.isArray(v) ? v : fb);
+      await _esStoreSet("emeraldcore.storage.suite.docs." + id, {
+        id, title, content, savedAt: now,
+        theme: edit.theme === "dark" ? "dark" : ((prev && prev.theme) || "light"),
+        header: edit.header != null ? String(edit.header) : ((prev && prev.header) || ""),
+        footer: edit.footer != null ? String(edit.footer) : ((prev && prev.footer) || ""),
+        footnotes: keepList(edit.footnotes, (prev && prev.footnotes) || []),
+        endnotes: keepList(edit.endnotes, (prev && prev.endnotes) || []),
+        comments: keepList(edit.comments, (prev && prev.comments) || [])
+      });
       return { app, id, ok: true, title };
     }
     if (app === "slides") {
@@ -8129,15 +9362,46 @@ async function _efApplyEdit(fEditRes, msgId) {
       let prev = await _efSheetsGet(id);
       let prevData = (prev && prev.data) || null;
       if (!prev || !prevData) return { app, id, ok: false, error: "not-found" };
-      const hasBody = edit.rows != null || edit.cells != null || edit.data != null;
+      const prevSheets = Array.isArray(prevData.sheets) ? prevData.sheets : [];
+      const hasBody = edit.rows != null || edit.cells != null || edit.data != null ||
+        edit.sheetName != null || edit.cellStyles != null || Array.isArray(edit.charts) ||
+        Array.isArray(edit.merges) || Array.isArray(edit.ranges);
       const hasTitle = _esPlainText(edit.title) !== "";
-      if (!hasBody && !hasTitle) return { app, id, ok: false, error: "no-content" };
+      const hasSheetList = Array.isArray(edit.sheets) && edit.sheets.length > 0;
+      if (!hasBody && !hasTitle && !hasSheetList) return { app, id, ok: false, error: "no-content" };
       const title = hasTitle ? _esPlainText(edit.title) : (prevData.title || "Untitled Spreadsheet");
-      const sheet = hasBody ? _esBuildSheetData(Object.assign({ title }, edit)) : (Array.isArray(prevData.sheets) && prevData.sheets.length ? prevData.sheets[0] : _esBuildSheetData({ title, sheetName: "Sheet1" }));
+      let sheets;
+      if (hasSheetList) {
+        // Full multi-tab rewrite — only when the payload actually lists them.
+        sheets = edit.sheets
+          .map((s, i) => (s && typeof s === "object" ? _esBuildSheetData(s, prevSheets[i] && prevSheets[i].id) : null))
+          .filter(Boolean);
+      } else if (hasBody) {
+        // Rewrite the targeted tab (default: the first) and carry every other
+        // tab through untouched. This used to write `sheets: [sheet]`, which
+        // deleted the rest of the workbook on any edit.
+        const targetName = _esPlainText(edit.sheetName || edit.sheet || "").toLowerCase();
+        let targetIdx = targetName ? prevSheets.findIndex((s) => String(s.name || "").toLowerCase() === targetName) : 0;
+        if (targetIdx < 0) targetIdx = 0;
+        const rebuilt = _esBuildSheetData(Object.assign({ title }, edit), prevSheets[targetIdx] && prevSheets[targetIdx].id);
+        if (prevSheets[targetIdx] && !_esPlainText(edit.sheetName)) rebuilt.name = prevSheets[targetIdx].name;
+        sheets = prevSheets.length
+          ? prevSheets.map((s, i) => (i === targetIdx ? rebuilt : s))
+          : [rebuilt];
+      } else {
+        sheets = prevSheets.length ? prevSheets : [_esBuildSheetData({ title, sheetName: "Sheet1" })];
+      }
+      const activeId = (prevData.activeSheetId && sheets.some((s) => s.id === prevData.activeSheetId))
+        ? prevData.activeSheetId
+        : (sheets[0] && sheets[0].id);
       const wbData = {
         v: 1, id, title, createdAt: prevData.createdAt || now,
-        sheets: [sheet], activeSheetId: sheet.id, names: {},
-        calcMode: "auto", view: { zoom: 1, showFormulaBar: true, showHeadings: true, showFormulas: false }
+        sheets, activeSheetId: activeId,
+        names: prevData.names && typeof prevData.names === "object" ? prevData.names : {},
+        calcMode: prevData.calcMode === "manual" ? "manual" : "auto",
+        view: (prevData.view && typeof prevData.view === "object")
+          ? Object.assign({ zoom: 1, showFormulaBar: true, showHeadings: true, showFormulas: false }, prevData.view)
+          : { zoom: 1, showFormulaBar: true, showHeadings: true, showFormulas: false }
       };
       await _esSheetsPut(id, { id, data: wbData, savedAt: now });
       _esAgentPostSync({ type: "es-edit", app: "sheets", id });
@@ -8162,9 +9426,16 @@ function renderFileEditBadge(aiDiv, outcome) {
   const icon = ok
     ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>'
     : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
-  let label = ok ? "Updated File" : "Edit not applied";
+let label = ok ? "Updated File" : "Edit not applied";
+  // Some ops applied but a deletion was held back pending an explicit ask.
+  if (ok && outcome && Array.isArray(outcome.held) && outcome.held.length) {
+    b.className = "file-edit-badge";
+    label = "Updated File \u2014 held back " + outcome.held.length + " deletion" +
+      (outcome.held.length === 1 ? "" : "s") + " for you to confirm";
+  }
   if (!ok && outcome) {
-    if (outcome.error === "not-requested") label = "No file changed \u2014 you didn't ask for one";
+    if (outcome.error === "needs-confirmation") label = "Nothing changed \u2014 that was a deletion, so it needs you to ask for it";
+    else if (outcome.error === "not-requested") label = "No file changed";
     else if (outcome.error === "no-app" || outcome.error === "no-id") label = "Which file? — the AI must target the exact file";
     else if (outcome.error === "not-found") label = "File not found to edit";
     else if (outcome.error === "no-content") label = "Nothing to change \u2014 the AI sent an empty edit";
@@ -8458,7 +9729,7 @@ async function submitUserMsgEdit(msgId) {
       if (fileParts.length) last.parts.push(...fileParts);
     }
   }
-  // EmeraldSuite context is always injected; the write gate decides writes
+// EmeraldSuite context is always injected when the turn is about a file.
   _efResetWriteGate();
   try {
     const fileCtx = await _suiteAutoContext(newText);
@@ -8619,15 +9890,16 @@ async function submitUserMsgEdit(msgId) {
     const imgEditPrompt = imgTags.editPrompt;
     const imgPromptFinal = imgEditPrompt || imgPrompt;
     dispText = stripImageTags(dispText);
+    const _quizResult = _extractQuiz(dispText);
+    const quizData = _quizResult.quizData;
     const beforeQuizText = _quizResult.before;
     const afterQuizText = _quizResult.after;
     const _quizParseFailed = _quizResult.parseFailed;
     dispText = _quizResult.before;
     const _appRaw = (quizData || _quizParseFailed) ? { appData: null, parseFailed: false, before: dispText, after: "" } : _extractEmeraldApp(dispText);
-    const _appBlocked = !!_appRaw.appData && !_efWriteRequested;
-    const appData = _appBlocked ? null : _appRaw.appData;
-    const beforeAppText = _appBlocked ? [_appRaw.before, _appRaw.after].filter(Boolean).join("\n\n") : _appRaw.before;
-    const afterAppText = _appBlocked ? "" : _appRaw.after;
+    const appData = _appRaw.appData;
+    const beforeAppText = _appRaw.before;
+    const afterAppText = _appRaw.after;
     const _appParseFailed = _appRaw.parseFailed;
     dispText = beforeAppText;
     let _fEditRes = null;
@@ -8635,7 +9907,7 @@ async function submitUserMsgEdit(msgId) {
       const _fe = _extractFileEdit(aiFullText);
       if (_fe.edit || _fe.parseFailed) {
         dispText = _fe.before;
-        _fEditRes = (_fe.edit && !_efWriteRequested) ? { blocked: true } : _fe;
+        _fEditRes = _fe;
       }
     }
     let _fileEditOutcome = null;
@@ -8682,17 +9954,15 @@ async function submitUserMsgEdit(msgId) {
       renderEsAppCard(aiTextEl, appData, afterAppText, aiMsgId);
     } else if (_appParseFailed) {
       renderEsAppErrorCard(aiTextEl);
-    } else if (_appBlocked) {
-      renderFileEditBadge(aiDiv, { ok: false, error: "not-requested" });
     }
     if (_fEditRes) {
-      _fileEditOutcome = await _efApplyEdit(_fEditRes, aiMsgId);
+      _fileEditOutcome = await _efApplyEdit(_fEditRes, aiMsgId, newText);
       renderFileEditBadge(aiDiv, _fileEditOutcome);
     }
     const _groundingSources = extractGroundingSources(_groundingMetadata);
     const _allSources = [..._groundingSources, ..._webSources];
     renderCitations(aiDiv, _allSources);
-    if (_allSources.length) _stripSourcesFromHTML(textEl);
+    if (_allSources.length) _stripSourcesFromHTML(aiTextEl);
     aiDiv.querySelector(".message-body").appendChild(buildMessageActionsEl(aiMsgId));
     if (aiDiv) {
       aiDiv.dataset.modelId = _usedModelId || "";
@@ -9815,6 +11085,9 @@ async function _runImageRequest({ reqBody, prompt, aiDiv, body, loadEl, convId, 
     }
     const blob = await res.blob();
     const dataUrl = await blobToDataURL(blob);
+    /* Make it referenceable by a later "add_image" op so the model can put
+       what it just generated straight into a slide, note or doc. */
+    _esRegisterGeneratedImage(dataUrl, prompt, wasEdit ? "edit" : "generate");
     const ct = blob.type || "";
     const ext = ct.includes("jpeg") || ct.includes("jpg") ? "jpg" : ct.includes("png") ? "png" : "png";
     const wrapper = buildImageResultEl({

@@ -2636,6 +2636,7 @@ function serializeSheet(sh) {
     merges: sh.merges.map(m => [m.r1, m.c1, m.r2, m.c2]),
     notes: [...sh.notes.entries()].map(([k, stored]) => [k, noteThreadsFromValue(stored).map(n => ({ id: n.id, t: n.text, a: n.author, ts: n.ts, r: noteReplies(n), rs: n.resolved ? 1 : 0 }))]),
     charts: sh.charts,
+    freeze: { r: (sh.freeze && sh.freeze.r) || 0, c: (sh.freeze && sh.freeze.c) || 0 },
     showGridlines: sh.showGridlines
   };
 }
@@ -2657,7 +2658,13 @@ function deserializeSheet(d) {
   sh.merges = (d.merges || []).map(a => ({ r1: a[0], c1: a[1], r2: a[2], c2: a[3] }));
   for (const m of sh.merges) { if (m.r2 > extR) extR = m.r2; if (m.c2 > extC) extC = m.c2; }
   rebuildMergeMap(sh);
-  sh.freeze = { r: 0, c: 0 };
+  /* Frozen panes were not serialized, so this line reset them to zero on every
+     load and a saved freeze (or one set by an AI edit) was silently lost on the
+     next open. Restored from storage, and clamped to the sheet extent. */
+  sh.freeze = {
+    r: Math.max(0, Math.min(extR, Math.floor(+((d.freeze && d.freeze.r) || 0)))),
+    c: Math.max(0, Math.min(extC, Math.floor(+((d.freeze && d.freeze.c) || 0))))
+  };
   sh.charts = d.charts || [];
   sh.showGridlines = d.showGridlines !== false;
   sh.notes = new Map();

@@ -5523,6 +5523,16 @@ body.light-mode .quiz-match-dd-item.selected {
     cursor: default;
 }
 
+/* Extra blanks in a fill question, which carry a single shared answer and so
+   cannot be answered individually. Matches the input's footprint. */
+.quiz-fill-static {
+    display: inline-block;
+    vertical-align: middle;
+    width: 140px;
+    margin: 0px 2px;
+    border-bottom: 2px solid var(--border);
+}
+
 .quiz-fill-correct-ans {
     display: block;
     color: rgb(231, 76, 60);
@@ -6711,6 +6721,49 @@ html, body {
     box-shadow: rgba(80, 200, 120, 0.08) 0px 0px 0px 3px;
 }
 
+/* Parsed-memory preview rendered by _obMemoryPreview(). Only the light-mode
+   override for .ob-import-item existed, so these items had no base styling. */
+.ob-import-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 190px;
+    overflow-y: auto;
+}
+
+.ob-import-preview-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.ob-import-preview-items {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ob-import-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.72);
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-size: 0.8rem;
+    line-height: 1.45;
+}
+
+.ob-import-item-dot {
+    flex-shrink: 0;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: rgba(80, 200, 120, 0.75);
+    margin-top: 7px;
+}
+
 .ob-themes {
     display: flex;
     gap: 12px;
@@ -6875,6 +6928,10 @@ body.light-mode .ob-import-textarea:focus {
 body.light-mode .ob-import-item {
     background: rgba(0, 0, 0, 0.04);
     color: rgba(0, 0, 0, 0.65);
+}
+
+body.light-mode .ob-import-preview-title {
+    color: rgba(0, 0, 0, 0.5);
 }
 
 body.light-mode .ob-theme {
