@@ -99,6 +99,10 @@
     orbAlphaAt: 0,
     orbLine: "",
     orbAura: 0.26,
+    orbCore: "",  // --lv-orb-core/-mid/-edge/-aura-color, cached with the rest
+    orbMid: "",
+    orbEdge: "",
+    orbAuraColor: "",
     orbWarned: false
   };
 
@@ -527,11 +531,14 @@
 
   const TAU = Math.PI * 2;
 
-  /* The orb's palette is fixed rather than taken from the theme's accent
-     token: light mode's accent (rgb(35,154,77)) is dark enough to read as
-     muted next to the loops. Body translucency is the one per-theme value
-     and comes from CSS as --lv-orb-body-alpha. */
-  function orbPalette(cssLine, cssAura) {
+  /* The orb's palette is built from theme tokens rather than fixed
+     literals: light mode's accent (rgb(35,154,77)) is dark enough to
+     read as muted next to the loops, but the body's gradient stops are
+     a different matter — dark mode's near-white core and neon teal
+     edge glare badly on white and washed the creature out entirely.
+     All of it comes from CSS so a theme toggle only needs the tokens
+     swapped. */
+  function orbPalette(T) {
     if (LV.conn === "error") {
       return { core: "rgb(255, 235, 235)", mid: "rgb(252, 165, 165)", edge: "rgb(220, 38, 38)",
                membrane: "rgb(254, 202, 202)", mote: "248,113,113", aura: "239,68,68",
@@ -547,11 +554,9 @@
                membrane: "rgb(158, 158, 158)", mote: "150,150,150", aura: "150,150,150",
                auraA: 0.12, amp: 0.5, speed: 0.6, motes: true };
     }
-    /* The line and halo strengths come from CSS: see the note on
-       --lv-orb-line for why they cannot be one fixed value. */
-    return { core: "rgb(214, 255, 240)", mid: "rgb(45, 212, 191)", edge: "rgb(74, 222, 128)",
-             membrane: cssLine, mote: rgbTriple(cssLine), aura: "80,200,120",
-             auraA: cssAura, amp: 1, speed: 1, motes: true };
+    return { core: T.core, mid: T.mid, edge: T.edge,
+             membrane: T.line, mote: rgbTriple(T.line), aura: T.auraColor,
+             auraA: T.aura, amp: 1, speed: 1, motes: true };
   }
 
   /* Harmonics that deform the body. The outline is not rotated — it is
@@ -703,10 +708,19 @@
       LV.orbAlpha = Number.isFinite(alpha) ? alpha : 0.6;
       LV.orbAura = Number.isFinite(aura) ? aura : 0.26;
       LV.orbLine = cs.getPropertyValue("--lv-orb-line").trim() || "rgb(94, 234, 168)";
+      /* Defaults are the DARK-mode values, so a stylesheet that predates
+         these tokens still renders a sane orb rather than blanks. */
+      LV.orbCore = cs.getPropertyValue("--lv-orb-core").trim() || "rgb(214, 255, 240)";
+      LV.orbMid = cs.getPropertyValue("--lv-orb-mid").trim() || "rgb(45, 212, 191)";
+      LV.orbEdge = cs.getPropertyValue("--lv-orb-edge").trim() || "rgb(74, 222, 128)";
+      LV.orbAuraColor = cs.getPropertyValue("--lv-orb-aura-color").trim() || "rgb(80, 200, 120)";
       LV.orbAlphaAt = nowMs;
     }
 
-    const P = orbPalette(LV.orbLine, LV.orbAura);
+    const P = orbPalette({
+      core: LV.orbCore, mid: LV.orbMid, edge: LV.orbEdge,
+      line: LV.orbLine, aura: LV.orbAura, auraColor: rgbTriple(LV.orbAuraColor)
+    });
 
     /* Level drives overall energy: mic when the user talks, model audio
        when it replies. */
@@ -784,7 +798,7 @@
     const coreR = bodyR * (0.62 + energy * 0.16);
     const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR);
     core.addColorStop(0, P.core);
-    core.addColorStop(1, "rgba(80, 200, 120, 0)");
+    core.addColorStop(1, "rgba(" + P.aura + ", 0)");
     ctx.beginPath();
     ctx.arc(cx, cy, coreR, 0, TAU);
     ctx.fillStyle = core;

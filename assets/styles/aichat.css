@@ -8704,6 +8704,15 @@ body.light-mode .ai-card-body pre {
        and a weaker, tint-like halo. */
     --lv-orb-line: rgb(94, 234, 168);
     --lv-orb-aura: 0.30;
+    /* The orb body's three gradient stops, the membrane highlight and
+       the halo colour. These live here rather than as literals in the
+       canvas renderer because they are the parts that glare: on a white
+       surface the dark-mode neons below read as a glaring neon blob
+       instead of a calm sphere, so light mode needs its own set. */
+    --lv-orb-core: rgb(214, 255, 240);
+    --lv-orb-mid: rgb(45, 212, 191);
+    --lv-orb-edge: rgb(74, 222, 128);
+    --lv-orb-aura-color: rgb(80, 200, 120);
     --lv-accent-soft: rgba(80, 200, 120, 0.10);
     --lv-accent-border: rgba(80, 200, 120, 0.28);
     --lv-accent-ring: rgba(80, 200, 120, 0.35);
@@ -9519,35 +9528,14 @@ body.light-mode .live-view.is-switching {
    conversation is open is already shown by .history-item.active in
    the Recents list; highlighting this button too would read as a
    second, conflicting selection.
+
+   The mic glyph also carries NO idle animation. It used to pulse
+   (lvMicIdle, 2.6s, opacity + scale) as a "this is live" affordance,
+   which made this one button move while New Chat, Search and Library
+   sat perfectly still — the eye went straight to it and the row read
+   as broken rather than as a live option. All four sidebar buttons
+   now behave identically; hover colour comes from .sidebar-btn svg.
    ────────────────────────────────────────────────────────── */
-
-.live-chat-btn .live-chat-btn-icon {
-    transition: color 0.2s;
-}
-
-/* Idle pulse on the mic glyph — a quiet "this is live" affordance. */
-@keyframes lvMicIdle {
-
-    0%,
-    100% {
-        opacity: 1;
-        transform: scale(1);
-    }
-
-    50% {
-        opacity: 0.72;
-        transform: scale(1.07);
-    }
-}
-
-.live-chat-btn .live-chat-btn-icon {
-    animation: lvMicIdle 2.6s ease-in-out infinite;
-    transform-origin: center;
-}
-
-.live-chat-btn:hover .live-chat-btn-icon {
-    animation: none;
-}
 
 /* ══════════════════════════════════════════════════════════
    Light mode
@@ -9565,6 +9553,17 @@ body.light-mode.chat-main.live-active {
     --lv-orb-body-alpha: 0.88;
     --lv-orb-line: rgb(13, 148, 94);
     --lv-orb-aura: 0.17;
+    /* Dark mode's neons are far too hot on white: the body gradient's
+       near-white core vanishes into the page, the bright teal middle
+       and neon-green edge glare, and the whole thing stops reading as
+       a soft creature. These are the same three roles moved down into
+       the light-mode green family — a pale mint highlight that still
+       separates from white, a deeper teal, and an edge that matches
+       the membrane so body and outline agree. */
+    --lv-orb-core: rgb(196, 238, 219);
+    --lv-orb-mid: rgb(24, 158, 122);
+    --lv-orb-edge: rgb(13, 148, 94);
+    --lv-orb-aura-color: rgb(35, 154, 77);
     --lv-accent-soft: rgba(35, 154, 77, 0.09);
     --lv-accent-border: rgba(35, 154, 77, 0.26);
     --lv-danger: rgb(192, 57, 43);
@@ -9700,9 +9699,5 @@ body.light-mode .live-ctl-start:hover {
     .live-view.is-switching {
         filter: none;
         opacity: 0;
-    }
-
-    .live-chat-btn .live-chat-btn-icon {
-        animation: none !important;
     }
 }
