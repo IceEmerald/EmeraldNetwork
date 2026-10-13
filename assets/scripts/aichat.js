@@ -935,15 +935,644 @@ function _collapseCharByCharRuns(text) {
   return result.join('\n');
 }
 
+// ── Collapsible dropdown (the UI the model emits) ─────────────
+// One <dropdown> becomes one card. Several in a single answer are
+// independent — the model decides how many to use and the user opens
+// whichever they want, so nothing here closes a sibling.
+// title: model-authored, may carry inline markdown (bold, `code`).
+// body:  model-authored markdown, rendered recursively.
+function aiDropdownHTML(title, body, open, iconName) {
+  const label = _aiSafeLabel(title, "Details");
+  const icon = aiSVGIcon(iconName);
+  const inner = renderMarkdown(String(body || ""));
+  return `<div class="ai-dropdown${open ? " is-open" : ""}" data-ai-dropdown="1">
+    <div class="ai-dropdown-header" role="button" tabindex="0" aria-expanded="${open ? "true" : "false"}" onclick="toggleAiDropdown(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleAiDropdown(this);}">
+      ${icon}<span class="ai-dropdown-label">${label}</span>
+      <svg class="ai-dropdown-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+    <div class="ai-dropdown-body"><div class="ai-dropdown-clip"><div class="ai-dropdown-content md-content">${inner}</div></div></div>
+  </div>`;
+}
+function toggleAiDropdown(headerEl) {
+  const dd = headerEl?.closest(".ai-dropdown");
+  if (!dd) return;
+  const isOpen = dd.classList.toggle("is-open");
+  headerEl.setAttribute("aria-expanded", isOpen ? "true" : "false");
+}
+
+// ── Card group (the model chooses the layout) ───────────────
+// <cards layout="…"> wraps any number of <card> blocks. The model
+// picks the column layout; every card may carry a title and an accent
+// colour. Bodies are full markdown rendered by renderMarkdown, so a
+// card can itself contain a <dropdown>.
+const _AI_CARD_ACCENTS = ["green", "blue", "amber", "red", "purple"];
+
+// ── Icon registry ────────────────────────────────────────────
+// The model never emits SVG (that would be a markup-injection hole
+// and unreadable in a chat log) and never uses emoji — it emits
+// <icon name="bolt"/> and we look the name up here. Only the listed
+// names resolve, and only registry markup is ever emitted, so the
+// name is never interpolated into the output.
+//
+// 24x24, stroke-based, matching the icon language already used
+// everywhere else in this file (fill:none, stroke:currentColor,
+// width 2, round caps/joins).
+const _AI_ICONS = {
+  "info": '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
+  "warning": '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+  "check": '<polyline points="20 6 9 17 4 12"/>',
+  "check-circle": '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
+  "x": '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+  "x-circle": '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>',
+  "bolt": '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10"/>',
+  "star": '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/>',
+  "heart": '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>',
+  "clock": '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  "calendar": '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+  "user": '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  "users": '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  "lock": '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  "shield": '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+  "key": '<path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3"/>',
+  "search": '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
+  "link": '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+  "file": '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
+  "folder": '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
+  "code": '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>',
+  "terminal": '<polyline points="4 17 10 11 4 5"/><line x1="15" y1="19" x2="20" y2="19"/>',
+  "database": '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>',
+  "server": '<rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/>',
+  "cloud": '<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>',
+  "globe": '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
+  "mail": '<path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><polyline points="22 6 12 13 2 6"/>',
+  "settings": '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+  "target": '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  "rocket": '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>',
+  "trending-up": '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
+  "dollar": '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+  "tag": '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>',
+  "filter": '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>',
+  "eye": '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+  "edit": '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',
+  "trash": '<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  "copy": '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+  "play": '<polygon points="5 3 19 12 5 21 5 3"/>',
+  "refresh": '<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',
+  "lightbulb": '<path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/>',
+  "layers": '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
+  "sparkles": '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/><path d="M18.5 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2z"/>'
+};
+
+// Resolve a name to markup, or "" when it is not in the registry.
+// An unknown name renders nothing rather than echoing the tag back
+// at the user, so a typo disappears instead of showing as raw text.
+function aiSVGIcon(name) {
+  const body = _AI_ICONS[String(name || "").trim().toLowerCase()];
+  if (!body) return "";
+  return `<svg class="ai-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${body}</svg>`;
+}
+function _aiIconAttr(attrs) {
+  return aiSVGIcon(_aiTagAttr(attrs, "icon"));
+}
+
+// ── Charts (bar / line / pie / flowchart) ────────────────────
+// The model emits JSON; we draw it as inline SVG. No chart library is
+// loaded on this page, and pulling one in would be heavier than the
+// whole rest of the feature set — so the ~200 lines below are the
+// chart engine.
+//
+// Everything here is defensive by construction: the JSON is model
+// output, so every number is coerced and finite-checked, every string
+// is length-capped and XML-escaped, and every array is sliced to a
+// hard ceiling. A malformed spec renders nothing rather than throwing
+// inside renderMarkdown (which runs ~25x per streamed response).
+const _CHART_MAX = { labels: 24, series: 6, points: 60, nodes: 30, edges: 60 };
+// Increments per flowchart so each <defs> marker id is unique.
+let _aiChartSeq = 0;
+
+// Tolerant parse, mirroring the three-attempt strategy _extractQuiz
+// already uses: raw, then repair trailing commas / quotes / unquoted
+// keys, then give up and render nothing.
+function _chartParseJSON(raw) {
+  const s = String(raw || "");
+  try { return JSON.parse(s); } catch {}
+  try {
+    return JSON.parse(s
+      .replace(/,\s*([}\]])/g, "$1")
+      .replace(/'/g, '"')
+      .replace(/(?<=[{,])\s*(\w+)\s*:/g, '"$1":')
+      .replace(/:\s*undefined/g, ":null")
+      .replace(/:\s*NaN/g, ":0"));
+  } catch {}
+  return null;
+}
+function _chartNum(v) {
+  const n = typeof v === "number" ? v : parseFloat(v);
+  return Number.isFinite(n) ? n : null;
+}
+function _chartStr(v, max) {
+  return String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, max || 90);
+}
+function _chartColor(i) { return `var(--chart-${(i % 6) + 1})`; }
+function _chartKeyCls(i) { return `k${(i % 6) + 1}`; }
+
+// Axis top: round 1.2 -> 2, 3400 -> 5000, so gridlines land on numbers
+// people actually read. Negative maxima fall back to the raw max.
+function _chartNiceMax(v) {
+  if (!(v > 0)) return 1;
+  const mag = Math.pow(10, Math.floor(Math.log10(v)));
+  const n = v / mag;
+  const step = n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10;
+  return step * mag;
+}
+function _chartFmt(n) {
+  const a = Math.abs(n);
+  if (a >= 1e9) return (n / 1e9).toFixed(a >= 1e10 ? 0 : 1).replace(/\.0$/, "") + "B";
+  if (a >= 1e6) return (n / 1e6).toFixed(a >= 1e7 ? 0 : 1).replace(/\.0$/, "") + "M";
+  if (a >= 1e3) return (n / 1e3).toFixed(a >= 1e4 ? 0 : 1).replace(/\.0$/, "") + "k";
+  return String(Math.round(n * 100) / 100);
+}
+// Greedy word wrap for SVG labels, which have no text engine we can
+// rely on for automatic wrapping. Ellipsises past maxLines.
+function _chartWrap(text, per, maxLines) {
+  const words = String(text || "").split(/\s+/).filter(Boolean);
+  const lines = [];
+  let cur = "";
+  for (const word of words) {
+    if (!cur.length) { cur = word; }
+    else if ((cur + " " + word).length <= per) { cur += " " + word; }
+    else { lines.push(cur); cur = word; }
+  }
+  if (cur) lines.push(cur);
+  if (lines.length <= maxLines) return lines;
+  const out = lines.slice(0, maxLines);
+  out[maxLines - 1] = out[maxLines - 1].replace(/.{1}$/, "") + "…";
+  return out;
+}
+
+// Shared x/y frame for the cartesian charts (bar + line).
+function _chartFrame(opts) {
+  const { w, h, padL, padR, padT, padB, max, ticks } = opts;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+  const base = padT + plotH;
+  const y = (v) => base - (max > 0 ? (v / max) * plotH : 0);
+  let s = "";
+  for (let t = 0; t <= ticks; t++) {
+    const v = (max / ticks) * t;
+    const gy = y(v);
+    s += `<line x1="${padL}" y1="${gy.toFixed(1)}" x2="${w - padR}" y2="${gy.toFixed(1)}" stroke="var(--chart-grid)" stroke-width="1"/>`;
+    s += `<text x="${padL - 10}" y="${(gy + 4).toFixed(1)}" text-anchor="end" class="ai-chart-tick">${escapeHtml(_chartFmt(v))}</text>`;
+  }
+  s += `<line x1="${padL}" y1="${base}" x2="${w - padR}" y2="${base}" stroke="var(--chart-axis)" stroke-width="1.5"/>`;
+  return { frame: s, plotW, plotH, base, y };
+}
+
+function _chartCartesian(spec, kind) {
+  const labels = (Array.isArray(spec.labels) ? spec.labels : []).slice(0, _CHART_MAX.labels).map((l) => _chartStr(l, 24));
+  if (!labels.length) return "";
+  const rawSeries = Array.isArray(spec.series) ? spec.series : [];
+  let series = rawSeries.slice(0, _CHART_MAX.series).map((s) => ({
+    name: _chartStr(s && s.name, 30) || "Series",
+    data: (Array.isArray(s && s.data) ? s.data : []).slice(0, _CHART_MAX.points).map(_chartNum)
+  })).filter((s) => s.data.some((v) => v !== null));
+  if (!series.length) {
+    // Flat shorthand: {"labels":[…],"data":[…]} with no series array.
+    const flat = (Array.isArray(spec.data) ? spec.data : []).slice(0, _CHART_MAX.points).map(_chartNum);
+    if (!flat.some((v) => v !== null)) return "";
+    series = [{ name: _chartStr(spec.name, 30) || "Value", data: flat }];
+  }
+  let peak = 0;
+  for (const s of series) for (const v of s.data) if (v !== null && v > peak) peak = v;
+  let low = 0;
+  for (const s of series) for (const v of s.data) if (v !== null && v < low) low = v;
+  const min = low < 0 ? low : 0;
+  const max = _chartNiceMax(peak || 1);
+
+  // Fixed canvas rather than one that shrinks to the label count: CSS
+  // renders these at width:100%, so a narrow viewBox gets UPSCALED to
+  // the full bubble and the 11px tick labels end up at 20px. A fixed
+  // canvas plus max-width = natural size keeps the drawing 1:1.
+  const W = 680, H = 250, padL = 54, padR = 16, padT = 14, padB = 42;
+  const f = _chartFrame({ w: W, h: H, padL, padR, padT, padB, max: max - min, ticks: 4 });
+  const y = (v) => min < 0
+    ? f.base - ((v - min) / (max - min)) * f.plotH
+    : f.base - ((v - min) / (max - min)) * f.plotH;
+
+  let g = `<svg class="ai-chart-svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="max-width:${W}px" role="img">`;
+  g += f.frame;
+  const groupW = f.plotW / labels.length;
+
+  if (kind === "bar") {
+    const nS = series.length;
+    const gap = 5;
+    const barW = Math.max(3, (groupW * 0.76 - gap * (nS - 1)) / nS);
+    const groupPad = (groupW - (barW * nS + gap * (nS - 1))) / 2;
+    labels.forEach((lab, i) => {
+      const gx = padL + i * groupW + groupPad;
+      series.forEach((s, si) => {
+        const v = s.data[i];
+        if (v === null || v === undefined) return;
+        const vy = y(v);
+        const h = Math.max(1.5, Math.abs(f.base - vy));
+        const x = gx + si * (barW + gap);
+        g += `<rect x="${x.toFixed(1)}" y="${(v < 0 ? f.base : vy).toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="4" fill="${_chartColor(si)}"/>`;
+      });
+      const words = _chartWrap(lab, 11, 2);
+      words.forEach((ln, li) => {
+        g += `<text x="${(padL + i * groupW + groupW / 2).toFixed(1)}" y="${(f.base + 18 + li * 13).toFixed(1)}" text-anchor="middle" class="ai-chart-tick">${escapeHtml(ln)}</text>`;
+      });
+    });
+  } else {
+    labels.forEach((lab, i) => {
+      const words = _chartWrap(lab, 11, 2);
+      words.forEach((ln, li) => {
+        g += `<text x="${(padL + i * groupW + groupW / 2).toFixed(1)}" y="${(f.base + 18 + li * 13).toFixed(1)}" text-anchor="middle" class="ai-chart-tick">${escapeHtml(ln)}</text>`;
+      });
+    });
+    series.forEach((s, si) => {
+      const pts = [];
+      s.data.forEach((v, i) => {
+        if (v === null || v === undefined || i >= labels.length) return;
+        pts.push(`${(padL + i * groupW + groupW / 2).toFixed(1)},${y(v).toFixed(1)}`);
+      });
+      if (!pts.length) return;
+      if (pts.length === 1) {
+        g += `<circle cx="${pts[0]}" cy="${pts[0].split(",")[1]}" r="5" fill="${_chartColor(si)}"/>`;
+      } else {
+        g += `<polyline points="${pts.join(" ")}" fill="none" stroke="${_chartColor(si)}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+        for (const p of pts) {
+          const [px, py] = p.split(",");
+          g += `<circle cx="${px}" cy="${py}" r="4" fill="var(--chart-surface)" stroke="${_chartColor(si)}" stroke-width="2.5"/>`;
+        }
+      }
+    });
+  }
+  g += "</svg>";
+  const legend = series.length > 1 || kind === "pie"
+    ? `<div class="ai-chart-legend">${series.map((s, si) => `<span class="ai-chart-key ${_chartKeyCls(si)}"><i></i>${escapeHtml(s.name)}</span>`).join("")}</div>`
+    : "";
+  return { svg: g, legend };
+}
+
+function _chartPie(spec) {
+  const labels = (Array.isArray(spec.labels) ? spec.labels : []).slice(0, _CHART_MAX.labels).map((l) => _chartStr(l, 26));
+  let values = (Array.isArray(spec.data) ? spec.data : []).slice(0, _CHART_MAX.labels).map(_chartNum);
+  if (!values.length && Array.isArray(spec.series) && spec.series[0]) {
+    values = (Array.isArray(spec.series[0].data) ? spec.series[0].data : []).map(_chartNum);
+  }
+  const pairs = labels.map((l, i) => ({ label: l || `Item ${i + 1}`, v: values[i] }))
+    .filter((p) => p.v !== null && p.v > 0);
+  const total = pairs.reduce((a, p) => a + p.v, 0);
+  if (!pairs.length || total <= 0) return "";
+  const W = 680, H = 260;
+  const cx = W / 2, cy = H / 2;
+  const r = Math.min(W, H) / 2 - 16;
+  const donut = spec.donut !== false;
+  const inner = donut ? r * 0.58 : 0;
+  let a0 = -Math.PI / 2;
+  let g = `<svg class="ai-chart-svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="max-width:${W}px" role="img">`;
+  pairs.forEach((p, i) => {
+    const frac = p.v / total;
+    const a1 = a0 + frac * Math.PI * 2;
+    // A full-circle slice cannot be drawn as an arc (start === end), so
+    // a 100% pie falls back to two half arcs.
+    const full = frac >= 0.9999;
+    const end = full ? a0 + Math.PI * 2 - 0.0001 : a1;
+    const large = end - a0 > Math.PI ? 1 : 0;
+    const x0 = cx + r * Math.cos(a0), y0 = cy + r * Math.sin(a0);
+    const x1 = cx + r * Math.cos(end), y1 = cy + r * Math.sin(end);
+    let d = `M ${cx.toFixed(1)} ${cy.toFixed(1)} L ${x0.toFixed(1)} ${y0.toFixed(1)} A ${r} ${r} 0 ${large} 1 ${x1.toFixed(1)} ${y1.toFixed(1)} `;
+    if (donut) {
+      const ix1 = cx + inner * Math.cos(end), iy1 = cy + inner * Math.sin(end);
+      const ix0 = cx + inner * Math.cos(a0), iy0 = cy + inner * Math.sin(a0);
+      d += `L ${ix1.toFixed(1)} ${iy1.toFixed(1)} A ${inner} ${inner} 0 ${large} 0 ${ix0.toFixed(1)} ${iy0.toFixed(1)} Z`;
+    } else {
+      d += "Z";
+    }
+    g += `<path d="${d}" fill="${_chartColor(i)}" stroke="var(--chart-surface)" stroke-width="2"/>`;
+    if (frac > 0.07) {
+      const mid = a0 + (end - a0) / 2;
+      const lr = donut ? (r + inner) / 2 : r * 0.68;
+      g += `<text x="${(cx + lr * Math.cos(mid)).toFixed(1)}" y="${(cy + lr * Math.sin(mid) + 4).toFixed(1)}" text-anchor="middle" class="ai-chart-pct">${escapeHtml(Math.round(frac * 100))}%</text>`;
+    }
+    a0 = a1;
+  });
+  if (donut) {
+    g += `<text x="${cx}" y="${cy - 2}" text-anchor="middle" class="ai-chart-total">${escapeHtml(_chartFmt(total))}</text>`;
+    const cap = _chartStr(spec.center || "Total", 18);
+    if (cap) g += `<text x="${cx}" y="${cy + 16}" text-anchor="middle" class="ai-chart-tick">${escapeHtml(cap)}</text>`;
+  }
+  g += "</svg>";
+  const legend = `<div class="ai-chart-legend">${pairs.map((p, i) =>
+    `<span class="ai-chart-key ${_chartKeyCls(i)}"><i></i>${escapeHtml(p.label)}<b>${Math.round((p.v / total) * 100)}%</b></span>`).join("")}</div>`;
+  return { svg: g, legend };
+}
+
+// Longest-path levelling so edges always point downwards; a cycle in
+// the model's graph would otherwise never settle, hence the bounded
+// iteration count.
+function _chartLevels(nodes, edges) {
+  const level = new Map(nodes.map((n) => [n.id, 0]));
+  for (let pass = 0; pass < nodes.length; pass++) {
+    let moved = false;
+    for (const e of edges) {
+      const a = level.get(e.from), b = level.get(e.to);
+      if (a === undefined || b === undefined) continue;
+      if (b < a + 1) { level.set(e.to, a + 1); moved = true; }
+    }
+    if (!moved) break;
+  }
+  return level;
+}
+
+function _chartFlow(spec) {
+  const raw = (Array.isArray(spec.nodes) ? spec.nodes : []).slice(0, _CHART_MAX.nodes);
+  const nodes = raw.map((n, i) => ({
+    id: _chartStr(n && (n.id != null ? n.id : i), 24) || `n${i}`,
+    label: _chartStr(n && n.label, 70),
+    shape: ["box", "round", "pill", "ellipse", "diamond"].includes(String(n && n.shape)) ? n.shape : "box"
+  })).filter((n) => n.label);
+  if (!nodes.length) return "";
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const edges = (Array.isArray(spec.edges) ? spec.edges : []).slice(0, _CHART_MAX.edges)
+    .map((e) => ({ from: _chartStr(e && e.from, 24), to: _chartStr(e && e.to, 24), label: _chartStr(e && e.label, 22) }))
+    .filter((e) => byId.has(e.from) && byId.has(e.to) && e.from !== e.to);
+
+  const level = _chartLevels(nodes, edges);
+  const rows = [];
+  for (const n of nodes) {
+    const L = level.get(n.id) || 0;
+    (rows[L] = rows[L] || []).push(n);
+  }
+
+  const NW = 152, BOXH = 46, DIAH = 74, HGAP = 28, VGAP = 40, PADX = 14, PADY = 14;
+  const nw = (n) => (n.shape === "diamond" ? NW * 1.22 : NW);
+  const nh = (n) => (n.shape === "diamond" ? DIAH : BOXH);
+
+  let contentW = 0, contentH = 0;
+  const rowMeta = rows.filter(Boolean).map((row) => {
+    const w = row.reduce((a, n) => a + nw(n), 0) + HGAP * (row.length - 1);
+    const h = Math.max(...row.map(nh));
+    contentW = Math.max(contentW, w);
+    contentH += h;
+    return { row, w, h };
+  });
+  contentH += VGAP * (rowMeta.length - 1);
+  const W = Math.max(340, Math.ceil(contentW + PADX * 2));
+  const H = Math.ceil(contentH + PADY * 2);
+
+  const pos = new Map();
+  let cursorY = PADY;
+  for (const meta of rowMeta) {
+    let x = (W - meta.w) / 2;
+    for (const n of meta.row) {
+      const w = nw(n), h = nh(n);
+      pos.set(n.id, { x, y: cursorY + (meta.h - h) / 2, w, h });
+      x += w + HGAP;
+    }
+    cursorY += meta.h + VGAP;
+  }
+
+  // Natural size, capped at natural size when rendered: CSS scales these
+  // to width:100%, and a flowchart has a deliberately small viewBox, so
+  // without the cap a two-node graph was blown up ~2x and the 12px
+  // labels and boxes read as overlapping. The marker id is per-instance
+  // because several flowcharts can share one message and duplicate ids
+  // are invalid (and would make every arrow resolve to the first def).
+  const markerId = `aiChartArrow${_aiChartSeq++}`;
+  let g = `<svg class="ai-chart-svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="max-width:${W}px" role="img">`;
+  // defs gives every arrow the same head without repeating the path.
+  g += `<defs><marker id="${markerId}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" fill="var(--chart-axis)"/></marker></defs>`;
+
+  for (const e of edges) {
+    const a = pos.get(e.from), b = pos.get(e.to);
+    const la = level.get(e.from) || 0, lb = level.get(e.to) || 0;
+    const sx = a.x + a.w / 2, sy = a.y + a.h;
+    const tx = b.x + b.w / 2, ty = b.y;
+    if (lb > la) {
+      const my = (sy + ty) / 2;
+      g += `<path d="M ${sx} ${sy} V ${my} H ${tx} V ${ty - 7}" fill="none" stroke="var(--chart-axis)" stroke-width="1.8" marker-end="url(#${markerId})"/>`;
+      if (e.label) g += `<text x="${((sx + tx) / 2).toFixed(1)}" y="${(my - 6).toFixed(1)}" text-anchor="middle" class="ai-chart-edgelabel">${escapeHtml(e.label)}</text>`;
+    } else {
+      // Same-level edge: bulge out to the right so it does not cut
+      // straight through the boxes in between.
+      const mid = (sy + ty) / 2;
+      const bulge = Math.min(W - 8, Math.max(a.x + a.w, b.x + b.w) + 24);
+      g += `<path d="M ${a.x + a.w} ${sy} C ${bulge} ${sy} ${bulge} ${ty} ${b.x + b.w} ${ty}" fill="none" stroke="var(--chart-axis)" stroke-width="1.8" marker-end="url(#${markerId})"/>`;
+      if (e.label) g += `<text x="${(bulge + 4).toFixed(1)}" y="${((sy + ty) / 2 + 4).toFixed(1)}" class="ai-chart-edgelabel">${escapeHtml(e.label)}</text>`;
+    }
+  }
+
+  for (const n of nodes) {
+    const p = pos.get(n.id);
+    const cx = p.x + p.w / 2, cy = p.y + p.h / 2;
+    const fill = n.shape === "box" ? "var(--chart-node)" : "var(--chart-node)";
+    let shape;
+    if (n.shape === "ellipse") shape = `<ellipse cx="${cx}" cy="${cy}" rx="${p.w / 2}" ry="${p.h / 2}" fill="${fill}" stroke="var(--chart-node-stroke)" stroke-width="1.6"/>`;
+    else if (n.shape === "diamond") shape = `<polygon points="${cx},${p.y} ${p.x + p.w},${cy} ${cx},${p.y + p.h} ${p.x},${cy}" fill="${fill}" stroke="var(--chart-node-stroke)" stroke-width="1.6"/>`;
+    else shape = `<rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" rx="${n.shape === "pill" ? 999 : n.shape === "round" ? p.h / 2 : 7}" fill="${fill}" stroke="var(--chart-node-stroke)" stroke-width="1.6"/>`;
+    g += shape;
+    const lines = _chartWrap(n.label, n.shape === "diamond" ? 13 : 20, 3);
+    const startY = cy - (lines.length - 1) * 7.5 + 4;
+    lines.forEach((ln, i) => {
+      g += `<text x="${cx}" y="${(startY + i * 15).toFixed(1)}" text-anchor="middle" class="ai-chart-nodelabel">${escapeHtml(ln)}</text>`;
+    });
+  }
+  g += "</svg>";
+  return { svg: g, legend: "" };
+}
+
+// Single entry point. Returns "" for anything unusable so the caller
+// can simply drop the block.
+function aiChartSVG(type, title, rawJSON) {
+  const spec = _chartParseJSON(rawJSON);
+  if (!spec || typeof spec !== "object") return "";
+  let built = "";
+  try {
+    if (type === "flowchart") built = _chartFlow(spec);
+    else if (type === "pie") built = _chartPie(spec);
+    else built = _chartCartesian(spec, type === "line" ? "line" : "bar");
+  } catch {
+    return "";
+  }
+  if (!built || !built.svg) return "";
+  const head = _chartStr(title, 70);
+  return `<div class="ai-chart" data-type="${type === "flowchart" || type === "pie" || type === "line" ? type : "bar"}">${head ? `<div class="ai-chart-title">${escapeHtml(head)}</div>` : ""}<div class="ai-chart-plot">${built.svg}</div>${built.legend || ""}</div>`;
+}
+
+// Read one attribute out of a raw tag's attribute string. Quote-aware,
+// so a value containing ">" (title="a > b") still parses.
+function _aiTagAttr(attrs, name) {
+  const s = String(attrs || "");
+  return (s.match(new RegExp("\\b" + name + "\\s*=\\s*\"([^\"]*)\"", "i")) ||
+    s.match(new RegExp("\\b" + name + "\\s*=\\s*'([^']*)'", "i")) || [])[1] || "";
+}
+function _aiSafeLabel(raw, fallback) {
+  // Model-authored, lands in innerHTML — must be sanitized. Strip our
+  // own tags so a title can never recursively build another card/dropdown.
+  const clean = String(raw || "").trim()
+    .replace(/<\/?(dropdown|details|summary|cards|card|icon)\b[^>]*>/gi, "");
+  return _mdInline(renderMarkdown(clean)) || fallback || "";
+}
+function _aiCardOne(attrs, body) {
+  const title = _aiSafeLabel(_aiTagAttr(attrs, "title"), "");
+  const accentRaw = String(_aiTagAttr(attrs, "accent")).trim().toLowerCase();
+  const accent = _AI_CARD_ACCENTS.includes(accentRaw) ? accentRaw : "";
+  const icon = _aiIconAttr(attrs);
+  const head = (title || icon)
+    ? `<div class="ai-card-head">${icon}${title ? `<span class="ai-card-title">${title}</span>` : ""}</div>`
+    : "";
+  return `<div class="ai-card"${accent ? ` data-accent="${accent}"` : ""}>${head}<div class="ai-card-body md-content">${renderMarkdown(String(body || ""))}</div></div>`;
+}
+function aiCardsHTML(layout, groupTitle, inner, groupIconName) {
+  const LAYOUTS = ["grid-auto", "grid-1", "grid-2", "grid-3", "featured"];
+  const want = String(layout || "").trim().toLowerCase();
+  const lay = LAYOUTS.includes(want) ? want : "grid-auto";
+  const groupIcon = aiSVGIcon(groupIconName);
+  const cards = [];
+  let rest = String(inner || "");
+  rest = rest.replace(/<card\b((?:"[^"]*"|'[^']*'|[^>"'])*)>([\s\S]*?)<\/card>/gi, (m, a, b) => {
+    cards.push({ a, b });
+    return "\n";
+  });
+  rest = rest.replace(/<\/?card\b[^>]*>/gi, "");
+  // No <card> children at all: keep the prose rather than emit an
+  // empty grid, so a half-formed block still shows what it carried.
+  if (!cards.length) {
+    const loose = renderMarkdown(rest).trim();
+    return loose ? `<div class="ai-cards" data-layout="${lay}"><div class="ai-card"><div class="ai-card-body md-content">${loose}</div></div></div>` : "";
+  }
+  const gt = _aiSafeLabel(groupTitle, "");
+  const head = (gt || groupIcon)
+    ? `<div class="ai-cards-title md-content">${groupIcon}${gt}</div>`
+    : "";
+  return `${head}<div class="ai-cards" data-layout="${lay}">${cards.map((c) => _aiCardOne(c.a, c.b)).join("")}</div>`;
+}
+
+// ── Payload tag matching (quiz / es-app / es-edit) ───────────
+// These tags are matched TOLERANTLY on purpose. The literal
+// "<es-app>" only ever matches that exact spelling, so when the model
+// wrote <es-app type="panel">, <es-app > or <ES-APP> nothing matched,
+// the strip in renderMarkdown did nothing, and the ENTIRE JSON payload
+// was rendered into the message as a wall of text. Tolerating
+// attributes, whitespace before ">", and casing costs nothing and
+// removes that whole failure class.
+const _TAGS = [
+  { name: "quiz", open: "<quiz" },
+  { name: "es-app", open: "<es-app" },
+  { name: "es-edit", open: "<es-edit" },
+];
+// Match either the full block (payload included) or, while streaming,
+// an unterminated opening tag through to the end of the text.
+function _tagBlockRe(tag, global) {
+  return new RegExp(`${tag.open}(?:\\s[^>]*)?>[\\s\\S]*?(?:</${tag.name}\\s*>|$)`, global ? "gi" : "i");
+}
+// The opening tag on its own — used to find where a block starts so the
+// visible text can be split around it.
+function _tagOpenRe(tag) {
+  return new RegExp(`${tag.open}(?:\\s[^>]*)?>`, "i");
+}
+const _TAG_QUIZ = _TAGS[0], _TAG_APP = _TAGS[1], _TAG_EDIT = _TAGS[2];
+
 function renderMarkdown(raw) {
   if (typeof marked === "undefined") return escapeHtml(raw);
   let text = raw;
-  text = text.replace(/<quiz>[\s\S]*?<\/quiz>/g, "");
-  text = text.replace(/<quiz>[\s\S]*$/g, "");
-  text = text.replace(/<es-app>[\s\S]*?<\/es-app>/g, "");
-  text = text.replace(/<es-app>[\s\S]*$/g, "");
-  text = text.replace(/<es-edit>[\s\S]*?<\/es-edit>/g, "");
-  text = text.replace(/<es-edit>[\s\S]*$/g, "");
+  // Payload tags are removed WHOLLY — payload included — so a block
+  // that never becomes a card can never dump its JSON into the reply.
+  text = text.replace(_tagBlockRe(_TAG_QUIZ, true), "");
+  text = text.replace(_tagBlockRe(_TAG_APP, true), "");
+  text = text.replace(_tagBlockRe(_TAG_EDIT, true), "");
+  // ── Collapsible dropdowns + card groups + icons ─────────────
+  // The model may wrap any part of its answer in a collapsible
+  // section, a group of cards, or drop an <icon name="…"/> anywhere
+  // in its own markdown. Four syntaxes are accepted (see the
+  // [COLLAPSIBLE DROPDOWNS] / [AI CARDS] / [ICONS] harness in the
+  // system prompt):
+  //   <dropdown title="How it works"> …markdown… </dropdown>
+  //   <details><summary>How it works</summary>…</details>
+  //   <cards layout="grid-2"><card title="…">…</card></cards>
+  //   <icon name="bolt"/>            (inline, anywhere in prose)
+  // Only COMPLETE blocks are lifted out.
+  //
+  // ONE combined regex handles code fences alongside the tags, and
+  // alternation order + leftmost-match is what makes both directions
+  // correct in a single pass:
+  //   • a <dropdown> inside a fence is sample text — the fence starts
+  //     earlier, so alternative 1 wins and the tag is left alone;
+  //   • a fence inside a <dropdown> body — the tag starts earlier, so
+  //     its alternative wins and the fence is captured into the body.
+  // Splitting fences out first would break the second case (a fence
+  // before the closing tag would strand the open tag).
+  // Bodies are rendered by a recursive renderMarkdown() call, which
+  // owns its own placeholder arrays, so no index collisions. Because
+  // each block is re-rendered recursively, cards and dropdowns nest
+  // freely (a card body may hold a dropdown).
+  const dropdownBlocks = [];
+  const cardBlocks = [];
+  const iconBlocks = [];
+  const chartBlocks = [];
+  const _stashDropdown = (title, body, isOpen, icon) => {
+    const i = dropdownBlocks.push({ title, body, open: !!isOpen, icon }) - 1;
+    return `AIDROPDOWN${i}AIDROPDOWN`;
+  };
+  const _stashCards = (attrs, inner) => {
+    const i = cardBlocks.push({ attrs, inner }) - 1;
+    return `AICARDS${i}AICARDS`;
+  };
+  const _stashIcon = (name) => `AIICON${iconBlocks.push(name) - 1}AIICON`;
+  // <chart type="bar"> and <flowchart> both carry a JSON payload; the
+  // alias is accepted so the model can reach for either name.
+  const _stashChart = (kind, attrs, body) => `AICHART${chartBlocks.push({ kind, attrs, body }) - 1}AICHART`;
+  text = text.replace(
+    /(```[\s\S]*?```|`[^`\n]+`)|<details\b[^>]*>([\s\S]*?)<\/details>|<dropdown\b((?:"[^"]*"|'[^']*'|[^>"'])*)>([\s\S]*?)<\/dropdown>|<cards\b((?:"[^"]*"|'[^']*'|[^>"'])*)>([\s\S]*?)<\/cards>|<icon\b((?:"[^"]*"|'[^']*'|[^>"'])*)\/?>|<flowchart\b[^>]*>([\s\S]*?)<\/flowchart>|<chart\b[^>]*>([\s\S]*?)<\/chart>/gi,
+    (m, fence, detInner, ddAttrs, ddBody, cardsAttrs, cardsInner, iconAttrs, flowBody, chartBody) => {
+      if (fence !== undefined) return m;
+      if (detInner !== undefined) {
+        const sum = detInner.match(/<summary\b[^>]*>([\s\S]*?)<\/summary>/i);
+        const body = sum ? detInner.slice(sum.index + sum[0].length) : detInner;
+        return _stashDropdown(sum ? sum[1] : "", body, false, "");
+      }
+      if (cardsInner !== undefined) return _stashCards(cardsAttrs, cardsInner);
+      if (iconAttrs !== undefined) return _stashIcon(_aiTagAttr(iconAttrs, "name"));
+      if (flowBody !== undefined) return _stashChart("flowchart", "", flowBody);
+      if (chartBody !== undefined) {
+        const a = (m.match(/<chart\b([^>]*)>/i) || [])[1] || "";
+        const kind = _chartStr(_aiTagAttr(a, "type"), 12).toLowerCase();
+        return _stashChart(kind, a, chartBody);
+      }
+      // The open tag is matched quote-aware above, not with [^>]*: a
+      // title may legitimately contain ">" ("Why x > y matters") and a
+      // naive [^>]* would stop inside it and swallow the body.
+      const title = _aiTagAttr(ddAttrs, "title");
+      return _stashDropdown(title, ddBody, /(^|\s)open(\s|=|$)/i.test(ddAttrs), _aiTagAttr(ddAttrs, "icon"));
+    }
+  );
+  // Leftovers: an unterminated tag (still streaming), a self-closing
+  // stray, or a lone closing tag. Drop them entirely rather than let
+  // raw markup flash at the user — same treatment as <quiz>/<es-app>.
+  // Applied per non-fence segment only: the "…through end of text"
+  // rule would otherwise start inside a fence and swallow its closing
+  // backticks, taking the whole code block with it.
+  const _cleanStrayTags = (s) => s
+    .replace(/<dropdown\b(?:(?:"[^"]*"|'[^']*'|[^>"'])*)>[\s\S]*$/gi, "")
+    .replace(/<details\b[^>]*>[\s\S]*$/gi, "")
+    .replace(/<cards\b(?:(?:"[^"]*"|'[^']*'|[^>"'])*)>[\s\S]*$/gi, "")
+    .replace(/<(chart|flowchart)\b[^>]*>[\s\S]*$/gi, "")
+    .replace(/<\/?(dropdown|details|summary|cards|card|icon|chart|flowchart)\b[^>]*>/gi, "");
+  // split() with a capturing group interleaves: even indexes are prose,
+  // odd indexes are the fences.
+  text = text
+    .split(/(```[\s\S]*?```|`[^`\n]+`)/)
+    .map((part, i) => (i % 2
+      // Inside a fence our tags are sample text, but DOMPurify would
+      // strip them as unknown elements — and since <icon/> has no text
+      // content of its own, showing it as a sample would render an EMPTY
+      // code block. Escape only our own tag openings so they display
+      // literally; every other tag in a fence keeps today's behaviour.
+      ? part.replace(/<(dropdown|details|summary|cards|card|icon|chart|flowchart)\b/gi, "&lt;$1")
+      : _cleanStrayTags(part)))
+    .join("");
   // Convert [IMAGE: url] tags to inline image HTML before markdown processing.
   // This ensures images render inline in the chat like ChatGPT, not as raw text.
   const webImageBlocks = [];
@@ -1078,6 +1707,57 @@ function renderMarkdown(raw) {
     const safeUrl = escapeHtmlAttr(imgData.value);
     return `<div class="web-image-result" data-web-img="1"><img class="web-image" src="${safeUrl}" alt="Image" loading="lazy"></div>`;
   });
+  // Re-insert collapsible dropdowns AFTER sanitization: this markup is
+  // ours (inline onclick, data attrs), so it must never reach DOMPurify.
+  // The alternation also eats the wrapping <p> marked emits around a
+  // block-level placeholder, which would otherwise leave an empty
+  // paragraph either side of the card once the HTML parser splits it.
+  html = html.replace(/<p>\s*AIDROPDOWN(\d+)AIDROPDOWN\s*<\/p>|AIDROPDOWN(\d+)AIDROPDOWN/g, (m, a, b) => {
+    const blk = dropdownBlocks[+(a ?? b)];
+    return blk ? aiDropdownHTML(blk.title, blk.body, blk.open, blk.icon) : "";
+  });
+  // Card groups, same reasoning as dropdowns: injected after
+  // sanitization because the markup is ours, and the <p> marked wraps a
+  // block-level placeholder in is eaten to avoid empty paragraphs.
+  html = html.replace(/<p>\s*AICARDS(\d+)AICARDS\s*<\/p>|AICARDS(\d+)AICARDS/g, (m, a, b) => {
+    const blk = cardBlocks[+(a ?? b)];
+    if (!blk) return "";
+    return aiCardsHTML(_aiTagAttr(blk.attrs, "layout"), _aiTagAttr(blk.attrs, "title"), blk.inner, _aiTagAttr(blk.attrs, "icon"));
+  });
+  // Inline <icon/> is different: it sits INSIDE a paragraph, so the
+  // placeholder is replaced on its own — no <p> is eaten, or the icon
+  // would tear its sentence in half.
+  //
+  // Spacing is derived from the REAL neighbours rather than a fixed
+  // margin. The model writes both "<icon/>word" and "word <icon/>", so
+  // one fixed value either collides with the preceding text or doubles
+  // up with a space the source already has. Two modifier classes:
+  //   ai-icon-lead — text abuts it on the left, add space there
+  //   ai-icon-next — text abuts it on the right, add space there
+  // Block boundaries (a <p>/<li>/<br> on one side) mean the icon is at
+  // the START or END of a run, not glued to text, so they suppress the
+  // modifier; an inline closing tag like </strong> does not, because
+  // there the icon really does collide with the text before it.
+  const EDGE_TAGS = "(p|li|h[1-6]|td|th|div|blockquote|pre|br|ul|ol|table|tbody|thead|tr|dd|dt|section|article|figure|figcaption)";
+  const EDGE_BEFORE = new RegExp(`<\\/?${EDGE_TAGS}\\b[^>]*\\/?>$`, "i");
+  const EDGE_AFTER = new RegExp(`^<\\/?${EDGE_TAGS}\\b[^>]*\\/?>`, "i");
+  html = html.replace(/AIICON(\d+)AIICON/g, (m, i, offset, str) => {
+    const svg = aiSVGIcon(iconBlocks[+i]);
+    if (!svg) return "";
+    const before = str.slice(0, offset);
+    const after = str.slice(offset + m.length);
+    const lead = before && !/\s$/.test(before) && !EDGE_BEFORE.test(before) && !/AIICON\d+AIICON$/.test(before) ? " ai-icon-lead" : "";
+    const next = after && !/^\s/.test(after) && !EDGE_AFTER.test(after) && !/^AIICON\d+AIICON/.test(after) ? " ai-icon-next" : "";
+    return svg.replace('class="ai-icon"', `class="ai-icon${lead}${next}"`);
+  });
+  // Charts are injected after sanitization for the same reason. Unlike
+  // cards/dropdowns there may be NO <p> around them (a chart often sits
+  // alone between paragraphs), so both shapes are accepted.
+  html = html.replace(/<p>\s*AICHART(\d+)AICHART\s*<\/p>|AICHART(\d+)AICHART/g, (m, a, b) => {
+    const blk = chartBlocks[+(a ?? b)];
+    if (!blk) return "";
+    return aiChartSVG(blk.kind, _aiTagAttr(blk.attrs, "title"), blk.body);
+  });
   html = html.replace(/MATHBLOCK(\d+)MATHBLOCK/g, (_, i) => {
     try {
       const src = _preprocessLatexColor(mathBlocks[i].src);
@@ -1181,39 +1861,28 @@ function _streamDisplayText(raw) {
   const _peeked = _esPeekApp(t);
   if (_peeked) { _esStreamApp = _peeked; }
   else if (t.indexOf("<es-edit") >= 0 || t.indexOf("<es-app") >= 0) { _esStreamApp = null; }
-  const editIdx = t.indexOf("<es-edit>");
+  const editIdx = t.search(/<es-edit(?:\s[^>]*)?>/i);
   if (editIdx >= 0) {
     return { text: t.slice(0, editIdx), quizStarted: false, appStarted: false, editStarted: true };
   }
-  const editTag = "<es-edit";
-  for (let i = editTag.length; i >= 1; i--) {
-    if (t.endsWith(editTag.slice(0, i))) {
-      t = t.slice(0, -i);
-      break;
+  const _trimPartial = (tag) => {
+    const low = t.toLowerCase();
+    for (let i = tag.length; i >= 1; i--) {
+      if (low.endsWith(tag.slice(0, i))) return t.slice(0, -i);
     }
-  }
-  const appIdx = t.indexOf("<es-app>");
+    return t;
+  };
+  t = _trimPartial("<es-edit");
+  const appIdx = t.search(/<es-app(?:\s[^>]*)?>/i);
   if (appIdx >= 0) {
     return { text: t.slice(0, appIdx), quizStarted: false, appStarted: true, editStarted: false };
   }
-  const appTag = "<es-app";
-  for (let i = appTag.length; i >= 1; i--) {
-    if (t.endsWith(appTag.slice(0, i))) {
-      t = t.slice(0, -i);
-      break;
-    }
-  }
-  const quizIdx = t.indexOf("<quiz>");
+  t = _trimPartial("<es-app");
+  const quizIdx = t.search(/<quiz(?:\s[^>]*)?>/i);
   if (quizIdx >= 0) {
     return { text: t.slice(0, quizIdx), quizStarted: true, appStarted: false, editStarted: false };
   }
-  const tag = "<quiz";
-  for (let i = tag.length; i >= 1; i--) {
-    if (t.endsWith(tag.slice(0, i))) {
-      t = t.slice(0, -i);
-      break;
-    }
-  }
+  t = _trimPartial("<quiz");
   return { text: t, quizStarted: false, appStarted: false, editStarted: false };
 }
 /* ── Per-word streaming reveal ──────────────────────────────────
@@ -3525,9 +4194,9 @@ function buildHistory(conv) {
     const allMsgs = conv.messages;
     const msgs = allMsgs.slice(-HISTORY_MAX_MSGS).map((m, idx, arr) => {
       let text = m.text || "";
-      text = text.replace(/<quiz>[\s\S]*?<\/quiz>/g, "[A quiz was provided here]");
-      text = text.replace(/<es-app>[\s\S]*?<\/es-app>/g, "[Content was offered for import to EmeraldSuite]");
-      text = text.replace(/<es-edit>[\s\S]*?<\/es-edit>/g, "[Update was applied to your file in EmeraldSuite]");
+      text = text.replace(/<quiz(?:\s[^>]*)?>[\s\S]*?<\/quiz\s*>/gi, "[A quiz was provided here]");
+      text = text.replace(/<es-app(?:\s[^>]*)?>[\s\S]*?<\/es-app\s*>/gi, "[Content was offered for import to EmeraldSuite]");
+      text = text.replace(/<es-edit(?:\s[^>]*)?>[\s\S]*?<\/es-edit\s*>/gi, "[Update was applied to your file in EmeraldSuite]");
       text = _stripMemoryTags(text).replace(/\[GENERATE_IMAGE:\s*[^\]]+\]/g, "").replace(/\[EDIT_IMAGE:\s*[^\]]+\]/g, "").replace(/\[IMAGE:\s*[^\]]+\]/g, "").replace(/\[IMAGE_SEARCH:\s*[^\]]+\]/g, "").trim();
       if (m.imagePrompt) {
         // Tells the model an image came out of this turn and whether it was an
@@ -6602,9 +7271,9 @@ function appendStoredAIMessage(m) {
   return div;
 }
 function _extractQuiz(text) {
-  const quizMatch = text.match(/<quiz>([\s\S]+?)<\/quiz>/) || text.match(/<quiz>([\s\S]+)$/);
+  const quizMatch = text.match(/<quiz(?:\s[^>]*)?>([\s\S]+?)<\/quiz\s*>/) || text.match(/<quiz(?:\s[^>]*)?>([\s\S]+)$/);
   if (!quizMatch) return { before: text, after: "", quizData: null, parseFailed: false };
-  const qStart = text.indexOf("<quiz>");
+  const qStart = text.search(/<quiz(?:\s[^>]*)?>/i);
   const before = text.slice(0, qStart).trim();
   const after = text.slice(qStart + quizMatch[0].length).trim();
   let quizData = null;
@@ -6845,9 +7514,9 @@ function _esAppKind(data) {
 }
 function _extractEmeraldApp(text) {
   const src = String(text || "");
-  const m = src.match(/<es-app>([\s\S]+?)<\/es-app>/) || src.match(/<es-app>([\s\S]+)$/);
+  const m = src.match(/<es-app(?:\s[^>]*)?>([\s\S]+?)<\/es-app\s*>/) || src.match(/<es-app(?:\s[^>]*)?>([\s\S]+)$/);
   if (!m) return { before: text, after: "", appData: null, parseFailed: false };
-  const start = src.indexOf("<es-app>");
+  const start = src.search(/<es-app(?:\s[^>]*)?>/i);
   const before = src.slice(0, start).trim();
   const after = src.slice(start + m[0].length).trim();
   let raw = m[1];
@@ -8402,9 +9071,9 @@ function _efParsePayload(raw) {
 
 function _extractFileEdit(text) {
   const src = String(text || "");
-  const m = src.match(/<es-edit>([\s\S]+?)<\/es-edit>/) || src.match(/<es-edit>([\s\S]+)$/);
+  const m = src.match(/<es-edit(?:\s[^>]*)?>([\s\S]+?)<\/es-edit\s*>/) || src.match(/<es-edit(?:\s[^>]*)?>([\s\S]+)$/);
   if (!m) return { before: text, after: "", edit: null, parseFailed: false };
-  const start = src.indexOf("<es-edit>");
+  const start = src.search(/<es-edit(?:\s[^>]*)?>/i);
   const before = src.slice(0, start).trim();
   const after = src.slice(start + m[0].length).trim();
   let raw = m[1];
@@ -11491,6 +12160,7 @@ try {
   if (typeof stopStreaming !== "undefined" && typeof window.stopStreaming === "undefined") window.stopStreaming = stopStreaming;
   if (typeof streamEmeraldBot !== "undefined" && typeof window.streamEmeraldBot === "undefined") window.streamEmeraldBot = streamEmeraldBot;
   if (typeof submitUserMsgEdit !== "undefined" && typeof window.submitUserMsgEdit === "undefined") window.submitUserMsgEdit = submitUserMsgEdit;
+  if (typeof toggleAiDropdown !== "undefined" && typeof window.toggleAiDropdown === "undefined") window.toggleAiDropdown = toggleAiDropdown;
   if (typeof toggleModelDropdown !== "undefined" && typeof window.toggleModelDropdown === "undefined") window.toggleModelDropdown = toggleModelDropdown;
   if (typeof togglePreviewConsole !== "undefined" && typeof window.togglePreviewConsole === "undefined") window.togglePreviewConsole = togglePreviewConsole;
   if (typeof toggleReasoningBlock !== "undefined" && typeof window.toggleReasoningBlock === "undefined") window.toggleReasoningBlock = toggleReasoningBlock;
