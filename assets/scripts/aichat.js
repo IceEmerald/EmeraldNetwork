@@ -1462,6 +1462,7 @@ const _TAGS = [
   { name: "quiz", open: "<quiz" },
   { name: "es-app", open: "<es-app" },
   { name: "es-edit", open: "<es-edit" },
+  { name: "suggestions", open: "<suggestions" },
 ];
 // Match either the full block (payload included) or, while streaming,
 // an unterminated opening tag through to the end of the text.
@@ -1473,7 +1474,7 @@ function _tagBlockRe(tag, global) {
 function _tagOpenRe(tag) {
   return new RegExp(`${tag.open}(?:\\s[^>]*)?>`, "i");
 }
-const _TAG_QUIZ = _TAGS[0], _TAG_APP = _TAGS[1], _TAG_EDIT = _TAGS[2];
+const _TAG_QUIZ = _TAGS[0], _TAG_APP = _TAGS[1], _TAG_EDIT = _TAGS[2], _TAG_SUGGEST = _TAGS[3];
 
 function renderMarkdown(raw) {
   if (typeof marked === "undefined") return escapeHtml(raw);
@@ -1483,6 +1484,7 @@ function renderMarkdown(raw) {
   text = text.replace(_tagBlockRe(_TAG_QUIZ, true), "");
   text = text.replace(_tagBlockRe(_TAG_APP, true), "");
   text = text.replace(_tagBlockRe(_TAG_EDIT, true), "");
+  text = text.replace(_tagBlockRe(_TAG_SUGGEST, true), "");
   // ── Collapsible dropdowns + card groups + icons ─────────────
   // The model may wrap any part of its answer in a collapsible
   // section, a group of cards, or drop an <icon name="…"/> anywhere
@@ -1883,6 +1885,14 @@ function _streamDisplayText(raw) {
     return { text: t.slice(0, quizIdx), quizStarted: true, appStarted: false, editStarted: false };
   }
   t = _trimPartial("<quiz");
+  // <suggestions> is always the LAST thing in a reply, so once it opens
+  // the answer is complete — cut there instead of letting the streaming
+  // renderer flash a half-typed JSON array at the user.
+  t = _trimPartial("<suggestions");
+  const suggIdx = t.search(/<suggestions(?:\s[^>]*)?>/i);
+  if (suggIdx >= 0) {
+    return { text: t.slice(0, suggIdx), quizStarted: false, appStarted: false, editStarted: false };
+  }
   return { text: t, quizStarted: false, appStarted: false, editStarted: false };
 }
 /* ── Per-word streaming reveal ──────────────────────────────────
@@ -3282,6 +3292,97 @@ function buildMessageActionsEl(msgId) {
   _actDiv.appendChild(_dislikeBtn);
   return _actDiv;
 }
+/* ── Reply suggestions ───────────────────────────────────────────
+   The model may close a reply with a <suggestions> tag carrying a
+   short JSON array of follow-up questions (see [REPLY SUGGESTIONS]
+   in the worker prompt). They render as a row of chips under the
+   message and ONE CLICK SENDS the question, so a user who doesn't
+   know what to type next never has to type at all.
+
+   Everything here is model-authored, so the label goes in via
+   textContent — never innerHTML — and is length-capped, stripped
+   of markup and control characters, and de-duplicated. A malformed
+   tag simply yields no chips; it can never inject or garble a reply. */
+const _SUGGEST_MAX = 4;
+const _SUGGEST_MAX_LEN = 140;
+const _SUGGEST_BLOCK_RE = /<suggestions(?:\s[^>]*)?>([\s\S]*?)(?:<\/suggestions\s*>|$)/i;
+const _SUGGEST_STRIP_RE = /<suggestions(?:\s[^>]*)?>[\s\S]*?(?:<\/suggestions\s*>|$)/gi;
+function _cleanSuggestion(raw) {
+  const t = String(raw == null ? "" : raw)
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/^\s*(?:[-*+\u2022]|\d+[.)])\s+/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (t.length > _SUGGEST_MAX_LEN) return t.slice(0, _SUGGEST_MAX_LEN - 1).trimEnd() + "\u2026";
+  return t;
+}
+function _extractSuggestions(text) {
+  const m = String(text || "").match(_SUGGEST_BLOCK_RE);
+  if (!m) return [];
+  const body = String(m[1] || "").trim();
+  if (!body) return [];
+  let items = _chartParseJSON(body);
+  if (!Array.isArray(items)) {
+    // JSON failed. A body that still looks like JSON (starts with [ or {) is
+    // malformed, not a line list — parsing it as lines would surface raw
+    // punctuation as a chip, so drop it instead.
+    if (/^[[{]/.test(body)) return [];
+    items = body.split(/\r?\n/);
+  }
+  const out = [];
+  const seen = new Set();
+  for (const it of items) {
+    const raw = typeof it === "string" ? it
+      : (it && typeof it === "object" ? (it.text || it.q || it.question || it.title) : null);
+    const q = _cleanSuggestion(raw);
+    if (!q) continue;
+    const key = q.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(q);
+    if (out.length >= _SUGGEST_MAX) break;
+  }
+  return out;
+}
+const _SUGGEST_ICON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>';
+function buildSuggestionsEl(items) {
+  const list = Array.isArray(items) ? items.filter(Boolean).slice(0, _SUGGEST_MAX) : [];
+  if (!list.length) return null;
+  const wrap = document.createElement("div");
+  wrap.className = "msg-suggestions";
+  wrap.setAttribute("role", "group");
+  wrap.setAttribute("aria-label", "Suggested follow-ups");
+  for (const q of list) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "msg-suggestion";
+    btn.title = "Send this question";
+    const ic = document.createElement("span");
+    ic.className = "msg-suggestion-icon";
+    ic.innerHTML = _SUGGEST_ICON;
+    const lb = document.createElement("span");
+    lb.className = "msg-suggestion-text";
+    lb.textContent = q;
+    btn.appendChild(ic);
+    btn.appendChild(lb);
+    btn.addEventListener("click", () => { if (!state.isStreaming) sendQuickPrompt(q); });
+    wrap.appendChild(btn);
+  }
+  return wrap;
+}
+/* Chips sit ABOVE the like/dislike row — the follow-ups are the
+   primary action on a message, the rating is secondary. */
+function insertSuggestionsEl(body, items) {
+  const el = buildSuggestionsEl(items);
+  if (el) insertBeforeMessageActions(body, el);
+  return el;
+}
+// Removes the tag (and its payload) before a reply is fed back to Gemini as
+// conversation history — the chips are UI, never part of what was said.
+function _stripSuggestionsTag(text) {
+  return String(text || "").replace(_SUGGEST_STRIP_RE, " ");
+}
 /* ── Reasoning panel ─────────────────────────────────────────────
    When reasoning mode is enabled, the worker streams Gemini's
    `thought: true` parts separately (see streamEmeraldBot). We render
@@ -3692,8 +3793,12 @@ function updateLastMsgActions() {
   const aiMsgs = document.querySelectorAll('[data-ai="1"]');
   aiMsgs.forEach((msg, i) => {
     const actions = msg.querySelector(".message-actions");
+    // Follow-up chips only ever belong to the newest reply — an older
+    // one's suggestions were already answered (or superseded) by it.
+    const suggestions = msg.querySelector(".msg-suggestions");
     if (i < aiMsgs.length - 1) {
       if (actions) actions.remove();
+      if (suggestions) suggestions.remove();
     }
   });
 }
@@ -4121,6 +4226,7 @@ async function handleSend(opts) {
     renderCitations(aiDiv, _allSources);
     if (_allSources.length) _stripSourcesFromHTML(textEl);
     aiDiv.querySelector(".message-body").appendChild(buildMessageActionsEl(msgId));
+    const _suggestions = _extractSuggestions(fullText);
     if (aiDiv) {
       aiDiv.dataset.modelId = _usedModelId || "";
       aiDiv.dataset.modelName = _usedModelName || "";
@@ -4133,6 +4239,7 @@ async function handleSend(opts) {
         id: msgId,
         modelId: _usedModelId || void 0,
         modelName: _usedModelName || void 0,
+        suggestions: _suggestions.length ? _suggestions : void 0,
         hasMemory: !!memoryAdded,
         hasQuiz: !!(quizData || _quizParseFailed),
         quizData: quizData || void 0,
@@ -4164,6 +4271,9 @@ async function handleSend(opts) {
     }
     // Always process [IMAGE_SEARCH:] tags regardless of the image tags above
     processImageSearchTags(aiDiv, state.convId, msgId);
+    // Chips last: they anchor to the bottom of the bubble, under every
+    // other part of the answer (citations, images, search results).
+    if (_suggestions.length) insertSuggestionsEl(aiDiv.querySelector(".message-body"), _suggestions);
   } else if (aiDiv && textEl) {
     // No text came back (request error / cancellation / empty response).
     // Persist the error so it survives a page reload instead of vanishing.
@@ -4197,6 +4307,9 @@ function buildHistory(conv) {
       text = text.replace(/<quiz(?:\s[^>]*)?>[\s\S]*?<\/quiz\s*>/gi, "[A quiz was provided here]");
       text = text.replace(/<es-app(?:\s[^>]*)?>[\s\S]*?<\/es-app\s*>/gi, "[Content was offered for import to EmeraldSuite]");
       text = text.replace(/<es-edit(?:\s[^>]*)?>[\s\S]*?<\/es-edit\s*>/gi, "[Update was applied to your file in EmeraldSuite]");
+      // The follow-up chips are UI, not conversation. Sending the raw tag back
+      // would show the model its own payload as part of its past answer.
+      text = _stripSuggestionsTag(text);
       text = _stripMemoryTags(text).replace(/\[GENERATE_IMAGE:\s*[^\]]+\]/g, "").replace(/\[EDIT_IMAGE:\s*[^\]]+\]/g, "").replace(/\[IMAGE:\s*[^\]]+\]/g, "").replace(/\[IMAGE_SEARCH:\s*[^\]]+\]/g, "").trim();
       if (m.imagePrompt) {
         // Tells the model an image came out of this turn and whether it was an
@@ -4280,11 +4393,16 @@ function buildHistory(conv) {
     }
     return msgs;
   }
-  return [...state.tempHistory];
+  // Unsaved conversation: same treatment as buildHistory — the chips are UI,
+  // so the model must never see its own <suggestions> payload as past output.
+  return state.tempHistory.map((m) => (m.role === "model" && m.parts && m.parts[0]
+    ? { ...m, parts: [{ ...m.parts[0], text: _stripSuggestionsTag(m.parts[0].text) }] }
+    : m));
 }
 function setSendState(sending) {
   const btn = $("sendBtn");
   if (!btn) return;
+  document.querySelectorAll(".msg-suggestions").forEach((el) => el.classList.toggle("is-busy", !!sending));
   if (sending) {
     btn.title = "Stop";
     btn.onclick = stopStreaming;
@@ -4610,6 +4728,7 @@ textEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.editStarted
     renderCitations(aiDiv, _allSources);
     if (_allSources.length) _stripSourcesFromHTML(textEl);
     aiDiv.querySelector(".message-body").appendChild(buildMessageActionsEl(newId));
+    const _suggestions = _extractSuggestions(fullText);
     if (aiDiv) {
       aiDiv.dataset.modelId = _usedModelId || "";
       aiDiv.dataset.modelName = _usedModelName || "";
@@ -4621,6 +4740,7 @@ textEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.editStarted
       id: newId,
       modelId: _usedModelId || void 0,
       modelName: _usedModelName || void 0,
+      suggestions: _suggestions.length ? _suggestions : void 0,
       _regenBranchRef: regenBranchId,
       hasMemory: !!memoryAdded,
       hasQuiz: !!(quizData || _quizParseFailed),
@@ -4647,6 +4767,7 @@ textEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.editStarted
     if (imgPromptFinal) {
       runImageTags(aiDiv, fullText, state.convId, newId, { files: regenFiles, userText: regenUserText });
     }
+    if (_suggestions.length) insertSuggestionsEl(aiDiv.querySelector(".message-body"), _suggestions);
   } else if (aiDiv && textEl) {
     // No text came back (request error / cancellation / empty response).
     // Persist the error onto the regen branch so it survives a page reload.
@@ -7251,6 +7372,10 @@ function appendStoredAIMessage(m) {
     });
     insertBeforeMessageActions(div.querySelector(".message-body"), wrapper);
   }
+  // Persisted follow-up chips, added after every other body part so they
+  // always sit at the very bottom. Older messages are pruned by
+  // updateLastMsgActions() once the caller finishes the batch.
+  if (!m.isError) insertSuggestionsEl(div.querySelector(".message-body"), m.suggestions || _extractSuggestions(m.text));
   const typingEl = $("typingIndicator");
   $("messagesArea").insertBefore(div, typingEl);
   // ── Render image search results: use cached results if available (stable on reload) ──
@@ -10633,6 +10758,7 @@ async function submitUserMsgEdit(msgId) {
     renderCitations(aiDiv, _allSources);
     if (_allSources.length) _stripSourcesFromHTML(aiTextEl);
     aiDiv.querySelector(".message-body").appendChild(buildMessageActionsEl(aiMsgId));
+    const _suggestions = _extractSuggestions(aiFullText);
     if (aiDiv) {
       aiDiv.dataset.modelId = _usedModelId || "";
       aiDiv.dataset.modelName = _usedModelName || "";
@@ -10645,6 +10771,7 @@ async function submitUserMsgEdit(msgId) {
         _editBranchRef: branchRootId,
         modelId: _usedModelId || void 0,
         modelName: _usedModelName || void 0,
+        suggestions: _suggestions.length ? _suggestions : void 0,
         hasMemory: !!memoryAdded,
         hasQuiz: !!(quizData || _quizParseFailed),
         quizData: quizData || void 0,
@@ -10669,6 +10796,7 @@ async function submitUserMsgEdit(msgId) {
     if (imgPromptFinal) {
       runImageTags(aiDiv, aiFullText, state.convId, aiMsgId, { files: originalFiles, userText: newText });
     }
+    if (_suggestions.length) insertSuggestionsEl(aiDiv.querySelector(".message-body"), _suggestions);
   } else if (aiDiv && aiTextEl) {
     // No text came back (request error / cancellation / empty response).
     // Persist the error so it survives a page reload instead of vanishing.

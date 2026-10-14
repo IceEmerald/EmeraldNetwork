@@ -1272,6 +1272,75 @@ body.light-mode .message-avatar-user {
     color: rgb(224, 85, 85);
 }
 
+/* ── Reply suggestion chips ───────────────────────────────────────
+   One-click follow-ups under the newest AI message. Pill-shaped like
+   the welcome-screen quick cards, but smaller and quieter so they
+   read as a footnote to the answer, not a second UI. */
+.msg-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.msg-suggestion {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    max-width: 100%;
+    padding: 7px 14px;
+    border-radius: 80px;
+    border: 1px solid rgb(44, 44, 44);
+    background: rgb(30, 30, 30);
+    color: rgb(178, 178, 178);
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.83rem;
+    line-height: 1.35;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s, color 0.2s;
+}
+
+.msg-suggestion:hover {
+    border-color: rgba(80, 200, 120, 0.35);
+    box-shadow: rgba(80, 200, 120, 0.08) 0px 0px 0px 1px;
+    color: rgb(80, 200, 120);
+}
+
+.msg-suggestion:focus-visible {
+    outline: 2px solid rgba(80, 200, 120, 0.6);
+    outline-offset: 2px;
+}
+
+.msg-suggestion-icon {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    color: rgba(80, 200, 120, 0.75);
+    transition: color 0.2s, transform 0.2s;
+}
+
+.msg-suggestion:hover .msg-suggestion-icon {
+    color: rgb(80, 200, 120);
+    transform: translateY(-1px);
+}
+
+.msg-suggestion-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+/* While a reply is streaming the chips belong to the message that
+   prompted it, so they are inert until the new answer lands. */
+.msg-suggestions.is-busy {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
 .typing-indicator {
     display: flex;
     align-items: center;
@@ -3521,6 +3590,18 @@ body.light-mode .message-actions button {
 body.light-mode .message-actions button:hover {
     color: rgb(26, 26, 26);
     background: rgb(238, 238, 238);
+}
+
+body.light-mode .msg-suggestion {
+    background: rgb(245, 245, 247);
+    border-color: rgb(224, 224, 224);
+    color: rgb(102, 102, 102);
+}
+
+body.light-mode .msg-suggestion:hover {
+    border-color: rgba(80, 200, 120, 0.55);
+    box-shadow: rgba(80, 200, 120, 0.1) 0px 0px 0px 1px;
+    color: rgb(26, 26, 26);
 }
 
 body.light-mode .input-bar {
@@ -8406,7 +8487,6 @@ body.light-mode .ai-cards-title {
     padding: 13px 14px 12px;
     border: 1px solid var(--dd-border);
     border-radius: 11px;
-    background: var(--dd-surface);
 }
 
 .ai-chart-title {
@@ -8520,7 +8600,6 @@ body.light-mode .ai-chart {
     --chart-node: rgba(0, 0, 0, 0.03);
     --chart-node-stroke: rgba(0, 0, 0, 0.18);
     --chart-label: #1c2833;
-    background: rgba(0, 0, 0, 0.015);
 }
 
 body.light-mode .ai-chart-legend {
