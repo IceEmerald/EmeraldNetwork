@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/images/favicon.ico" alt="EmeraldNetwork Logo" width="60" />
+<img src="assets/images/favicon.webp" alt="EmeraldNetwork Logo" width="60" />
 
 # Security Policy
 

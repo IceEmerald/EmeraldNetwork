@@ -5,19 +5,18 @@
 User-agent: *
 
 Allow: /
-Allow: /assets/images/
 
 Disallow: /assets/images/discordemeraldbot/
 Disallow: /assets/images/emeraldessentialsplugin/
 Disallow: /assets/images/news/
 Disallow: /assets/images/products/
 Disallow: /assets/images/why/
+Disallow: /assets/data/
 Disallow: /offline.html
 Disallow: /404.html
 Disallow: /sw.js
 Disallow: /CNAME
 Disallow: /README.md
 Disallow: /SECURITY.md
-Disallow: /assets/data/
 
 Sitemap: https://emeraldnetwork.groups.id/sitemap.xml

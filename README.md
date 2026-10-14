@@ -13,7 +13,7 @@ Built and maintained by [IceEmerald](https://github.com/IceEmerald).
 [![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
 
 [![Website](https://img.shields.io/website?url=https%3A%2F%2Femeraldnetwork.groups.id&style=for-the-badge&label=status)](https://emeraldnetwork.groups.id)
-[![Last Commit](https://img.shields.io/github/last-commit/IceEmerald/iceemerald.github.io?style=for-the-badge)](https://github.com/IceEmerald/iceemerald.github.io/commits)
+[![Last Commit](https://img.shields.io/github/last-commit/IceEmerald/EmeraldNetwork?style=for-the-badge)](https://github.com/IceEmerald/EmeraldNetwork/commits)
 
 </div>
 
@@ -31,7 +31,7 @@ EmeraldNetwork is a static, multi-page ecosystem for personal projects, utilitie
 |------|---------|
 | [`index.html`](index.html) | Home |
 | [`about.html`](about.html) | About |
-| [`aichat.html`](aichat.html) | AI Chat |
+| [`aichat.html`](aichat.html) | AI Chat (text + live voice) |
 | [`slides.html`](slides.html) | Presentation app |
 | [`notes.html`](notes.html) | Notes |
 | [`sheets.html`](sheets.html) | Sheets |
@@ -53,13 +53,14 @@ EmeraldNetwork is a static, multi-page ecosystem for personal projects, utilitie
 ## Repository structure
 
 ```text
+.
 ├── assets/
-│   ├── data/
-│   ├── images/
-│   ├── scripts/
-│   └── styles/
-├── *.html
-├── sw.js
+│   ├── data/          # status + icon data (.emeraldcore)
+│   ├── images/        # site imagery, favicons, per-project folders
+│   ├── scripts/       # page and app logic (chat, slides, sheets, docs, …)
+│   └── styles/        # shared and per-page stylesheets
+├── *.html             # one file per page, see Pages table above
+├── sw.js              # service worker (offline fallback + cache)
 ├── robots.txt
 ├── sitemap.xml
 ├── SECURITY.md
