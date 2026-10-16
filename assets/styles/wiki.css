@@ -1898,8 +1898,6 @@ html[data-wiki-theme="dark"] body.wiki-page .footer-splitter {
         width: min(320px, 84vw);
         height: calc(100vh - var(--w-topbar-h));
         max-height: none;
-        /* On desktop the sidebar has no background on purpose. As a drawer it
-           needs one, or the scrim would show straight through it. */
         background: var(--w-surface);
         border-right: 1px solid var(--w-line);
         box-shadow: var(--w-shadow-3);
