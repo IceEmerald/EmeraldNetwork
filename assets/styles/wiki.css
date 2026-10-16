@@ -1,0 +1,2008 @@
+/* ============================================================================
+   wiki.css — EmeraldNetwork Wiki
+   ----------------------------------------------------------------------------
+   Everything here is namespaced under `wiki-` so nothing can collide with
+   style.css (loaded first) or any app stylesheet.
+
+   ARCHITECTURE — "blocks, not tangled":
+   A wiki block is one <section class="wiki-block"> in wiki.html. Each block is
+   self-contained: it owns its heading, its optional intro line, and its body.
+   The sidebar, the search index, the scroll-spy and the collapse state are all
+   DERIVED from the blocks that exist in the HTML. Add a block, it appears in
+   the nav and the search index. Delete a block, it disappears from both.
+   There is no registry to keep in sync.
+
+   TO ADD A BLOCK:
+     1. Copy any existing <section class="wiki-block">.
+     2. Give it a unique id and a data-tags attribute (extra search keywords).
+     3. Put an <h2> as the first child of .wiki-block-head — that is what the
+        sidebar reads.
+     4. Done. No JS or CSS changes required.
+
+   TO REMOVE A BLOCK: delete the whole <section>. Nothing else references it.
+
+   Only the behaviour layer needs JavaScript (assets/scripts/wiki.js), and it
+   is written to work with zero wiki-blocks too.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. THEME TOKENS
+   -------------------------------------------------------------------------- */
+
+body.wiki-page {
+    /* Palette — light is the default; dark overrides only what changes.
+       Scoped to body (not .wiki-root) so the page background and the shared
+       toast / context-menu can read the same tokens. */
+    --w-bg-soft: #f6f7f8;
+    --w-bg-sunken: #eef0f2;
+    --w-surface: #ffffff;
+    --w-surface-2: #fafbfb;
+
+    --w-text: #2b2b2b;
+    --w-text-soft: #5d6165;
+    --w-text-faint: #868b90;
+
+    --w-line: #e4e6e8;
+    --w-line-strong: #d0d4d7;
+
+    --w-brand: #239a4d;
+    --w-brand-soft: rgba(35, 154, 77, 0.1);
+    --w-brand-ink: #157a38;
+
+    --w-info: #0b6bcb;
+    --w-info-soft: rgba(11, 107, 203, 0.1);
+    --w-warn: #b26a00;
+    --w-warn-soft: rgba(178, 106, 0, 0.11);
+    --w-danger: #d0342c;
+    --w-danger-soft: rgba(208, 52, 44, 0.1);
+
+    --w-code-bg: #f2f3f5;
+    --w-code-text: #1f2933;
+
+    /* Top-bar chrome — these mirror assets/styles/emeraldsuite.css so the wiki
+       bar and the suite bar are pixel-identical in light mode. */
+    --w-search-bg: #ffffff;
+    --w-search-focus-bg: #ffffff;
+    --w-search-border: #d3d3d3;
+    --w-search-shadow: 0 4px 6px -1px rgb(221 221 221 / 50%);
+    --w-kbd-bg: #ffffff;
+    --w-kbd-border: #edebe9;
+    --w-ink-1: #201f1e;
+    --w-ink-2: #605e5c;
+    --w-ink-3: #8a8886;
+    --w-btn-bg: rgba(255, 255, 255, 0.9);
+    --w-btn-bg-hover: rgba(255, 255, 255, 1);
+    --w-btn-border: rgba(0, 0, 0, 0.1);
+    --w-btn-ink: #4b5563;
+
+    --w-mark-bg: #ffe680;
+    --w-mark-ink: #3d2c00;
+
+    /* Per-app accent — set with style="--w-app:#0f172a" on a block. */
+    --w-app: var(--w-brand);
+    --w-app-soft: var(--w-brand-soft);
+
+    /* Metrics */
+    --w-nav-w: 286px;
+    --w-toc-w: 232px;
+    --w-toc-pad-x: 1.1rem;
+    --w-toc-pad-y: 1.1rem;
+    --w-topbar-h: 62px;      /* must match .su-top height */
+    --w-radius: 8px;
+    --w-radius-sm: 6px;
+    --w-shadow-1: 0 1px 2px rgba(16, 24, 32, 0.05);
+    --w-shadow-2: 0 4px 14px -4px rgba(16, 24, 32, 0.12);
+    --w-shadow-3: 0 18px 40px -18px rgba(16, 24, 32, 0.28);
+}
+
+html[data-wiki-theme="dark"] body.wiki-page {
+    color-scheme: dark;
+
+    /* Neutrals are taken straight from discordemeraldbot.html, which is the
+       site's existing dark surface treatment: #1a1a1a page, #252525 panels,
+       #D2D2D2 body copy, #313131 borders. The emerald accent is kept — that is
+       the EmeraldNetwork identity, not a Discord one. */
+
+    --w-bg-soft: #1a1a1a;
+    --w-bg-sunken: #151515;
+    --w-surface: #252525;
+    --w-surface-2: #2b2b2b;
+
+    --w-text: #f0f0f0;
+    --w-text-soft: #D2D2D2;
+    --w-text-faint: #9c9c9c;
+
+    --w-line: #313131;
+    --w-line-strong: #3f3f3f;
+
+    --w-brand: #239a4d;
+    --w-brand-soft: rgba(35, 154, 77, 0.16);
+    --w-brand-ink: #4ec27f;
+
+    /* #7289da is the accent discordemeraldbot.html uses for its call-to-action. */
+    --w-info: #7289da;
+    --w-info-soft: rgba(114, 137, 218, 0.18);
+    --w-warn: #e0a44a;
+    --w-warn-soft: rgba(224, 164, 74, 0.16);
+    --w-danger: #f2706a;
+    --w-danger-soft: rgba(242, 112, 106, 0.16);
+
+    --w-code-bg: #1f1f1f;
+    --w-code-text: #D2D2D2;
+
+    --w-search-bg: #252525;
+    --w-search-focus-bg: #2b2b2b;
+    --w-search-border: #3a3a3a;
+    --w-search-shadow: 0 4px 6px -1px rgba(0, 0, 0, .5);
+    --w-kbd-bg: #252525;
+    --w-kbd-border: #3a3a3a;
+    --w-ink-1: #f0f0f0;
+    --w-ink-2: #D2D2D2;
+    --w-ink-3: #9c9c9c;
+    --w-btn-bg: rgba(255, 255, 255, .04);
+    --w-btn-bg-hover: rgba(255, 255, 255, .08);
+    --w-btn-border: rgba(255, 255, 255, .12);
+    --w-btn-ink: #f0f0f0;
+
+    --w-mark-bg: rgba(255, 224, 102, 0.28);
+    --w-mark-ink: #ffeaa0;
+
+    --w-shadow-1: 0 1px 2px rgba(0, 0, 0, .5);
+    --w-shadow-2: 0 4px 14px -4px rgba(0, 0, 0, .6);
+    --w-shadow-3: 0 18px 40px -18px rgba(0, 0, 0, .8);
+}
+
+/* The right-click menu and toast come from style.css and live outside
+   .wiki-root, so they need the dark palette applied to them directly. */
+html[data-wiki-theme="dark"] body.wiki-page .rightclick-menu {
+    background: rgba(37, 37, 37, .97);
+    border-color: #313131;
+    box-shadow: var(--w-shadow-3);
+}
+
+html[data-wiki-theme="dark"] body.wiki-page .rightclick-menu a,
+html[data-wiki-theme="dark"] body.wiki-page .rightclick-menu .context-title,
+html[data-wiki-theme="dark"] body.wiki-page .rightclick-menu a svg {
+    color: var(--w-text);
+}
+
+html[data-wiki-theme="dark"] body.wiki-page .rightclick-menu .context-title {
+    color: var(--w-text-faint);
+}
+
+html[data-wiki-theme="dark"] body.wiki-page .rightclick-menu a:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+/* The toast is deliberately NOT themed. It is transient feedback, not page
+   furniture, and every other page on this site shows it light even on a dark
+   background. Leaving it alone here keeps that consistency — a dark toast on a
+   dark page was the one place the wiki looked like it belonged to somewhere
+   else. */
+
+/* --------------------------------------------------------------------------
+   2. RESET / PAGE SHELL
+   -------------------------------------------------------------------------- */
+
+body.wiki-page {
+    color-scheme: light;
+    background: var(--w-bg-soft);
+    font-family: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+/* --- scrollbar ------------------------------------------------------------
+   The sidebar gets NO scrollbar rules of its own, on purpose.
+
+   style.css declares ::-webkit-scrollbar, its track and its thumb unqualified,
+   so those rules already reach every scroller on the page -- the document at
+   the right edge and .wiki-nav at the left. Leaving the sidebar to inherit is
+   what makes the two bars identical in style, colour and thickness: there is
+   one definition, not two that have to be kept in step. An earlier version
+   restated them on .wiki-nav and set its own width, which is precisely how the
+   two bars drifted apart in the first place.
+
+   So the sidebar reads:
+
+     LIGHT  ::-webkit-scrollbar { width: 10px; height: 10px }
+             track #f1f1f1   thumb #c1c1c1   thumb:hover #a8a8a8
+
+     DARK   one override, the same single one discordemeraldbot.css uses,
+             replaces the track with #1a1a1a and inherits width and thumb.
+
+   Deliberately NO scrollbar-color here. That property re-renders the scrollbar
+   itself rather than just recolouring it, which is what made the bar change
+   size and design. */
+
+/* Chips, step numbers and markers sit on a --w-app-soft tint. At 16% of a
+   mid-tone accent that measures ~1.2:1 on the dark panel — effectively
+   nothing — so dark runs a stronger mix of the lifted colour, which reads as
+   a distinct chip without turning into a block of colour. */
+html[data-wiki-theme="dark"] .wiki-block {
+    --w-app-soft: color-mix(in srgb, var(--w-app-ink) 24%, transparent);
+}
+
+html[data-wiki-theme="dark"] ::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+
+/* Deliberately no background here. This element covers the whole page at
+   min-height:100vh, so any colour set on it would paint over the themed body
+   colour and the page would stay light in dark mode while the text on it went
+   near-white. The page colour is defined once, on body, and inherits through. */
+.wiki-root {
+    color: var(--w-text);
+    min-height: 100vh;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    transition: color 0.25s ease;
+}
+
+.wiki-root *,
+.wiki-root *::before,
+.wiki-root *::after {
+    box-sizing: border-box;
+}
+
+/* Prose links only. Deliberately NOT `.wiki-root a`: that selector outranks the
+   single-class chrome styles (.icon-btn, .social-icon-button-footer) and would
+   paint every top-bar and footer icon green instead of its own colour. */
+.wiki-block a {
+    color: var(--w-brand-ink);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+}
+
+.wiki-block a:hover {
+    color: var(--w-brand);
+}
+
+/* --------------------------------------------------------------------------
+   3. TOP BAR — a copy of the EmeraldSuite chrome
+   --------------------------------------------------------------------------
+   This is deliberately the same bar as emeraldsuite.html, so the two apps feel
+   like one product. Class names match too (.su-top / .su-search / .su-top-right
+   / .icon-btn), which means the source of truth is a side-by-side diff against
+   these rules in assets/styles/emeraldsuite.css:
+
+       .su-top            line ~1326
+       .su-search         line ~1350
+       .su-top-right      line ~1361
+       .icon-btn          line ~520
+
+   The only difference is that the suite's hard-coded colours are read from
+   --w-* tokens instead, so dark mode can use the identical geometry.
+
+   Layout, left to right:   logo icon   |   search (centred)   |   buttons
+   -------------------------------------------------------------------------- */
+
+.su-top {
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    height: 62px;
+    padding: 0 24px 0 20px;
+    background: transparent;
+    border-width: medium;
+    border-style: none;
+    border-color: currentcolor;
+    backdrop-filter: blur(3px);
+    border-image: none;
+    color: rgb(210, 210, 210);
+}
+
+html[data-wiki-theme="dark"] .su-top::after {
+    background: linear-gradient(to top, rgba(0, 0, 0, .35), rgba(0, 0, 0, 0));
+}
+
+/* --- left: logo icon ------------------------------------------------------ */
+
+.su-top .logo {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-top: 3px;
+    text-decoration: none;
+    color: inherit;
+    flex: none;
+}
+
+.su-top .logo img {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    display: block;
+}
+
+.su-top .logo:hover {
+    opacity: .82;
+}
+
+/* --- middle: search, optically centred ------------------------------------ */
+
+.su-search {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(560px, 46vw);
+    max-width: 560px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--w-search-bg);
+    border-radius: 8px;
+    box-shadow: var(--w-search-shadow);
+    border: 1px solid var(--w-search-border);
+    padding: 7px 12px;
+    color: var(--w-ink-2);
+    transition: background .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+
+.su-search:focus-within {
+    background: var(--w-search-focus-bg);
+    border-color: var(--w-brand);
+    box-shadow: 0 0 0 3px var(--w-brand-soft);
+}
+
+.su-search svg {
+    width: 15px;
+    height: 15px;
+    flex: none;
+    color: var(--w-ink-3);
+}
+
+.su-search input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-family: inherit;
+    font-size: 13.5px;
+    color: var(--w-ink-1);
+}
+
+.su-search input::placeholder {
+    color: var(--w-ink-3);
+}
+
+.su-search input::-webkit-search-cancel-button {
+    display: none;
+}
+
+.wiki-search-clear {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+    font-size: 15px;
+    line-height: 1;
+    color: var(--w-ink-3);
+    background: var(--w-kbd-bg);
+    border: 1px solid var(--w-kbd-border);
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.wiki-search-clear:hover {
+    color: var(--w-ink-1);
+}
+
+.su-search input:not(:placeholder-shown) ~ .wiki-search-clear {
+    display: flex;
+}
+
+/* --- right: icon buttons -------------------------------------------------- */
+
+.su-top-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex: none;
+    margin-left: auto;
+}
+
+.icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    background: var(--w-btn-bg);
+    border: 1px solid var(--w-btn-border);
+    border-radius: 7px;
+    cursor: pointer;
+    color: var(--w-btn-ink);
+    font-family: inherit;
+    text-decoration: none;
+    transition: background .18s ease, border-color .18s ease, color .18s ease;
+}
+
+.icon-btn:hover {
+    background: var(--w-btn-bg-hover);
+    border-color: var(--w-brand-soft);
+    color: var(--w-brand);
+}
+
+.icon-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+.icon-btn:focus-visible {
+    outline: 2px solid var(--w-brand);
+    outline-offset: 2px;
+}
+
+/* --- the bare icon buttons -----------------------------------------------
+   The theme toggle follows the suite's storage icon: no filled box, no border,
+   no shadow. It is the only control in the bar, so a box around it would be the
+   loudest thing on the page.
+
+   The suite needs `!important` here because its `.icon-btn:hover` background
+   outranks the plain rule. Declaring the :hover state explicitly does the same
+   job without it — and these rules sit after `.icon-btn:hover`, so order wins. */
+
+.wiki-theme-btn,
+.wiki-burger,
+.wiki-theme-btn:hover,
+.wiki-burger:hover {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+}
+
+.wiki-theme-btn svg,
+.wiki-burger svg {
+    width: 20px;
+    height: 20px;
+}
+
+/* Colour still changes on hover — only the box is suppressed. */
+.wiki-theme-btn:hover,
+.wiki-burger:hover {
+    color: var(--w-brand);
+}
+
+/* Hamburger only earns its place once the sidebar becomes a drawer. */
+.wiki-burger {
+    display: none;
+}
+
+/* --------------------------------------------------------------------------
+   4. LAYOUT: SIDEBAR + CONTENT
+   --------------------------------------------------------------------------
+   The sidebar is deliberately plain: no panel background, and no scrollbar
+   rules of its own -- it inherits the shared ones, so its bar matches the one
+   on the right edge exactly. It reads as a column of navigation sitting on the
+   page rather than a second card competing with the content.
+   -------------------------------------------------------------------------- */
+
+.wiki-shell {
+    display: grid;
+    /* The right rail is a real column, not an overlay, so the reading measure
+       stays put whether or not the current page has headings. It is
+       width:0-and-hidden when empty (see .wiki-toc below). */
+    grid-template-columns: var(--w-nav-w) minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 0;
+    max-width: 1500px;
+    margin: 0 auto;
+}
+
+/* --- the "On this page" rail --------------------------------------------
+   Sits on the right, pinned under the top bar, and scrolls on its own so a
+   long heading list never lengthens the page. Same rhythm and same scrollbar
+   as the sidebar; only the edge it hangs off is different. */
+.wiki-toc {
+    position: sticky;
+    top: var(--w-topbar-h);
+    max-height: calc(100vh - var(--w-topbar-h));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    /* Hidden when wiki.js finds no headings, so the column collapses to 0
+       instead of leaving a dead gutter beside the text. */
+    width: 0;
+    padding: 0;
+    border-left: 0 solid var(--w-line);
+}
+
+.wiki-toc:not(:empty) {
+    width: var(--w-toc-w);
+    padding: var(--w-toc-pad-y) 0 4rem var(--w-toc-pad-x);
+    border-left-width: 1px;
+}
+
+/* Nothing to outline on this route — take the column back. */
+.wiki-toc:empty {
+    display: none;
+}
+
+/* Same rule, same bar. Written per-selector rather than relying on the global
+   ::-webkit-scrollbar block so the rail is a deliberate choice even if the
+   shared rule is ever changed. */
+.wiki-toc::-webkit-scrollbar {
+    width: 10px;
+}
+
+.wiki-toc::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.wiki-toc::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 999px;
+}
+
+.wiki-toc::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+html[data-wiki-theme="dark"] .wiki-toc::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+
+.wiki-nav {
+    position: sticky;
+    top: var(--w-topbar-h);
+    max-height: calc(100vh - var(--w-topbar-h));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+
+    /* One source of truth for the column's rhythm. --w-nav-pad-x is also the
+       pill's left edge, so the rail always sits exactly on the row edge. */
+    --w-nav-pad-x: 1.2rem;
+    --w-nav-row-py: 0.44rem;
+    --w-nav-group-top: 1rem;
+
+    /* No top padding: each category header carries its own gap, so the first
+       one is spaced exactly like the rest instead of one notch tighter. */
+    padding: 0 0.9rem 4rem var(--w-nav-pad-x);
+    border-right: 1px solid var(--w-line);
+}
+
+/* --- the sliding pill ---------------------------------------------------
+   One element for the whole column rather than a ::before per row. A
+   per-row rail can only grow and shrink where it stands, so moving between
+   pages reads as two separate bars blinking rather than one bar moving.
+   This one is translated to the active row, so it slides. It lives inside
+   the nav (a positioned element) so it scrolls with the content it marks. */
+.wiki-nav-pill {
+    position: absolute;
+    left: var(--w-nav-pad-x);
+    top: 0;
+    width: 3px;
+    height: 0;
+    border-radius: 99px;
+    background: var(--w-app-ink, var(--w-brand));
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+    pointer-events: none;
+    will-change: transform;
+
+    /* The pill is the nav's first child, so without this it paints before the
+       rows and a hovered row's background covers it. The rail is the one mark
+       that must never be hidden by a row behind it. */
+    z-index: 2;
+    transition: transform 0.34s cubic-bezier(0.32, 0.72, 0, 1),
+        height 0.2s ease,
+        opacity 0.18s ease,
+        background-color 0.25s ease;
+}
+
+.wiki-nav-pill.is-on {
+    opacity: 1;
+}
+
+.wiki-nav-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+/* Section labels. Small, spaced and quiet, so they read as structure rather
+   than as content competing with the links. */
+/* Category headers. Identical spacing above and below on every one,
+   including the first, so the groups read as evenly stacked shelves. */
+.wiki-nav-group {
+    padding: var(--w-nav-group-top) 0.65rem 0.3rem;
+    font-family: inherit;
+    font-size: 0.655rem;
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--w-text-faint);
+    user-select: none;
+}
+
+/* --- the links themselves ------------------------------------------------
+   Rows are padded from --w-nav-row-py, so a product row and a nested page
+   row are exactly the same height and the column has one even rhythm. The
+   current-page rail is .wiki-nav-pill, not a ::before here. */
+
+.wiki-nav-link {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: var(--w-nav-row-py) 0.65rem var(--w-nav-row-py) 0.9rem;
+    border-radius: 7px;
+    font-size: 0.865rem;
+    font-weight: 600;
+    color: var(--w-text-soft);
+    text-decoration: none;
+    transition: background .14s ease, color .14s ease;
+}
+
+.wiki-nav-link:hover {
+    background: var(--w-bg-sunken);
+    color: var(--w-text);
+}
+
+/* Selected = the rail, the accent colour and the weight. No filled box, so a
+   long list of rows never turns into a column of coloured chips. */
+.wiki-nav-link.is-active {
+    background: transparent;
+    color: var(--w-app-ink, var(--w-brand-ink));
+    font-weight: 700;
+}
+
+.wiki-nav-link.is-active:hover {
+    background: var(--w-bg-sunken);
+}
+
+.wiki-nav-text {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* --- product rows -------------------------------------------------------- */
+
+.wiki-nav-link--product {
+    font-weight: 700;
+    color: var(--w-text);
+}
+
+.wiki-nav-count {
+    flex: none;
+    min-width: 1.3rem;
+    padding: 0 0.3rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1.5;
+    text-align: center;
+    color: var(--w-text-faint);
+    background: var(--w-bg-sunken);
+    border-radius: 4px;
+}
+
+.wiki-nav-link.is-active .wiki-nav-count {
+    color: var(--w-app-ink, var(--w-brand-ink));
+    background: transparent;
+}
+
+/* --- the pages nested under the active product ---------------------------- */
+
+.wiki-nav-sub {
+    list-style: none;
+    margin: 0.12rem 0 0.45rem;
+    padding: 0 0 0 0.6rem;
+    border-left: 1px solid var(--w-line);
+    margin-left: 1.15rem;
+}
+
+.wiki-nav-sub[hidden] {
+    display: none;
+}
+
+.wiki-nav-link--page {
+    font-size: 0.825rem;
+    font-weight: 500;
+    padding-top: var(--w-nav-row-py);
+    padding-bottom: var(--w-nav-row-py);
+}
+
+/* --- "On this page" outline ---------------------------------------------- */
+
+/* --- "On this page" rail -------------------------------------------------
+   Lives in the right-hand column, not in the sidebar. Items deliberately carry
+   no background at all, hovered or current — the sliding pill is the only
+   marker, which keeps a long heading list from turning into a stack of tinted
+   chips. */
+
+/* Same label treatment as the sidebar's category headers, so the two columns
+   read as the same system. It is still a .wiki-nav-group for that, but the
+   rhythm comes from the rail's own tokens now that it is not in the nav. */
+.wiki-nav-outline-title {
+    margin: 0 0 0.4rem;
+    padding: 0;
+}
+
+.wiki-toc ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+/* The outline's own pill. Same shape as .wiki-nav-pill, one step smaller so
+   the finer type it marks is not overpowered by it. */
+.wiki-nav-outline-pill {
+    position: absolute;
+    left: 0;
+    right: auto;
+    top: 0;
+    width: 2px;
+    height: 0;
+    border-radius: 99px;
+    background: var(--w-app-ink, var(--w-brand));
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+    pointer-events: none;
+    z-index: 2;
+    will-change: transform;
+    transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1),
+        height 0.2s ease,
+        opacity 0.18s ease,
+        background-color 0.25s ease;
+}
+
+.wiki-nav-outline-pill.is-on {
+    opacity: 1;
+}
+
+/* Uniform row rhythm, matching --w-nav-row-py so the outline continues the
+   column's spacing instead of starting a second, tighter one. */
+.wiki-toc a {
+    position: relative;
+    display: block;
+    padding: 0.34rem 0.65rem 0.34rem 1rem;
+    font-size: 0.795rem;
+    font-weight: 500;
+    line-height: 1.45;
+    color: var(--w-text-soft);
+    text-decoration: none;
+    /* Explicitly none: this is the one place with no hover fill. */
+    background: none;
+    transition: color 0.14s ease;
+}
+
+/* Hover is colour only. The pill is reserved for "you are here". */
+.wiki-toc a:hover {
+    color: var(--w-text);
+    background: none;
+}
+
+.wiki-toc a.is-current {
+    color: var(--w-app-ink, var(--w-brand-ink));
+    font-weight: 600;
+}
+
+/* Deeper levels indent without shrinking the type, so the list keeps one
+   even rhythm instead of stepping down in size. */
+.wiki-toc li[data-level="4"] a {
+    padding-left: 1.75rem;
+    font-size: 0.795rem;
+    color: var(--w-text-faint);
+}
+
+.wiki-toc li[data-level="4"] a.is-current {
+    color: var(--w-app-ink, var(--w-brand-ink));
+}
+
+.wiki-main {
+    min-width: 0;
+    padding: 1.6rem clamp(0.9rem, 3vw, 2.6rem) 4rem;
+
+    /* Page change, matched to the two places the site already does this.
+
+       The timing is deliberately lopsided, and that is the whole effect: the
+       old page leaves quickly (0.18s ease-in, as aichat's branch switch and
+       docs' .ribbon-panel.blur-out both do) and the new one arrives slowly
+       (0.3s ease-out, as docs' .ribbon-panel.active does). Fast out, slow in
+       reads as a dissolve settling rather than a flash. The sidebar and the
+       rail stay sharp, so only the content being replaced animates. */
+    transition: filter 0.3s ease-out,
+        opacity 0.3s ease-out;
+}
+
+.wiki-main.is-switching {
+    filter: blur(6px);
+    opacity: 0;
+    pointer-events: none;
+    transition: filter 0.18s ease-in,
+        opacity 0.18s ease-in;
+}
+
+/* --------------------------------------------------------------------------
+   5. HERO
+   -------------------------------------------------------------------------- */
+
+.wiki-hero {
+    position: relative;
+    overflow: hidden;
+    padding: 0 0 1.6rem;
+    margin-bottom: 1.7rem;
+    border-bottom: 1px solid var(--w-line);
+}
+
+.wiki-hero h1 {
+    margin: 0 0 0.6rem;
+    font-size: clamp(1.5rem, 2.6vw, 1.95rem);
+    line-height: 1.2;
+    letter-spacing: -0.015em;
+    font-weight: 700;
+    color: var(--w-text);
+}
+
+.wiki-hero p {
+    max-width: 70ch;
+    margin: 0 0 0.9rem;
+    font-size: 0.95rem;
+    color: var(--w-text-soft);
+}
+
+.wiki-hero-facts {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--w-text-faint);
+    font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------------------
+   6. THE BLOCK — the one primitive everything else lives inside
+   -------------------------------------------------------------------------- */
+
+.wiki-block {
+    --w-app: var(--w-brand);
+    /* Accents were picked against a white page. On the dark panel most of them
+       fall under 4.5:1, so JS sets --w-app-ink to a lifted value per accent and
+       re-computes it on every theme change. Light mode leaves it == --w-app. */
+    --w-app-ink: var(--w-app);
+    --w-app-soft: color-mix(in srgb, var(--w-app-ink) 16%, transparent);
+
+    position: relative;
+    /* `clip`, not `hidden`: it keeps the accent strip inside the rounded
+       corners without creating a scroll container, so the sticky table
+       headers inside blocks still work. */
+    overflow: clip;
+    margin-bottom: 1.1rem;
+    border: 1px solid var(--w-line);
+    border-radius: 10px;
+    background: var(--w-surface);
+    box-shadow: var(--w-shadow-1);
+    scroll-margin-top: calc(var(--w-topbar-h) + 14px);
+    /* No box-shadow here: the block sits at a fixed elevation and does not
+       lift on hover. Only the surface colours transition. */
+    transition: border-color 0.25s ease, background 0.25s ease;
+}
+
+/* Thin accent strip along the top edge, coloured per block.
+   The radius is 9px, not the card's 10px: the strip is positioned against the
+   padding box, so it sits 1px inside the border and has to follow the INNER
+   edge of the rounded corner. */
+.wiki-block::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    border-radius: 9px 9px 0 0;
+    background: var(--w-app-ink);
+}
+
+.wiki-block-head {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 1.35rem 1.5rem 0.9rem;
+}
+
+.wiki-block-icon {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 7px;
+    background: var(--w-app-ink-soft);
+    color: var(--w-app-ink);
+}
+
+.wiki-block-icon img {
+    width: 24px;
+    height: 24px;
+    display: block;
+}
+
+.wiki-block-icon svg {
+    width: 20px;
+    height: 20px;
+}
+
+.wiki-block-titles {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.wiki-block-head h2 {
+    margin: 0;
+    font-size: 1.32rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--w-text);
+}
+
+.wiki-block-head p {
+    margin: 0.15rem 0 0;
+    font-size: 0.86rem;
+    color: var(--w-text-soft);
+}
+
+.wiki-block-body {
+    padding: 0.35rem 1.5rem 1.5rem;
+    border-top: 1px solid transparent;
+}
+
+/* Search filtering: a block that does not match is removed from flow. */
+.wiki-block.is-filtered {
+    display: none;
+}
+
+/* Routing: a block that is not part of the current ?section= is not rendered. */
+.wiki-block.is-page-hidden {
+    display: none;
+}
+/* Sub-sections inside a block. */
+.wiki-block h3 {
+    margin: 1.7rem 0 0.65rem;
+    font-size: 1.02rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--w-text);
+    scroll-margin-top: calc(var(--w-topbar-h) + 14px);
+}
+
+.wiki-block h3:first-child {
+    margin-top: 1.1rem;
+}
+
+.wiki-block h4 {
+    margin: 1.1rem 0 0.45rem;
+    font-size: 0.86rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--w-text-faint);
+}
+
+.wiki-block p {
+    margin: 0 0 0.85rem;
+    color: var(--w-text-soft);
+}
+
+.wiki-block p:last-child {
+    margin-bottom: 0;
+}
+
+.wiki-block b,
+.wiki-block strong {
+    color: var(--w-text);
+}
+
+.wiki-block ul,
+.wiki-block ol {
+    margin: 0 0 0.9rem;
+    padding-left: 1.25rem;
+    color: var(--w-text-soft);
+}
+
+.wiki-block li {
+    margin-bottom: 0.3rem;
+}
+
+.wiki-block li::marker {
+    color: var(--w-app-ink);
+}
+
+.wiki-anchor {
+    margin-left: 0.4rem;
+    font-size: 0.7em;
+    font-weight: 700;
+    color: var(--w-text-faint);
+    text-decoration: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.wiki-anchor:hover {
+    opacity: 1;
+}
+
+.wiki-block h2:hover .wiki-anchor,
+.wiki-block h3:hover .wiki-anchor {
+    opacity: 1;
+}
+
+/* --------------------------------------------------------------------------
+   7. CONTENT PRIMITIVES
+   -------------------------------------------------------------------------- */
+
+/* 7.1 Card grid ------------------------------------------------------------ */
+
+.wiki-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 0.75rem;
+    margin: 0 0 1.1rem;
+}
+
+.wiki-card {
+    display: block;
+    padding: 0.95rem 1.05rem;
+    border: 1px solid var(--w-line);
+    border-radius: var(--w-radius);
+    background: var(--w-surface-2);
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+a.wiki-card:hover {
+    border-color: var(--w-app-ink);
+    box-shadow: var(--w-shadow-2);
+    color: inherit;
+}
+
+.wiki-card h4 {
+    margin: 0 0 0.25rem;
+    font-size: 0.94rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    text-transform: none;
+    color: var(--w-text);
+}
+
+.wiki-card p {
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.55;
+}
+
+/* 7.2 Tables ---------------------------------------------------------------- */
+
+.wiki-table-wrap {
+    margin: 0 0 1.1rem;
+    border: 1px solid var(--w-line);
+    border-radius: var(--w-radius);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+}
+
+.wiki-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.wiki-table th {
+    position: sticky;
+    top: 0;
+    padding: 0.62rem 0.9rem;
+    text-align: left;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--w-text-faint);
+    background: var(--w-bg-sunken);
+    border-bottom: 1px solid var(--w-line);
+    white-space: nowrap;
+}
+
+.wiki-table td {
+    padding: 0.62rem 0.9rem;
+    vertical-align: top;
+    color: var(--w-text-soft);
+    border-bottom: 1px solid var(--w-line);
+}
+
+.wiki-table tr:last-child td {
+    border-bottom: 0;
+}
+
+.wiki-table tbody tr:hover td {
+    background: var(--w-surface-2);
+}
+
+/* The first column of a definition-style table reads as a label. */
+.wiki-table td:first-child {
+    color: var(--w-text);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* 7.3 Inline chips: keys, labels, commands --------------------------------- */
+
+.wiki-key {
+    display: inline-block;
+    padding: 0.08rem 0.42rem;
+    font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 0.78em;
+    font-weight: 600;
+    line-height: 1.5;
+    color: var(--w-text);
+    background: var(--w-bg-sunken);
+    border: 1px solid var(--w-line-strong);
+    border-bottom-width: 2px;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+
+.wiki-tag {
+    display: inline-block;
+    padding: 0.08rem 0.5rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    border-radius: 50px;
+    color: var(--w-app-ink, var(--w-brand-ink));
+    background: var(--w-app-ink-soft, var(--w-brand-soft));
+    white-space: nowrap;
+}
+
+.wiki-tag--warn {
+    color: var(--w-warn);
+    background: var(--w-warn-soft);
+}
+
+.wiki-tag--danger {
+    color: var(--w-danger);
+    background: var(--w-danger-soft);
+}
+
+/* 7.4 Inline code ---------------------------------------------------------- */
+
+.wiki-code {
+    padding: 0.1rem 0.38rem;
+    font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 0.83em;
+    color: var(--w-code-text);
+    background: var(--w-code-bg);
+    border-radius: 5px;
+    white-space: nowrap;
+}
+
+/* 7.5 Callouts ------------------------------------------------------------- */
+
+.wiki-note {
+    display: flex;
+    gap: 0.7rem;
+    padding: 0.85rem 1rem;
+    margin: 0 0 1.1rem;
+    border: 1px solid var(--w-line);
+    border-left: 3px solid var(--w-info);
+    border-radius: var(--w-radius-sm);
+    background: var(--w-info-soft);
+    font-size: 0.875rem;
+    color: var(--w-text-soft);
+}
+
+.wiki-note svg {
+    width: 17px;
+    height: 17px;
+    flex-shrink: 0;
+    margin-top: 0.18rem;
+    color: var(--w-info);
+}
+
+.wiki-note b,
+.wiki-note strong {
+    color: var(--w-text);
+}
+
+.wiki-note--tip {
+    border-left-color: var(--w-brand);
+    background: var(--w-brand-soft);
+}
+
+.wiki-note--tip svg {
+    color: var(--w-brand);
+}
+
+.wiki-note--warn {
+    border-left-color: var(--w-warn);
+    background: var(--w-warn-soft);
+}
+
+.wiki-note--warn svg {
+    color: var(--w-warn);
+}
+
+.wiki-note--danger {
+    border-left-color: var(--w-danger);
+    background: var(--w-danger-soft);
+}
+
+.wiki-note--danger svg {
+    color: var(--w-danger);
+}
+
+/* 7.6 Numbered steps ------------------------------------------------------- */
+
+.wiki-steps {
+    counter-reset: wstep;
+    list-style: none;
+    margin: 0 0 1.1rem;
+    padding: 0;
+}
+
+.wiki-steps > li {
+    position: relative;
+    counter-increment: wstep;
+    padding: 0 0 0 2.3rem;
+    margin-bottom: 0.7rem;
+    color: var(--w-text-soft);
+}
+
+.wiki-steps > li::before {
+    content: counter(wstep);
+    position: absolute;
+    left: 0;
+    top: 0.05rem;
+    width: 1.65rem;
+    height: 1.65rem;
+    display: grid;
+    place-items: center;
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: var(--w-app-ink, var(--w-brand));
+    background: var(--w-app-ink-soft, var(--w-brand-soft));
+    border-radius: 80px;
+}
+
+/* 7.7 Check list ----------------------------------------------------------- */
+
+.wiki-checks {
+    list-style: none;
+    margin: 0 0 1.1rem;
+    padding: 0;
+}
+
+.wiki-checks li {
+    position: relative;
+    padding-left: 1.7rem;
+    margin-bottom: 0.4rem;
+    color: var(--w-text-soft);
+}
+
+.wiki-checks li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 0.72rem;
+    height: 0.4rem;
+    border-left: 2px solid var(--w-app-ink, var(--w-brand));
+    border-bottom: 2px solid var(--w-app-ink, var(--w-brand));
+    transform: rotate(-45deg);
+}
+
+/* 7.8 Copyable row --------------------------------------------------------- */
+
+.wiki-copy {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.65rem;
+    margin-bottom: 0.35rem;
+    font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 0.82rem;
+    color: var(--w-text);
+    background: var(--w-code-bg);
+    border: 1px solid var(--w-line);
+    border-radius: var(--w-radius-sm);
+    overflow-x: auto;
+}
+
+.wiki-copy > code {
+    font: inherit;
+    white-space: pre;
+}
+
+.wiki-copy-btn {
+    margin-left: auto;
+    flex-shrink: 0;
+    padding: 0.16rem 0.55rem;
+    font-family: inherit;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--w-text-soft);
+    background: var(--w-surface);
+    border: 1px solid var(--w-line);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.wiki-copy-btn:hover {
+    color: var(--w-brand-ink);
+    border-color: var(--w-brand);
+}
+
+/* 7.9 Command grid (Discord bot) ------------------------------------------ */
+
+.wiki-commands {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 0.6rem;
+    margin: 0 0 1.1rem;
+}
+
+.wiki-cmd {
+    padding: 0.8rem 0.95rem;
+    border: 1px solid var(--w-line);
+    border-left: 3px solid var(--w-app-ink, var(--w-brand));
+    border-radius: var(--w-radius-sm);
+    background: var(--w-surface-2);
+}
+
+.wiki-cmd-name {
+    font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 0.87rem;
+    font-weight: 700;
+    color: var(--w-text);
+    word-break: break-word;
+}
+
+.wiki-cmd-desc {
+    margin: 0.2rem 0 0.45rem;
+    font-size: 0.845rem;
+    line-height: 1.5;
+    color: var(--w-text-soft);
+}
+
+.wiki-cmd-usage {
+    display: block;
+    font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 0.78rem;
+    color: var(--w-text-faint);
+    word-break: break-word;
+}
+
+.wiki-cmd.is-filtered {
+    display: none;
+}
+
+/* Filter bar — reused for command categories. */
+.wiki-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0 0 0.9rem;
+}
+
+.wiki-filter {
+    padding: 0.3rem 0.75rem;
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--w-text-soft);
+    background: var(--w-bg-sunken);
+    border: 1px solid var(--w-line);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.wiki-filter:hover {
+    color: var(--w-text);
+    border-color: var(--w-line-strong);
+}
+
+.wiki-filter.is-active {
+    color: var(--w-app-ink, var(--w-brand-ink));
+    background: var(--w-app-ink-soft, var(--w-brand-soft));
+    border-color: transparent;
+}
+
+.wiki-filter-scope {
+    padding: 0.3rem 0.75rem;
+    font-size: 0.8rem;
+    color: var(--w-text-faint);
+}
+
+/* 7.10 Feature list (compact two-column pairs) ----------------------------- */
+
+.wiki-features {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 0.5rem 1rem;
+    margin: 0 0 1.1rem;
+    padding: 0;
+    list-style: none;
+}
+
+.wiki-features li {
+    position: relative;
+    padding-left: 1.45rem;
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--w-text-soft);
+}
+
+.wiki-features li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.6em;
+    width: 6px;
+    height: 6px;
+    border-radius: 2px;
+    background: var(--w-app-ink, var(--w-brand));
+}
+
+/* 7.11 Empty search state -------------------------------------------------- */
+
+.wiki-empty {
+    display: none;
+    padding: 2.4rem 1.5rem;
+    text-align: center;
+    border: 1px dashed var(--w-line-strong);
+    border-radius: 8px;
+    color: var(--w-text-soft);
+}
+
+.wiki-empty.is-shown {
+    display: block;
+}
+
+.wiki-empty b {
+    display: block;
+    margin-bottom: 0.3rem;
+    font-size: 1.05rem;
+    color: var(--w-text);
+}
+
+/* 7.12 Search highlight ---------------------------------------------------- */
+
+.wiki-hit {
+    padding: 0.02em 0.22em;
+    color: var(--w-mark-ink);
+    background: var(--w-mark-bg);
+    border-radius: 4px;
+}
+
+/* --------------------------------------------------------------------------
+   7b. PAGE CHROME — breadcrumbs, prev/next and the sidebar
+   --------------------------------------------------------------------------
+   All of this is generated by wiki.js from the data-product attribute on each
+   .wiki-block, so a new block gets its crumbs and prev/next links for free.
+   -------------------------------------------------------------------------- */
+
+/* 7b.1 Breadcrumbs ------------------------------------------------------- */
+
+.wiki-crumbs {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin: 0 0 1rem;
+    font-size: 0.8rem;
+    color: var(--w-text-faint);
+    flex-wrap: wrap;
+}
+
+.wiki-crumbs:empty {
+    display: none;
+}
+
+.wiki-crumb {
+    color: var(--w-text-faint);
+    text-decoration: none;
+    border-radius: 5px;
+}
+
+a.wiki-crumb:hover {
+    color: var(--w-brand-ink);
+    text-decoration: underline;
+}
+
+.wiki-crumb--current {
+    color: var(--w-text);
+    font-weight: 600;
+}
+
+.wiki-crumb-sep {
+    opacity: .55;
+}
+
+/* 7b.2 Previous / next pager -------------------------------------------- */
+
+.wiki-pager {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 0.6rem;
+    margin-top: 1.4rem;
+}
+
+.wiki-pager-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.8rem 0.95rem;
+    text-decoration: none;
+    color: inherit;
+    border: 1px solid var(--w-line);
+    border-radius: var(--w-radius);
+    background: var(--w-surface);
+    transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease;
+}
+
+.wiki-pager-btn:hover {
+    border-color: var(--w-app-ink);
+    box-shadow: var(--w-shadow-2);
+    color: inherit;
+}
+
+.wiki-pager-btn--next {
+    flex-direction: row-reverse;
+    text-align: right;
+}
+
+.wiki-pager-body {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.wiki-pager-btn--next .wiki-pager-body {
+    align-items: flex-end;
+}
+
+.wiki-pager-dir {
+    flex: none;
+    width: 26px;
+    height: 26px;
+    margin: 8px;
+    display: grid;
+    place-items: center;
+    font-size: 1rem;
+    color: var(--w-app-ink);
+    background: var(--w-app-ink-soft);
+    border-radius: 5px;
+}
+
+.wiki-pager-kind {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--w-text-faint);
+}
+
+.wiki-pager-label {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--w-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 7b.3 Unknown route ----------------------------------------------------- */
+
+.wiki-notfound {
+    padding: 1.8rem 1.5rem;
+    margin-bottom: 1rem;
+    border: 1px solid var(--w-line);
+    border-radius: 8px;
+    background: var(--w-surface);
+}
+
+.wiki-notfound h2 {
+    margin: 0 0 0.5rem;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--w-text);
+}
+
+.wiki-notfound p {
+    max-width: 62ch;
+    margin: 0 0 1.1rem;
+    font-size: 0.9rem;
+    color: var(--w-text-soft);
+}
+
+.wiki-notfound .wiki-cards {
+    margin-bottom: 0;
+}
+
+/* 7b.4 Sidebar: product rows, nested pages, "you are reading this" -------- */
+
+.wiki-nav-sub {
+    list-style: none;
+    margin: 0.1rem 0 0.15rem;
+    padding: 0 0 0 0.85rem;
+    border-left: 1px solid var(--w-line);
+}
+
+.wiki-nav-sub[hidden] {
+    display: none;
+}
+
+.wiki-nav-link--page {
+    font-size: 0.82rem;
+    font-weight: 500;
+    padding: 0.32rem 0.6rem;
+}
+
+.wiki-nav-link--page.is-active,
+.wiki-nav-link--page.is-reading {
+    background: transparent;
+    color: var(--w-app-ink);
+    font-weight: 700;
+}
+
+.wiki-nav-link--page.is-active:hover {
+    background: var(--w-bg-sunken);
+}
+
+.wiki-nav-link--product {
+    font-weight: 700;
+    color: var(--w-text);
+}
+
+/* --------------------------------------------------------------------------
+   7c. CONTENT ADDITIONS
+   --------------------------------------------------------------------------
+   .wiki-lead     the opening paragraph of a page — a size up, sets the tone
+   .wiki-shelves  the four category columns on Start here
+   .wiki-apps     the icon + name + one-liner grid on App map
+   -------------------------------------------------------------------------- */
+
+/* 7c.1 Lead paragraph ------------------------------------------------------ */
+
+.wiki-lead {
+    font-size: 1.02rem;
+    line-height: 1.6;
+    color: var(--w-text);
+}
+
+/* 7c.2 Shelves ------------------------------------------------------------- */
+
+.wiki-shelves {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 0.75rem;
+    margin: 0 0 1.2rem;
+}
+
+.wiki-shelf {
+    padding: 0.95rem 1.05rem;
+    border: 1px solid var(--w-line);
+    border-top: 2px solid var(--w-app-ink, var(--w-brand));
+    border-radius: var(--w-radius);
+    background: var(--w-surface-2);
+}
+
+.wiki-shelf:nth-child(1) { --w-app: #239a4d; }
+.wiki-shelf:nth-child(2) { --w-app: #0891b2; }
+.wiki-shelf:nth-child(3) { --w-app: #5865f2; }
+.wiki-shelf:nth-child(4) { --w-app: #7c3aed; }
+
+.wiki-shelf h4 {
+    margin: 0 0 0.3rem;
+    font-size: 0.95rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    text-transform: none;
+    color: var(--w-text);
+}
+
+.wiki-shelf p {
+    margin: 0 0 0.55rem;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.wiki-shelf ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.wiki-shelf li {
+    margin: 0;
+    padding: 0.12rem 0;
+    font-size: 0.855rem;
+}
+
+.wiki-shelf a {
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.wiki-shelf a:hover {
+    text-decoration: underline;
+}
+
+/* 7c.3 App grid ------------------------------------------------------------ */
+
+.wiki-apps {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 0.6rem;
+    margin: 0 0 1.2rem;
+}
+
+.wiki-app {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.85rem 0.95rem;
+    border: 1px solid var(--w-line);
+    border-radius: var(--w-radius);
+    background: var(--w-surface-2);
+    text-decoration: none;
+    color: inherit;
+    transition: border-color .15s ease, background .15s ease;
+}
+
+.wiki-app:hover {
+    border-color: var(--w-brand);
+    background: var(--w-surface);
+}
+
+.wiki-app img,
+.wiki-app-icon {
+    flex: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    background: var(--w-bg-sunken);
+}
+
+.wiki-app img {
+    object-fit: cover;
+}
+
+.wiki-app-icon {
+    display: grid;
+    place-items: center;
+    color: var(--w-text-soft);
+}
+
+.wiki-app-icon svg {
+    width: 20px;
+    height: 20px;
+}
+
+.wiki-app:hover .wiki-app-icon {
+    color: var(--w-brand);
+}
+
+.wiki-app-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.wiki-app-body b {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--w-text);
+    letter-spacing: -0.005em;
+}
+
+.wiki-app-body span {
+    font-size: 0.84rem;
+    line-height: 1.45;
+    color: var(--w-text-soft);
+}
+
+/* --------------------------------------------------------------------------
+   8. FOOTER
+   --------------------------------------------------------------------------
+   The footer markup in wiki.html is copied verbatim from index.html, so it is
+   styled entirely by the .footer rules in style.css. This section only has to
+   solve one problem the rest of the site doesn't have: the wiki can switch to
+   dark at runtime, and .footer hard-codes a light background.
+
+   The values below mirror the .footer--dark rules in style.css (around line
+   924), which is what discordemeraldbot.html uses: #212121 with #eef5ff text.
+   Keep the two in step.
+   -------------------------------------------------------------------------- */
+
+html[data-wiki-theme="dark"] body.wiki-page .footer {
+    border-top-color: rgba(255, 255, 255, .08);
+    background: #212121;
+    color: #eef5ff;
+}
+
+html[data-wiki-theme="dark"] body.wiki-page .footer p,
+html[data-wiki-theme="dark"] body.wiki-page .footer-links a,
+html[data-wiki-theme="dark"] body.wiki-page .footer-brand-tagline,
+html[data-wiki-theme="dark"] body.wiki-page .footer-bottom,
+html[data-wiki-theme="dark"] body.wiki-page .footer-bottom p {
+    color: rgba(255, 255, 255, .85);
+}
+
+html[data-wiki-theme="dark"] body.wiki-page .footer-brand-name {
+    color: #ffffff;
+}
+
+html[data-wiki-theme="dark"] body.wiki-page .social-icon-button-footer {
+    background: rgba(255, 255, 255, .06);
+    border: none;
+    color: #f0f0f0;
+}
+
+html[data-wiki-theme="dark"] body.wiki-page .social-icon-button-footer:hover {
+    background: var(--w-brand);
+    color: #ffffff;
+}
+
+html[data-wiki-theme="dark"] body.wiki-page .footer-links a:hover {
+    color: var(--w-brand);
+}
+
+html[data-wiki-theme="dark"] body.wiki-page .footer-splitter {
+    background: rgba(255, 255, 255, .16);
+}
+
+/* --------------------------------------------------------------------------
+   9. RESPONSIVE
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 1200px) {
+    /* Not enough width for a third column: give it back to the text. */
+    .wiki-shell {
+        grid-template-columns: var(--w-nav-w) minmax(0, 1fr);
+    }
+
+    .wiki-toc {
+        display: none;
+    }
+}
+
+@media (max-width: 1024px) {
+    .wiki-shell {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .wiki-burger {
+        display: inline-flex;
+        order: -2;   /* stays left of the logo on narrow screens */
+    }
+
+    .wiki-nav {
+        position: fixed;
+        top: var(--w-topbar-h);
+        left: 0;
+        z-index: 55;
+        width: min(320px, 84vw);
+        height: calc(100vh - var(--w-topbar-h));
+        max-height: none;
+        /* On desktop the sidebar has no background on purpose. As a drawer it
+           needs one, or the scrim would show straight through it. */
+        background: var(--w-surface);
+        border-right: 1px solid var(--w-line);
+        box-shadow: var(--w-shadow-3);
+        transform: translateX(-102%);
+        transition: transform 0.24s ease;
+    }
+
+    .wiki-root.nav-open .wiki-nav {
+        transform: none;
+    }
+
+    .wiki-root.nav-open::after {
+        content: "";
+        position: fixed;
+        inset: var(--w-topbar-h) 0 0 0;
+        z-index: 50;
+        background: rgba(0, 0, 0, 0.35);
+    }
+}
+
+@media (max-width: 760px) {
+    /* Not enough room for a centred floating search between the burger and the
+       right-hand buttons, so it becomes a normal flex child at full width. */
+    .su-search {
+        position: static;
+        transform: none;
+        width: auto;
+        max-width: none;
+        flex: 1 1 auto;
+    }
+
+    .su-top {
+        gap: 12px;
+        padding: 0 14px;
+    }
+}
+
+@media (max-width: 640px) {
+
+    .wiki-main {
+        padding: 1.2rem 0.85rem 3rem;
+    }
+
+    .wiki-block-head,
+    .wiki-block-body {
+        padding-left: 1.05rem;
+        padding-right: 1.05rem;
+    }
+
+    .wiki-table {
+        font-size: 0.82rem;
+    }
+
+    .wiki-cards,
+    .wiki-commands {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* --------------------------------------------------------------------------
+   10. MOTION / PRINT
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+    /* No blur for readers who asked for less motion — the page still swaps,
+       just without the dissolve. Matches how AI Chat handles it. */
+    .wiki-main.is-switching {
+        filter: none;
+        opacity: 0;
+    }
+
+    .wiki-root *,
+    .wiki-root *::before,
+    .wiki-root *::after {
+        animation-duration: 0.001ms !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+@media print {
+    .su-top,
+    .wiki-nav,
+    .wiki-toc,
+    .wiki-crumbs,
+    .wiki-pager,
+    .wiki-empty,
+    .footer {
+        display: none !important;
+    }
+
+    /* Print everything, whatever the current route is. */
+    .wiki-block.is-page-hidden {
+        display: block;
+    }
+
+    .wiki-shell {
+        display: block;
+    }
+
+    .wiki-block {
+        break-inside: avoid;
+        box-shadow: none;
+        border-color: #ccc;
+    }
+}

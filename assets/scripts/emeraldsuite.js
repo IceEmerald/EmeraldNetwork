@@ -739,15 +739,33 @@
             });
         });
 
-        $('searchInput').addEventListener('input', (e) => {
-            state.search = e.target.value.trim();
+        /* Single place that knows what a query means, so the × button and
+           typing cannot drift apart. */
+        const applySearch = (value) => {
+            state.search = value.trim();
             /* Collapses Recent files + Quick access while there's a query, so
                "Your files" and its results move up under the cursor. Cleared
                as soon as the box is empty. */
             const main = document.querySelector('.suite-main');
             if (main) main.classList.toggle('searching', !!state.search);
             renderGrid();
-        });
+        };
+
+        $('searchInput').addEventListener('input', (e) => applySearch(e.target.value));
+
+        /* × inside the search bar. Fires an 'input' event rather than reaching
+           into state itself, so there is one code path, not two. */
+        const searchClear = document.querySelector('.su-search-clear');
+        if (searchClear) {
+            searchClear.addEventListener('click', () => {
+                const input = $('searchInput');
+                if (!input) return;
+                if (!input.value) return;
+                input.value = '';
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.focus();
+            });
+        }
 
         const sortBtn = $('sortSelectBtn'), sortMenu = $('sortMenu'), sortLabel = $('sortSelectLabel');
         if (sortBtn && sortMenu) {

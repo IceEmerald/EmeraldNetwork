@@ -1,0 +1,2553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EmeraldNetwork | Wiki</title>
+    <meta name="description" content="The complete EmeraldNetwork wiki — every feature, command, shortcut and how-to for EmeraldSuite, EmeraldStudio Flowchart, EmeraldBot AI Chat and the EmeraldBot Discord bot.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/styles/style.css">
+    <link rel="stylesheet" href="/assets/styles/wiki.css">
+    <link rel="icon" type="image/x-icon" href="/assets/images/favicon.webp">
+    <link rel="icon" href="/assets/images/favicon.ico" sizes="any">
+    <meta name="color-scheme" content="light dark">
+    <script>
+        // Applied before first paint so a dark-theme reader never gets a white
+        // flash. Light is the default; there is no "follow the OS" setting.
+        // Kept in sync with STORE_THEME in wiki.js — keep them equal.
+        (function () {
+            try {
+                var t = JSON.parse(localStorage.getItem('emeraldcore.wiki.theme'));
+                document.documentElement.setAttribute('data-wiki-theme', t === 'dark' ? 'dark' : 'light');
+            } catch (e) { /* private mode — wiki.js sets it a moment later */ }
+        }());
+    </script>
+</head>
+
+<body class="wiki-page">
+
+<!-- ==========================================================================
+     WIKI PAGE SHELL
+
+     The whole wiki is THIS ONE FILE. What look like separate pages are views
+     over it, addressed by the ?section= query string, so every page has a real
+     shareable link:
+
+       /wiki.html                                   the first page
+       /wiki.html?section=emeraldsuite              every EmeraldSuite page
+       /wiki.html?section=emeraldsuite.docs         just EmeraldDocs
+       /wiki.html?section=aichat                    EmeraldBot AI Chat
+       /wiki.html?section=aichat.livevoice          live voice only
+       /wiki.html?section=emeraldessentialsplugin  the Minecraft plugin
+       /wiki.html?section=all                       everything, one long page
+
+     As you scroll, ?section= follows you (replaceState, so Back still means
+     Back). Clicking navigation pushes instead. The sidebar, the breadcrumbs,
+     prev/next and the search index are ALL derived from the blocks below —
+     there is no registry to keep in sync.
+
+     BLOCK SKELETON — the one shape every section on this page follows:
+
+       <section class="wiki-block" id="unique-id"
+                data-group="Sidebar group name"
+                data-product="emeraldsuite"        which product it belongs to
+                data-product-label="EmeraldSuite"  the name shown on its tab
+                data-tags="extra search keywords"
+                style="--w-app:#hex">
+
+         <header class="wiki-block-head">
+             <span class="wiki-block-icon">...</span>
+             <div class="wiki-block-titles">
+                 <h2>Block title</h2>        (the sidebar reads this line)
+                 <p>One-line summary</p>
+             </div>
+         </header>
+         <div class="wiki-block-body"> ...content... </div>
+       </section>
+
+     Its route is data-product, plus "." + id when the product has more than
+     one page. Give the id the same name as the product and the route stutters
+     (?section=aichat.aichat), so avoid that.
+
+     TO ADD A PAGE   copy any section below, set id / data-product /
+                     data-product-label / data-tags / --w-app. Sidebar rows,
+                     breadcrumbs and prev/next all appear by themselves.
+     TO DELETE ONE   delete the whole section element. Nothing references it.
+
+     Content primitives used inside blocks (all styled in wiki.css):
+       .wiki-cards > .wiki-card          feature tiles
+       .wiki-table-wrap > .wiki-table    data tables
+       .wiki-features > li               compact checklist
+       .wiki-steps  > li                 numbered how-to
+       .wiki-checks > li                 checklist
+       .wiki-note  (+ tip/warn/danger)   callout
+       .wiki-code plus modifier          inline or block code
+       .wiki-copy > code                 copyable line (copy button is automatic)
+       .wiki-cmd                         Discord command card (needs data-cat)
+       .wiki-filters[data-filter-for]    filter bar for a .wiki-cmd list
+       .wiki-key                          inline keyboard key
+       .wiki-tag (+ grey/info/warn/danger)
+     ======================================================================= -->
+
+<div class="wiki-root">
+
+    <!-- ===================== TOP BAR =====================
+         Same chrome as emeraldsuite.html: logo icon on the left, optically
+         centred search, theme toggle on the right. The bar is transparent with
+         a backdrop blur, so content scrolls under it. -->
+    <header class="su-top">
+        <button class="icon-btn wiki-burger" aria-label="Open navigation" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        </button>
+
+        <a href="/" class="logo" aria-label="EmeraldNetwork home">
+            <img src="/assets/images/favicon.webp" width="28" height="28" alt="">
+        </a>
+
+        <div class="su-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="search" data-wiki-search placeholder="Search help for…" autocomplete="off" spellcheck="false" aria-label="Search help">
+            <button class="wiki-search-clear" aria-label="Clear search">&times;</button>
+        </div>
+
+        <div class="su-top-right">
+            <button class="icon-btn wiki-theme-btn" title="Theme" aria-label="Change theme">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- ===================== SHELL ===================== -->
+    <div class="wiki-shell">
+
+        <!-- Sidebar is generated by wiki.js. This list is only a placeholder. -->
+        <!-- Built entirely by wiki.js, including its section labels. -->
+        <nav class="wiki-nav" aria-label="Wiki sections"></nav>
+
+        <main class="wiki-main">
+
+            <!-- Where you are: Home / EmeraldSuite / EmeraldDocs -->
+            <nav class="wiki-crumbs" data-crumbs aria-label="Breadcrumb"></nav>
+
+            <!-- Shown when ?section= names something that does not exist. -->
+            <div class="wiki-notfound" data-notfound hidden>
+                <h2>No such page</h2>
+                <p>
+                    <code class="wiki-code" data-notfound-route></code> does not match a page in this wiki.
+                    Every route is in the sidebar on the left — pick one, or press
+                    <span class="wiki-key">Ctrl</span>+<span class="wiki-key">K</span> to search everything.
+                </p>
+                <div class="wiki-cards" data-notfound-suggestions></div>
+            </div>
+
+            <!-- ===================== HERO ===================== -->
+            <section class="wiki-hero" data-hero>
+                <h1>EmeraldNetwork wiki</h1>
+                <p>
+                    Reference for everything built under EmeraldNetwork: the four EmeraldSuite apps,
+                    EmeraldStudio Flowchart, EmeraldBot AI Chat and the EmeraldBot Discord bot.
+                    Commands, options and shortcuts, with the limits stated where they matter.
+                </p>
+                <p class="wiki-hero-facts">
+                    14 pages &middot; 41 bot commands &middot; 96 spreadsheet functions
+                    &middot; 37 slide transitions &middot; 65 shapes
+                </p>
+            </section>
+
+            <div class="wiki-empty">
+                <b>Nothing matches “<span data-empty-query></span>”</b>
+                Try a shorter word, or clear the search with <span class="wiki-key">Esc</span>.
+            </div>
+
+
+            <!-- ============================ OVERVIEW ============================ -->
+
+            <!-- BLOCK: start -->
+            <section class="wiki-block" id="start" data-group="Overview" data-tags="introduction about readme contents how to use this wiki" style="--w-app:#239a4d" data-product="home" data-product-label="Home" data-category="Getting started">
+                <header class="wiki-block-head">
+                    <span class="wiki-block-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.03A9 9 0 0 0 3 12a9 9 0 0 0 18 0c0-.6-.06-1.18-.17-1.74"/><path d="M12 2v4.03"/></svg>
+                    </span>
+                    <div class="wiki-block-titles">
+                        <h2>Start here</h2>
+                        <p>What EmeraldNetwork is, and how this wiki is organised.</p>
+                    </div>
+                </header>
+                <div class="wiki-block-body">
+
+                    <p class="wiki-lead">
+                        Everything here runs in your browser. There is no account to create, nothing to
+                        install, and no server holding your work — notes, documents, decks, spreadsheets
+                        and chats are written straight into this browser's storage. Open a page, start
+                        typing, and it is saved.
+                    </p>
+                    <p>
+                        That one decision shapes everything else. Because your files never travel, they also
+                        never follow you: a different browser, a different device, or a cleared cache starts
+                        from an empty library. In exchange there is nothing to leak, nothing to lose to a
+                        bad login, and nothing to pay for. Each app below tells you what it can export, so
+                        keep a copy of anything you care about.
+                    </p>
+
+                    <h3>Pick a shelf</h3>
+                    <p>
+                        The sidebar is sorted by what you are trying to do rather than by which product owns
+                        the feature, so you can read straight down the column you need.
+                    </p>
+
+                    <div class="wiki-shelves">
+                        <div class="wiki-shelf">
+                            <h4>Getting started</h4>
+                            <p>What the apps are, how this wiki is organised, and where everything lives.</p>
+                            <ul>
+                                <li><a href="#start">Start here</a> — this page</li>
+                                <li><a href="#appmap">App map</a> — every app at a glance</li>
+                            </ul>
+                        </div>
+                        <div class="wiki-shelf">
+                            <h4>Create</h4>
+                            <p>Everything that produces a file you would send to someone.</p>
+                            <ul>
+                                <li><a href="#hub">The hub</a> — find, rename and share anything you made</li>
+                                <li><a href="#notes">EmeraldNotes</a> — quick rich text with to-dos and drawing</li>
+                                <li><a href="#docs">EmeraldDocs</a> — long documents with pagination and a contents page</li>
+                                <li><a href="#slides">EmeraldSlides</a> — decks, transitions and presenting</li>
+                                <li><a href="#sheets">EmeraldSheets</a> — formulas, charts and spreadsheets</li>
+                                <li><a href="#flowchart">Flowchart</a> — visual programming and debugging</li>
+                            </ul>
+                        </div>
+                        <div class="wiki-shelf">
+                            <h4>Ask and automate</h4>
+                            <p>Things that answer you, or act on your behalf.</p>
+                            <ul>
+                                <li><a href="#chat">Text chat</a> — models, search, files, images, quizzes</li>
+                                <li><a href="#livevoice">Live voice</a> — a spoken conversation</li>
+                                <li><a href="#discordbot">Discord bot</a> — 41 commands for your server</li>
+                            </ul>
+                        </div>
+                        <div class="wiki-shelf">
+                            <h4>Reference</h4>
+                            <p>Look-ups rather than walkthroughs.</p>
+                            <ul>
+                                <li><a href="#status">System status</a> — is anything broken right now</li>
+                                <li><a href="#reference">Shared reference</a> — shortcuts, storage, limits</li>
+                                <li><a href="#emeraldessentialsplugin">EmeraldEssentials</a> — the Minecraft plugin</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <h3>How the wiki is put together</h3>
+                    <p>
+                        All of this is a single HTML file. What look like separate pages are views over it,
+                        addressed by the <code class="wiki-code">?section=</code> query string — which means
+                        every page has a real address you can bookmark, share or open in a new tab.
+                    </p>
+
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Link</th><th>Takes you to</th></tr></thead>
+                            <tbody>
+                                <tr><td><a href="/wiki.html?section=emeraldsuite">?section=emeraldsuite</a></td><td>The hub, plus Notes, Docs, Slides and Sheets.</td></tr>
+                                <tr><td><a href="/wiki.html?section=emeraldsuite.docs">?section=emeraldsuite.docs</a></td><td>Just EmeraldDocs.</td></tr>
+                                <tr><td><a href="/wiki.html?section=emeraldsuite.sheets">?section=emeraldsuite.sheets</a></td><td>Just EmeraldSheets.</td></tr>
+                                <tr><td><a href="/wiki.html?section=aichat">?section=aichat</a></td><td>EmeraldBot AI Chat, including live voice.</td></tr>
+                                <tr><td><a href="/wiki.html?section=aichat.livevoice">?section=aichat.livevoice</a></td><td>Just the live voice section.</td></tr>
+                                <tr><td><a href="/wiki.html?section=flowchart">?section=flowchart</a></td><td>EmeraldStudio Flowchart.</td></tr>
+                                <tr><td><a href="/wiki.html?section=discordemeraldbot">?section=discordemeraldbot</a></td><td>The Discord bot and all 41 commands.</td></tr>
+                                <tr><td><a href="/wiki.html?section=emeraldessentialsplugin">?section=emeraldessentialsplugin</a></td><td>The Minecraft plugin. Short, because it is not finished.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="wiki-note wiki-note--tip">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="m9 12 2 2 4-4"/></svg>
+                        <div>
+                            <b>The address bar keeps up with you.</b> Scroll a product and <code class="wiki-code">?section=</code>
+                            quietly updates to whichever page you are on, so copying the address gives someone the right
+                            place. Clicking instead pushes history, so <span class="wiki-key">Back</span> still behaves
+                            the way you expect.
+                        </div>
+                    </div>
+
+                    <h3>Getting around</h3>
+                    <ul class="wiki-features">
+                        <li><b>Search</b> — <span class="wiki-key">Ctrl</span>+<span class="wiki-key">K</span>. It covers every page at once and filters as you type; clearing it puts you back exactly where you were.</li>
+                        <li><b>Sidebar</b> — the pages of whatever you are reading, with the current one marked by a coloured rail.</li>
+                        <li><b>On this page</b> — appears in the sidebar when you focus a single page, listing its headings.</li>
+                        <li><b>Headings</b> — click the <span class="wiki-key">#</span> beside one to copy a link to that exact spot.</li>
+                        <li><b>Theme</b> — the sun button switches light and dark.</li>
+                        <li><b>Right-click</b> anywhere for copy text, copy page link, and an element inspector.</li>
+                    </ul>
+
+                    <h3>First moves in each app</h3>
+                    <p>
+                        If you would rather skip the reading and just try something, these are the two or three actions that show what each app is for.
+                    </p>
+
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>App</th><th>Try this first</th><th>Then try</th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td><a href="#hub">Suite</a></td>
+                                    <td>Open the hub and make something in any app — it appears in the list immediately.</td>
+                                    <td>Right-click it for <b>Rename</b>, <b>Copy link</b> or <b>Delete</b>.</td>
+                                </tr>
+                                <tr>
+                                    <td><a href="#notes">Notes</a></td>
+                                    <td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">N</span>, type, then add a <b>To-Do</b> and a <b>Table</b> from the ribbon.</td>
+                                    <td><b>Share Note</b> and edit the same note from a second tab.</td>
+                                </tr>
+                                <tr>
+                                    <td><a href="#docs">Docs</a></td>
+                                    <td>Import a <b>.docx</b>, or type a heading from <b>Layout</b> — that is what the table of contents is built from.</td>
+                                    <td><b>File → Export as PDF</b> and compare with what you see on screen.</td>
+                                </tr>
+                                <tr>
+                                    <td><a href="#slides">Slides</a></td>
+                                    <td>Take a theme from <b>Design</b>, add text, then switch to <b>Slide Sorter</b>.</td>
+                                    <td><span class="wiki-key">F5</span> to present, with a transition applied.</td>
+                                </tr>
+                                <tr>
+                                    <td><a href="#sheets">Sheets</a></td>
+                                    <td>Click a cell and type <code class="wiki-code">=SUM(A1:A9)</code>.</td>
+                                    <td><b>Insert → Create Chart</b>, then export the sheet as XLSX.</td>
+                                </tr>
+                                <tr>
+                                    <td><a href="#flowchart">Flowchart</a></td>
+                                    <td>Drop <b>Terminal</b> and <b>Output</b>, connect them, press <b>Run</b>.</td>
+                                    <td>Add a <b>Breakpoint</b> and <b>Step</b> through it watching the Variables panel.</td>
+                                </tr>
+                                <tr>
+                                    <td><a href="#chat">AI Chat</a></td>
+                                    <td>Ask something ordinary. Then press <b>+</b> and attach a PDF.</td>
+                                    <td>Ask it to make an image, or to quiz you.</td>
+                                </tr>
+                                <tr>
+                                    <td><a href="#discordbot">Discord bot</a></td>
+                                    <td>Invite it and run <code class="wiki-code">e!help</code>.</td>
+                                    <td><code class="wiki-code">e!autorole</code>, <code class="wiki-code">e!joinleave</code> and <code class="wiki-code">e!log</code> cover most onboarding.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Before you start</h3>
+                    <div class="wiki-note">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5M12 8h.01"/></svg>
+                        <div>
+                            <b>Export before you clear anything.</b> Each app has its own export — Notes as a share
+                            link, Docs as PDF/HTML/TXT, Slides as PPTX/PDF/SVG, Sheets as XLSX/CSV, chats as a link,
+                            flowcharts as <code class="wiki-code">.emeraldcore</code>. Clearing browsing data wipes the
+                            library with no way back.
+                        </div>
+                    </div>
+                    <div class="wiki-note">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5M12 8h.01"/></svg>
+                        <div>
+                            <b>The AI chat is the exception.</b> Everything else works offline once loaded. Chat
+                            and live voice send what you type to a hosted model, and the Discord bot lives on
+                            Discord's servers. See <a href="#reference">Shared reference</a> for exactly what
+                            leaves your device and what does not.
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- BLOCK: appmap -->
+            <section class="wiki-block" id="appmap" data-group="Overview" data-tags="app map index products overview all apps routes urls" style="--w-app:#0f766e" data-product="home" data-product-label="Home" data-category="Getting started">
+                <header class="wiki-block-head">
+                    <span class="wiki-block-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+                    </span>
+                    <div class="wiki-block-titles">
+                        <h2>App map</h2>
+                        <p>Every app, what it is for, and where it lives.</p>
+                    </div>
+                </header>
+                <div class="wiki-block-body">
+                    <p class="wiki-lead">
+                        Nine things under one roof, and they do not behave alike. The table below is the
+                        comparison: what each is for, where it keeps your work, and whether it needs a
+                        connection.
+                    </p>
+
+                    <h3>The apps</h3>
+                    <div class="wiki-apps">
+                        <a class="wiki-app" href="#hub">
+                            <img src="/assets/images/favicon.webp" alt="" loading="lazy" width="36" height="36">
+                            <span class="wiki-app-body">
+                                <b>EmeraldSuite</b>
+                                <span>The hub. One library holding everything the four apps below produce.</span>
+                            </span>
+                        </a>
+                        <a class="wiki-app" href="#notes">
+                            <img src="/assets/images/notesicon.webp" alt="" loading="lazy" width="36" height="36">
+                            <span class="wiki-app-body">
+                                <b>EmeraldNotes</b>
+                                <span>Rich text that stays out of the way. To-dos, tables, drawing, live sharing.</span>
+                            </span>
+                        </a>
+                        <a class="wiki-app" href="#docs">
+                            <img src="/assets/images/docsicon.webp" alt="" loading="lazy" width="36" height="36">
+                            <span class="wiki-app-body">
+                                <b>EmeraldDocs</b>
+                                <span>A word processor that paginates. Headings, contents, footnotes, PDF out.</span>
+                            </span>
+                        </a>
+                        <a class="wiki-app" href="#slides">
+                            <img src="/assets/images/slidesicon.webp" alt="" loading="lazy" width="36" height="36">
+                            <span class="wiki-app-body">
+                                <b>EmeraldSlides</b>
+                                <span>Decks with themes, transitions, animations, presenter notes and PPTX out.</span>
+                            </span>
+                        </a>
+                        <a class="wiki-app" href="#sheets">
+                            <img src="/assets/images/sheetsicon.webp" alt="" loading="lazy" width="36" height="36">
+                            <span class="wiki-app-body">
+                                <b>EmeraldSheets</b>
+                                <span>96 functions, charts, comments, named ranges, and XLSX import and export.</span>
+                            </span>
+                        </a>
+                        <a class="wiki-app" href="#flowchart">
+                            <span class="wiki-app-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="2" width="7" height="4.5" rx="1.2"/><path d="M12 6.5v2.2"/><path d="m12 8.7-4.5 2.6v3.6L12 17.5l4.5-2.6V11.3z"/><path d="M12 17.5v4"/></svg></span>
+                            <span class="wiki-app-body">
+                                <b>EmeraldStudio Flowchart</b>
+                                <span>Write a program as shapes, then run, step and debug it with breakpoints.</span>
+                            </span>
+                        </a>
+                        <a class="wiki-app" href="#chat">
+                            <span class="wiki-app-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6"/><circle cx="12" cy="12" r="3.2"/></svg></span>
+                            <span class="wiki-app-body">
+                                <b>EmeraldBot AI Chat</b>
+                                <span>Nine models, web search, file attachments, image generation, quizzes and memories.</span>
+                            </span>
+                        </a>
+                        <a class="wiki-app" href="#discordbot">
+                            <span class="wiki-app-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19.3 5.3A16 16 0 0 0 15.9 4l-.4.8a14.6 14.6 0 0 0-5.2 0L9.9 4a16 16 0 0 0-3.4 1.3C4.2 8.8 3.5 12.7 3.8 16.6a16 16 0 0 0 4.8 2.4l1-1.5c-.8-.3-1.6-.7-2.3-1.2l.6-.4a11.4 11.4 0 0 0 9.8 0l.6.4c-.7.5-1.5.9-2.3 1.2l1 1.5a16 16 0 0 0 4.8-2.4c.4-4.5-.7-8.4-2.5-11.3ZM9.5 14.2c-1 0-1.7-.9-1.7-1.9s.8-1.9 1.7-1.9 1.7.9 1.7 1.9-.7 1.9-1.7 1.9Zm5 0c-1 0-1.7-.9-1.7-1.9s.8-1.9 1.7-1.9 1.7.9 1.7 1.9-.7 1.9-1.7 1.9Z"/></svg></span>
+                            <span class="wiki-app-body">
+                                <b>EmeraldBot for Discord</b>
+                                <span>Moderation, music, utilities and fun for your server. 41 commands.</span>
+                            </span>
+                        </a>
+                        <a class="wiki-app" href="#emeraldessentialsplugin">
+                            <span class="wiki-app-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 8.5 9-4.8 9 4.8v7L12 20.3 3 15.5z"/><path d="M3 8.5v7L12 20.3V11.5L3 8.5Z"/><path d="M12 11.5l9-3"/></svg></span>
+                            <span class="wiki-app-body">
+                                <b>EmeraldEssentials</b>
+                                <span>A Minecraft server plugin suite. Not finished, so its page is short.</span>
+                            </span>
+                        </a>
+                    </div>
+
+                    <h3>Side by side</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead>
+                                <tr>
+                                    <th>App</th><th>Good for</th><th>Needs internet</th><th>Saves where</th><th>Exports to</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><a href="#hub">Suite hub</a></td>
+                                    <td>Finding, renaming and sharing files across the four apps</td>
+                                    <td><span class="wiki-tag">No</span></td>
+                                    <td>Nothing of its own — reads the others</td>
+                                    <td>Deep links to any file</td>
+                                </tr>
+                                <tr>
+                                    <td><a href="#notes">EmeraldNotes</a></td>
+                                    <td>Meeting notes, checklists, anything shared live</td>
+                                    <td><span class="wiki-tag wiki-tag--warn">Live sharing only</span></td>
+                                    <td><code class="wiki-code">emeraldcore.storage.suite</code></td>
+                                    <td>Share link, live session</td>
+                                </tr>
+                                <tr>
+                                    <td><a href="#docs">EmeraldDocs</a></td>
+                                    <td>Reports, letters, anything printed or sent as a document</td>
+                                    <td><span class="wiki-tag wiki-tag--warn">PDF export</span></td>
+                                    <td><code class="wiki-code">emeraldcore.storage.suite</code></td>
+                                    <td>PDF, HTML, TXT, print</td>
+                                </tr>
+                                <tr>
+                                    <td><a href="#slides">EmeraldSlides</a></td>
+                                    <td>Presenting, pitches, training</td>
+                                    <td><span class="wiki-tag wiki-tag--warn">PPTX / PDF export</span></td>
+                                    <td><code class="wiki-code">emeraldcore.storage.suite</code></td>
+                                    <td>PPTX, PDF, SVG, print</td>
+                                </tr>
+                                <tr>
+                                    <td><a href="#sheets">EmeraldSheets</a></td>
+                                    <td>Data, budgets, anything that needs arithmetic</td>
+                                    <td><span class="wiki-tag wiki-tag--warn">XLSX only</span></td>
+                                    <td><code class="wiki-code">emeraldcore.storage.suite.sheets</code></td>
+                                    <td>XLSX, CSV, print</td>
+                                </tr>
+                                <tr>
+                                    <td><a href="#flowchart">Flowchart</a></td>
+                                    <td>Teaching logic, prototyping algorithms</td>
+                                    <td><span class="wiki-tag">No</span></td>
+                                    <td><code class="wiki-code">emeraldcore.storage.suite</code></td>
+                                    <td><code class="wiki-code">.emeraldcore</code>, PNG</td>
+                                </tr>
+                                <tr>
+                                    <td><a href="#chat">AI Chat</a></td>
+                                    <td>Anything you would ask a colleague</td>
+                                    <td><span class="wiki-tag wiki-tag--danger">Always</span></td>
+                                    <td><code class="wiki-code">emeraldcore.storage.suite</code></td>
+                                    <td>Share link, <code class="wiki-code">.json</code></td>
+                                </tr>
+                                <tr>
+                                    <td><a href="#livevoice">Live voice</a></td>
+                                    <td>Hands-free conversation</td>
+                                    <td><span class="wiki-tag wiki-tag--danger">Always</span></td>
+                                    <td>Saved as a normal chat</td>
+                                    <td>Inherits the chat exports</td>
+                                </tr>
+                                <tr>
+                                    <td><a href="#discordbot">Discord bot</a></td>
+                                    <td>Running a community server</td>
+                                    <td><span class="wiki-tag wiki-tag--danger">Always</span></td>
+                                    <td>On Discord, not your browser</td>
+                                    <td>Not applicable</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="wiki-note wiki-note--warn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+                        <div>
+                            <b>Not documented here:</b> the Minecraft plugin <em>EmeraldEssentials</em>. It is not
+                            feature-complete, so there is no command list or configuration reference to publish,
+                            and writing one would mean inventing it. Its page says plainly what is and is not
+                            known. Everything else is documented in full.
+                        </div>
+                    </div>
+
+                    <h3>Choosing between the four apps</h3>
+                    <p>
+                        These overlap more than they look. If you are deciding where to put something, these are the questions that separate them.
+                    </p>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>If you want to…</th><th>Use</th><th>Because</th></tr></thead>
+                            <tbody>
+                                <tr><td>Jot something down and find it again</td><td><a href="#notes">Notes</a></td><td>Fastest to start, no layout decisions to make.</td></tr>
+                                <tr><td>Something a person will print or PDF</td><td><a href="#docs">Docs</a></td><td>Only Docs paginates into pages with margins and a contents page.</td></tr>
+                                <tr><td>Explain something out loud to people</td><td><a href="#slides">Slides</a></td><td>Presenter notes, transitions and a full-screen present mode.</td></tr>
+                                <tr><td>Anything involving totals</td><td><a href="#sheets">Sheets</a></td><td>The other three have no arithmetic at all.</td></tr>
+                                <tr><td>Work on the same note with someone now</td><td><a href="#notes">Notes</a></td><td>Live collaboration only exists in Notes.</td></tr>
+                                <tr><td>Work on the same document with someone now</td><td>—</td><td>Not possible. Docs has comments, but they are not live; this is the one collaboration gap.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ============================ EMERALDSUITE ============================ -->
+
+            <!-- BLOCK: suite -->
+            <section class="wiki-block" id="hub" data-group="EmeraldSuite" data-tags="suite hub home files library storage quota search filter sort rename delete recent" style="--w-app:#239a4d" data-product="emeraldsuite" data-product-label="EmeraldSuite" data-category="Create">
+                <header class="wiki-block-head">
+                    <span class="wiki-block-icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+                    </span>
+                    <div class="wiki-block-titles">
+                        <h2>The hub</h2>
+                        <p>One home for every note, document, presentation and spreadsheet you create.</p>
+                    </div>
+                </header>
+                <div class="wiki-block-body">
+
+<p class="wiki-lead">
+                        The hub is the answer to "where did I put that?". It reads the index of all four
+                        apps out of shared storage and renders one combined library, so a note written this
+                        morning and a spreadsheet from last week sit in the same list.
+                    </p>
+                    <p>
+                        It does not hold anything itself. Renaming or deleting here reaches into the app that
+                        owns the file, so the two never disagree.
+                    </p>
+
+                    <h3>Finding and tidying your files</h3>
+                    <ol class="wiki-steps">
+                        <li>Open <a href="/emeraldsuite">/emeraldsuite</a>. Anything you have created appears under <b>Your files</b>.</li>
+                        <li>Filter with <b>Notes</b>, <b>Documents</b>, <b>Presentations</b> or <b>Spreadsheets</b>. Filters combine — pick two to narrow further.</li>
+                        <li>Type in <b>Search your files…</b> to match on the title. Recent files and the quick-create tiles collapse so results sit higher up.</li>
+                        <li>Sort by <b>Recently edited</b>, <b>Name (A–Z)</b> or <b>Name (Z–A)</b>.</li>
+                        <li>Hover a card for <b>Open</b>, <b>Rename</b> and <b>Delete</b>, or right-click for the full menu including <b>Copy link</b>.</li>
+                        <li>Click the storage icon in the top bar to see how much of your browser quota is in use.</li>
+                    </ol>
+
+                    <h3>Layout</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Area</th><th>What you get</th></tr></thead>
+                            <tbody>
+                                <tr><td>Top bar</td><td>Logo (goes to home), the <b>Search your files…</b> box with a <span class="wiki-key">/</span> hint, and the <b>Storage</b> button.</td></tr>
+                                <tr><td>Left rail</td><td><b>Home</b>, <b>Notes</b>, <b>Documents</b>, <b>Slides</b>, <b>Sheets</b>. Icons with labels underneath.</td></tr>
+                                <tr><td>Greeting</td><td>Time-aware: <em>Good morning / afternoon / evening, welcome to EmeraldSuite!</em></td></tr>
+                                <tr><td>Recent files</td><td>Your three most recently edited files as large cards. Empty state: <em>Open a file and it will show up here.</em> Collapses while you type in search.</td></tr>
+                                <tr><td>Quick access</td><td>Four create tiles: <b>EmeraldNotes</b>, <b>EmeraldDocs</b>, <b>EmeraldSlides</b>, <b>EmeraldSheets</b>.</td></tr>
+                                <tr><td>Your files</td><td>The full library with filters, sorting and per-file actions.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Filters and sorting</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Control</th><th>Options</th><th>Behaviour</th></tr></thead>
+                            <tbody>
+                                <tr><td>Type filters</td><td><span class="wiki-tag">All files</span> <span class="wiki-tag">Notes</span> <span class="wiki-tag">Documents</span> <span class="wiki-tag">Presentations</span> <span class="wiki-tag">Spreadsheets</span></td><td>Multi-select and additive — pick Notes and Documents to see both. <b>All files</b> clears the selection.</td></tr>
+                                <tr><td>Sort</td><td>Recently edited · Name (A–Z) · Name (Z–A)</td><td>Default is <b>Recently edited</b>, newest first.</td></tr>
+                                <tr><td>Search</td><td>Title match</td><td>Case-insensitive substring. Recent files and Quick access collapse while searching so results are not pushed down.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Working with a file</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Action</th><th>How</th></tr></thead>
+                            <tbody>
+                                <tr><td>Open</td><td>Click the card, or <b>Open</b> in the right-click menu. Navigates in place.</td></tr>
+                                <tr><td>Open in new tab</td><td>Right-click → <b>Open in new tab</b>. Useful for two documents side by side.</td></tr>
+                                <tr><td>Copy link</td><td>Right-click → <b>Copy link</b>. Copies a deep link of the form <code class="wiki-code">/notes?owned=abc123</code> that opens that exact file.</td></tr>
+                                <tr><td>Rename</td><td>Right-click → <b>Rename</b>, or the pencil icon on hover. Max 120 characters; the new name is written back into the app as well, not just the index.</td></tr>
+                                <tr><td>Delete</td><td>Right-click → <b>Delete</b>. Warns that it also removes the file from any open tabs. This cannot be undone.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p>
+                        Hovering a card also exposes three icon buttons — <b>Open in {App}</b>, <b>Rename</b>
+                        and <b>Delete</b> — so you rarely need the right-click menu at all.
+                    </p>
+
+                    <h3>What each card shows</h3>
+                    <ul class="wiki-features">
+                        <li>A CSS thumbnail drawn in the app's style — note lines, a document page, a slide frame, or a spreadsheet cell grid.</li>
+                        <li>Type and size: <em>Note · 214 words</em>, <em>Presentation · 12 slides</em>, <em>Spreadsheet · 3 sheets</em>.</li>
+                        <li>Relative time: <em>just now</em>, <em>4m ago</em>, <em>3h ago</em>, <em>yesterday</em>, <em>12d ago</em>, or a date.</li>
+                    </ul>
+
+                    <h3>Storage meter</h3>
+                    <p>
+                        The database icon in the top bar opens a <b>Storage</b> popup with <b>Used</b>,
+                        <b>Available</b>, a proportional bar and a percentage line. It reads the browser's own
+                        quota via the Storage API, so the number reflects your whole origin, not just the suite.
+                        Browsers that do not expose a quota show
+                        <em>Storage estimate unavailable in this browser.</em>
+                    </p>
+                    <div class="wiki-note">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5M12 8h.01"/></svg>
+                        <div>
+                            The hub does not break usage down per app. The AI chat's Settings dialog is the
+                            only place that itemises storage.
+                        </div>
+                    </div>
+
+                    <h3>Keeping the hub in sync</h3>
+                    <ul class="wiki-features">
+                        <li>Open the same app in two tabs and edits propagate both ways through a browser broadcast channel.</li>
+                        <li>The hub refreshes on window focus, on tab visibility change, on load, and every 60 seconds.</li>
+                        <li>Renaming or deleting in the hub updates the real document, not just the list entry.</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- BLOCK: notes -->
+            <section class="wiki-block" id="notes" data-group="EmeraldSuite" data-tags="notes emeraldnotes rich text markdown formatting tables todo drawing images collaboration share link find replace" style="--w-app:#a21caf" data-product="emeraldsuite" data-product-label="EmeraldSuite" data-category="Create">
+                <header class="wiki-block-head">
+                    <span class="wiki-block-icon"><img src="/assets/images/notesicon.webp" alt=""></span>
+                    <div class="wiki-block-titles">
+                        <h2>EmeraldNotes</h2>
+                        <p>Rich text notes with tables, to-do lists, drawing, images and live collaboration.</p>
+                    </div>
+                </header>
+                <div class="wiki-block-body">
+
+<p class="wiki-lead">
+                        Notes is the app you will open most often, because it is the one that asks for no
+                        decisions. No layout, no styles to choose, no page setup — open it and type. The
+                        formatting is there when you want it and invisible when you do not.
+                    </p>
+                    <p>
+                        It is also the only app with live collaboration, so a note is the quickest thing to
+                        actually share with someone rather than just hand over a file.
+                    </p>
+
+                    <h3>A note from empty to shared</h3>
+                    <ol class="wiki-steps">
+                        <li>Open <a href="/notes">/notes</a> and press <span class="wiki-key">Ctrl</span>+<span class="wiki-key">N</span>, or click <b>New Note</b> in the sidebar.</li>
+                        <li>Type a title, then start writing underneath it. Everything saves on its own — there is no save button to press.</li>
+                        <li>Use the ribbon when you need structure: <b>Table</b> for a grid, <b>To-Do</b> for a checklist, <b>Image</b> for a screenshot.</li>
+                        <li>Press <span class="wiki-key">Ctrl</span>+<span class="wiki-key">F</span> to find and replace something you wrote earlier.</li>
+                        <li>Click <b>Share Note</b>, choose <b>Can edit</b> or <b>Can view</b>, and copy the link.</li>
+                        <li>Open that link in a second tab. Typing in either one appears in the other, with the other person's cursor visible.</li>
+                    </ol>
+
+                    <h3>Getting around</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Part</th><th>What it does</th></tr></thead>
+                            <tbody>
+                                <tr><td>Sidebar</td><td>Title <b>Notes</b>, a <b>New Note</b> button, and one row per note showing title, a short preview and when it changed. Collapsible; the collapsed state is remembered. On phones it is a swipe-in drawer.</td></tr>
+                                <tr><td>Title bar</td><td>Click-to-edit title (70 characters typed, 40 stored), note colour picker, <b>Share Note</b>, <b>Export Note</b>, <b>Delete Note</b>.</td></tr>
+                                <tr><td>Editor</td><td>The text area itself. The status bar under it shows <b>Ln</b>, <b>Col</b>, live word count and character count.</td></tr>
+                                <tr><td>Save pill</td><td><em>Saving…</em> → <em>All changes saved</em>, or <em>Error saving</em>.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>The ribbon</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Group</th><th>Controls</th></tr></thead>
+                            <tbody>
+                                <tr><td>History</td><td><b>Undo</b>, <b>Redo</b> — greyed out when there is nothing to undo.</td></tr>
+                                <tr><td>Clipboard</td><td><b>Cut</b>, <b>Copy</b>, <b>Paste</b> — these go through the async clipboard API, so they carry formatting into other apps.</td></tr>
+                                <tr><td>Font</td><td>Font family, font size, <b>Bold</b>, <b>Italic</b>, <b>Underline</b>, <b>Strikethrough</b>, <b>Subscript</b>, <b>Superscript</b>, text <b>Colour</b> (13 swatches), <b>Highlight</b> (11 colours + Clear).</td></tr>
+                                <tr><td>Paragraph</td><td>Align <b>Left</b> / <b>Center</b> / <b>Right</b>, <b>Bullet List</b>, <b>Numbered List</b>.</td></tr>
+                                <tr><td>Insert</td><td><b>Table</b>, <b>To-Do</b>, <b>Draw</b>, <b>Image</b>.</td></tr>
+                                <tr><td>Edit</td><td><b>Find</b>.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h4>Fonts available</h4>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Category</th><th>Includes</th></tr></thead>
+                            <tbody>
+                                <tr><td>Sans-Serif</td><td>Arial, Helvetica, Verdana, Roboto, Open Sans, Lato, Montserrat, Poppins, Raleway, Nunito, Ubuntu, Work Sans, Oswald and more</td></tr>
+                                <tr><td>Serif</td><td>Georgia, Times New Roman, Merriweather, Lora, Libre Baskerville, DM Serif Display, Spectral</td></tr>
+                                <tr><td>Monospace</td><td>Courier New, Fira Code, Inconsolata, IBM Plex Mono, DM Mono, Source Code Pro</td></tr>
+                                <tr><td>Handwriting</td><td>Dancing Script, Pacifico, Lobster, Caveat, Kalam, Great Vibes, Sacramento</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p>Font sizes run <span class="wiki-code">8 – 72</span>. On a phone the ribbon switches to a compact icon-only layout with a reduced font list.</p>
+
+                    <h3>Tables</h3>
+                    <ol class="wiki-steps">
+                        <li>Click <b>Table</b> in the ribbon and pick a size from the grid (up to 8 × 8). The first row becomes a header row.</li>
+                        <li>Click any cell to reveal the floating table toolbar above the table.</li>
+                        <li>Use <b>Add Row Above</b> / <b>Add Row Below</b> / <b>Delete Row</b> and <b>Add Column Left</b> / <b>Add Column Right</b> / <b>Delete Column</b>.</li>
+                        <li>Drag the right edge of a column to resize it (minimum 40px). Widths are saved with the note.</li>
+                    </ol>
+                    <p>Deleting the last row removes the whole table. Deleting the last column does nothing, so you cannot accidentally destroy a table.</p>
+
+                    <h3>To-do lists</h3>
+                    <ol class="wiki-steps">
+                        <li>Click <b>To-Do</b> to drop in a checkbox item.</li>
+                        <li>Type the text next to the checkbox.</li>
+                        <li>Press <span class="wiki-key">Enter</span> for another item, <span class="wiki-key">Tab</span> to indent it, <span class="wiki-key">Shift</span>+<span class="wiki-key">Tab</span> to outdent.</li>
+                    </ol>
+
+                    <h3>Drawing</h3>
+                    <ol class="wiki-steps">
+                        <li>Click <b>Draw</b> in the ribbon. A toolbar appears with <b>Pen</b>, <b>Eraser</b>, nine colours and four sizes — <b>Thin</b>, <b>Medium</b>, <b>Thick</b>, <b>Extra Thick</b>.</li>
+                        <li>Drag on the page to draw. Use <b>Move</b> to reposition the drawing or the corner handle to resize it.</li>
+                        <li><b>Clear</b> wipes the canvas if you want to start over.</li>
+                        <li>Click <b>✓ Done</b>. The drawing is cropped to its content, saved as a PNG and placed into the note as an image.</li>
+                    </ol>
+                    <p>Drawings become part of the note, so they show up in shared links and exports like any other image.</p>
+
+                    <h3>Images</h3>
+                    <ul class="wiki-features">
+                        <li><b>Insert → Image</b> opens your file picker, and you can also drag image files straight onto the editor or paste one from the clipboard.</li>
+                        <li>Maximum size is <b>25 MB</b> per image.</li>
+                        <li>Click an image to select it; a corner handle resizes it with the aspect ratio locked.</li>
+                        <li>Images are stored inline, so they travel with the note and count towards your storage quota.</li>
+                    </ul>
+
+                    <h3>Find &amp; replace</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Control</th><th>Purpose</th></tr></thead>
+                            <tbody>
+                                <tr><td><b>Find…</b> / <b>Replace with…</b></td><td>Two fields at the bottom of the editor.</td></tr>
+                                <tr><td>‹ / ›</td><td>Previous / next match. <span class="wiki-key">Enter</span> and <span class="wiki-key">Shift</span>+<span class="wiki-key">Enter</span> do the same.</td></tr>
+                                <tr><td><b>Replace</b> / <b>All</b></td><td>Replace the current match, or every match. The counter confirms how many were replaced.</td></tr>
+                                <tr><td><b>Case sensitive</b></td><td>Turns on exact-case matching.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p>Open it with the ribbon <b>Find</b> button or <span class="wiki-key">Ctrl</span>+<span class="wiki-key">F</span>. <span class="wiki-key">Esc</span> closes it.</p>
+
+                    <h3>Note colours</h3>
+                    <p>The colour button next to the title sets the page background: <b>Default</b>, <b>Light Pink</b>, <b>Light Blue</b>, <b>Light Green</b>, <b>Light Yellow</b> or <b>Light Purple</b>.</p>
+
+                    <h3>Sharing a note</h3>
+                    <div class="wiki-cards">
+                        <div class="wiki-card">
+                            <h4>Export as link</h4>
+                            <p><b>Export Note</b> packs the title, content and colour into a compressed token and gives you a URL. Anyone who opens it gets their own copy added to their library. Nothing is uploaded.</p>
+                        </div>
+                        <div class="wiki-card">
+                            <h4>Live collaboration</h4>
+                            <p><b>Share Note</b> opens a real-time session. Choose <b>Can edit</b> or <b>Can view</b>, copy the collaboration link and share it. You can watch who is in the session and close it at any time.</p>
+                            <p><b>Live sharing needs an internet connection, and both of you have to be online at the same time</b> — it is a session between two open browsers, not a file that gets handed over. <b>Export Note</b> has neither requirement: the whole note is encoded in the link, so you can share it from an offline tab and the other person reads it whenever they like. Everything in Notes except live sharing works without a connection.</p>
+                        </div>
+                    </div>
+                    <div class="wiki-note wiki-note--warn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+                        <div>
+                            A shared link stops working once the document gets long — very large notes exceed
+                            what a browser will hold in a URL and the export says
+                            <em>This note is too long to share with a link.</em> You can take part in
+                            <b>one</b> live session at a time; leave the current one before joining another.
+                        </div>
+                    </div>
+
+                    <h3>Keyboard shortcuts</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Shortcut</th><th>Action</th></tr></thead>
+                            <tbody>
+                                <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">N</span></td><td>New note</td></tr>
+                                <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">S</span></td><td>Save immediately instead of waiting for autosave</td></tr>
+                                <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">B</span> / <span class="wiki-key">I</span> / <span class="wiki-key">U</span></td><td>Bold / italic / underline</td></tr>
+                                <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">F</span> / <span class="wiki-key">H</span></td><td>Find &amp; replace</td></tr>
+                                <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">Z</span> / <span class="wiki-key">Y</span></td><td>Undo / redo</td></tr>
+                                <tr><td><span class="wiki-key">Enter</span> / <span class="wiki-key">Tab</span></td><td>New / indented to-do item</td></tr>
+                                <tr><td><span class="wiki-key">Esc</span></td><td>Close Find, the table picker or the delete dialog</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Autosave, undo and limits</h3>
+                    <ul class="wiki-features">
+                        <li>Autosave runs one second after you stop typing; <span class="wiki-key">Ctrl</span>+<span class="wiki-key">S</span> forces it.</li>
+                        <li>Undo history is the browser's own, so it is per-note and is lost when you close the note.</li>
+                        <li>Notes have no folders and cannot be reordered — the list is newest first.</li>
+                        <li>Everything works offline once the page is loaded; only collaboration and web fonts need a connection.</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- BLOCK: docs -->
+            <section class="wiki-block" id="docs" data-group="EmeraldSuite" data-tags="docs emeralddocs word processor pages pagination table of contents footnotes endnotes citations comments cover page watermark equation smartart export pdf docx import" style="--w-app:#0891b2" data-product="emeraldsuite" data-product-label="EmeraldSuite" data-category="Create">
+                <header class="wiki-block-head">
+                    <span class="wiki-block-icon"><img src="/assets/images/docsicon.webp" alt=""></span>
+                    <div class="wiki-block-titles">
+                        <h2>EmeraldDocs</h2>
+                        <p>A word processor that paginates, references, comments and PDF export.</p>
+                    </div>
+                </header>
+                <div class="wiki-block-body">
+
+<p class="wiki-lead">
+                        Docs is the app to reach for when the output is going to be read rather than glanced
+                        at. It paginates your content into pages with margins, which is what makes
+                        the table of contents, footnotes and PDF export behave the way a reader expects.
+                    </p>
+
+                    <h3>Real pagination</h3>
+                    <p>
+                        Docs is not one long scrolling page — it lays your content out across actual page
+                        sheets (A4 by default). Blocks move between pages as you type, and a paragraph that is
+                        too tall for the remaining space is split at a word boundary rather than mid-word.
+                        Inserted page breaks force a hard boundary.
+                    </p>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Page size</th><th>Dimensions</th></tr></thead>
+                            <tbody>
+                                <tr><td>Letter</td><td>8.5″ × 11″</td></tr>
+                                <tr><td>Legal</td><td>8.5″ × 14″</td></tr>
+                                <tr><td>Executive</td><td>7.25″ × 10.5″</td></tr>
+                                <tr><td>A4</td><td>21 × 29.7 cm</td></tr>
+                                <tr><td>A5</td><td>14.8 × 21 cm</td></tr>
+                                <tr><td>A6</td><td>10.5 × 14.8 cm</td></tr>
+                                <tr><td>Envelope #10</td><td>4.125″ × 9.5″</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p>Choose a size from <b>Layout → Size</b> and orientation from <b>Layout → Orient</b>. Margins come from the <b>Page Margins</b> dialog with <b>Narrow</b>, <b>Default</b>, <b>Moderate</b> and <b>Wide</b> presets plus per-side centimetre values. <span class="wiki-key">Ctrl</span>+<span class="wiki-key">Shift</span>+<span class="wiki-key">M</span> cycles the presets.</p>
+
+                    <h3>Ribbon tabs</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Tab</th><th>What lives there</th></tr></thead>
+                            <tbody>
+                                <tr><td><b>File</b></td><td>Opens the backstage overlay: rename, delete, export, statistics, version history.</td></tr>
+                                <tr><td><b>Home</b></td><td>Undo/redo, cut/copy/paste, fonts, sizes, colours, highlight, alignment, lists, indent.</td></tr>
+                                <tr><td><b>Insert</b></td><td>Links, images, tables, horizontal rule, page break, drop cap, watermark, symbols, cover page, section break, equation, SmartArt, screenshot, drawing.</td></tr>
+                                <tr><td><b>Layout</b></td><td>Title and heading styles, page margins, orientation, page size, 1–3 columns, header, footer, page numbers.</td></tr>
+                                <tr><td><b>References</b></td><td>Table of contents, footnotes, endnotes, citations, bibliography, index entries, index.</td></tr>
+                                <tr><td><b>Review</b></td><td>Document statistics, read aloud, accessibility checker, find, go to, comments.</td></tr>
+                                <tr><td><b>View</b></td><td>Zoom controls, ruler, guidelines, outline panel, page navigator.</td></tr>
+                                <tr><td><b>Image Format</b></td><td>Appears automatically when you select an image — filters, brightness, contrast, saturation, hue, border and transparency.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Inserting content</h3>
+                    <div class="wiki-cards">
+                        <div class="wiki-card">
+                            <h4>Table</h4>
+                            <p>Pick up to 8 × 8 from a grid picker; the first row becomes a header. Pressing <span class="wiki-key">Tab</span> in the last cell appends a new row automatically.</p>
+                        </div>
+                        <div class="wiki-card">
+                            <h4>Cover page</h4>
+                            <p>Title, subtitle, author and date in one of four styles — <b>Classic</b>, <b>Modern</b>, <b>Minimal</b>, <b>Accent Bar</b>. Inserted at the top with a page break after it.</p>
+                        </div>
+                        <div class="wiki-card">
+                            <h4>Equation</h4>
+                            <p>A LaTeX-style editor with 14 presets — Pythagoras, <code class="wiki-code">E = mc²</code>, fractions, roots, sums, integrals, limits, derivatives, logs — and a live preview.</p>
+                        </div>
+                        <div class="wiki-card">
+                            <h4>SmartArt</h4>
+                            <p>Insert a diagram and then edit the node text directly in the page.</p>
+                        </div>
+                        <div class="wiki-card">
+                            <h4>Screenshot</h4>
+                            <p>Capture a region of your screen and drop the image straight into the document. Your browser will ask which screen or window to share.</p>
+                        </div>
+                        <div class="wiki-card">
+                            <h4>Symbols</h4>
+                            <p>A persistent bottom bar with stars, marks, arrows, maths, Greek letters, numbers and special characters — 90+ glyphs in total.</p>
+                        </div>
+                        <div class="wiki-card">
+                            <h4>Watermark</h4>
+                            <p>Overlay text behind the whole document. Presets: <b>DRAFT</b>, <b>CONFIDENTIAL</b>, <b>COPY</b>, <b>SAMPLE</b> — or your own, removable at any time.</p>
+                        </div>
+                        <div class="wiki-card">
+                            <h4>Drop cap</h4>
+                            <p>Toggle a large first letter on the current paragraph. Click again to turn it off.</p>
+                        </div>
+                    </div>
+
+                    <h3>References</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Control</th><th>Result</th></tr></thead>
+                            <tbody>
+                                <tr><td><b>TOC</b></td><td>Builds a table of contents from every heading. Click an entry to jump; right-click for more options.</td></tr>
+                                <tr><td><b>Footnote</b></td><td>Numbered marker at the cursor and the note text at the bottom of that page, plus a collected section at the end.</td></tr>
+                                <tr><td><b>Endnote</b></td><td>Numbered marker at the cursor and the text only in the <b>Endnotes</b> section at the end of the document.</td></tr>
+                                <tr><td><b>Cite</b></td><td>Inserts a citation in parentheses, e.g. <code class="wiki-code">(Rowling, 1997)</code>.</td></tr>
+                                <tr><td><b>Biblio</b></td><td>Inserts a formatted <b>Bibliography</b> heading with your entries listed underneath.</td></tr>
+                                <tr><td><b>Mark</b> / <b>Index</b></td><td>Flag a phrase as an index entry, then insert the index at the end.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p>Open <b>References</b>-related notes in the right-hand <b>Footnotes &amp; Endnotes</b> panel, where you can add more or delete existing ones. Deleting renumbers everything automatically.</p>
+
+                    <h3>Reviewing</h3>
+                    <ul class="wiki-features">
+                        <li><b>Stats</b> opens Document Statistics — words, characters, paragraphs, reading time, plus a writing-time breakdown and a word-count goal. Reaching a goal quarter fires a toast; hitting the goal itself celebrates.</li>
+                        <li><b>Read aloud</b> uses your browser's speech voices. It reads the first 3,000 characters and toggles to <b>Read aloud stopped</b>.</li>
+                        <li><b>Accessibility</b> scans for images missing alt text, ambiguous link text like "click here", empty headings and poor colour contrast, and offers one-click fixes.</li>
+                        <li><b>Comment</b> attaches a note to your selection. Comments support replies, resolve/unresolve and delete.</li>
+                    </ul>
+
+                    <h3>Side panels</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Panel</th><th>How to open</th><th>What it does</th></tr></thead>
+                            <tbody>
+                                <tr><td>Outline</td><td><b>View → Outline</b> or <span class="wiki-key">Ctrl</span>+<span class="wiki-key">G</span></td><td>Every heading with H1–H4 badges and a filter box. The heading you are on is highlighted and scrolled into view.</td></tr>
+                                <tr><td>Pages</td><td><b>View → Pages</b></td><td>True-to-size thumbnails of every page; click one to jump.</td></tr>
+                                <tr><td>Footnotes</td><td>Automatic when you add one</td><td>Lists footnotes and endnotes, with add and delete controls.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Find, replace and go to</h3>
+                    <p>
+                        <b>Find</b> (<span class="wiki-key">Ctrl</span>+<span class="wiki-key">F</span>) and <b>Find &amp; Replace</b>
+                        (<span class="wiki-key">Ctrl</span>+<span class="wiki-key">H</span>) share one bar. It supports
+                        <b>Match case</b>, <b>Whole word</b> and <b>Regex</b>, and shows an <em>n / N</em> counter.
+                        The same bar has a <b>Go to</b> row that accepts a page number, a line number or the next
+                        heading.
+                    </p>
+
+                    <h3>Importing</h3>
+                    <p>Use <b>Import File</b> on the welcome screen. Each import becomes a new document titled after the file.</p>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Format</th><th>How it is handled</th></tr></thead>
+                            <tbody>
+                                <tr><td><b>.docx</b></td><td>Rich import — headings, alignment, bold/italic/underline, colours, shading, tables, lists, page size, orientation and margins are all preserved.</td></tr>
+                                <tr><td><b>.odt</b></td><td>Text and paragraphs are read; headings arrive as plain paragraphs.</td></tr>
+                                <tr><td><b>.rtf</b></td><td>Best-effort text extraction.</td></tr>
+                                <tr><td><b>.doc</b></td><td>Heuristic text extraction. If it fails, Docs tells you it could not read the file.</td></tr>
+                                <tr><td><b>.md</b> / <b>.markdown</b></td><td>Headings, fenced code, horizontal rules, block quotes and both list styles.</td></tr>
+                                <tr><td><b>.html</b> / <b>.htm</b></td><td>Sanitised and imported as-is.</td></tr>
+                                <tr><td><b>.txt</b></td><td>One paragraph per line.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Exporting</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Format</th><th>Where</th><th>Notes</th></tr></thead>
+                            <tbody>
+                                <tr><td><b>.txt</b></td><td>File → Export as Text</td><td>Plain text of the whole document.</td></tr>
+                                <tr><td><b>.html</b></td><td>File → Export as HTML</td><td>Self-contained file with its own styles — opens anywhere.</td></tr>
+                                <tr><td><b>.pdf</b></td><td>File → Export as PDF</td><td>One page per sheet at true paper size. Needs an internet connection the first time.</td></tr>
+                                <tr><td><b>Print</b></td><td>Print button or <span class="wiki-key">Ctrl</span>+<span class="wiki-key">P</span></td><td>Opens a preview bar with <b>Exit Preview</b> and <b>Print</b>. Choose "Save as PDF" in the browser dialog for a vector-friendly copy.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Version history</h3>
+                    <p>
+                        Docs snapshots your document automatically while you edit and keeps the <b>10</b> most
+                        recent versions. Open <b>File → Version history</b> to see when each was taken and
+                        <b>Restore</b> any of them.
+                    </p>
+
+                    <h3>Keyboard shortcuts</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Shortcut</th><th>Action</th></tr></thead>
+                            <tbody>
+                                <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">S</span> / <span class="wiki-key">P</span></td><td>Save now / print</td></tr>
+                                <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">B</span> <span class="wiki-key">I</span> <span class="wiki-key">U</span> <span class="wiki-key">Z</span> <span class="wiki-key">Y</span></td><td>Bold, italic, underline, undo, redo</td></tr>
+                                <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">F</span> / <span class="wiki-key">H</span></td><td>Find / find and replace</td></tr>
+                                <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">K</span></td><td>Insert link</td></tr>
+                                <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">G</span></td><td>Toggle the outline panel</td></tr>
+                                <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">Enter</span></td><td>Insert a page break</td></tr>
+                                <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">Shift</span>+<span class="wiki-key">M</span></td><td>Cycle margin presets</td></tr>
+                                <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">+</span> / <span class="wiki-key">−</span> / <span class="wiki-key">0</span></td><td>Zoom in / out / reset to 100%</td></tr>
+                                <tr><td><span class="wiki-key">Ctrl</span>+wheel</td><td>Zoom</td></tr>
+                                <tr><td><span class="wiki-key">Tab</span></td><td>Next table cell (adds a row at the end)</td></tr>
+                                <tr><td><span class="wiki-key">Esc</span></td><td>Close the topmost dialog, then Find, then the outline and page panels</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Autosave, links and limits</h3>
+                    <ul class="wiki-features">
+                        <li>Autosave runs about 0.8 seconds after you stop typing; the pill says <em>Saving…</em>, then <em>All changes saved</em>.</li>
+                        <li>Zoom ranges from 20% to 400%. <b>Fit To Window</b> fits the page width to the scroll area.</li>
+                        <li>Links need <span class="wiki-key">Ctrl</span>+click (or a plain click in Print Preview) to open — a normal click just puts the caret there.</li>
+                        <li>Bare domains are turned into <code class="wiki-code">https://</code> URLs automatically.</li>
+                        <li>Typing automatically fixes common slips such as <code class="wiki-code">teh</code> → <code class="wiki-code">the</code> and <code class="wiki-code">dont</code> → <code class="wiki-code">don't</code>.</li>
+                        <li>Docs has no dark mode and no document themes — accent colours are fixed.</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- BLOCK: slides -->
+            <section class="wiki-block" id="slides" data-group="EmeraldSuite" data-tags="slides emeraldslides presentation deck shapes transitions animations themes templates presenter notes present mode icons video audio crop export pptx" style="--w-app:#f97316" data-product="emeraldsuite" data-product-label="EmeraldSuite" data-category="Create">
+                <header class="wiki-block-head">
+                    <span class="wiki-block-icon"><img src="/assets/images/slidesicon.webp" alt=""></span>
+                    <div class="wiki-block-titles">
+                        <h2>EmeraldSlides</h2>
+                        <p>Presentations with 65 shapes, 37 transitions, animations, notes and PowerPoint export.</p>
+                    </div>
+                </header>
+                <div class="wiki-block-body">
+
+<p class="wiki-lead">
+                        Slides is built around the last five minutes of making a deck: putting it in front of
+                        people. That is why transitions, animations and presenter notes are first-class here,
+                        rather than the kind of thing you add afterwards in another tool.
+                    </p>
+                    <p>
+                        It imports and exports PowerPoint files, so a deck can start here and finish
+                        somewhere else without being flattened into pictures.
+                    </p>
+
+                    <h3>Empty deck to a presented one</h3>
+                    <ol class="wiki-steps">
+                        <li>Open <a href="/slides">/slides</a> and click <b>Create New Presentation</b>, or the ribbon's <b>New</b>.</li>
+                        <li>Go to <b>Design</b> and pick a theme — it applies to every slide at once, so start here rather than restyling later.</li>
+                        <li>Add text with <b>Insert → Text</b>, then click an element once to select it and twice to edit its words.</li>
+                        <li>Switch to <b>View → Slide Sorter</b> to see the whole deck at once. Drag thumbnails to reorder.</li>
+                        <li>Open <b>Notes Page</b> and write what you want to say for each slide. The notes stay with the deck.</li>
+                        <li>Apply a transition from the <b>Transitions</b> tab, set it to advance after a delay, then <b>Apply to All</b>.</li>
+                        <li>Press <span class="wiki-key">F5</span> to present from the current slide, or <span class="wiki-key">F11</span> from the beginning.</li>
+                    </ol>
+
+                    <h3>Editor layout</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Area</th><th>Contents</th></tr></thead>
+                            <tbody>
+                                <tr><td>Left sidebar</td><td>Collapse toggle, the presentation title field, and the slide thumbnail list — drag a thumbnail to reorder slides.</td></tr>
+                                <tr><td>Ribbon</td><td><b>File</b>, <b>Home</b>, <b>Insert</b>, <b>Design</b>, <b>Transitions</b>, <b>Animations</b>, <b>View</b>, plus contextual <b>Shape Format</b> and <b>Image Format</b> tabs.</td></tr>
+                                <tr><td>Slide canvas</td><td>960 × 540. Click an element to select it; double-click text to edit it; drag to move.</td></tr>
+                                <tr><td>Status bar</td><td>Slide N of M, zoom level, what is selected, and the presenter-notes toggle.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Slides and elements</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Ribbon</th><th>Control</th><th>What it does</th></tr></thead>
+                            <tbody>
+                                <tr><td>Home</td><td><b>New</b>, <b>Duplicate</b>, <b>Delete</b></td><td>Add, clone or remove a slide. Delete is undoable.</td></tr>
+                                <tr><td>Insert</td><td><b>Text</b></td><td>Drops in a text box and starts editing immediately.</td></tr>
+                                <tr><td>Insert</td><td><b>Image</b></td><td>Opens the file picker. The image is scaled to fit and centred.</td></tr>
+                                <tr><td>Insert</td><td><b>Video</b> / <b>Audio</b></td><td>Embedded players with their own controls, sized to the media's aspect ratio.</td></tr>
+                                <tr><td>Insert</td><td><b>Shapes</b></td><td>65 shapes grouped into Rectangles, Basic, Block Arrows, Stars, Callouts, Flowchart and Lines.</td></tr>
+                                <tr><td>Insert</td><td><b>Icons</b></td><td>A searchable icon library with category tabs — scroll to load more.</td></tr>
+                                <tr><td>Insert</td><td><b>Link</b></td><td>Attaches a URL to the selected element. Existing links can be removed from the same dialog.</td></tr>
+                                <tr><td>Insert</td><td><b>Comment</b></td><td>Attaches a comment to a slide; comments show as dots on the thumbnail.</td></tr>
+                                <tr><td>Insert</td><td><b>Symbol</b> / <b>Draw</b></td><td>Symbol bar and freehand drawing. Unlike Docs, drawings are saved with the slide.</td></tr>
+                                <tr><td>Shape Format</td><td>Fill, Stroke, width, Bring to Front, Send to Back, Duplicate, Delete</td><td>Appearance and stacking for the selected shape.</td></tr>
+                                <tr><td>Image Format</td><td>Filters, brightness, contrast, saturation, hue, border, transparency</td><td>Same controls as Docs. Hold <span class="wiki-key">Shift</span> while dragging a handle to <b>crop</b> instead of resize.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Design</h3>
+                    <ul class="wiki-features">
+                        <li><b>Themes</b> apply a full look to <em>every</em> slide at once. Six appear in the ribbon; <b>More</b> opens the full gallery.</li>
+                        <li><b>Templates</b> replace the current slide's elements with a layout. <b>More</b> opens the full gallery, and a preview shows the category and layout before you apply it.</li>
+                        <li><b>Background</b> applies instantly — 36 solid colours plus 13 gradients. <b>Open Designer</b> offers eight ready-made slide layouts.</li>
+                    </ul>
+                    <p>Gradients include <b>Purple Dream</b>, <b>Sunset</b>, <b>Ocean</b>, <b>Dark Slate</b>, <b>Golden Hour</b>, <b>Cotton Candy</b>, <b>Midnight Sky</b>, <b>Silver Mist</b>, <b>Fire</b>, <b>Christmas</b>, <b>Warm Glow</b> and <b>Deep Ocean</b>.</p>
+
+                    <h3>Transitions</h3>
+                    <p>Pick a transition from the ribbon strip or the <b>More</b> gallery. Clicking a thumbnail applies it and previews it straight away.</p>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Family</th><th>Transitions</th></tr></thead>
+                            <tbody>
+                                <tr><td>Subtle (13)</td><td>None, Fade, Push, Wipe, Split, Reveal, Cut, Cover, Uncover, Random Bars, Shape, Blinds</td></tr>
+                                <tr><td>Exciting (19)</td><td>Morph, Fade Black, Zoom, Cube, Flip, Gallery, Vortex, Newsflash, Honeycomb, Glitch, Dissolve, Checkerboard, Clock, Ripple, Doors, Switch, Curtains, Fracture, Peel Off, Glitter, Comb</td></tr>
+                                <tr><td>Dynamic Content (5)</td><td>Pan, Rotate, Orbit, Fly Through, Conveyor</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Timing control</th><th>Values</th></tr></thead>
+                            <tbody>
+                                <tr><td><b>Duration</b></td><td>0.1 – 10 seconds</td></tr>
+                                <tr><td><b>Advance</b></td><td><b>On Click</b> or <b>After</b> — with an auto-advance delay of 1 – 600 seconds</td></tr>
+                                <tr><td><b>Apply to All</b></td><td>Copies the transition to every slide</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="wiki-note wiki-note--tip">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="m9 12 2 2 4-4"/></svg>
+                        <div>
+                            <b>Morph</b> is an object-level transition: matching text, images and shapes between
+                            two slides animate into their new positions instead of cross-fading. It looks best in
+                            Present mode (<span class="wiki-key">F5</span>), and needs two slides to do anything.
+                        </div>
+                    </div>
+
+                    <h3>Animations</h3>
+                    <p>Add one of six animation types — <b>Appear</b>, <b>Fade In</b>, <b>Fly In</b>, <b>Zoom</b>, <b>Spin</b>, <b>Bounce</b> — then control it from the Animations tab:</p>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Control</th><th>Values</th></tr></thead>
+                            <tbody>
+                                <tr><td><b>Start</b></td><td>On Click · With Previous · After Previous</td></tr>
+                                <tr><td><b>Duration</b></td><td>0.1 – 10 seconds (default 0.5)</td></tr>
+                                <tr><td><b>Delay</b></td><td>0 – 60 seconds</td></tr>
+                                <tr><td>Move Earlier / Move Later</td><td>Reorder the build order of animations on the slide</td></tr>
+                                <tr><td><b>Animation Pane</b></td><td>A right-hand list of every animation on the slide; click an entry to select the element it targets, or remove it.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Views and presenting</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>View</th><th>What it is for</th></tr></thead>
+                            <tbody>
+                                <tr><td><b>Normal</b></td><td>Edit one slide at a time.</td></tr>
+                                <tr><td><b>Slide Sorter</b></td><td>See every slide as a grid — the fastest way to reorder or spot a duplicate.</td></tr>
+                                <tr><td><b>Notes Page</b></td><td>Shows the presenter-notes panel under the current slide.</td></tr>
+                                <tr><td><b>Immersive Reader</b></td><td>A distraction-free read-only view of the current slide's text, with a <b>Read Aloud</b> button.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Shortcut</th><th>Action</th></tr></thead>
+                            <tbody>
+                                <tr><td><span class="wiki-key">F11</span></td><td>Present from slide 1</td></tr>
+                                <tr><td><span class="wiki-key">F5</span></td><td>Present from the current slide</td></tr>
+                                <tr><td><span class="wiki-key">→</span> <span class="wiki-key">↓</span> <span class="wiki-key">Space</span></td><td>Next slide while presenting</td></tr>
+                                <tr><td><span class="wiki-key">←</span> <span class="wiki-key">↑</span></td><td>Previous slide while presenting</td></tr>
+                                <tr><td><span class="wiki-key">Esc</span></td><td>Exit presenting</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p>The presenting toolbar at the bottom has previous, a slide counter, next and exit. Clicking a linked element opens its URL — no modifier needed in Present mode.</p>
+
+                    <h3>Presenter notes</h3>
+                    <p>
+                        Toggle the notes panel with the <b>Notes</b> button at the right of the status bar or via
+                        <b>View → Notes Page</b>. Notes are per slide, print with the deck's PDF export, and are
+                        not exported to PPTX.
+                    </p>
+
+                    <h3>Moving things around</h3>
+                    <ul class="wiki-features">
+                        <li>Arrow keys nudge the selected element by <b>1px</b>; hold <span class="wiki-key">Shift</span> for <b>10px</b>.</li>
+                        <li><span class="wiki-key">Ctrl</span>+<span class="wiki-key">D</span> duplicates an element, offset slightly so you can tell them apart.</li>
+                        <li><span class="wiki-key">Ctrl</span>+<span class="wiki-key">C</span> / <span class="wiki-key">X</span> / <span class="wiki-key">V</span> copy, cut and paste elements.</li>
+                        <li><span class="wiki-key">Delete</span> removes the selection; <span class="wiki-key">Esc</span> clears it, or leaves text editing first.</li>
+                        <li><span class="wiki-key">Ctrl</span>+wheel zooms the canvas.</li>
+                    </ul>
+
+                    <h3>Importing and exporting</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Direction</th><th>Format</th><th>Notes</th></tr></thead>
+                            <tbody>
+                                <tr><td>Import</td><td><b>.pptx</b></td><td>Text, font sizes, bold, shapes, images and backgrounds are read in. Empty slides are skipped.</td></tr>
+                                <tr><td>Import</td><td><b>.pdf</b></td><td>Each page is rendered to an image and placed on its own slide.</td></tr>
+                                <tr><td>Export</td><td><b>PPTX</b></td><td>Real PowerPoint output via the File tab: background, text, shapes and images. Video, audio, drawings, links, comments, transitions and animations are dropped.</td></tr>
+                                <tr><td>Export</td><td><b>PDF</b></td><td>Landscape slides at 297 × 167.25 mm, one per page.</td></tr>
+                                <tr><td>Export</td><td><b>SVGs</b></td><td>Downloads <code class="wiki-code">slide_1.svg</code>, <code class="wiki-code">slide_2.svg</code>… one vector file per slide.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="wiki-note wiki-note--warn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+                        <div>
+                            Media is stored inline inside the deck, so a deck with lots of video or audio gets
+                            large fast. PPTX and PDF export both need an internet connection the first time to
+                            fetch their libraries; SVG export does not.
+                        </div>
+                    </div>
+
+                    <h3>Defaults and limits</h3>
+                    <ul class="wiki-features">
+                        <li>Autofit title numbers: the first deck is <b>Untitled Presentation</b>, the second <b>Untitled Presentation 2</b>, and so on.</li>
+                        <li>The Slide Sorter view closes the presenter-notes panel; turn notes back on when you return to Normal.</li>
+                        <li>Present mode can be used in fullscreen — <span class="wiki-key">Esc</span> collapses an expanded video first and exits second.</li>
+                        <li>Undo history (150 steps) belongs to the presentation and is cleared when you open or create another deck.</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- BLOCK: sheets -->
+            <section class="wiki-block" id="sheets" data-group="EmeraldSuite" data-tags="sheets emeraldsheets spreadsheet formulas functions charts comments named ranges conditional number format sort filter print xlsx csv import export command palette go to trace" style="--w-app:#217346" data-product="emeraldsuite" data-product-label="EmeraldSuite" data-category="Create">
+                <header class="wiki-block-head">
+                    <span class="wiki-block-icon"><img src="/assets/images/sheetsicon.webp" alt=""></span>
+                    <div class="wiki-block-titles">
+                        <h2>EmeraldSheets</h2>
+                        <p>A spreadsheet app: 96 functions, charts, comments, named ranges, auditing tools and XLSX/CSV.</p>
+                    </div>
+                </header>
+                <div class="wiki-block-body">
+
+<p class="wiki-lead">
+                        Sheets is the only app in the suite that does arithmetic, and it is a spreadsheet: formulas, named ranges, cell comments, charts and genuine XLSX import and export rather
+                        than a CSV dressed up as one.
+                    </p>
+                    <p>
+                        If your data would end up in Excel eventually, build it here. The file you export opens
+                        there with its formulas, formatting and column widths intact.
+                    </p>
+
+                    <h3>Empty workbook to a finished one</h3>
+                    <ol class="wiki-steps">
+                        <li>Open <a href="/sheets">/sheets</a> and click <b>Create New Spreadsheet</b>.</li>
+                        <li>Click a cell and start with <code class="wiki-code">=</code>. Type <code class="wiki-code">=SUM(A1:A9)</code> and press <span class="wiki-key">Enter</span>.</li>
+                        <li>Fill a column by dragging the small square at the corner of the selection — relative references shift for you.</li>
+                        <li>Name a range so the formulas read properly: select it, then <b>Insert → Define Name</b>.</li>
+                        <li>Select the range and click <b>Insert → Create Chart</b>. Pick a type and press <b>Insert</b>.</li>
+                        <li>Add a note on a cell with <span class="wiki-key">Shift</span>+<span class="wiki-key">F2</span> — it travels into XLSX as a comment.</li>
+                        <li>Export with <b>File → Export as Workbook (.xlsx)</b>.</li>
+                    </ol>
+
+                    <h3>Ribbon tabs</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Tab</th><th>Groups and controls</th></tr></thead>
+                            <tbody>
+                                <tr><td><b>File</b></td><td>Backstage overlay: rename, delete, close, import, and export to XLSX or CSV, plus print.</td></tr>
+                                <tr><td><b>Home</b></td><td>History · Clipboard · Font · Border · Arrange · Merge &amp; Center.</td></tr>
+                                <tr><td><b>Insert</b></td><td>Charts · Insert/delete rows and columns · New, duplicate, rename and delete sheets · Tab colour · Comment · Define Name.</td></tr>
+                                <tr><td><b>Layout</b></td><td>Number format · Comma style · Increase/decrease decimals · Cell styles gallery.</td></tr>
+                                <tr><td><b>Data</b></td><td>Sort A→Z / Z→A · Remove Duplicates · Find · Go To · Trace Precedents / Dependents / All.</td></tr>
+                                <tr><td><b>View</b></td><td>Gridlines · Formula bar · Headings · Show formulas · Fit to window · zoom in / out / 100%.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p><b>Export</b> in the top-right of the ribbon is a shortcut for exporting the active sheet as CSV.</p>
+
+                    <h3>The formula bar and name box</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Element</th><th>Purpose</th></tr></thead>
+                            <tbody>
+                                <tr><td><b>Name Box</b></td><td>Type an address or range and press <span class="wiki-key">Enter</span>: <code class="wiki-code">A1</code>, <code class="wiki-code">B2:C9</code>, <code class="wiki-code">Sheet2!A1</code> or a named range. <span class="wiki-key">Esc</span> reverts.</td></tr>
+                                <tr><td><b>Formula bar</b></td><td>Edit the active cell as a formula, with autocomplete and an argument tooltip. Click <b>fx</b> to browse all 96 functions. The expand chevron gives you a taller bar.</td></tr>
+                                <tr><td>Status bar</td><td>Shows <b>Count: N</b> for the selection, the current zoom, and the sheet navigation buttons.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Formulas</h3>
+                    <p>
+                        Start any cell with <code class="wiki-code">=</code>. References update automatically when you
+                        insert or delete rows, columns or sheets, so formulas survive structural edits.
+                    </p>
+                    <div class="wiki-copy">
+                        <code>=SUM(Sales2024)</code>
+                    </div>
+                    <div class="wiki-copy">
+                        <code>=IF(B2&gt;100, "high", "normal")</code>
+                    </div>
+                    <div class="wiki-copy">
+                        <code>=SUMIFS(Q1:Sales, Q1:Region, "EU")</code>
+                    </div>
+                    <h4>Function library — 96 functions in 7 categories</h4>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Category</th><th>Count</th><th>Examples</th></tr></thead>
+                            <tbody>
+                                <tr><td>Math &amp; Trig</td><td>33</td><td>SUM, SUMIF, SUMIFS, ROUND, ROUNDUP, CEILING, FLOOR, POWER, ABS, SQRT, MOD, RAND, RANDBETWEEN</td></tr>
+                                <tr><td>Text</td><td>19</td><td>CONCATENATE, LEFT, RIGHT, MID, LEN, UPPER, LOWER, TRIM, SUBSTITUTE, TEXT, SPLIT</td></tr>
+                                <tr><td>Date &amp; Time</td><td>16</td><td>TODAY, NOW, DATE, YEAR, MONTH, DAY, HOUR, DATEDIF, EOMONTH, NETWORKDAYS</td></tr>
+                                <tr><td>Lookup &amp; Reference</td><td>12</td><td>VLOOKUP, HLOOKUP, XLOOKUP, INDEX, MATCH, OFFSET, INDIRECT, CHOOSE</td></tr>
+                                <tr><td>Logical</td><td>10</td><td>IF, IFS, AND, OR, NOT, XOR, TRUE, FALSE, IFERROR, SWITCH</td></tr>
+                                <tr><td>Financial</td><td>5</td><td>PMT, FV, PV, RATE, NPER</td></tr>
+                                <tr><td>Sparkline</td><td>1</td><td>SPARKLINE — draws a mini chart inside a cell</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p>Errors are reported the way you expect: <code class="wiki-code">#DIV/0!</code>, <code class="wiki-code">#VALUE!</code>, <code class="wiki-code">#REF!</code>, <code class="wiki-code">#NAME?</code>, <code class="wiki-code">#NUM!</code>, <code class="wiki-code">#N/A</code>, <code class="wiki-code">#NULL!</code> and <code class="wiki-code">#CIRCULAR!</code>.</p>
+
+                    <h3>Number formats</h3>
+                    <p>Pick from <b>General</b>, <b>Number</b>, <b>Currency</b>, <b>Accounting</b>, <b>Short Date</b>, <b>Long Date</b>, <b>Time</b>, <b>Percentage</b>, <b>Fraction</b> and <b>Text</b>. The comma button applies a thousands separator and two decimals; the ± buttons change decimal places between 0 and 10.</p>
+
+                    <h3>Cell styles</h3>
+                    <p>
+                        Twelve presets: <b>Normal</b> (clears all formatting), <b>Good</b>, <b>Bad</b>, <b>Neutral</b>,
+                        <b>Input</b>, <b>Output</b>, <b>Heading 1</b>, <b>Heading 2</b>, <b>Total</b>, <b>Warning</b>,
+                        <b>Note</b> and <b>Currency</b>. Six show in the ribbon; <b>More</b> opens the full gallery.
+                    </p>
+
+                    <h3>Charts</h3>
+                    <ol class="wiki-steps">
+                        <li>Select the range you want to chart — or leave the selection alone and type a range in the chart pane.</li>
+                        <li>Click <b>Insert → Create Chart</b>.</li>
+                        <li>Pick a type: <b>Column</b>, <b>Bar</b>, <b>Line</b>, <b>Pie</b> or <b>Scatter</b>. Each type explains when to use it.</li>
+                        <li>Set the <b>Title</b>, <b>Data range</b>, whether series are in <b>rows</b>, axis titles, and label position (<b>Outside end</b>, <b>Inside end</b>, <b>Center</b>).</li>
+                        <li>Watch the live <b>Preview</b>, then click <b>Insert</b> — or <b>Apply</b> when editing.</li>
+                    </ol>
+                    <p>Charts float over the grid. Drag the body to move one, drag the corner to resize it, and double-click to reopen the editor. Right-click for <b>Edit Chart</b> or <b>Delete Chart</b>. The <b>Series</b> list lets you override an individual series' colour, name, type and order.</p>
+
+                    <h3>Comments</h3>
+                    <p>Select a cell and press <span class="wiki-key">Shift</span>+<span class="wiki-key">F2</span> (or <b>Insert → Comment</b>) to add one. Comments form threads with replies, and each thread can be resolved or deleted. The pin marker on the cell opens the thread.</p>
+
+                    <h3>Named ranges</h3>
+                    <ol class="wiki-steps">
+                        <li>Select the cells you want to name.</li>
+                        <li>Click <b>Insert → Define Name</b>.</li>
+                        <li>Type a name such as <code class="wiki-code">Sales2024</code> and confirm the range.</li>
+                    </ol>
+                    <p>Names work in formulas and in the Name Box. Renaming a sheet rewrites every formula and named range that referenced it.</p>
+
+                    <h3>Auditing formulas</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Tool</th><th>Shows</th></tr></thead>
+                            <tbody>
+                                <tr><td><b>Trace Precedents</b></td><td>Arrows from the cells the active formula reads.</td></tr>
+                                <tr><td><b>Trace Dependents</b></td><td>Arrows to the formulas that read the active cell.</td></tr>
+                                <tr><td><b>Trace All</b></td><td>The full dependency chain across the workbook, including cross-sheet links.</td></tr>
+                                <tr><td><b>Remove Duplicates</b></td><td>Drops duplicate rows from the selection.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Command palette</h3>
+                    <p>
+                        Press <span class="wiki-key">Ctrl</span>+<span class="wiki-key">K</span> to search every ribbon
+                        command in one box. Type to filter, <span class="wiki-key">↑</span>/<span class="wiki-key">↓</span>
+                        to move, <span class="wiki-key">Enter</span> to run, <span class="wiki-key">Esc</span> to close.
+                    </p>
+
+                    <h3>Managing sheets</h3>
+                    <ul class="wiki-features">
+                        <li><b>Add</b> with the + button, <b>Rename</b> by double-clicking the tab or pressing <span class="wiki-key">F2</span>, <b>Reorder</b> by dragging the tab.</li>
+                        <li>Right-click a tab for Insert, Delete, Rename, Duplicate, Move Left/Right, Tab colour, Hide and Unhide.</li>
+                        <li>A workbook holds up to <b>10 sheets</b>; sheet names are limited to <b>30 characters</b> and must be unique.</li>
+                        <li>You cannot delete the only sheet, or hide the last visible one.</li>
+                        <li>Hidden sheets are skipped by XLSX export and by the sheet navigation buttons.</li>
+                    </ul>
+
+                    <h3>Import and export</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Direction</th><th>Format</th><th>Notes</th></tr></thead>
+                            <tbody>
+                                <tr><td>Import</td><td><b>.csv</b> <b>.txt</b> <b>.tsv</b></td><td>Delimiter is detected automatically. Values, numbers, dates and percentages are typed on import. Each file becomes a new sheet.</td></tr>
+                                <tr><td>Import</td><td><b>.xlsx</b> <b>.xlsm</b></td><td>One sheet per workbook sheet, with formulas, values, number formats, comments, merges and column/row sizes preserved.</td></tr>
+                                <tr><td>Export</td><td><b>.xlsx</b></td><td>Formulas, cached values, number formats, comments, merges and sizes. Hidden sheets are skipped. Needs an internet connection the first time.</td></tr>
+                                <tr><td>Export</td><td><b>.csv</b></td><td>The active sheet's displayed text, UTF-8 with a BOM so Excel opens it correctly.</td></tr>
+                                <tr><td>Export</td><td><b>Print / PDF</b></td><td>Builds a print-ready layout including formatting, merges, sizes and up to 20 charts, then opens the browser print dialog — choose "Save as PDF" there.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Keyboard shortcuts</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Shortcut</th><th>Action</th></tr></thead>
+                            <tbody>
+                                <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">Z</span> / <span class="wiki-key">Y</span></td><td>Undo / redo (150 steps)</td></tr>
+                                <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">X</span> <span class="wiki-key">C</span> <span class="wiki-key">V</span></td><td>Cut / copy / paste</td></tr>
+                                <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">B</span> <span class="wiki-key">I</span> <span class="wiki-key">U</span> <span class="wiki-key">A</span></td><td>Bold, italic, underline, select all</td></tr>
+                                <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">F</span> / <span class="wiki-key">H</span> / <span class="wiki-key">G</span></td><td>Find / replace / go to</td></tr>
+                                <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">S</span> / <span class="wiki-key">P</span> / <span class="wiki-key">O</span> / <span class="wiki-key">N</span></td><td>Save now / print / open saved documents / new workbook</td></tr>
+                                <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">K</span></td><td>Command palette</td></tr>
+                                <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">`</span></td><td>Show formulas instead of results</td></tr>
+                                <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">;</span> / <span class="wiki-key">Shift</span>+<span class="wiki-key">;</span></td><td>Insert today's date / current time</td></tr>
+                                <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">Home</span> / <span class="wiki-key">End</span></td><td>Jump to A1 / the last used cell</td></tr>
+                                <tr><td><span class="wiki-key">Ctrl</span>+arrows</td><td>Jump to the edge of the data block</td></tr>
+                                <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">PageUp</span> / <span class="wiki-key">PageDown</span></td><td>Previous / next sheet</td></tr>
+                                <tr><td><span class="wiki-key">F2</span> / <span class="wiki-key">Shift</span>+<span class="wiki-key">F2</span></td><td>Edit in place / add a comment</td></tr>
+                                <tr><td><span class="wiki-key">F4</span></td><td>Repeat the last command — or toggle absolute references while editing a formula</td></tr>
+                                <tr><td><span class="wiki-key">F9</span></td><td>Recalculate the whole workbook</td></tr>
+                                <tr><td><span class="wiki-key">Ctrl</span>+wheel</td><td>Zoom (30% – 400%)</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Right-click menus</h3>
+                    <ul class="wiki-features">
+                        <li><b>Cell</b> — cut, copy, paste, insert/delete rows and columns, comment, merge, unmerge, trace precedents and dependents.</li>
+                        <li><b>Row header</b> — insert, delete, row height, autofit, hide and unhide rows.</li>
+                        <li><b>Column header</b> — the same set for columns.</li>
+                        <li><b>Sheet tab</b> — insert, delete, rename, duplicate, move, tab colour, hide, unhide.</li>
+                        <li><b>Chart</b> — edit or delete.</li>
+                    </ul>
+
+                    <h3>Behaviour and current gaps</h3>
+                    <ul class="wiki-features">
+                        <li>Autosave runs about 0.9 seconds after you stop typing; the pill reads <em>Saving…</em> then <em>All changes saved</em>.</li>
+                        <li>Drag the small square at the corner of a selection to <b>fill down or across</b>, shifting formula references as it goes.</li>
+                        <li>Sheets only stores workbooks in IndexedDB — there is no localStorage fallback, and a failed save tells you so.</li>
+                        <li>Not included yet: conditional formatting, data validation, autofilter and pivot tables.</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- ============================ EMERALDSTUDIO ============================ -->
+
+            <!-- BLOCK: flowchart -->
+            <section class="wiki-block" id="flowchart" data-group="EmeraldStudio" data-tags="flowchart flowcode visual programming algorithm shapes statements run step breakpoint variables console expressions syntax builtins emeraldc" style="--w-app:#7c3aed" data-product="emeraldstudio" data-product-label="Flowchart" data-category="Create">
+                <header class="wiki-block-head">
+                    <span class="wiki-block-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="5" rx="1.5"/><path d="M12 7v3"/><path d="m12 10-5 3v4l5 3 5-3v-4z"/><path d="M12 20v3"/></svg>
+                    </span>
+                    <div class="wiki-block-titles">
+                        <h2>EmeraldStudio Flowchart</h2>
+                        <p>A visual programming environment — build an algorithm from shapes, then run, step and debug it.</p>
+                    </div>
+                </header>
+                <div class="wiki-block-body">
+
+<p class="wiki-lead">
+                        Flowchart is a programming environment you build by drawing. Statements are shapes,
+                        connections are the flow, and you watch the program run through the same canvas —
+                        which makes it a direct way to see what code is doing, and to teach logic to
+                        someone who has never written any.
+                    </p>
+                    <p>
+                        The language is Flowgorithm-compatible, so expressions such as
+                        <code class="wiki-code">^</code>, <code class="wiki-code">mod</code>,
+                        <code class="wiki-code">div</code> and <code class="wiki-code">and/or/not</code> behave
+                        the way you would expect from elsewhere.
+                    </p>
+
+                    <h3>Your first program, end to end</h3>
+                    <ol class="wiki-steps">
+                        <li>Open <a href="/flowchart">/flowchart</a>. A starter template is already on the canvas: <b>Start → Output "Hello" → End</b>.</li>
+                        <li>Press <b>Run</b>. <em>Hello</em> appears in the Console — that is the whole loop working.</li>
+                        <li>Click <b>Input</b> in the palette, then drag it onto the canvas. Its dialog asks which variable receives the value.</li>
+                        <li>Add a <b>Declare</b> shape above it and set the name to match, with type <b>Integer</b>. Nothing runs until a variable is declared.</li>
+                        <li>Drag from the bottom handle of one shape onto the next to connect them.</li>
+                        <li>Add an <b>If</b> shape. It has two handles: <b>T</b> on the left for true and <b>F</b> on the right for false.</li>
+                        <li>Press <b>Step</b> instead of <b>Run</b>. One shape executes per press and the Variables panel shows every value as it changes.</li>
+                        <li>When something misbehaves, drop a <b>Breakpoint</b> on the path and step through again.</li>
+                    </ol>
+
+                    <h3>Build a program in 5 steps</h3>
+                    <ol class="wiki-steps">
+                        <li>Click or drag a shape from the <b>Statements</b> palette on the left onto the canvas.</li>
+                        <li>Double-click the shape (or select it and press <span class="wiki-key">Enter</span>) to set its properties.</li>
+                        <li>Drag from a green connection handle onto another shape to wire them together. Branching shapes get a <b>T</b> handle and an <b>F</b> handle.</li>
+                        <li>Press <b>Run</b> to execute, or <b>Step</b> to advance one shape at a time.</li>
+                        <li>Watch the <b>Console</b> for output and the <b>Variables</b> panel for live values.</li>
+                    </ol>
+                    <p>A brand-new canvas starts with the classic <b>Start → Output "Hello" → End</b> template, so you can hit Run immediately.</p>
+
+                    <h3>The statement palette</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Shape</th><th>Looks like</th><th>Settings</th></tr></thead>
+                            <tbody>
+                                <tr><td><b>Terminal</b></td><td>Rounded pill</td><td>Start or End. Only a terminal whose text starts with "start" can be the entry point.</td></tr>
+                                <tr><td><b>Declare</b></td><td>Rectangle with a rule</td><td>One or more comma-separated names, a data type (Integer, Real, String, Boolean) and optional array allocation with a size.</td></tr>
+                                <tr><td><b>Assign</b></td><td>Rectangle</td><td><code class="wiki-code">variable = expression</code></td></tr>
+                                <tr><td><b>Input</b></td><td>Parallelogram</td><td>Which variable receives the value. Input is asked for at runtime.</td></tr>
+                                <tr><td><b>Output</b></td><td>Parallelogram</td><td>An expression, and whether to print a newline after it.</td></tr>
+                                <tr><td><b>If</b></td><td>Diamond</td><td>A boolean expression. True goes to <b>T</b>, false to <b>F</b>.</td></tr>
+                                <tr><td><b>While</b></td><td>Hexagon</td><td>A condition tested before each pass.</td></tr>
+                                <tr><td><b>Do</b></td><td>Hexagon</td><td>The same shape but tested <em>after</em> the body runs, so it always runs once.</td></tr>
+                                <tr><td><b>For</b></td><td>Hexagon</td><td>Variable, start, end, direction (increasing / decreasing) and step. The loop variable must be an Integer and is declared for you.</td></tr>
+                                <tr><td><b>Call</b></td><td>Rectangle with side bars</td><td>A function name and comma-separated parameters.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <h4>Also in the palette</h4>
+                    <ul class="wiki-features">
+                        <li><b>Comment</b> — a dashed box for notes. Never executes and cannot be connected to.</li>
+                        <li><b>Breakpoint</b> — a red octagon marked <b>B</b>. Execution pauses when it is reached.</li>
+                    </ul>
+
+                    <h3>Connecting shapes</h3>
+                    <ul class="wiki-features">
+                        <li>Every executable shape has a bottom handle. Branching shapes (<b>If</b>, <b>While</b>, <b>Do</b>, <b>For</b>) have a left <b>T</b> handle and a right <b>F</b> handle instead.</li>
+                        <li>Dropping a connection onto a Start terminal, a Comment or a Breakpoint is refused.</li>
+                        <li>Left-click a connection to <b>splice a new statement into it</b> — Assign, Declare, Input, Output, If, Call or Comment.</li>
+                        <li>Right-click a shape for <b>Edit Properties</b>, <b>Duplicate</b>, <b>Disconnect True</b> / <b>Disconnect False</b> and <b>Delete</b>.</li>
+                        <li>Right-click blank canvas to add a statement right where you clicked, or to copy the page link and read canvas info.</li>
+                    </ul>
+
+                    <h3>Running and debugging</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Button</th><th>What it does</th></tr></thead>
+                            <tbody>
+                                <tr><td><b>▶ Run</b></td><td>Clears the console and variables, then executes the program until it ends, hits a breakpoint or errors.</td></tr>
+                                <tr><td><b>⏭ Step</b></td><td>Executes exactly one shape per press. Pressing it on a fresh canvas starts the program for you.</td></tr>
+                                <tr><td><b>■ Stop</b></td><td>Ends execution. Only enabled while running.</td></tr>
+                                <tr><td><b>↺ Reset</b></td><td>Stops, clears the console, variables and execution state.</td></tr>
+                                <tr><td><b>Speed slider</b></td><td>Controls how fast Step advances, from 5 ms to 500 ms per shape.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="wiki-note wiki-note--tip">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="m9 12 2 2 4-4"/></svg>
+                        <div>
+                            <b>Debugging recipe:</b> drop a Breakpoint on the path, press <b>Step</b>, and watch the
+                            Variables panel. Values that just changed flash, so you can see exactly which line
+                            did it. The Console reports undeclared variables, type mismatches and runaway loops.
+                        </div>
+                    </div>
+
+                    <h3>Expression syntax</h3>
+                    <p>Expressions are Flowgorithm-compatible, so <code class="wiki-code">^</code> is power, <code class="wiki-code">mod</code> and <code class="wiki-code">div</code> are integer operators, <code class="wiki-code">and</code>/<code class="wiki-code">or</code>/<code class="wiki-code">not</code>/<code class="wiki-code">xor</code> work as expected, <code class="wiki-code">&amp;</code> concatenates strings, and single <code class="wiki-code">=</code> compares. Unicode operators (≠ ≤ ≥ × ÷) are accepted too.</p>
+
+                    <h4>Built-in functions</h4>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Group</th><th>Functions</th></tr></thead>
+                            <tbody>
+                                <tr><td>Maths</td><td>sqrt, abs, floor, ceiling, round, power, max, min, random, randomseed, sin, cos, tan, arcsin, arccos, arctan, log, log10, logten, exp</td></tr>
+                                <tr><td>Text</td><td>length, char, charat, ascii, asc, chr, substring, toupper, tolower, trim, indexof</td></tr>
+                                <tr><td>Conversion</td><td>tointeger, toreal, tostring, tofixedstring, isinteger, isreal, isstring, isboolean, isnumber</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="wiki-copy">
+                        <code>total = total + (price * qty)</code>
+                    </div>
+                    <div class="wiki-copy">
+                        <code>Output("Score: " + score + " of " + max)</code>
+                    </div>
+
+                    <h3>Canvas navigation</h3>
+                    <ul class="wiki-features">
+                        <li>Hold <span class="wiki-key">Space</span> and drag, or use the middle mouse button, to pan.</li>
+                        <li><span class="wiki-key">Ctrl</span>+wheel zooms between 40% and 250% around the cursor.</li>
+                        <li><span class="wiki-key">Delete</span> removes the selected shape, <span class="wiki-key">Enter</span> edits it and <span class="wiki-key">Esc</span> cancels a connection or closes a dialog.</li>
+                    </ul>
+
+                    <h3>Files</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Button</th><th>File</th><th>Notes</th></tr></thead>
+                            <tbody>
+                                <tr><td><b>Save</b></td><td><code class="wiki-code">flowchart.emeraldcore</code></td><td>A commented JSON file you can edit by hand and share.</td></tr>
+                                <tr><td><b>Open</b></td><td><code class="wiki-code">.emeraldcore</code></td><td>Loads a saved flowchart back onto the canvas.</td></tr>
+                                <tr><td><b>Export</b></td><td><code class="wiki-code">flowchart-YYYY-MM-DD.png</code></td><td>A 2× resolution PNG for putting a diagram into a document or slide deck.</td></tr>
+                                <tr><td><b>Clear</b></td><td>—</td><td>Wipes the canvas back to the starter template, after a confirmation.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p>Your work also autosaves continuously — close the tab and come back and the canvas is restored.</p>
+
+                    <h3>Language rules and current gaps</h3>
+                    <ul class="wiki-features">
+                        <li>Variables are <b>strict</b>: assign to or input into something you never declared and the run stops with an error telling you to add a Declare.</li>
+                        <li>Arrays are declared per name and accessed with index syntax, including an expression as the index.</li>
+                        <li>A loop that runs more than 100,000 iterations is stopped and reported as a possible infinite loop.</li>
+                        <li>There is no undo/redo and no multi-select yet — duplicate a shape if you want a variation.</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- ============================ AI ============================ -->
+
+            <!-- BLOCK: aichat -->
+            <section class="wiki-block" id="chat" data-group="EmeraldBot AI" data-tags="ai chat assistant emeraldbot emeraldcore models reasoning web search attachments files images generate edit memories quizzes suggestions markdown latex katex code preview branch regenerate library settings import export" style="--w-app:#2563eb" data-product="aichat" data-product-label="AI Chat" data-category="Ask and automate">
+                <header class="wiki-block-head">
+                    <span class="wiki-block-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3.5"/></svg>
+                    </span>
+                    <div class="wiki-block-titles">
+                        <h2>Text chat</h2>
+                        <p>Text chat with nine models, web search, attachments, image generation, quizzes and memories.</p>
+                    </div>
+                </header>
+                <div class="wiki-block-body">
+
+<p class="wiki-lead">
+                        This is a hosted assistant: the one part of the suite that needs a connection and sends what you type. In exchange it does the things the other
+                        four apps cannot: read a PDF you attach, look something up while it answers, generate
+                        an image, quiz you, and remember a detail for next time.
+                    </p>
+
+                    <h3>Your first conversation</h3>
+                    <ol class="wiki-steps">
+                        <li>Open <a href="/aichat">/aichat</a>. The welcome asks four things — a name, a photo, whether to import memories from another assistant, and a theme (System, Dark or Light). All four can be changed later in Settings.</li>
+                        <li>Pick a model from the name at the top. <b>EmeraldCore Auto</b> is a sensible default; switch to <b>Astra</b> or <b>Ruby</b> when you want the deepest reasoning.</li>
+                        <li>Type in the box and press <span class="wiki-key">Enter</span>. <span class="wiki-key">Shift</span>+<span class="wiki-key">Enter</span> adds a newline. The welcome screen also offers three quick-action cards — <b>Quick Setup</b>, <b>Write or Edit</b> and <b>Look Something Up</b> — which send a starter prompt for you.</li>
+                        <li>Attach something with <b>+</b>, or paste an image straight in. PDFs and Word documents are read, not just stored.</li>
+                        <li>Say <em>"remember that I present on Thursdays"</em>. The badge under the reply confirms it saved.</li>
+                        <li>Ask it to write something, then open the card it gives you straight into Notes or Docs.</li>
+                    </ol>
+
+                    <h3>Choosing a model</h3>
+                    <p>Click the model name at the top to open the picker. <b>EmeraldCore</b> families are listed strongest first:</p>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Model</th><th>Tier</th><th>Best for</th></tr></thead>
+                            <tbody>
+                                <tr><td><b>EmeraldCore Auto</b></td><td>—</td><td>Lets the assistant pick the right model for each question.</td></tr>
+                                <tr><td>EmeraldCore Astra</td><td>V4.2</td><td>Frontier flagship: deep reasoning, long multi-step tasks, cross-domain work.</td></tr>
+                                <tr><td>EmeraldCore Ruby</td><td>V4.2</td><td>Vision, data science, scientific analysis, structured output.</td></tr>
+                                <tr><td>EmeraldCore Gamma</td><td>V4.1</td><td>Maths, code and hard logic.</td></tr>
+                                <tr><td>EmeraldCore Diamond</td><td>V4</td><td>Creative strategy, planning, long-form writing.</td></tr>
+                                <tr><td>EmeraldCore Gold</td><td>V4</td><td>Research, fact-checking, in-depth analysis.</td></tr>
+                                <tr><td>EmeraldCore Kappa</td><td>V3.5</td><td>Versatile: web, roleplay, basic maths.</td></tr>
+                                <tr><td>EmeraldCore Starlight</td><td>V3</td><td>Balanced everyday chat and quick tasks.</td></tr>
+                                <tr><td>EmeraldCore Cream</td><td>V2</td><td>Fast, lightweight answers for simple questions.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p>Reasoning mode has its own toggle next to the composer — turn it on for problems that need a chain of thought. It is slower but more thorough. Responses that get cut off mid-answer continue automatically, up to four times.</p>
+
+                    <h3>Reading a response</h3>
+                    <div class="wiki-cards">
+                        <div class="wiki-card">
+                            <h4>Reasoning panel</h4>
+                            <p>Collapsed by default. Click to expand the model's thinking summary; it names how long it thought once finished.</p>
+                        </div>
+                        <div class="wiki-card">
+                            <h4>Working panel</h4>
+                            <p>Shows when the assistant is searching or reading sources, with chips naming each page it used. Citations appear as superscript badges — click one to see the source.</p>
+                        </div>
+                        <div class="wiki-card">
+                            <h4>Follow-up chips</h4>
+                            <p>Up to four suggested next questions render under the reply. Click one to ask it immediately.</p>
+                        </div>
+                        <div class="wiki-card">
+                            <h4>Rich output</h4>
+                            <p>Markdown, tables, syntax-highlighted code, maths formulas, hand-drawn style charts and flowcharts all render inline.</p>
+                        </div>
+                        <div class="wiki-card">
+                            <h4>Like / dislike</h4>
+                            <p>Two buttons under the newest reply only, so you can rate the answer that matters.</p>
+                        </div>
+                        <div class="wiki-card">
+                            <h4>Running code</h4>
+                            <p>Code blocks have <b>Run</b> and <b>Copy</b> buttons. <b>Run</b> opens a sandboxed preview with its own console — HTML, CSS and JavaScript blocks are combined.</p>
+                        </div>
+                    </div>
+
+                    <h3>Editing, regenerating and branching</h3>
+                    <ul class="wiki-features">
+                        <li>Right-click one of your messages → <b>Edit</b>. Change the text, press <b>Submit</b>, and the assistant answers the new version. The old answer stays in the history.</li>
+                        <li>Right-click the latest assistant message → <b>Regenerate</b> for a fresh answer to the same question.</li>
+                        <li>When a message has more than one version, <span class="wiki-key">‹</span> <span class="wiki-key">2 / 3</span> <span class="wiki-key">›</span> arrows appear underneath so you can compare them.</li>
+                        <li>Right-click any message for <b>Copy text</b> and <b>Show Used Model</b>.</li>
+                    </ul>
+
+                    <h3>Web search</h3>
+                    <p>
+                        Search turns on by itself when a question needs current information — anything mentioning
+                        looking something up, latest, today, weather, news, a price, or when you paste a URL.
+                        You will see a <b>Searching the web…</b> indicator while it works. Results are cited
+                        inline, and a GitHub repository link is read directly including its README.
+                    </p>
+
+                    <h3>Attachments</h3>
+                    <ul class="wiki-features">
+                        <li>Use <b>+</b> in the composer, drag files in, or paste an image straight from your clipboard.</li>
+                        <li>Images up to <b>25 MB</b>, other files up to <b>100 MB</b>.</li>
+                        <li>Large images are downscaled automatically before sending.</li>
+                        <li>PDF, Word, PowerPoint, text, spreadsheets, CSV and ZIP archives are all accepted, and office documents are unpacked in your browser to extract their text.</li>
+                        <li>Previews open beside the chat — zoomable for images, paginated for slide decks, syntax-highlighted for code.</li>
+                    </ul>
+                    <p>Everything you have ever attached is listed in the <b>Library</b>, filterable into <b>All files</b>, <b>Images</b>, <b>Documents</b> and <b>Archives</b>.</p>
+
+                    <h3>Images</h3>
+                    <div class="wiki-cards">
+                        <div class="wiki-card">
+                            <h4>Generate</h4>
+                            <p>Ask for a picture and the assistant creates one. The card shows <b>Generating image</b> until it finishes, then the image appears with a <b>Download image</b> button.</p>
+                        </div>
+                        <div class="wiki-card">
+                            <h4>Edit</h4>
+                            <p>Press <b>Edit this image</b> on a generated picture, describe the change, and send. A chip in the composer shows which image is being edited. Source images must be 512 × 512 or smaller.</p>
+                        </div>
+                        <div class="wiki-card">
+                            <h4>Search</h4>
+                            <p>Ask for existing pictures and the assistant will surface real results instead of generating one.</p>
+                        </div>
+                    </div>
+
+                    <h3>Quizzes</h3>
+                    <p>
+                        Ask the assistant to quiz you and you get an interactive widget instead of a wall of text.
+                        Five question types are supported: multiple choice, multi-select, matching pairs, fill in the
+                        blank, and essay. Answer everything, press <b>Submit</b>, and each question reveals its
+                        explanation along with your score.
+                    </p>
+
+                    <h3>Memories</h3>
+                    <p>
+                        The assistant keeps facts about you that make later answers better — your timezone, your
+                        stack, your dog's name. A badge under the reply tells you when it learned something.
+                        Manage everything from <b>Settings → Memories</b>, where each memory can be edited or
+                        deleted, or wiped completely. Live voice uses the same memories.
+                    </p>
+                    <div class="wiki-note">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5M12 8h.01"/></svg>
+                        <div>
+                            At onboarding you can paste memories exported from ChatGPT, Claude or Gemini and they
+                            are imported for you. Otherwise just say <em>"remember that…"</em> in a chat.
+                        </div>
+                    </div>
+
+                    <h3>Temporary chat</h3>
+                    <p>The thermometer button next to the model name toggles <b>Temporary Chat</b>. Nothing from that conversation is saved to your history once you start a new one — useful for one-off questions about something private.</p>
+
+                    <h3>Sharing and importing chats</h3>
+                    <p>
+                        Right-click a conversation in the sidebar → <b>Share Link</b>. The entire chat is compressed
+                        into the link itself, so it is never uploaded anywhere — the data lives in the part of the
+                        URL after the <code class="wiki-code">#</code> that browsers never send to a server.
+                        Opening such a link adds the chat to your own history as a new conversation; nothing you
+                        already have is replaced.
+                    </p>
+
+                    <h3>Working with EmeraldSuite from chat</h3>
+                    <p>
+                        Ask the assistant to write something and it can hand you a card that opens the result
+                        straight into Notes, Docs, Slides or Sheets — and, when you ask it to <em>change</em>
+                        something, it can apply the edit to a file you already have. Either way a badge tells you
+                        what it did.
+                    </p>
+
+                    <h3>Settings</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Group</th><th>Settings</th></tr></thead>
+                            <tbody>
+                                <tr><td>Profile</td><td>Display name, profile photo (upload or remove).</td></tr>
+                                <tr><td>Appearance</td><td>System, Dark or Light.</td></tr>
+                                <tr><td>Storage</td><td>A live meter of how much space this app is using in your browser. Turns red at 90%.</td></tr>
+                                <tr><td>Data &amp; Memory</td><td>Open <b>Memories</b>, or <b>Clear All Chats</b> to remove every conversation, file and memory at once.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Keyboard shortcuts</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Shortcut</th><th>Action</th></tr></thead>
+                            <tbody>
+                                <tr><td><span class="wiki-key">Enter</span></td><td>Send the message</td></tr>
+                                <tr><td><span class="wiki-key">Shift</span>+<span class="wiki-key">Enter</span></td><td>New line</td></tr>
+                                <tr><td><span class="wiki-key">Esc</span></td><td>Close the context menu, the model dropdown or the model dialog</td></tr>
+                                <tr><td><span class="wiki-key">Enter</span> / <span class="wiki-key">Space</span></td><td>Toggle the Reasoning or Working panel when it has focus</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Privacy</h3>
+                    <ul class="wiki-features">
+                        <li>Conversations, files, settings and memories all live in your browser's storage.</li>
+                        <li>Only three things ever leave your device: the messages you send (with your display name and memories), files you attach, and audio if you use live voice.</li>
+                        <li>There is no API key in the page, no analytics script and no account.</li>
+                        <li>If a request is blocked by a safety filter, that conversation is deleted from your history.</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- BLOCK: livevoice -->
+            <section class="wiki-block" id="livevoice" data-group="EmeraldBot AI" data-tags="live voice call realtime microphone orb transcribe speech conversational hands free" style="--w-app:#0b7285" data-product="aichat" data-product-label="AI Chat" data-category="Ask and automate">
+                <header class="wiki-block-head">
+                    <span class="wiki-block-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+                    </span>
+                    <div class="wiki-block-titles">
+                        <h2>Live voice chat</h2>
+                        <p>Talk to EmeraldBot in real time — it listens, interrupts, and answers out loud.</p>
+                    </div>
+                </header>
+                <div class="wiki-block-body">
+
+<p class="wiki-lead">
+                        The same assistant, spoken. Voice activity detection cuts it off the moment you
+                        start talking over it, so interrupting works the way it does in a conversation.
+                    </p>
+                    <p>
+                        It uses the same memories as text chat, so anything you have told it before is already
+                        in context. The transcript is saved as a normal conversation when the call ends.
+                    </p>
+
+                    <h3>Starting a call</h3>
+                    <ol class="wiki-steps">
+                        <li>Click <b>New Live Chat</b> at the top of the sidebar.</li>
+                        <li>Click <b>Start live chat</b> and allow microphone access when your browser asks.</li>
+                        <li>Wait for the chime — the orb animates once the connection is live.</li>
+                        <li>Just talk. When you finish a sentence the assistant replies.</li>
+                        <li>Click <b>End chat</b> when you are done. The full transcript is kept as a normal conversation.</li>
+                    </ol>
+
+                    <h3>Controls</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Control</th><th>What it does</th></tr></thead>
+                            <tbody>
+                                <tr><td><b>Mute</b> / <b>Unmute</b></td><td>Stops sending your microphone. The orb greys out with a strike-through so you can see at a glance that you are muted.</td></tr>
+                                <tr><td><b>End chat</b></td><td>Closes the call, commits anything the assistant was mid-sentence on, and saves the transcript.</td></tr>
+                                <tr><td>Call timer</td><td>Shows <code class="wiki-code">mm:ss</code> in the top bar. It keeps counting if you leave and re-enter the same live chat.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>During a call</h3>
+                    <ul class="wiki-features">
+                        <li><b>You can talk over it.</b> Voice activity detection notices you starting to speak while it is answering and it stops, then answers the new thing.</li>
+                        <li>Noise suppression, echo cancellation and auto gain are on, so it works in a normal room.</li>
+                        <li>The transcript shows the last two turns while the call runs and the whole conversation once you end it.</li>
+                        <li>Live chats are context-aware — your display name and memories come with the session.</li>
+                        <li>Reopening a finished live chat drops you back into the transcript, not a new call.</li>
+                        <li>If the connection drops, it retries up to four times with a short backoff before showing an error.</li>
+                    </ul>
+
+                    <div class="wiki-note wiki-note--warn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+                        <div>
+                            Live voice needs a working microphone and an internet connection. If your browser blocks
+                            the microphone you will get a clear message rather than silence — check the address
+                            bar's permission icon first.
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ============================ DISCORD ============================ -->
+
+            <!-- BLOCK: discordbot -->
+            <section class="wiki-block" id="discordbot" data-group="EmeraldBot for Discord" data-tags="discord bot commands moderation music fun info utility prefix invite permissions ban mute purge warnings automod rps dice coinflip" style="--w-app:#5865f2" data-product="discordemeraldbot" data-product-label="Discord bot" data-category="Ask and automate">
+                <header class="wiki-block-head">
+                    <span class="wiki-block-icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.3 4.6A19 19 0 0 0 15.6 3l-.5 1a17 17 0 0 0-6.2 0L8.4 3a19 19 0 0 0-4.7 1.6C.8 9.3-.6 13.9.2 18.4A19 19 0 0 0 5.9 22l1.2-1.7c-1-.4-1.9-.9-2.8-1.5l.7-.5a13.6 13.6 0 0 0 11.9 0l.7.5c-.9.6-1.8 1.1-2.8 1.5L16 22a19 19 0 0 0 5.8-3.6c.9-5.2-.8-9.7-1.5-13.8ZM8.6 15.6c-1.1 0-2-1-2-2.3s.9-2.3 2-2.3 2 1 2 2.3-.9 2.3-2 2.3Zm6.8 0c-1.1 0-2-1-2-2.3s.9-2.3 2-2.3 2 1 2 2.3-.9 2.3-2 2.3Z"/></svg>
+                    </span>
+                    <div class="wiki-block-titles">
+                        <h2>EmeraldBot for Discord</h2>
+                        <p>41 commands across moderation, music, utilities, information and fun.</p>
+                    </div>
+                </header>
+                <div class="wiki-block-body">
+
+<p class="wiki-lead">
+                        Moderation, music, utilities, information and fun, configurable enough to run a
+                        community server without a second bot. Everything is prefixed
+                        <code class="wiki-code">e!</code> so it cannot collide with other bots in the same
+                        channel.
+                    </p>
+
+
+                    <p>
+                        Every command starts with <code class="wiki-code">e!</code>. Arguments in
+                        <span class="wiki-code">&lt;angle brackets&gt;</span> are required; ones in
+                        <span class="wiki-code">[square brackets]</span> are optional. Where a command takes a
+                        user, you can mention them or give their ID.
+                    </p>
+
+                    <h3>Command browser</h3>
+                    <div class="wiki-filters" data-filter-for="discord-cmds">
+                        <button class="wiki-filter is-active" data-value="all">All</button>
+                        <button class="wiki-filter" data-value="moderation">Moderation</button>
+                        <button class="wiki-filter" data-value="info">Info</button>
+                        <button class="wiki-filter" data-value="utility">Utility</button>
+                        <button class="wiki-filter" data-value="fun">Fun</button>
+                        <button class="wiki-filter" data-value="music">Music</button>
+                        <span class="wiki-filter-scope" data-filter-count></span>
+                    </div>
+
+                    <div class="wiki-commands" data-filter-scope="discord-cmds">
+
+                        <h4 style="grid-column:1/-1;margin-top:1.4rem">Moderation — 13 commands</h4>
+                        <div class="wiki-cmd" data-cat="moderation">
+                            <div class="wiki-cmd-name">e!banworduser</div>
+                            <p class="wiki-cmd-desc">Stop a specific member from using a specific word. Combine with <b>e!unbanworduser</b> to undo.</p>
+                            <code class="wiki-cmd-usage">e!banworduser &lt;user&gt; &lt;word&gt;</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="moderation">
+                            <div class="wiki-cmd-name">e!unbanworduser</div>
+                            <p class="wiki-cmd-desc">Allow a member to use the words you blocked for them.</p>
+                            <code class="wiki-cmd-usage">e!unbanworduser &lt;user&gt;</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="moderation">
+                            <div class="wiki-cmd-name">e!mute</div>
+                            <p class="wiki-cmd-desc">Mute a member so they cannot speak. A reason is optional and shown in the audit trail.</p>
+                            <code class="wiki-cmd-usage">e!mute &lt;user&gt; [reason]</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="moderation">
+                            <div class="wiki-cmd-name">e!unmute</div>
+                            <p class="wiki-cmd-desc">Lift a mute.</p>
+                            <code class="wiki-cmd-usage">e!unmute &lt;user&gt;</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="moderation">
+                            <div class="wiki-cmd-name">e!purge</div>
+                            <p class="wiki-cmd-desc">Bulk-delete recent messages from the channel.</p>
+                            <code class="wiki-cmd-usage">e!purge &lt;amount&gt;</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="moderation">
+                            <div class="wiki-cmd-name">e!chatlock</div>
+                            <p class="wiki-cmd-desc">Lock the current text channel so only staff can post. Run it again to unlock.</p>
+                            <code class="wiki-cmd-usage">e!chatlock</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="moderation">
+                            <div class="wiki-cmd-name">e!chatmod</div>
+                            <p class="wiki-cmd-desc">Toggle chat moderation in the channel. Toggles on each run.</p>
+                            <code class="wiki-cmd-usage">e!chatmod</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="moderation">
+                            <div class="wiki-cmd-name">e!voicelock</div>
+                            <p class="wiki-cmd-desc">Lock the voice channel you are in so members cannot join.</p>
+                            <code class="wiki-cmd-usage">e!voicelock</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="moderation">
+                            <div class="wiki-cmd-name">e!voicekick</div>
+                            <p class="wiki-cmd-desc">Remove a member from voice channels without banning them.</p>
+                            <code class="wiki-cmd-usage">e!voicekick &lt;user&gt;</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="moderation">
+                            <div class="wiki-cmd-name">e!autorole</div>
+                            <p class="wiki-cmd-desc">Give every new member a role automatically — the classic "Member" or "unverified" setup.</p>
+                            <code class="wiki-cmd-usage">e!autorole &lt;enable | disable&gt; &lt;role&gt;</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="moderation">
+                            <div class="wiki-cmd-name">e!renamerole</div>
+                            <p class="wiki-cmd-desc">Rename a role. Handy after a rebrand or tidy-up.</p>
+                            <code class="wiki-cmd-usage">e!renamerole &lt;role&gt; &lt;new name&gt;</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="moderation">
+                            <div class="wiki-cmd-name">e!log</div>
+                            <p class="wiki-cmd-desc">Send server events to a chosen channel so you have a record of joins, leaves and deletions.</p>
+                            <code class="wiki-cmd-usage">e!log &lt;enable | disable&gt; &lt;channel&gt;</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="moderation">
+                            <div class="wiki-cmd-name">e!joinleave</div>
+                            <p class="wiki-cmd-desc">Post a welcome message for new members and a goodbye message when they leave.</p>
+                            <code class="wiki-cmd-usage">e!joinleave &lt;enable | disable&gt; &lt;channel&gt;</code>
+                        </div>
+
+                        <h4 style="grid-column:1/-1;margin-top:1.4rem">Music — 8 commands</h4>
+                        <div class="wiki-cmd" data-cat="music">
+                            <div class="wiki-cmd-name">e!play</div>
+                            <p class="wiki-cmd-desc">Play a song or a whole playlist. Search terms and links both work.</p>
+                            <code class="wiki-cmd-usage">e!play &lt;query | url&gt;</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="music">
+                            <div class="wiki-cmd-name">e!skip</div>
+                            <p class="wiki-cmd-desc">Skip the current track, or several in a row.</p>
+                            <code class="wiki-cmd-usage">e!skip [amount]</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="music">
+                            <div class="wiki-cmd-name">e!pause</div>
+                            <p class="wiki-cmd-desc">Pause playback.</p>
+                            <code class="wiki-cmd-usage">e!pause</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="music">
+                            <div class="wiki-cmd-name">e!resume</div>
+                            <p class="wiki-cmd-desc">Resume a paused track.</p>
+                            <code class="wiki-cmd-usage">e!resume</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="music">
+                            <div class="wiki-cmd-name">e!stop</div>
+                            <p class="wiki-cmd-desc">Stop playback and empty the queue.</p>
+                            <code class="wiki-cmd-usage">e!stop</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="music">
+                            <div class="wiki-cmd-name">e!queue</div>
+                            <p class="wiki-cmd-desc">Show what is coming up. Long queues page.</p>
+                            <code class="wiki-cmd-usage">e!queue [page]</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="music">
+                            <div class="wiki-cmd-name">e!repeat</div>
+                            <p class="wiki-cmd-desc">Repeat the current track or the entire queue.</p>
+                            <code class="wiki-cmd-usage">e!repeat &lt;off | on | all&gt;</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="music">
+                            <div class="wiki-cmd-name">e!nowplaying</div>
+                            <p class="wiki-cmd-desc">Show the track that is playing right now.</p>
+                            <code class="wiki-cmd-usage">e!nowplaying</code>
+                        </div>
+
+                        <h4 style="grid-column:1/-1;margin-top:1.4rem">Utility — 9 commands</h4>
+                        <div class="wiki-cmd" data-cat="utility">
+                            <div class="wiki-cmd-name">e!afk</div>
+                            <p class="wiki-cmd-desc">Mark yourself as away. Optional reason shown next to your name.</p>
+                            <code class="wiki-cmd-usage">e!afk [reason]</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="utility">
+                            <div class="wiki-cmd-name">e!poll</div>
+                            <p class="wiki-cmd-desc">Start a poll in the channel with your question as the prompt.</p>
+                            <code class="wiki-cmd-usage">e!poll &lt;question&gt;</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="utility">
+                            <div class="wiki-cmd-name">e!calc</div>
+                            <p class="wiki-cmd-desc">Solve a maths expression. Works in DMs.</p>
+                            <code class="wiki-cmd-usage">e!calc &lt;expression&gt;</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="utility">
+                            <div class="wiki-cmd-name">e!ai</div>
+                            <p class="wiki-cmd-desc">Talk to EmeraldBot without leaving Discord.</p>
+                            <code class="wiki-cmd-usage">e!ai &lt;prompt&gt;</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="utility">
+                            <div class="wiki-cmd-name">e!resetai</div>
+                            <p class="wiki-cmd-desc">Wipe what the bot remembers about you.</p>
+                            <code class="wiki-cmd-usage">e!resetai</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="utility">
+                            <div class="wiki-cmd-name">e!setbirthday</div>
+                            <p class="wiki-cmd-desc">Register your birthday. You can leave the year out and it is kept private.</p>
+                            <code class="wiki-cmd-usage">e!setbirthday &lt;dd/mm/yyyy | dd/mm&gt;</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="utility">
+                            <div class="wiki-cmd-name">e!removebirthday</div>
+                            <p class="wiki-cmd-desc">Delete your stored birthday.</p>
+                            <code class="wiki-cmd-usage">e!removebirthday</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="utility">
+                            <div class="wiki-cmd-name">e!nextbirthday</div>
+                            <p class="wiki-cmd-desc">See whose birthday is coming up next in the server.</p>
+                            <code class="wiki-cmd-usage">e!nextbirthday</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="utility">
+                            <div class="wiki-cmd-name">e!voiceprivate</div>
+                            <p class="wiki-cmd-desc">Toggle private voice mode, so joining a voice channel requires approval.</p>
+                            <code class="wiki-cmd-usage">e!voiceprivate</code>
+                        </div>
+
+                        <h4 style="grid-column:1/-1;margin-top:1.4rem">Info — 7 commands</h4>
+                        <div class="wiki-cmd" data-cat="info">
+                            <div class="wiki-cmd-name">e!help</div>
+                            <p class="wiki-cmd-desc">Show the bot's own help menu.</p>
+                            <code class="wiki-cmd-usage">e!help</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="info">
+                            <div class="wiki-cmd-name">e!ping</div>
+                            <p class="wiki-cmd-desc">Check the bot's latency.</p>
+                            <code class="wiki-cmd-usage">e!ping</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="info">
+                            <div class="wiki-cmd-name">e!serverinfo</div>
+                            <p class="wiki-cmd-desc">Show details about the server — member counts, channels, boost level.</p>
+                            <code class="wiki-cmd-usage">e!serverinfo</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="info">
+                            <div class="wiki-cmd-name">e!userinfo</div>
+                            <p class="wiki-cmd-desc">Show a member's profile: roles, join date, account creation date.</p>
+                            <code class="wiki-cmd-usage">e!userinfo [user]</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="info">
+                            <div class="wiki-cmd-name">e!roleinfo</div>
+                            <p class="wiki-cmd-desc">Show a role's colour, member count and position.</p>
+                            <code class="wiki-cmd-usage">e!roleinfo &lt;role&gt;</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="info">
+                            <div class="wiki-cmd-name">e!avatar</div>
+                            <p class="wiki-cmd-desc">Show a member's avatar, or yours if you leave the argument out.</p>
+                            <code class="wiki-cmd-usage">e!avatar [user]</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="info">
+                            <div class="wiki-cmd-name">e!banwordlist</div>
+                            <p class="wiki-cmd-desc">See which words a member is currently blocked from using.</p>
+                            <code class="wiki-cmd-usage">e!banwordlist &lt;user&gt;</code>
+                        </div>
+
+                        <h4 style="grid-column:1/-1;margin-top:1.4rem">Fun — 4 commands</h4>
+                        <div class="wiki-cmd" data-cat="fun">
+                            <div class="wiki-cmd-name">e!coinflip</div>
+                            <p class="wiki-cmd-desc">Flip a coin.</p>
+                            <code class="wiki-cmd-usage">e!coinflip</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="fun">
+                            <div class="wiki-cmd-name">e!dice</div>
+                            <p class="wiki-cmd-desc">Roll a six-sided die.</p>
+                            <code class="wiki-cmd-usage">e!dice</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="fun">
+                            <div class="wiki-cmd-name">e!say</div>
+                            <p class="wiki-cmd-desc">Make the bot repeat your message — in your own voice colour if you have one.</p>
+                            <code class="wiki-cmd-usage">e!say &lt;text&gt;</code>
+                        </div>
+                        <div class="wiki-cmd" data-cat="fun">
+                            <div class="wiki-cmd-name">e!rps</div>
+                            <p class="wiki-cmd-desc">Play rock-paper-scissors against the bot.</p>
+                            <code class="wiki-cmd-usage">e!rps</code>
+                        </div>
+
+                    </div>
+
+                    <h3>Recipes</h3>
+
+                    <h4>A clean onboarding flow</h4>
+                    <ol class="wiki-steps">
+                        <li><b>e!autorole enable @Member</b> — so everyone gets a role on join.</li>
+                        <li><b>e!joinleave enable #welcome</b> — so arrivals are greeted.</li>
+                        <li><b>e!log enable #mod-log</b> — so deletions are recorded.</li>
+                        <li><b>e!chatlock</b> in #announcements whenever you post something important.</li>
+                    </ol>
+
+                    <h4>Quieting a channel</h4>
+                    <ol class="wiki-steps">
+                        <li><b>e!chatlock</b> to freeze the channel.</li>
+                        <li><b>e!purge 50</b> to clear the spam.</li>
+                        <li><b>e!mute @user spamming</b> for the people behind it.</li>
+                        <li><b>e!banworduser @user spamword</b> if it is one specific phrase.</li>
+                        <li><b>e!chatlock</b> again to reopen.</li>
+                    </ol>
+
+                    <h4>A music room</h4>
+                    <ol class="wiki-steps">
+                        <li>Join a voice channel and invite EmeraldBot.</li>
+                        <li><b>e!play lofi hip hop</b> — or paste a link.</li>
+                        <li><b>e!queue</b> to see what is lined up, <b>e!skip</b> to move on, <b>e!repeat all</b> to loop the queue.</li>
+                        <li><b>e!nowplaying</b> shows the current track; <b>e!stop</b> clears everything when the night is over.</li>
+                    </ol>
+
+                    <h4>A birthday channel</h4>
+                    <ol class="wiki-steps">
+                        <li>Members run <b>e!setbirthday dd/mm</b> privately.</li>
+                        <li>Anyone can run <b>e!nextbirthday</b> to see who is next.</li>
+                        <li>Moderators use <b>e!banwordlist</b> and <b>e!resetai</b> if someone wants their stored data removed.</li>
+                    </ol>
+
+                    <h3>Permissions</h3>
+                    <p>
+                        The bot asks for a broad permission set when you invite it, because music playback needs
+                        <b>Connect</b> and <b>Speak</b> in voice, moderation needs <b>Manage Messages</b> and
+                        <b>Manage Roles</b>, and logging needs <b>Manage Channels</b>. Restrict the bot's role
+                        to the channels it actually needs and put it above your member roles so it can act.
+                    </p>
+                    <div class="wiki-note wiki-note--tip">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="m9 12 2 2 4-4"/></svg>
+                        <div>
+                            Invite the bot from the <a href="/discordemeraldbot">bot page</a>, or ask in the
+                            <a href="https://discord.gg/CQqZ34T8Jn" target="_blank" rel="noopener noreferrer">EmeraldNetwork Discord server</a> if something looks wrong.
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- BLOCK: emeraldessentialsplugin -->
+            <section class="wiki-block" id="emeraldessentialsplugin" data-group="EmeraldEssentials" data-product="emeraldessentialsplugin" data-tags="minecraft plugin paper spigot server essentials commands permissions bedrock java edition" style="--w-app:#55a630" data-product-label="EmeraldEssentials" data-category="Reference">
+                <header class="wiki-block-head">
+                    <span class="wiki-block-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 8 9-5 9 5v8l-9 5-9-5z"/><path d="M3 8v8l9 5 9-5V8M12 3v18"/></svg>
+                    </span>
+                    <div class="wiki-block-titles">
+                        <h2>EmeraldEssentials</h2>
+                        <p>A Minecraft server plugin suite. Not documented yet — and that is deliberate.</p>
+                    </div>
+                </header>
+                <div class="wiki-block-body">
+
+                    <div class="wiki-note wiki-note--warn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+                        <div>
+                            <b>No command list or config reference here.</b> The plugin is not
+                            feature-complete, so publishing one would mean inventing it. Below is everything
+                            that is actually known today.
+                        </div>
+                    </div>
+
+                    <h3>What it is</h3>
+                    <p>
+                        EmeraldEssentials is a plugin suite for Minecraft servers, positioned around two ideas:
+                        <b>wide compatibility</b> — working across server platforms and alongside other plugins
+                        rather than fighting them — and <b>stability</b>, keeping a busy server running smoothly.
+                        It follows the same visual identity as the rest of EmeraldNetwork, but it is a
+                        completely separate product from the browser apps.
+                    </p>
+
+                    <h3>Not available yet</h3>
+                    <ul class="wiki-features">
+                        <li>No command list — nothing to document until the command surface is settled.</li>
+                        <li>No <code class="wiki-code">config.yml</code> reference, because the config format is still changing.</li>
+                        <li>No permissions node table, and no supported-version range.</li>
+                        <li>No installation walkthrough — there is nothing public to download yet.</li>
+                    </ul>
+
+                    <h3>Getting it</h3>
+                    <p>
+                        Access is by direct contact rather than a public download. Ask in the
+                        <a href="https://discord.gg/CQqZ34T8Jn" target="_blank" rel="noopener noreferrer">EmeraldNetwork Discord server</a>
+                        and you will be told whether the plugin is ready for your server version and how to get it.
+                    </p>
+
+                    <p>
+                        The other three products are documented in full:
+                        <a href="#hub">EmeraldSuite</a> for documents and spreadsheets,
+                        <a href="#flowchart">EmeraldStudio Flowchart</a> for visual programming, and
+                        <a href="#discordbot">EmeraldBot</a> for Discord.
+                    </p>
+                </div>
+            </section>
+
+            <!-- ============================ PLATFORM ============================ -->
+
+            <!-- BLOCK: status -->
+            <section class="wiki-block" id="status" data-group="Platform" data-tags="status uptime outage incident operational degraded service health monitoring" style="--w-app:#0f766e" data-product="status" data-product-label="System status" data-category="Reference">
+                <header class="wiki-block-head">
+                    <span class="wiki-block-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2.5-6 4 12L16 12h5"/></svg>
+                    </span>
+                    <div class="wiki-block-titles">
+                        <h2>System status</h2>
+                        <p>Health and 90-day uptime for EmeraldCore, the website and the Discord bot.</p>
+                    </div>
+                </header>
+                <div class="wiki-block-body">
+
+<p class="wiki-lead">
+                        Three things can be down at once — the model behind the AI features, the website, or
+                        the Discord bot — and this page tells you which. Check it before reporting a problem,
+                        because most reports turn out to be an incident already listed here.
+                    </p>
+
+                    <p>The <a href="/status">status page</a> is the place to look first when something is not working.</p>
+
+                    <h3>Services</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Service</th><th>Covers</th></tr></thead>
+                            <tbody>
+                                <tr><td>EmeraldCore</td><td>The core system behind the AI features.</td></tr>
+                                <tr><td>Website</td><td>The EmeraldNetwork site and all its apps.</td></tr>
+                                <tr><td>EmeraldBot</td><td>The Discord bot.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>What the colours mean</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Badge</th><th>Meaning</th></tr></thead>
+                            <tbody>
+                                <tr><td><span class="wiki-tag">Operational</span></td><td>Running normally. The 90-day bar underneath is entirely green.</td></tr>
+                                <tr><td><span class="wiki-tag wiki-tag--warn">Degraded</span></td><td>Working, but slower or partly broken. Yellow segments on the bar show which days.</td></tr>
+                                <tr><td><span class="wiki-tag wiki-tag--danger">Outage</span></td><td>Not working. Red segments mark the affected days.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Reading the page</h3>
+                    <ul class="wiki-features">
+                        <li>Each service card is collapsible and lists its components individually.</li>
+                        <li>The bar holds <b>91 days</b>. Hover any segment for the exact date.</li>
+                        <li>The percentage is calculated from the bar, so it is always consistent with what you see.</li>
+                        <li>Ongoing problems appear under <b>Current Incidents</b> with an <b>Ongoing</b> badge and the date they started.</li>
+                        <li>Fixed problems move to <b>Previous Incidents</b>, grouped by month, with their duration.</li>
+                        <li>The header shows the overall verdict — <b>All Systems Operational</b>, <b>Partial Outage</b> or <b>Status Unavailable</b> — and the time it last refreshed.</li>
+                    </ul>
+
+                    <div class="wiki-note">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5M12 8h.01"/></svg>
+                        <div>
+                            <b>Status unavailable</b> means the page could not read its data file — usually a network
+                            problem rather than an outage. Reload before assuming something is down.
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- BLOCK: reference -->
+            <section class="wiki-block" id="reference" data-group="Platform" data-tags="reference shortcuts index storage keys offline limits privacy data where is my data browser support help faq" style="--w-app:#475569" data-product="reference" data-product-label="Reference" data-category="Reference">
+                <header class="wiki-block-head">
+                    <span class="wiki-block-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20v3H6.5A2.5 2.5 0 0 1 4 20.5z"/></svg>
+                    </span>
+                    <div class="wiki-block-titles">
+                        <h2>Shared reference</h2>
+                        <p>Where your files live, what works offline, and what is not implemented yet.</p>
+                    </div>
+                </header>
+                <div class="wiki-block-body">
+                    <p class="wiki-lead">
+                        Look-ups rather than walkthroughs: where your files live, what still works without a
+                        connection, the limits worth knowing before you hit them, and what to do when something
+                        looks wrong.
+                    </p>
+
+                    <h3>Keyboard shortcuts</h3>
+                    <p>
+                        These work across the wiki itself. App shortcuts are listed on each app's own page,
+                        because they differ between apps.
+                    </p>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Keys</th><th>Action</th></tr></thead>
+                            <tbody>
+                                <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">K</span></td><td>Jump to the search box, from anywhere</td></tr>
+                                <tr><td><span class="wiki-key">Esc</span></td><td>Clear the search, or close the sidebar on a phone</td></tr>
+                                <tr><td><span class="wiki-key">Enter</span> / <span class="wiki-key">Shift</span>+<span class="wiki-key">Enter</span></td><td>While following a heading in "On this page"</td></tr>
+                                <tr><td>Back / Forward</td><td>Work as expected — clicking pushes history, scrolling does not</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Where your files are stored</h3>
+                    <p>
+                        Every app writes to <b>IndexedDB</b> in this browser. Notes, Docs, Slides and the AI chat
+                        share one database, <code class="wiki-code">emeraldcore.storage.suite</code>, which is why
+                        the suite hub can list all of them. Sheets keeps its own,
+                        <code class="wiki-code">emeraldcore.storage.suite.sheets</code>, because workbooks are
+                        structured differently.
+                    </p>
+                    <p>
+                        Notes, Docs, Slides and the chat also drop a temporary copy into
+                        <code class="wiki-code">localStorage</code> while a write is in flight and delete it
+                        afterwards, so a long note is never half-written.
+                    </p>
+
+                    <div class="wiki-note wiki-note--danger">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+                        <div>
+                            <b>There is no server-side copy of anything.</b> Clearing browsing data, using a
+                            different browser, switching to a private window, or reinstalling means an empty
+                            library, permanently. Export before you do any of those things — and export
+                            periodically if the work matters.
+                        </div>
+                    </div>
+
+                    <h3>Export, by app</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>App</th><th>Formats</th><th>Where</th><th>Keeps</th></tr></thead>
+                            <tbody>
+                                <tr><td>Notes</td><td>Share link</td><td>Export Note</td><td>Formatting and colour. Very long notes exceed the URL limit and cannot be linked.</td></tr>
+                                <tr><td>Docs</td><td>PDF, HTML, TXT, print</td><td>File menu</td><td>PDF is a faithful image of the pages; HTML is text plus styling.</td></tr>
+                                <tr><td>Slides</td><td>PPTX, PDF, SVG, print</td><td>File menu</td><td>PPTX keeps text, shapes and images. It drops video, audio, drawings, links, comments, transitions and animations.</td></tr>
+                                <tr><td>Sheets</td><td>XLSX, CSV, print</td><td>File menu</td><td>XLSX keeps formulas, formats, comments, merges and sizes. Hidden sheets are skipped.</td></tr>
+                                <tr><td>Flowchart</td><td><code class="wiki-code">.emeraldcore</code>, PNG</td><td>File bar</td><td>The editable file keeps everything. PNG is only a picture.</td></tr>
+                                <tr><td>AI Chat</td><td>Share link, <code class="wiki-code">.json</code></td><td>Right-click a chat</td><td>Full transcript including attachments.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>What works offline</h3>
+                    <p>
+                        "Works offline" means the tab is already open. A cold load while disconnected is not
+                        guaranteed for every app, because only the shared shell files are cached by the service
+                        worker. If you plan to work without a connection, open the app first and leave the tab
+                        open.
+                    </p>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>App</th><th>Works offline</th><th>Still needs a connection</th></tr></thead>
+                            <tbody>
+                                <tr><td>Suite hub</td><td><span class="wiki-tag">Everything</span></td><td>Nothing.</td></tr>
+                                <tr><td>Notes</td><td><span class="wiki-tag">Everything</span></td><td>Live sharing and web fonts.</td></tr>
+                                <tr><td>Docs</td><td><span class="wiki-tag">Most</span></td><td>PDF export, the rich <b>.docx</b> fallback, web fonts.</td></tr>
+                                <tr><td>Slides</td><td><span class="wiki-tag">Most</span></td><td>PPTX export, PDF export, PDF import, web fonts.</td></tr>
+                                <tr><td>Sheets</td><td><span class="wiki-tag">Most</span></td><td>XLSX import and export only. CSV and printing are fine.</td></tr>
+                                <tr><td>Flowchart</td><td><span class="wiki-tag">Everything</span></td><td>Nothing.</td></tr>
+                                <tr><td>AI Chat</td><td><span class="wiki-tag wiki-tag--danger">Nothing</span></td><td>Every message. The model is hosted.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Limits</h3>
+                    <p>
+                        None of these are bugs — they are the current shape of each app, listed here so you meet
+                        them once instead of discovering them badly.
+                    </p>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>App</th><th>Limit</th><th>What happens</th></tr></thead>
+                            <tbody>
+                                <tr><td>Notes</td><td>Note title 40 characters stored</td><td>You can type 70; the rest is trimmed.</td></tr>
+                                <tr><td>Notes</td><td>No folders, no manual ordering</td><td>The list is newest first and cannot be rearranged.</td></tr>
+                                <tr><td>Notes</td><td>One live session at a time</td><td>Leave the current one before joining another.</td></tr>
+                                <tr><td>Notes</td><td>Images under 25 MB</td><td>Larger images are refused with a message.</td></tr>
+                                <tr><td>Docs</td><td>Insert table 8 × 8</td><td>Larger tables need a table pasted in.</td></tr>
+                                <tr><td>Docs</td><td>10 version snapshots</td><td>Older versions fall off the end.</td></tr>
+                                <tr><td>Docs</td><td>No live collaboration</td><td>Comments exist but are not simultaneous.</td></tr>
+                                <tr><td>Docs</td><td>Read aloud stops at 3,000 characters</td><td>Use it to spot-check the opening.</td></tr>
+                                <tr><td>Slides</td><td>Decks grow large with media</td><td>Video and audio are stored inline, so keep an eye on size.</td></tr>
+                                <tr><td>Slides</td><td>Morph needs two slides</td><td>On a single slide it falls back to a fade.</td></tr>
+                                <tr><td>Sheets</td><td>10 sheets per workbook</td><td>Names are limited to 30 characters and must be unique.</td></tr>
+                                <tr><td>Sheets</td><td>Zoom 30% – 400%</td><td>Use <b>Fit to Window</b> for a whole sheet.</td></tr>
+                                <tr><td>Sheets</td><td>No conditional formatting or pivot tables</td><td>Use formulas and <b>Data → Sort</b> instead.</td></tr>
+                                <tr><td>Flowchart</td><td>100,000 iterations per run</td><td>A runaway loop stops and says so.</td></tr>
+                                <tr><td>Flowchart</td><td>Variables must be declared</td><td>Assigning before declaring stops the run with a message.</td></tr>
+                                <tr><td>Flowchart</td><td>No undo or multi-select</td><td>Duplicate a shape rather than expecting Ctrl+Z.</td></tr>
+                                <tr><td>AI Chat</td><td>Images 25 MB, other files 100 MB</td><td>Larger files are refused client-side.</td></tr>
+                                <tr><td>AI Chat</td><td>10 variants per message</td><td>Regenerating or editing a message more than ten times is blocked.</td></tr>
+                                <tr><td>AI Chat</td><td>Images to edit must be 512 × 512 or smaller</td><td>Resize before asking for an edit.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Multiple tabs and windows</h3>
+                    <p>
+                        Apps talk to each other through a browser broadcast channel, so you can have the same
+                        note open twice and see edits land in both. The hub refreshes on window focus, when the
+                        tab becomes visible again, and every 60 seconds.
+                    </p>
+
+                    <h3>If something looks wrong</h3>
+                    <div class="wiki-table-wrap">
+                        <table class="wiki-table">
+                            <thead><tr><th>Symptom</th><th>Try</th></tr></thead>
+                            <tbody>
+                                <tr><td>The library is empty after a reload</td><td>Check you are in the same browser and not a private window. If you cleared site data, the files are gone — nothing recovers them.</td></tr>
+                                <tr><td>"Save failed" in Sheets</td><td>Sheets uses IndexedDB only, with no localStorage fallback. Private browsing or a full disk will cause this.</td></tr>
+                                <tr><td>PDF or XLSX export fails</td><td>Those features download a library on first use. Reconnect and try again.</td></tr>
+                                <tr><td>A note will not finish a share link</td><td>It has grown past what a URL can hold. Split it, or use a live session instead.</td></tr>
+                                <tr><td>Live sharing says "Connection Lost"</td><td>The network dropped mid-session. Reload when you are back online.</td></tr>
+                                <tr><td>Flowchart behaves oddly after moving shapes</td><td>Make sure the connection landed on the shape you meant — click a line to see whether it is the connection you think it is.</td></tr>
+                                <tr><td>A formula shows <code class="wiki-code">#REF!</code></td><td>Rows or columns were deleted after it was written. Rewriting the formula usually fixes it.</td></tr>
+                                <tr><td>Nothing loads while offline</td><td>The tab was opened cold. Load the app once while connected and leave it open.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Deep links</h3>
+                    <p>
+                        Every file can be linked to directly. The pattern is the app path plus
+                        <code class="wiki-code">?owned=</code> and the file id, which the hub's
+                        <b>Copy link</b> action builds for you.
+                    </p>
+                    <div class="wiki-copy">
+                        <code>/notes?owned=note_1735689600000_a1b2c3d4e</code>
+                    </div>
+                    <div class="wiki-copy">
+                        <code>/docs?owned=doc_1735689600000_a1b2c3d4e</code>
+                    </div>
+                    <div class="wiki-copy">
+                        <code>/slides?owned=pres_1735689600000_a1b2c3d4e</code>
+                    </div>
+                    <div class="wiki-copy">
+                        <code>/sheets?owned=book_1735689600000_a1b2c3d4e</code>
+                    </div>
+                    <p>These only resolve in the browser that owns the file.</p>
+
+                    <h3>What leaves your device</h3>
+                    <p>
+                        Worth stating plainly, since almost nothing is sent anywhere.
+                    </p>
+                    <ul class="wiki-features">
+                        <li><b>The four office apps, Flowchart and the hub</b> send nothing. They never touch a network after the page loads.</li>
+                        <li><b>AI chat</b> sends what you type, plus your display name, your saved memories and any file you attach.</li>
+                        <li><b>Live voice</b> sends audio, the same name and memories.</li>
+                        <li><b>Share links</b> pack the data into the part of the URL after the <code class="wiki-code">#</code>, which browsers never send to a server. Nothing is uploaded.</li>
+                        <li><b>The Discord bot</b> runs on Discord and sees what a bot normally sees.</li>
+                        <li>No analytics, no tracking script, no API key in the page, no account.</li>
+                    </ul>
+
+                    <h3>Getting help</h3>
+                    <ul class="wiki-features">
+                        <li>Ask in the <a href="https://discord.gg/CQqZ34T8Jn" target="_blank" rel="noopener noreferrer">EmeraldNetwork Discord server</a> — the fastest route to a human.</li>
+                        <li>Email <a href="mailto:hello@emeraldnetwork.groups.id">hello@emeraldnetwork.groups.id</a>.</li>
+                        <li>Check <a href="/status">system status</a> before reporting a problem — it may already be listed.</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Previous / next in flat reading order. Built by wiki.js; hidden on
+                 ?section=all, on a single-page product, and on an unknown route. -->
+            <nav class="wiki-pager" data-pager aria-label="Previous and next page"></nav>
+
+        </main>
+
+        <!-- "On this page", as a rail of its own on the right. Built per page by
+             wiki.js, which fills [data-outline] and removes the column again when
+             the current route has no headings. -->
+        <aside class="wiki-toc" data-outline aria-label="On this page"></aside>
+    </div>
+
+    <!-- ===================== FOOTER =====================
+         Byte-for-byte the footer from index.html — same .container markup, so
+         style.css styles it identically. The only wiki-specific rule lives in
+         wiki.css and just mirrors .footer--dark when the wiki is in dark mode. -->
+    <footer class="footer">
+        <div class="container footer-container">
+            <div class="footer-brand">
+                <img src="/assets/images/favicon.webp" alt="EmeraldNetwork logo" class="footer-logo">
+                <div>
+                    <p class="footer-brand-name">EmeraldNetwork</p>
+                    <p class="footer-brand-tagline">Shaping the future of connection, intelligence, and digital possibility.</p>
+                </div>
+            </div>
+            <div class="footer-social-links">
+                <a href="https://youtube.com/iceemerald" target="_blank" rel="noopener noreferrer" class="social-icon-button-footer" aria-label="YouTube">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-2C18.88 4 12 4 12 4s-6.88 0-8.59.42a2.78 2.78 0 0 0-1.95 2A29.94 29.94 0 0 0 1 12a29.94 29.94 0 0 0 .46 5.58 2.78 2.78 0 0 0 1.95 2C5.12 20 12 20 12 20s6.88 0 8.59-.42a2.78 2.78 0 0 0 1.95-2A29.94 29.94 0 0 0 23 12a29.94 29.94 0 0 0-.46-5.58z"></path><polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02"></polygon></svg>
+                </a>
+                <a href="https://instagram.com/iceemerald23" target="_blank" rel="noopener noreferrer" class="social-icon-button-footer" aria-label="Instagram">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.5" y2="6.5"/></svg>
+                </a>
+                <a href="mailto:hello@emeraldnetwork.groups.id" class="social-icon-button-footer" aria-label="Email">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                </a>
+            </div>
+        </div>
+        <div class="footer-splitter"></div>
+        <div class="footer-bottom">
+            <p>&copy; <span id="current-year"></span> EmeraldNetwork · IceEmerald</p>
+            <div class="footer-links">
+                <a href="terms">Terms of Use</a>
+                <a href="privacy">Privacy Policy</a>
+                <a href="status">System status</a>
+            </div>
+        </div>
+    </footer>
+
+</div>
+
+<!-- Right-click tools shared by every page on the site -->
+<div id="custom-context-menu" class="rightclick-menu">
+    <div class="context-section">
+        <span class="context-title">🔧 Tools</span>
+        <a onclick="copyTextContent()">Copy Text</a>
+        <a onclick="copyPageLink()">Copy Page Link</a>
+        <a onclick="showElementInfo()">Show Element Info</a>
+    </div>
+</div>
+<div id="custom-toast" class="custom-toast"></div>
+
+<script src="/assets/scripts/rightclick.js"></script>
+<script src="/assets/scripts/footer-year.js"></script>
+<script src="/assets/scripts/wiki.js"></script>
+</body>
+</html>

@@ -1358,6 +1358,42 @@ body {
 .su-search input { border: none; background: transparent; outline: none; flex: 1; font-size: 13.5px; color: #201f1e; min-width: 0; }
 .su-search input::placeholder { color: #8a8886; }
 .su-search kbd { background: #fff; border: 1px solid #edebe9; border-radius: 4px; padding: 0 5px; font: 11px/1.6 var(--font-ui, sans-serif); color: #8a8886; }
+
+/* Clear (×) button — same design as the wiki's search bar.
+   Colours are the ones already used by .su-search kbd / svg, so it reads as
+   part of this control rather than a bolt-on. */
+.su-search input::-webkit-search-cancel-button {
+  display: none;   /* hide the browser's own X so only ours shows */
+}
+
+.su-search-clear {
+  flex: none; display: none; align-items: center; justify-content: center;
+  width: 18px; height: 18px; padding: 0;
+  font-family: var(--font-ui, sans-serif); font-size: 15px; line-height: 1;
+  color: #8a8886;
+  background: #fff;
+  border: 1px solid #edebe9;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.su-search-clear:hover {
+  color: #201f1e;
+}
+
+.su-search-clear:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 1px;
+}
+
+/* Once there is text, the / hint steps aside for the × button. */
+.su-search input:not(:placeholder-shown) ~ kbd {
+  display: none;
+}
+
+.su-search input:not(:placeholder-shown) ~ .su-search-clear {
+  display: flex;
+}
 .su-top-right { display: flex; align-items: center; gap: 14px; flex: none; margin-left: auto; }
 .su-sync { display: inline-flex; align-items: center; gap: 7px; background: none; border: none; cursor: pointer; font-size: 12px; color: #605e5c; padding: 4px 8px; border-radius: 6px; }
 .su-sync:hover { background: #f3f2f1; }
