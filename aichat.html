@@ -181,6 +181,37 @@
                 <canvas class="live-orb" id="liveOrb" width="440" height="440"></canvas>
             </div>
 
+            <!-- ─── Camera / screen preview ─────────────────────
+                 Picture-in-picture of whatever the model can see.
+
+                 The <video> is not decoration: it is the element the
+                 frame grabber samples, so the preview on screen and the
+                 JPEG frames on the wire are guaranteed to be the same
+                 image. Hidden until a source is actually being sent —
+                 the model never has a view into the camera unless the
+                 user pressed a button for it. -->
+            <div class="live-video-panel" id="liveVideoPanel" data-source="off" hidden>
+                <video class="live-video-el" id="liveVideoEl" autoplay muted playsinline></video>
+                <div class="live-video-badge">
+                    <span class="live-video-dot" aria-hidden="true"></span>
+                    <span id="liveVideoBadge">Camera</span>
+                </div>
+                <!-- Re-sends one high-detail frame. The 1 fps feed is
+                     deliberately coarse; this is the escape hatch for
+                     small text the model read wrong. -->
+                <button class="live-video-look" id="lvVideoLookBtn" type="button"
+                        title="Send this frame to EmeraldBot"
+                        aria-label="Send this frame to EmeraldBot"
+                        onclick="lookAtLiveVideo()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 8V5a2 2 0 0 1 2-2h3"></path>
+                        <path d="M16 3h3a2 2 0 0 1 2 2v3"></path>
+                        <path d="M21 16v3a2 2 0 0 1-2 2h-3"></path>
+                        <path d="M8 21H5a2 2 0 0 1-2-2v-3"></path>
+                    </svg>
+                </button>
+            </div>
+
             <!-- Transcript reuses the regular .message markup, so a live
                  conversation and a typed one look identical.
 
@@ -260,6 +291,23 @@
                             <path d="M3 3l18 18"></path>
                         </svg>
                         <span class="live-ctl-label" id="lvMuteLabel">Mute</span>
+                    </button>
+
+                    <button class="live-ctl-btn live-ctl-video" id="lvCamBtn" onclick="toggleLiveCamera()" title="Share camera" aria-pressed="false" disabled>
+                        <svg class="live-ctl-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M23 7l-7 5 7 5V7z"></path>
+                            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                        </svg>
+                        <span class="live-ctl-label" id="lvCamLabel">Camera</span>
+                    </button>
+
+                    <button class="live-ctl-btn live-ctl-video" id="lvScreenBtn" onclick="toggleLiveScreen()" title="Share screen" aria-pressed="false" disabled>
+                        <svg class="live-ctl-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                            <path d="M8 21h8"></path>
+                            <path d="M12 17v4"></path>
+                        </svg>
+                        <span class="live-ctl-label" id="lvScreenLabel">Screen</span>
                     </button>
 
                     <button class="live-ctl-btn live-ctl-end" id="lvEndBtn" onclick="endLiveVoice()" title="End live chat" disabled>

@@ -9562,8 +9562,12 @@ body.light-mode .live-view.is-switching {
     flex-shrink: 0;
 }
 
-/* Spinner shown on Start while the connection is being established. */
-.live-ctl-start.is-loading .live-ctl-icon {
+/* Spinner shown on Start while the connection is being established. The
+   camera and screen buttons use the same signal while they wait on a
+   permission prompt — getDisplayMedia in particular blocks for as long as
+   the user takes to pick a window. */
+.live-ctl-start.is-loading .live-ctl-icon,
+.live-ctl-btn.is-loading .live-ctl-icon {
     animation: lvSpin 0.9s linear infinite;
 }
 
@@ -9600,6 +9604,174 @@ body.light-mode .live-view.is-switching {
 
 .live-ctl-end .live-ctl-icon {
     transform: rotate(135deg);
+}
+
+/* ── Camera / screen ──────────────────────────────────────
+   Two toggles that are about being seen rather than hearing, so a
+   pressed camera/screen takes the emerald accent — the same treatment
+   as the Start button — instead of the mute button's red, which would
+   read as "something is wrong with this call". ──────────────────────── */
+
+.live-ctl-btn.live-ctl-video[aria-pressed="true"] {
+    color: rgb(255, 255, 255);
+    background: var(--lv-accent);
+    border-color: transparent;
+}
+
+.live-ctl-btn.live-ctl-video[aria-pressed="true"]:hover {
+    background: rgb(92, 210, 132);
+    border-color: transparent;
+}
+
+body.light-mode .live-ctl-btn.live-ctl-video[aria-pressed="true"] {
+    background: rgb(35, 154, 77);
+}
+
+body.light-mode .live-ctl-btn.live-ctl-video[aria-pressed="true"]:hover {
+    background: rgb(31, 138, 68);
+}
+
+/* ── Camera / screen preview ────────────────────────────────
+   Picture-in-picture of whatever the model can see, parked in the
+   bottom-right of the live view: clear of the orb, which is centred, and
+   clear of the control bar, which lives outside this box entirely.
+
+   Bottom-right is also the emptiest corner this layout has — the user's
+   turn sits above the orb and the reply is centred under it — so this
+   overlaps the transcript on short windows only, exactly as it does in
+   every other calling app. Reserving space for it instead would move the
+   whole message column sideways the moment a source was switched on.
+
+   The panel is hidden whenever no source is running, so the preview can
+   never show something the model is not actually looking at. ───────── */
+
+.live-video-panel {
+    position: absolute;
+    right: 20px;
+    bottom: 14px;
+    width: 216px;
+    border-radius: 14px;
+    overflow: hidden;
+    /* --lv-* resolves in both themes because the panel sits inside
+       .chat-main.live-active, where the light-mode overrides live. */
+    background: var(--lv-surface);
+    border: 1px solid var(--lv-accent-border);
+    /* The transcript scrolls underneath, so this needs to separate from
+       it rather than cast a hard edge on the copy below. */
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+    /* Above the transcript, below nothing else — the stage is a sibling
+       with pointer-events:none, so this is what stays clickable. */
+    z-index: 2;
+    animation: lvVideoIn 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* An explicit `display` in author CSS outranks the UA rule behind the
+   `hidden` attribute, so it is restated here for the same reason it is
+   on .live-stage. */
+.live-video-panel[hidden] {
+    display: none;
+}
+
+.live-video-el {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    background: rgb(0, 0, 0);
+    /* Mirrored, because that is what people expect of their own camera.
+       The frames sent to the model are deliberately NOT mirrored: the
+       grabber reads the video's intrinsic pixels and CSS transforms do
+       not touch those, so text held up to the camera reaches the model
+       the right way round. */
+    transform: scaleX(-1);
+}
+
+/* A shared window or tab is rarely 16:9, and cropping the edges off a
+   screen is exactly how the model misses the thing being asked about. */
+.live-video-panel[data-source="screen"] .live-video-el {
+    transform: none;
+    object-fit: contain;
+    background: rgb(10, 10, 10);
+}
+
+.live-video-badge {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.68rem;
+    font-weight: 500;
+    color: rgb(255, 255, 255);
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+
+/* Recording red, on both sources: this is a live feed of the user. */
+.live-video-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgb(239, 68, 68);
+    animation: lvVideoPulse 1.6s ease-in-out infinite;
+}
+
+.live-video-look {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(0, 0, 0, 0.55);
+    color: rgb(255, 255, 255);
+    font-family: inherit;
+    cursor: pointer;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    transition: background 0.2s, transform 0.15s;
+}
+
+.live-video-look:hover {
+    background: rgba(0, 0, 0, 0.75);
+}
+
+.live-video-look:active {
+    transform: scale(0.92);
+}
+
+@keyframes lvVideoIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes lvVideoPulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.35;
+    }
+}
+
+body.light-mode .live-video-panel {
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.14);
 }
 
 /* ── Sidebar button ──────────────────────────────────────────
@@ -9766,6 +9938,31 @@ body.light-mode .live-ctl-start:hover {
     .live-ctl-start .live-ctl-label {
         display: inline;
     }
+
+    /* Five buttons and a preview now share a phone-width bar with the
+       orb. The panel shrinks rather than disappearing — seeing what the
+       model is looking at is the entire point of the feature — and the
+       chrome inside it shrinks with it so the picture stays readable. */
+    .live-video-panel {
+        width: 132px;
+        right: 12px;
+        bottom: 10px;
+        border-radius: 10px;
+    }
+
+    .live-video-badge {
+        left: 6px;
+        bottom: 6px;
+        padding: 2px 6px;
+        font-size: 0.62rem;
+    }
+
+    .live-video-look {
+        top: 6px;
+        right: 6px;
+        width: 22px;
+        height: 22px;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -9778,5 +9975,16 @@ body.light-mode .live-ctl-start:hover {
     .live-view.is-switching {
         filter: none;
         opacity: 0;
+    }
+
+    /* The preview still appears — it is information, not decoration — but
+       it arrives without the slide-in, and the recording dot holds steady
+       instead of pulsing once a second for the length of a long call. */
+    .live-video-panel {
+        animation: none;
+    }
+
+    .live-video-dot {
+        animation: none;
     }
 }

@@ -5,7 +5,8 @@
    the rolling transcript, and the composer-slot controls.
 
    All networking goes through LV.transport, which holds the real
-   call: microphone in, audio out, over a WebSocket.
+   call: microphone in, camera or screen in, audio out, over a
+   WebSocket.
 
    The socket address, the model and the system instruction all arrive
    from the Worker as JSON. Endpoint is derived from CHAT_WORKER_URL
@@ -103,7 +104,16 @@
     orbMid: "",
     orbEdge: "",
     orbAuraColor: "",
-    orbWarned: false
+    orbWarned: false,
+    /* What the model can currently see: "off" | "camera" | "screen".
+       Mirrors the transport's own state; the UI reads this one. */
+    videoMode: "off",
+    /* A permission prompt is open. Covers getDisplayMedia, which blocks
+       until the user has picked a window — several seconds of a button
+       that would otherwise look dead. videoOpening is which one is
+       waiting, since the two can be pressed in either order. */
+    videoPending: false,
+    videoOpening: "off"
   };
 
   function el(id) {
@@ -193,6 +203,10 @@
     const bar = el("liveControls");
     const start = el("lvStartBtn");
     const mute = el("lvMuteBtn");
+    const cam = el("lvCamBtn");
+    /* Not `screen`: that is a global in a browser, and a local of the
+       same name here is one more shadow to reason about. */
+    const screenBtn = el("lvScreenBtn");
     const end = el("lvEndBtn");
     const stage = el("liveStage");
 
@@ -216,6 +230,11 @@
       start.style.display = live ? "none" : "";
     }
     if (mute) mute.disabled = !live;
+    /* Camera and screen are only offered during a call: there is no
+       socket to put frames on before then, and pressing either one would
+       have nothing to show for it. */
+    if (cam) cam.disabled = !live;
+    if (screenBtn) screenBtn.disabled = !live;
     if (end) end.disabled = !live;
 
     /* The orb is only meaningful once audio is flowing. The loading
@@ -1383,6 +1402,28 @@ function updateLiveActions(running) {
     }
   }
 
+  /* Writes everything said since the last save into the conversation.
+
+     Leaving the live screen used to drop these turns on the floor. The
+     transcript DOM keeps showing them — nothing clears it on the way out
+     — so the live screen looked complete, but nothing had been written
+     since the last End or "New Live Chat". Opening that conversation
+     afterwards, from Recents or after a reload, came back with everything
+     up to the last save and none of the newest.
+
+     Returns whether anything was written, and does nothing at all when
+     there is nothing new: merely opening a stored live chat and moving on
+     must not bump it to the top of Recents. */
+  function flushLiveTranscript() {
+    /* Last words first. stop() on the transport has already committed the
+       model's final sentence into LV.turns; commitPending picks up
+       whatever was still being spoken on screen. */
+    commitPending("user");
+    commitPending("ai");
+    if (LV.turns.length <= LV.savedCount) return false;
+    return saveTranscript();
+  }
+
   /* Rebuilds the in-memory turns from a stored live conversation and
      shows the live screen in its "ended" state, ready to resume. */
   /* Builds the on-screen state for a stored live conversation. */
@@ -1496,6 +1537,161 @@ function applyLiveConversation(conv) {
     }
   }
 
+  /* ── Camera & screen ──────────────────────────────────────────
+     Lets the model see, but only what the user hands it: both sources
+     start closed, both are released the moment the call ends, and
+     nothing is sent until the permission prompt has been accepted.
+
+     Video rides the same socket as the audio — one JPEG per second in
+     realtimeInput.video — so nothing here goes near the Worker. The
+     acquisition, the downscaling and the encode all live in the
+     transport, next to the microphone capture they mirror.
+     ────────────────────────────────────────────────────────── */
+
+  /* What the model can currently see. While a request is in flight the
+     intent is the request, not the last thing that succeeded — that is
+     what a second press has to toggle against, so it is read as one. */
+  function videoIntent() {
+    return LV.videoPending ? LV.videoOpening : LV.videoMode;
+  }
+
+  function paintVideoUi() {
+    const panel = el("liveVideoPanel");
+    const badge = el("liveVideoBadge");
+    const cam = el("lvCamBtn");
+    const screenBtn = el("lvScreenBtn");
+
+    const mode = videoIntent();
+    const on = mode !== "off";
+
+    /* The preview is bound to the <video> the frames are grabbed from,
+       so hiding it here hides exactly what the model stopped seeing. */
+    if (panel) {
+      panel.hidden = !on;
+      panel.setAttribute("data-source", on ? mode : "off");
+    }
+    if (badge) badge.textContent = mode === "screen" ? "Screen" : "Camera";
+
+    /* Same pressed/unpressed convention as Mute, including the label
+       swap, so the two read as one set of toggles. The preview leads the
+       request, so the panel appears as the prompt opens rather than after
+       the user has finished choosing a window. */
+    if (cam) cam.setAttribute("aria-pressed", mode === "camera" ? "true" : "false");
+    if (screenBtn) screenBtn.setAttribute("aria-pressed", mode === "screen" ? "true" : "false");
+
+    const camLabel = el("lvCamLabel");
+    if (camLabel) camLabel.textContent = mode === "camera" ? "Stop" : "Camera";
+    const screenLabel = el("lvScreenLabel");
+    if (screenLabel) screenLabel.textContent = mode === "screen" ? "Stop" : "Screen";
+
+    if (cam) cam.title = mode === "camera" ? "Stop sharing camera" : "Share camera";
+    if (screenBtn) {
+      screenBtn.title = mode === "screen" ? "Stop sharing screen" : "Share screen";
+    }
+
+    /* Spinner on whichever button is waiting on the prompt, so a screen
+       picker sitting open for ten seconds still looks like it is working. */
+    if (cam) cam.classList.toggle("is-loading", LV.videoPending && LV.videoOpening === "camera");
+    if (screenBtn) {
+      screenBtn.classList.toggle(
+        "is-loading",
+        LV.videoPending && LV.videoOpening === "screen"
+      );
+    }
+  }
+
+  /* Serialises the toggles. A permission prompt is open for as long as the
+     user takes to answer it, and dropping every press made during that
+     window left buttons that looked dead; queueing them means a second
+     press still does what it says it does. */
+  let videoQueue = Promise.resolve();
+
+  function setLiveVideo(mode) {
+    videoQueue = videoQueue.then(() => applyLiveVideo(mode)).catch(() => {});
+    return videoQueue;
+  }
+
+  /* One source at a time. The camera and the screen share the preview,
+     the frame pump and the single video slot on the wire, and running
+     both would only give the model two competing views of the same
+     conversation — pressing one while the other is live swaps it. */
+  async function applyLiveVideo(mode) {
+    if (!LV.transport || typeof LV.transport.setVideo !== "function") return;
+    /* Not during a call there is no socket to put frames on, and a
+       permission prompt the user cannot see the result of is worse than
+       no prompt at all. */
+    if (LV.phase !== "live") return;
+    if (mode === LV.videoMode) return;
+
+    /* Released before anything new is opened, so two capture devices are
+       never held open at once and the old camera light goes out
+       immediately rather than whenever the new one finishes starting. */
+    if (LV.videoMode !== "off") {
+      /* Two different events, two different treatments. Turning sharing
+         off is something the model has to be told about; swapping the
+         camera for the screen is not, because the incoming source says
+         what it is a moment later and two notices in a row is only
+         noise. */
+      if (mode === "off") LV.transport.setVideo("off");
+      else LV.transport.releaseVideo();
+      LV.videoMode = "off";
+      paintVideoUi();
+    }
+    if (mode === "off") return;
+
+    LV.videoPending = true;
+    LV.videoOpening = mode;
+    paintVideoUi();
+
+    /* The transport reports its own failures (a denied permission, a
+       camera busy elsewhere) through onVideoError, so all this has to do
+       is adopt whatever mode actually ended up running. The phase is
+       re-checked because the call can end while the picker is still up. */
+    const ok = await LV.transport.setVideo(mode);
+
+    LV.videoPending = false;
+    LV.videoOpening = "off";
+    LV.videoMode = ok && LV.phase === "live" ? mode : "off";
+    paintVideoUi();
+  }
+
+  function toggleLiveCamera() {
+    setLiveVideo(videoIntent() === "camera" ? "off" : "camera");
+  }
+
+  function toggleLiveScreen() {
+    setLiveVideo(videoIntent() === "screen" ? "off" : "screen");
+  }
+
+  /* Sends one high-detail frame of whatever is on screen right now, as
+     its own turn. The 1 fps feed is sized for "what am I looking at";
+     when the answer turns on a word or a number, the same view at twice
+     the pixels is what actually resolves it. */
+  function lookAtLiveVideo() {
+    if (LV.phase !== "live" || LV.videoMode === "off") return;
+    if (!LV.transport || typeof LV.transport.lookNow !== "function") return;
+    if (!LV.transport.lookNow()) {
+      /* Nothing to send: no frame decoded yet, or the socket is still
+         down. The preview is right there showing the same thing, so this
+         only ever fires on a genuine edge case. */
+      if (typeof showToast === "function") showToast("Could not send that frame.", "error");
+    }
+  }
+
+  /* Releases whatever is being shared and returns both buttons and the
+     preview to idle. Called from every path that ends a call, so the
+     camera light can never outlive the conversation that turned it on —
+     including a call the user walks away from by switching chats. */
+  function resetVideoUi() {
+    if (LV.transport && typeof LV.transport.releaseVideo === "function") {
+      LV.transport.releaseVideo();
+    }
+    LV.videoMode = "off";
+    LV.videoPending = false;
+    LV.videoOpening = "off";
+    paintVideoUi();
+  }
+
   /* ── Session lifecycle ───────────────────────────────────── */
 
   function resetLive() {
@@ -1536,6 +1732,8 @@ function applyLiveConversation(conv) {
     if (label) label.textContent = "Mute";
     const headerIcon = slash && slash.previousElementSibling;
     if (headerIcon) headerIcon.style.display = "";
+    /* A new live chat never inherits the last one's camera or screen. */
+    resetVideoUi();
   }
 
   /* Opens the live screen in its blank state. No microphone, no
@@ -1654,6 +1852,10 @@ function applyLiveConversation(conv) {
         LV.starting = false;
         setConn("error");
         setPhase("blank");
+        /* A call that died takes whatever it was showing with it — the
+           transport has already released the devices, this puts the
+           buttons and the preview back. */
+        resetVideoUi();
         if (msg && typeof showToast === "function") showToast(msg, "error");
       },
       onHandle: (h) => {
@@ -1663,6 +1865,24 @@ function applyLiveConversation(conv) {
            alongside the conversation it belongs to. */
         LV.sessionHandle = h || null;
         LV.sessionConv = h ? (typeof state !== "undefined" ? state.convId : null) : null;
+      },
+      onVideoError: (msg) => {
+        /* Acquisition failed — denied permission, no camera, a picker
+           dismissed. The transport has already released whatever it
+           opened; this puts the UI back in step and says why. */
+        LV.videoPending = false;
+        LV.videoOpening = "off";
+        LV.videoMode = "off";
+        paintVideoUi();
+        if (msg && typeof showToast === "function") showToast(msg, "error");
+      },
+      onVideoEnded: () => {
+        /* The browser's own "Stop sharing" bar, or the source being
+           revoked some other way. No toast: the preview and the button
+           both visibly change, and this is something the user just did
+           deliberately. */
+        LV.videoMode = "off";
+        paintVideoUi();
       }
     });
   }
@@ -1670,6 +1890,10 @@ function applyLiveConversation(conv) {
   function endLiveVoice() {
     if (!LV.active) return;
     if (LV.transport && typeof LV.transport.stop === "function") LV.transport.stop();
+    /* The call is over, so the camera and the screen go with it — the
+       transport has already released them, this puts the buttons and the
+       preview back. */
+    resetVideoUi();
 
     /* Commit whatever was mid-flight so the last spoken sentence
        isn't lost. */
@@ -1706,6 +1930,9 @@ function applyLiveConversation(conv) {
      downsampled to 16 kHz PCM and streamed straight to the model over
      a WebSocket; the reply comes back as 24 kHz PCM and is played out
      through a jitter buffer.
+
+     Whatever the user chooses to share — camera or screen — is sampled
+     into one JPEG a second and put on that same socket.
 
      The socket address, the model and the system instruction all come
      from the Worker, which is the only place any of them is named —
@@ -1745,6 +1972,41 @@ function applyLiveConversation(conv) {
   const PLAY_MAX_BACKLOG = 30.0;
   const MAX_RECONNECTS = 4;
 
+  /* ── Video ──────────────────────────────────────────────────
+     The model reads images, not streams. The Live API accepts one JPEG
+     per second over realtimeInput.video and never decodes a container
+     (mp4/webm), so the sampling, the downscale and the encode all happen
+     here. 1 fps is also all a conversational model can use: it is being
+     shown what you are pointing at, not watching a film, and every extra
+     frame is billed for nothing.
+
+     Sizes are in the frame's long edge, because that is the dimension
+     that decides whether small text survives the encode. A shared window
+     gets more than a camera does — screen content is mostly text, and
+     text is the one thing a conversation turns on. ─────────────────────── */
+  const VIDEO_FRAME_MS = 1000;
+  const VIDEO_LONG_EDGE = 640;
+  const VIDEO_SCREEN_LONG_EDGE = 768;
+  const VIDEO_QUALITY = 0.55;
+  /* The on-demand frame from the preview's corner button: big enough to
+     read a code editor or a spreadsheet cell, still a JPEG rather than a
+     screenshot. */
+  const VIDEO_LOOK_LONG_EDGE = 1280;
+  const VIDEO_LOOK_QUALITY = 0.8;
+  /* First frame goes out as soon as the decoder has one, rather than a
+     full second later — this is what makes the button feel instant. */
+  const VIDEO_NUDGE_MS = 600;
+  /* Only used when the mic is muted, because then no captured block ever
+     reaches the hangover timer that closes a turn on silence. */
+  const VIDEO_TURN_HOLD = 900;
+  /* What the capture itself is asked for. Deliberately more than is
+     used: the downscale above picks the frame it needs from whatever the
+     device gives, so asking for a smaller stream only makes the preview
+     soft. */
+  const VIDEO_CAPTURE_WIDTH = 1280;
+  const VIDEO_CAPTURE_HEIGHT = 720;
+  const VIDEO_CAPTURE_FPS = 5;
+
   LV.targetMicLevel = 0;
   LV.targetModelLevel = 0;
 
@@ -1773,6 +2035,20 @@ function applyLiveConversation(conv) {
        fall back to the documented minimal form, which is what lets a call
        work even when an optional field turns out to be unsupported. */
     let minimalSetup = false;
+
+    /* Video — camera or screen, never both. Survives a reconnect (the
+       stream is local and the frames simply wait for `ready` again) but
+       not the end of the call, so teardown() releases it. */
+    let videoStream = null;
+    let videoTrack = null;
+    let videoTimer = null;   // the 1 fps frame pump
+    let videoNudgeTimer = null;
+    let videoTurnTimer = null;
+    let videoMode = "off";   // "off" | "camera" | "screen"
+    let videoTurnOpen = false; // a video frame is what opened the open turn
+    let lastVideoAt = 0;       // performance.now() of the last frame sent
+    let videoCanvas = null;
+    let videoCtx = null;
 
     let userBuf = "";
     let modelBuf = "";
@@ -1826,6 +2102,45 @@ function applyLiveConversation(conv) {
        ordinary threshold that echo opened a second turn and produced
        overlapping replies. */
     const VAD_BARGE = 0.06;
+    /* Blocks at barge level required before the model is interrupted.
+
+       One more than a quiet turn needs, because interrupting the model is
+       the expensive mistake: it discards a reply that was already
+       synthesised and makes the model start again. Length alone cannot
+       carry that weight though — a cough and a shouted "stop" are both
+       loud and both short — which is why this is paired with VOICED_ZCR
+       rather than pushed any higher. */
+    const VAD_BARGE_BLOCKS = 3;
+    /* Zero-crossing rate below which a block counts as voiced.
+
+       Loud is not speech, and duration alone cannot tell the two apart: a
+       cough and a shouted "stop" are both loud and both brief, and every
+       threshold on length that rejects one accepts the other. What
+       separates them is that a voice is periodic. A cough, a sneeze, a
+       chair, a dropped mug and a keyboard are noise, and noise changes
+       sign far more often than a pitch does.
+
+       So interrupting the model requires a stretch of loud sound that
+       contains at least one voiced block. Any real word does — even one
+       opening on an unvoiced consonant like the "s" in "stop", because
+       the vowel behind it is voiced. No cough does, at any length. This
+       is the classic zero-crossing voicing measure, used as support for
+       the level test rather than as a gate of its own, which is what
+       keeps sibilants from being thrown away. */
+    const VOICED_ZCR = 0.25;
+    /* Threshold used for the first second of a call, while the room is
+       still being measured and there is no floor to compare against.
+
+       Without it the floor could never be measured at all: a room loud
+       enough to be worth measuring opens a turn on its first two blocks,
+       and a turn open means the floor is not being learned, so the very
+       room the estimate was for is the one that keeps opening turns. The
+       value is VAD_BARGE because it is the same judgement — during that
+       first second nothing counts as the user unless it is as loud as a
+       real interruption. It costs a soft first word spoken within a second
+       of connecting, which is the only thing this window can lose, and it
+       buys a call that does not transcribe its own room. */
+    const VAD_SEED_OPEN = 0.06;
     /* Held after speech stops, so a short pause between words does not chop
        one sentence into several turns. */
     const VAD_HANG_MS = 700;
@@ -1834,18 +2149,33 @@ function applyLiveConversation(conv) {
        floor — is closed after this instead of hanging on for the full
        hangover. */
     const VAD_NEAR_SILENCE_MS = 200;
+    /* How long the speakers keep counting as "the model" after their last
+       queued chunk has finished — see modelStillAudible. */
+    const MODEL_ECHO_TAIL = 0.5;
     let speakingNow = false;
     let vadHang = null;
     let noiseFloor = VAD_FLOOR_MIN;
+    /* Whether the floor has been measured yet. Until it has, the detector
+       is running against a guess — see trackNoiseFloor. */
+    let noiseSeeded = false;
+    let seedMin = Infinity;
+    let seedBlocks = 0;
     let turnPeak = 0;
     /* Set once the turn has been seen at real speech level. Until then the
        turn has to keep reaching VAD_CONFIRM to survive, which is what
        stops noise from holding one open. */
     let confirmed = false;
+    /* The open turn was opened by a video frame and the user has not said
+       anything in it yet. Nothing the microphone hears goes on the wire
+       during that window — see onBlock. */
+    let videoOnlyTurn = false;
     /* Blocks above the floor seen so far in the turn being considered.
        Reset whenever the level drops back, so a transient cannot
        accumulate credit across separate sounds. */
     let candidate = 0;
+    /* Whether the turn being considered has contained a voiced block yet.
+       Only consulted while interrupting the model — see VOICED_ZCR. */
+    let bargeVoiced = false;
 
     let lowpass = null;
     let lowpassRate = 0;
@@ -2001,6 +2331,12 @@ function applyLiveConversation(conv) {
       speakingNow = true;
       turnPeak = 0;
       confirmed = false;
+      candidate = 0;
+      bargeVoiced = false;
+      /* A turn opened by speech streams the microphone from the first
+         block, the onset included. pushVideoTurn re-arms this for the
+         frame-only turn it opens. */
+      videoOnlyTurn = false;
       api.onSpeaking && api.onSpeaking(true);
       raw({ activityStart: {} });
     }
@@ -2011,6 +2347,10 @@ function applyLiveConversation(conv) {
       turnPeak = 0;
       confirmed = false;
       candidate = 0;
+      bargeVoiced = false;
+      videoOnlyTurn = false;
+      videoTurnOpen = false;
+      if (videoTurnTimer) { clearTimeout(videoTurnTimer); videoTurnTimer = null; }
       api.onSpeaking && api.onSpeaking(false);
       raw({ activityEnd: {} });
     }
@@ -2051,6 +2391,22 @@ function applyLiveConversation(conv) {
       return rms;
     }
 
+    /* How often the signal crosses zero, per sample.
+
+       A voice is periodic, so it stays on one side of zero for a while at
+       a time; noise flips far more often. Counted on the raw block rather
+       than the filtered one, because what is being asked here is whether
+       the sound has a pitch, and the filter would flatten that difference
+       rather than reveal it. Cheap enough to run on every block. */
+    function zeroCrossRate(buf) {
+      if (!buf || buf.length < 2) return 1;
+      let z = 0;
+      for (let i = 1; i < buf.length; i++) {
+        if ((buf[i] >= 0) !== (buf[i - 1] >= 0)) z++;
+      }
+      return z / buf.length;
+    }
+
     /* Speech has to clear the room's own noise, not a fixed number, or
        every fan and keyboard in the room counts as the user talking. */
     function openThreshold() {
@@ -2069,6 +2425,10 @@ function applyLiveConversation(conv) {
       return openThreshold() * 0.9;
     }
 
+    /* The first quiet blocks of a call measure the room rather than
+       creeping up to it from a guess. */
+    const NOISE_SEED_BLOCKS = 12;
+
     /* Follows the room down quickly and up very slowly. A noise source
        that appears — a fan switching on, traffic, someone shifting in a
        chair — should raise the floor within about a second, but a passing
@@ -2076,7 +2436,54 @@ function applyLiveConversation(conv) {
        the several seconds it takes to drift back down. */
     function trackNoiseFloor(rms) {
       if (rms <= 0) return;
+      /* The first second of the room is measured rather than assumed.
+
+         Starting from VAD_FLOOR_MIN and climbing at the rate below takes
+         roughly half a minute to reach a room with a fan or traffic in
+         it — and from the very first block that fan cleared the open
+         threshold. Every one of those blocks opened a turn on ambience,
+         handed the model room tone, and it transcribed the hum as whatever
+         short sound it could find: a stray "¿qué?" or "la" on a mic
+         nobody was speaking into. One second of measuring is enough to
+         know the room; half a minute of imaginary turns is not.
+
+         The quietest block of that second is the estimate, not the
+         average: a room is at its floor in the gaps between sounds, and a
+         voice is at its loudest, so the minimum tracks the background
+         even if the user is already talking when the call opens. */
+      if (!noiseSeeded) {
+        seedBlocks++;
+        if (rms < seedMin) seedMin = rms;
+        if (seedBlocks < NOISE_SEED_BLOCKS) return;
+        noiseSeeded = true;
+        noiseFloor = Math.min(VAD_FLOOR_MAX, Math.max(VAD_FLOOR_MIN, seedMin));
+        return;
+      }
       noiseFloor += (rms - noiseFloor) * (rms < noiseFloor ? 0.35 : 0.003);
+    }
+
+    /* Whether the model is still audible out of the speakers.
+
+       `turnComplete` is not that, and treating it as if it were is a
+       direct cause of this bug. The model synthesises far faster than
+       audio can be played — one measured reply delivered 41.8s of audio
+       in 13.8s — so turnComplete arrives while the great majority of the
+       reply is still queued and the speaker has seconds of audio left to
+       get through. Dropping the high barge-in threshold there put the
+       ordinary one back while the model was plainly still talking, and
+       the speakers leaking its voice into the mic then opened a turn: the
+       model heard itself, transcribed it, and answered it.
+
+       nextPlayAt is when the last scheduled chunk finishes, so it is the
+       speaker's real state. The protection holds until the queue has
+       actually drained, plus a tail for the room to settle, and the flag
+       is released here rather than by the turn boundary. */
+    function modelStillAudible() {
+      if (!modelHeard) return false;
+      if (!ctx) return false;
+      const draining = nextPlayAt + MODEL_ECHO_TAIL > ctx.currentTime;
+      if (!draining) modelHeard = false;
+      return draining;
     }
 
     /* Decides where one turn ends and the next begins. Runs on every
@@ -2086,14 +2493,15 @@ function applyLiveConversation(conv) {
        should *start*, and whether a turn already open should *survive*.
        Judging survival on the same threshold that opened it is what let
        sustained noise hold a turn open for seconds. */
-    function trackActivity(rms) {
+    function trackActivity(rms, zcr) {
       if (muted) return;
 
       /* Only learns the room while it is genuinely quiet. Left running
          during a turn it would take the user's own voice — or the model's
          output leaking back through the speakers — for the background and
          raise the floor above the speech it is meant to detect. */
-      if (!speakingNow && !modelHeard) trackNoiseFloor(rms);
+      const modelAudible = modelStillAudible();
+      if (!speakingNow && !modelAudible) trackNoiseFloor(rms);
 
       /* While the model is talking, the speakers feed its own voice back
          into the mic. At the normal threshold that echo reads as the
@@ -2104,7 +2512,17 @@ function applyLiveConversation(conv) {
          So barge-in needs a far stronger signal than ordinary speech
          while the model has the floor. A real interruption is close and
          loud; residual echo of the model's own output is not. */
-      const open = modelHeard ? VAD_BARGE : openThreshold();
+      const open = modelAudible
+        ? VAD_BARGE
+        : noiseSeeded
+          ? openThreshold()
+          : VAD_SEED_OPEN;
+
+      /* Interrupting the model costs more than opening a turn quietly
+         does — a wrong barge-in discards a reply that was already
+         synthesised — so it is held to a longer stretch of sound. See
+         VAD_BARGE_BLOCKS. */
+      const needBlocks = modelAudible ? VAD_BARGE_BLOCKS : VAD_CONFIRM_BLOCKS;
 
       if (!speakingNow) {
         /* ── looking for the start of a turn ── */
@@ -2116,13 +2534,30 @@ function applyLiveConversation(conv) {
              speech at all, and waiting one block more at the start of a
              word costs almost nothing, since the signal is still coming
              up there anyway. */
-          if (++candidate < VAD_CONFIRM_BLOCKS) return;
+          candidate++;
+          /* Remembered across the window, so one voiced block anywhere in
+             it is enough — see VOICED_ZCR. */
+          if (zcr < VOICED_ZCR) bargeVoiced = true;
+          if (candidate < needBlocks) return;
+          /* Loud, sustained, and not a voice. Interrupting the model is
+             the one mistake here that costs something the user can hear,
+             so a cough gets through nothing that a word would not. */
+          if (modelAudible && !bargeVoiced) {
+            candidate = 0;
+            bargeVoiced = false;
+            return;
+          }
           candidate = 0;
+          bargeVoiced = false;
           beginActivity();
+          /* The blocks that led here are silence-then-voice; they go out
+             now, inside the turn they belong to. */
+          flushPreroll();
         } else {
           /* Fell back under the floor before confirming: a transient,
              abandoned without ever having been announced. */
           candidate = 0;
+          bargeVoiced = false;
         }
         return;
       }
@@ -2140,7 +2575,13 @@ function applyLiveConversation(conv) {
         /* Speech is still there — cancel the pending close and keep going. */
         if (vadHang) { clearTimeout(vadHang); vadHang = null; }
         if (rms > turnPeak) turnPeak = rms;
-        if (rms >= VAD_CONFIRM) confirmed = true;
+        if (rms >= VAD_CONFIRM) {
+          confirmed = true;
+          /* Real speech in a turn the video opened. From here the
+             microphone goes on the wire — until this point the turn was
+             carrying a picture and nothing else, deliberately. */
+          videoOnlyTurn = false;
+        }
       } else if (!vadHang) {
         candidate = 0;
         vadHang = setTimeout(function () {
@@ -2152,14 +2593,65 @@ function applyLiveConversation(conv) {
 
     /* ── capture ──────────────────────────────────────────── */
 
+    /* Blocks kept before the current one, so the start of a word survives
+       the detector needing a couple of blocks to agree it is speech.
+
+       Without it, opening a turn would begin the audio *after* the
+       decision to open it — clipping the leading consonant of every
+       utterance ("stop" arriving as "top"). It is also what makes it safe
+       to stop sending silence (see onBlock): the audio either side of the
+       boundary is still on the wire, it just arrives inside the turn
+       instead of before it. */
+    const PREROLL_BLOCKS = 3;
+    const preroll = [];
+
+    function flushPreroll() {
+      /* Only ever called straight after beginActivity(), so these land
+         inside the turn rather than before it. */
+      for (const b of preroll) send(b);
+      preroll.length = 0;
+    }
+
     function onBlock(block) {
       if (stopped || !ctx) return;
       /* Mic level is measured on the raw capture, before filtering. */
       const rms = pushLevel(block, "onMicLevel");
-      if (muted) return;
-      trackActivity(rms);
+      /* Video is paced here rather than on a timer of its own, so the feed
+         keeps up in a background tab — see pumpVideoTick. It runs before
+         the mute check on purpose: muting stops the microphone going on
+         the wire, it does not stop the model seeing. */
+      pumpVideoTick();
+      /* Converted and buffered whether or not the microphone is currently
+         on the wire, so unmuting mid-sentence does not lose the word the
+         user was already in. */
       const bytes = toSendRate(block);
-      send(bytes);
+      preroll.push(bytes);
+      if (preroll.length > PREROLL_BLOCKS) preroll.shift();
+      if (muted) return;
+      trackActivity(rms, zeroCrossRate(block));
+      /* A turn the video opened carries the frame and nothing else until
+         the user actually says something. Room tone streamed into it is
+         audio content with no speech in it, and the model transcribes it
+         — which is how turning the camera on could make a phantom word
+         appear in the transcript of a call nobody was talking in.
+         trackActivity runs first so the block that carries real speech
+         into such a turn is the block that gets through. */
+      if (videoOnlyTurn) return;
+      /* Only inside an activity, and that is the fix for phantom words.
+
+         The microphone used to stream continuously, silence included.
+         With server-side detection disabled that silence belongs to no
+         turn, so all it can do is pile up in the server's buffer waiting
+         for one — and a buffer of room tone handed to a speech
+         recogniser does not stay empty. It produces the shortest plausible
+         utterance it can, which is how "qué" and "la" appeared in the
+         transcript of a call nobody was speaking in, sometimes in the
+         language of the recogniser's prior rather than the user's.
+
+         A turn now contains the user's voice and nothing else. The audio
+         either side of the boundary is still sent — flushPreroll() puts
+         the onset inside the turn, so the leading consonant is not lost. */
+      if (speakingNow) send(bytes);
     }
 
     async function openMic() {
@@ -2209,6 +2701,413 @@ function applyLiveConversation(conv) {
       }
       source.connect(capture);
       capture.connect(sink);
+    }
+
+    /* ── video ──────────────────────────────────────────────
+       Camera or screen, sampled to one JPEG per second and put on the
+       same socket as the audio. Deliberately mirrors the capture path
+       above rather than being a second subsystem: same lifecycle, same
+       teardown, same "the socket decides what is real" rule.
+       ──────────────────────────────────────────────────────── */
+
+    /* One frame as base64 JPEG, or null if there is nothing to grab.
+
+       Downscaled before it is encoded rather than after: a 720p frame is
+       roughly 300 kB as JPEG, which is ten times the audio stream and
+       costs far more tokens than a model needs to know what is in the
+       room. Drawing into a canvas this size is also what makes the
+       encode cheap enough to run on the main thread once a second. */
+    function grabFrame(longEdge, quality) {
+      const v = el("liveVideoEl");
+      if (!v || !v.videoWidth || !v.videoHeight) return null;
+      const scale = Math.min(1, longEdge / Math.max(v.videoWidth, v.videoHeight));
+      const w = Math.max(2, Math.round(v.videoWidth * scale));
+      const h = Math.max(2, Math.round(v.videoHeight * scale));
+
+      if (!videoCanvas) videoCanvas = document.createElement("canvas");
+      /* Reused across frames and across sources: allocating a canvas per
+         second for the life of a call is a slow leak. */
+      if (videoCanvas.width !== w || videoCanvas.height !== h) {
+        videoCanvas.width = w;
+        videoCanvas.height = h;
+      }
+      const c =
+        videoCtx || (videoCtx = videoCanvas.getContext("2d", { alpha: false }));
+      if (!c) return null;
+
+      try {
+        c.drawImage(v, 0, 0, w, h);
+      } catch (e) {
+        /* A not-yet-decoded or just-detached element throws here. There
+           is nothing to send this tick and the next one tries again. */
+        return null;
+      }
+
+      try {
+        /* toDataURL rather than the async blob encoder: it is one frame a
+           second, and the await it would need would put the encode in
+           competition with the audio blocks, which cannot afford to
+           wait behind it. */
+        const url = videoCanvas.toDataURL("image/jpeg", quality);
+        const comma = url.indexOf(",");
+        return comma > 0 ? url.slice(comma + 1) : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function sendVideoFrame(data) {
+      if (!ws || ws.readyState !== WebSocket.OPEN || !ready) return false;
+      raw({ video: { mimeType: "image/jpeg", data } });
+      return true;
+    }
+
+    /* Sends whatever is on screen right now. Deliberately has no opinion
+       about whether anyone is looking: a shared screen is most useful
+       while the user is working in another window, and a browser tab that
+       is not on screen still reports frames, they just are not billed to
+       anyone. The API reads 1 fps whatever we send, so the cost of a
+       frame in the background is the cost of the next one on screen. */
+    function pumpVideo() {
+      if (stopped || videoMode === "off" || !ready) return;
+      const frame = grabFrame(
+        videoMode === "screen" ? VIDEO_SCREEN_LONG_EDGE : VIDEO_LONG_EDGE,
+        VIDEO_QUALITY
+      );
+      if (frame) {
+        sendVideoFrame(frame);
+        lastVideoAt = videoClock();
+      }
+    }
+
+    /* One frame per VIDEO_FRAME_MS, paced off a clock that is not a timer.
+
+       This is the whole reason the feed survives a hidden tab. Chrome
+       throttles setInterval in a background tab to once a minute — and
+       freezes timers outright after a few minutes of being hidden — so a
+       pump built on one simply stopped while the user was off looking at
+       the thing they were sharing. The capture callback below is driven
+       by the audio thread, which keeps running whatever the tab is doing,
+       and it already arrives a dozen times a second, so it is the natural
+       clock for this. The interval is kept underneath as a backstop for
+       a capture path that stalls; the timestamp gate means the two can
+       never double-send. */
+    function pumpVideoTick() {
+      if (stopped || videoMode === "off") return;
+      const now = videoClock();
+      if (lastVideoAt && now - lastVideoAt < VIDEO_FRAME_MS) return;
+      pumpVideo();
+    }
+
+    function videoClock() {
+      return typeof performance !== "undefined" && performance.now
+        ? performance.now()
+        : Date.now();
+    }
+
+    /* Wraps a frame in a turn of its own so the model reacts to it.
+
+       Without this, frames would never do anything visible: server-side
+       activity detection is disabled on this endpoint (see setup), so a
+       frame sent on its own sits in the realtime context until something
+       else opens a turn. While the user is talking that is exactly right
+       — their frames ride along with their sentence — but switching the
+       camera on would otherwise look like nothing had happened at all.
+
+       So the first frame after a source opens gets a turn around it, and
+       the existing hangover timer closes that turn about 700ms later.
+       That is not a fixed delay: if the user starts speaking inside the
+       window the turn simply carries on as an ordinary speech turn, so
+       their sentence can never be cut in half by the video nudge. */
+    function pushVideoTurn(frame) {
+      if (!frame || !ready) return false;
+      if (!speakingNow) {
+        beginActivity();
+        /* confirmed is what makes the hangover close this on the room's
+           own noise floor rather than holding it open on the fixed
+           confirm level — see trackActivity, which never runs at all
+           while muted. */
+        confirmed = true;
+        videoTurnOpen = true;
+        /* This turn is a picture, not a sentence. The microphone stays
+           off the wire until something in it is actually speech, so the
+           model is never handed room tone to transcribe. */
+        videoOnlyTurn = true;
+        if (muted) {
+          if (videoTurnTimer) clearTimeout(videoTurnTimer);
+          videoTurnTimer = setTimeout(endActivity, VIDEO_TURN_HOLD);
+        }
+      }
+      return sendVideoFrame(frame);
+    }
+
+    function nudgeVideoTurn() {
+      if (videoMode === "off") return;
+      pushVideoTurn(
+        grabFrame(
+          videoMode === "screen" ? VIDEO_SCREEN_LONG_EDGE : VIDEO_LONG_EDGE,
+          VIDEO_QUALITY
+        )
+      );
+    }
+
+    function videoError(msg, detail) {
+      if (detail && typeof console !== "undefined") console.warn("[live] " + msg + " — " + detail);
+      stopVideo();
+      if (api && typeof api.onVideoError === "function") api.onVideoError(msg);
+      return false;
+    }
+
+    /* Dismissing the screen picker is a normal outcome, not a failure —
+       it rejects with the same NotAllowedError as a denied permission,
+       so it gets silence rather than an error the user did not cause. */
+    function videoDeniedMessage(mode, e) {
+      const name = e && e.name;
+      if (name === "NotAllowedError" || name === "AbortError") {
+        return mode === "screen" ? null : "Camera unavailable. Allow access and try again.";
+      }
+      if (name === "NotFoundError" || name === "OverconstrainedError") {
+        return mode === "screen"
+          ? "Nothing available to share."
+          : "No camera found on this device.";
+      }
+      if (name === "NotReadableError") {
+        return mode === "screen"
+          ? "That screen could not be captured."
+          : "The camera is already in use by another app.";
+      }
+      return mode === "screen" ? "Screen sharing failed." : "Camera unavailable.";
+    }
+
+    async function openVideo(mode) {
+      const md = navigator.mediaDevices;
+      if (!md) {
+        return videoError("Camera and screen sharing need a secure (https) connection.",
+                          "navigator.mediaDevices unavailable");
+      }
+
+      let acquired;
+      try {
+        if (mode === "screen") {
+          if (typeof md.getDisplayMedia !== "function") {
+            return videoError("Screen sharing is not supported in this browser.",
+                              "getDisplayMedia missing");
+          }
+          /* audio:false on purpose. The microphone is already open for the
+             call itself, and a second capture of the same room would feed
+             the model the user's own voice back as the user's input. */
+          acquired = await md.getDisplayMedia({
+            video: { frameRate: { ideal: VIDEO_CAPTURE_FPS } },
+            audio: false
+          });
+        } else {
+          if (typeof md.getUserMedia !== "function") {
+            return videoError("Camera is not supported in this browser.", "getUserMedia missing");
+          }
+          acquired = await md.getUserMedia({
+            video: {
+              facingMode: "user",
+              /* Asked for generously and used at a trickle: the constraint
+                 is about what the sensor hands over, not about what is
+                 sent. Capturing 30fps to keep one frame a second only
+                 costs battery and heat. */
+              width: { ideal: VIDEO_CAPTURE_WIDTH },
+              height: { ideal: VIDEO_CAPTURE_HEIGHT },
+              frameRate: { ideal: VIDEO_CAPTURE_FPS }
+            },
+            audio: false
+          });
+        }
+      } catch (e) {
+        const msg = videoDeniedMessage(mode, e);
+        /* A cancelled picker is not a failure, and nothing was opened, so
+           this path only has to stop the button spinning. Every other
+           failure goes through videoError, which releases and reports. */
+        if (!msg) {
+          if (typeof console !== "undefined") {
+            console.info("[live] " + mode + " share cancelled (" + (e && e.name) + ")");
+          }
+          return false;
+        }
+        return videoError(msg, String(e));
+      }
+
+      const track = acquired && acquired.getVideoTracks && acquired.getVideoTracks()[0];
+      if (!track) {
+        return videoError(
+          mode === "screen" ? "That share produced no video." : "That camera produced no video.",
+          "no video track in the acquired stream"
+        );
+      }
+
+      /* The call can end while a permission prompt is still open, and the
+         stream is handed back after the fact. It has to be released here
+         or the camera light stays on behind a call that no longer
+         exists — teardown() already ran and never saw it. */
+      if (stopped) {
+        acquired.getTracks().forEach((t) => {
+          try { t.stop(); } catch (e) { /* already gone */ }
+        });
+        return false;
+      }
+
+      videoStream = acquired;
+      videoTrack = track;
+      videoMode = mode;
+
+      /* The browser's own "Stop sharing" bar ends the track without ever
+         telling the page first. Honour it: otherwise the model keeps
+         being fed the last frame of a screen the user has already closed,
+         describing a picture that is no longer there. */
+      track.addEventListener("ended", () => {
+        if (videoTrack !== track) return;
+        /* The browser's Stop sharing bar is the user switching it off,
+           so the model gets told exactly as it would if they had pressed
+           the button — otherwise the feed just went quiet and the model
+           carried on describing a screen that was no longer being shared. */
+        stopVideo({ announce: true });
+        if (api && typeof api.onVideoEnded === "function") api.onVideoEnded();
+      });
+
+      const v = el("liveVideoEl");
+      if (v) {
+        v.srcObject = acquired;
+        /* muted is set in the markup, so this can never feed the speakers.
+           play() is called explicitly as well as relying on `autoplay`:
+           the panel may still be display:none at this point, and a hidden
+           element is not guaranteed to start. */
+        try {
+          const p = v.play();
+          if (p && typeof p.catch === "function") p.catch(() => {});
+        } catch (e) {
+          /* Autoplay refused — the frame grabber still reads the element,
+             so the model keeps seeing; only the preview would be blank. */
+        }
+      }
+
+      videoTimer = setInterval(pumpVideoTick, VIDEO_FRAME_MS);
+      /* First frame straight away, then the nudge a beat later: the pump
+         is the steady state, this is what makes the button feel instant. */
+      pumpVideoTick();
+      videoNudgeTimer = setTimeout(() => {
+        videoNudgeTimer = null;
+        nudgeVideoTurn();
+      }, VIDEO_NUDGE_MS);
+
+      return true;
+    }
+
+    /* A top-level clientContent frame.
+
+       realtimeInput is the only envelope raw() knows how to build, and
+       clientContent is a sibling of it rather than something it can
+       carry, so this is the one message that cannot go through raw(). */
+    function sendClient(msg) {
+      if (!ws || ws.readyState !== WebSocket.OPEN || !ready) return false;
+      ws.send(JSON.stringify(msg));
+      return true;
+    }
+
+    /* Tells the model the feed has stopped.
+
+       Frames are transient — realtimeInput never reaches the
+       conversation history — so the only thing that separates "the user
+       turned the camera off" from "no frame arrived just now" is being
+       told. Left to itself the model carried on: it described the screen
+       after the camera had gone, referred back to things it had seen
+       minutes earlier as though they were still in front of it, and had
+       no reason to revise anything, because as far as the protocol was
+       concerned nothing had happened.
+
+       Sent as a real turn for three reasons: it lands in the history so
+       it stays true for the rest of the call rather than fading like the
+       frames did; `turnComplete` makes the model actually answer the
+       change, which is what a user wants from a button that stops a
+       video feed; and a clientContent frame interrupts whatever is in
+       flight, which is right — the screen was just taken away mid-sentence
+       and continuing to talk over it would be worse.
+
+       The user's own audio is not attached to it, so this produces no
+       phantom transcription in the transcript — only the model's spoken
+       acknowledgement, which is what belongs there. */
+    function announceVideoOff(mode) {
+      const what = mode === "screen" ? "screen share" : "camera";
+      /* sendClient ignores a socket that has gone, which is the only other
+         way to get here: that happens when the call is ending, and a turn
+         nobody is left to hear is not worth building. */
+      sendClient({
+        clientContent: {
+          turns: [
+            {
+              role: "user",
+              parts: [
+                {
+                  text:
+                    "[The user has just turned off their " + what + ". You can no longer see " +
+                    "anything at all. Do not describe, refer to or claim to see anything from now " +
+                    "on — including things you saw earlier in this call, which you can no longer " +
+                    "verify. If you are asked what is on screen, say plainly that the feed has been " +
+                    "turned off. Acknowledge this in one short sentence.]"
+                }
+              ]
+            }
+          ],
+          turnComplete: true
+        }
+      });
+    }
+
+    /* Stops whatever is being shared.
+
+       `announce` is the difference between the user switching a source
+       off and the app letting go of it: a swap from camera to screen must
+       not announce anything (the incoming source's own first frame says
+       what is happening, and two notices in a row is just noise), and
+       neither must the end of the call, where the socket is closing. */
+    function stopVideo(opts) {
+      const announce = !!(opts && opts.announce);
+      const was = videoMode;
+
+      if (videoTimer) { clearInterval(videoTimer); videoTimer = null; }
+      if (videoNudgeTimer) { clearTimeout(videoNudgeTimer); videoNudgeTimer = null; }
+      if (videoTurnTimer) { clearTimeout(videoTurnTimer); videoTurnTimer = null; }
+
+      const v = el("liveVideoEl");
+      if (v) {
+        try { v.pause(); } catch (e) { /* never started */ }
+        v.srcObject = null;
+      }
+      if (videoStream) {
+        videoStream.getTracks().forEach((t) => {
+          try { t.stop(); } catch (e) { /* already gone */ }
+        });
+      }
+      videoStream = null;
+      videoTrack = null;
+      videoMode = "off";
+      /* Cleared so the next source sends its first frame the moment it
+         opens rather than waiting out the remains of the last one's
+         pacing window. */
+      lastVideoAt = 0;
+
+      /* An activity opened by a video nudge is still open on the wire.
+         Only close it if the video is what opened it: closing a turn the
+         user is halfway through speaking would cut their sentence short
+         at the exact moment they pressed the button. */
+      if (videoTurnOpen) {
+        videoTurnOpen = false;
+        endActivity();
+      }
+
+      /* After the turn is closed, so the notice is its own turn and does
+         not land inside a half-finished one. An activity the user opened
+         by speaking is closed too: they have just said, by pressing the
+         button, that something else is what they want the model to know,
+         and leaving a turn hanging open around a turn-based frame is how
+         the two get spliced together. */
+      if (speakingNow) endActivity();
+
+      if (announce && was !== "off") announceVideoOff(was);
     }
 
     /* ── session ──────────────────────────────────────────── */
@@ -2407,6 +3306,12 @@ function applyLiveConversation(conv) {
           ready = true;
           attempts = 0;
           api.onState("live");
+          /* A source that was switched on while the socket was still
+             coming up never got its opening turn, because a frame with no
+             open turn goes nowhere. This is also what restores it after a
+             reconnect, where the stream is still running but the frames
+             sent during the outage were dropped by the socket check. */
+          if (videoMode !== "off") nudgeVideoTurn();
           return;
         }
 
@@ -2500,7 +3405,13 @@ function applyLiveConversation(conv) {
              cut the reply off after the first few seconds. Finishing the
              turn only ends the model's turn bookkeeping; the buffer is
              left to play out. */
-          modelHeard = false;
+          /* modelHeard is deliberately NOT cleared here, for the same
+             reason the buffer is not: the model is still audible for
+             however much of the reply is left to play. Clearing it put the
+             ordinary open threshold back while its own voice was still
+             coming out of the speakers, and the echo opened a turn that
+             the model transcribed as the user. modelStillAudible() drops
+             the flag once the queue has genuinely drained. */
           api.onSpeaking(false);
           if (vadHang) { clearTimeout(vadHang); vadHang = null; }
           speakingNow = false;
@@ -2577,8 +3488,13 @@ function applyLiveConversation(conv) {
       if (sink) { try { sink.disconnect(); } catch (e) {} sink = null; }
       if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; }
       if (ctx) { ctx.close().catch(() => {}); ctx = null; }
+      /* Camera and screen go with everything else. Without this a call
+         that ended with the screen shared would leave the capture running
+         behind a screen the user has already left. */
+      stopVideo();
       levelSum = 0;
       levelSamples = 0;
+      preroll.length = 0;
     }
 
     return {
@@ -2592,6 +3508,13 @@ function applyLiveConversation(conv) {
         /* Fresh call, fresh turn state — otherwise a previous hangover
            would suppress the first activityStart. */
         speakingNow = false;
+        /* The room is measured again from scratch: a new call is a new
+           microphone, a new room and a new background. */
+        noiseSeeded = false;
+        noiseFloor = VAD_FLOOR_MIN;
+        seedMin = Infinity;
+        seedBlocks = 0;
+        videoOnlyTurn = false;
         if (vadHang) { clearTimeout(vadHang); vadHang = null; }
         api.onState("connecting");
         try {
@@ -2608,6 +3531,47 @@ function applyLiveConversation(conv) {
         /* Keep the capture running so unmuting is instant; just stop
            putting the microphone on the wire. */
         if (muted && ctx) resetPlayback();
+      },
+      /* Starts or stops what the model can see. Resolves to whether a
+         source is actually running afterwards, so the caller can paint the
+         buttons from one place. Never rejects: failures are reported
+         through onVideoError, which already knows how to say them. */
+      async setVideo(mode) {
+        if (stopped || !mode || mode === "off") {
+          /* The user switching sharing off is the one case the model has
+             to be told about — see announceVideoOff. */
+          stopVideo({ announce: true });
+          return false;
+        }
+        /* Swapping sources releases the old one first, for the same
+           reason the socket is only ever opened once: two live captures
+           is never the state this code is written to handle. No notice
+           here — the incoming source announces itself a moment later. */
+        if (videoMode !== "off") stopVideo();
+        if (stopped) return false;
+        return openVideo(mode);
+      },
+      /* Lets go of the source without telling the model anything.
+
+         For the paths where the app is releasing a call that is already
+         over rather than the user switching sharing off mid-call: the
+         socket is closing either way, and a notice sent on the way out
+         would be a turn the model answers into a dead call. */
+      releaseVideo() {
+        stopVideo();
+      },
+      lookNow() {
+        if (stopped || videoMode === "off" || !ready) return false;
+        return pushVideoTurn(grabFrame(VIDEO_LOOK_LONG_EDGE, VIDEO_LOOK_QUALITY));
+      },
+      /* One ordinary frame, with no turn opened around it, so the model
+         updates without being interrupted mid-sentence. Used when the tab
+         comes back: the feed is paced, and the first thing anyone does on
+         return is ask about the page they just came back to. */
+      pump() {
+        if (stopped || videoMode === "off" || !ready) return false;
+        pumpVideo();
+        return true;
       },
       stop() {
         stopped = true;
@@ -2628,12 +3592,20 @@ function applyLiveConversation(conv) {
   window.startLiveSession = startLiveSession;
   window.endLiveVoice = endLiveVoice;
   window.toggleLiveMute = toggleLiveMute;
+  window.toggleLiveCamera = toggleLiveCamera;
+  window.toggleLiveScreen = toggleLiveScreen;
+  window.lookAtLiveVideo = lookAtLiveVideo;
 
   /* ── Lifecycle hooks ─────────────────────────────────────── */
 
   window.addEventListener("beforeunload", function () {
     if (LV.active && LV.transport && typeof LV.transport.stop === "function") {
       LV.transport.stop();
+      /* Navigating away ends the call as surely as End does. The write is
+         synchronous (localStorage first, IndexedDB behind it), so this
+         survives the unload — without it, reloading the page mid-call lost
+         everything said since the last save. */
+      flushLiveTranscript();
     }
   });
 
@@ -2655,6 +3627,16 @@ function applyLiveConversation(conv) {
   function leaveLive() {
     if (!LV.active) return;
     if (LV.transport && typeof LV.transport.stop === "function") LV.transport.stop();
+    /* Walking away is as final as pressing End as far as storage is
+       concerned. Everything said during the call belongs to the
+       conversation, not just to the screen that is about to be hidden —
+       and stop() above has just committed the model's last sentence, so
+       this is the first point at which the whole transcript exists. */
+    flushLiveTranscript();
+    /* Walking away from a live chat — New Chat, another conversation —
+       has to take the shared camera and screen with it. stop() releases
+       the devices; this clears what the user can see of them. */
+    resetVideoUi();
     LV.starting = false;
     stopTimer();
     exitLiveView();
@@ -2760,6 +3742,12 @@ function applyLiveConversation(conv) {
            first-entry fade-in restart, which reads as a transform
            animation instead of the blur swap text chat uses. */
         if (!LV.active) leaveLive();
+        /* Live chat to live chat, so leaveLive() is not in the path at
+           all — and applyLiveConversation() resets the in-memory turns,
+           taking the outgoing one's unsaved tail with it. It has to be
+           written here or switching straight between two live chats lost
+           whatever had been said since the last save. */
+        else flushLiveTranscript();
         switchToLiveConversation(conv);
         return;
       }
@@ -2857,6 +3845,26 @@ function applyLiveConversation(conv) {
   }, 700);
   window.addEventListener("pagehide", function () {
     clearInterval(guard);
+    /* pagehide rather than beforeunload is the one mobile Safari fires
+       when a tab is closed or a page is replaced, and on iOS the
+       back-swipe goes through here without beforeunload at all. Same
+       synchronous write, same reason. */
+    if (LV.active) flushLiveTranscript();
+  });
+
+  /* Coming back to the tab: send one frame straight away.
+
+     The feed keeps running while the tab is hidden — that is the whole
+     point of sharing a screen you are working in — but the user has very
+     likely changed what is on screen in the meantime, and the model is
+     still holding the last frame from before. Refreshing it here means
+     the first thing said on return is answered against the page in front
+     of them rather than the one they left. */
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) return;
+    if (LV.videoMode === "off") return;
+    if (!LV.transport || typeof LV.transport.pump !== "function") return;
+    LV.transport.pump();
   });
 
   window.__LV = LV;
