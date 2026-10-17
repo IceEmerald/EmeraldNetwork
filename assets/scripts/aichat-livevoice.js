@@ -1711,16 +1711,6 @@ function applyLiveConversation(conv) {
     if (panel) {
       panel.hidden = !on;
       panel.setAttribute("data-source", on ? mode : "off");
-      /* Which lens, for the one thing that keys off it: the front camera
-         needs its preview flipped back (see the rule in aichat.css), and
-         nothing else does. Anything that is not the camera is stamped
-         "off" rather than left over, so switching to a shared screen can
-         never inherit a stale mirror. */
-      const facing = mode === "camera" && LV.transport &&
-        typeof LV.transport.cameraFacing === "function"
-        ? LV.transport.cameraFacing()
-        : "off";
-      panel.setAttribute("data-facing", facing || "off");
     }
     if (badge) badge.textContent = mode === "screen" ? "Screen" : "Camera";
 
