@@ -9786,18 +9786,23 @@ body.light-mode .live-ctl-btn.live-ctl-video[aria-pressed="true"]:hover {
     aspect-ratio: 16 / 9;
     object-fit: cover;
     background: rgb(0, 0, 0);
-    /* Mirrored, because that is what people expect of their own camera.
-       The frames sent to the model are deliberately NOT mirrored: the
-       grabber reads the video's intrinsic pixels and CSS transforms do
-       not touch those, so text held up to the camera reaches the model
-       the right way round. */
-    transform: scaleX(-1);
+    /* Not mirrored, so the preview is the picture the model is looking
+       at: what is on the left of the preview is on the left of the frame
+       that gets sent. Anything held up to read — a code editor, a
+       spreadsheet cell, a page of notes — lines up with the answer instead
+       of having to be read backwards.
+
+       The usual argument for mirroring a selfie preview does not hold
+       here anyway: a good number of phones hand over an already-mirrored
+       front stream, so a scaleX(-1) on top of that flips the one preview
+       that was meant to look natural. Unmirrored is the same on every
+       device, and matches what the grabber sends either way — CSS
+       transforms do not touch the pixels drawImage reads. */
 }
 
 /* A shared window or tab is rarely 16:9, and cropping the edges off a
    screen is exactly how the model misses the thing being asked about. */
 .live-video-panel[data-source="screen"] .live-video-el {
-    transform: none;
     object-fit: contain;
     background: rgb(10, 10, 10);
 }
