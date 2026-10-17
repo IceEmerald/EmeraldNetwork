@@ -113,7 +113,13 @@
        that would otherwise look dead. videoOpening is which one is
        waiting, since the two can be pressed in either order. */
     videoPending: false,
-    videoOpening: "off"
+    videoOpening: "off",
+    /* A front/back swap is under way. Deliberately not videoPending: the
+       shine that flag starts repaints the button label's clipped gradient
+       on every frame, which is invisible during a permission prompt but
+       lands straight on top of a playing camera preview and judders it.
+       This one only greys the controls out. */
+    videoFlipping: false
   };
 
   function el(id) {
@@ -1737,7 +1743,7 @@ function applyLiveConversation(conv) {
         typeof LV.transport.canFlipCamera === "function" &&
         LV.transport.canFlipCamera();
       flip.hidden = !canFlip;
-      flip.disabled = !canFlip || LV.videoPending;
+      flip.disabled = !canFlip || LV.videoPending || LV.videoFlipping;
       const back = LV.transport && typeof LV.transport.cameraFacing === "function" &&
         LV.transport.cameraFacing() === "environment";
       const verb = back ? "Switch to front camera" : "Switch to back camera";
@@ -1745,6 +1751,13 @@ function applyLiveConversation(conv) {
       flip.setAttribute("aria-label", verb);
       const flipLabel = el("lvFlipLabel");
       if (flipLabel) flipLabel.textContent = "Flip";
+    }
+    /* Announced rather than shown: a swap in progress is a few hundred ms
+       of greying out, and it must not start the label's per-frame
+       gradient repaint while the preview is on screen. */
+    if (cam) {
+      if (LV.videoFlipping) cam.setAttribute("aria-busy", "true");
+      else cam.removeAttribute("aria-busy");
     }
 
     /* The shine on whichever button is waiting on the prompt, so a screen
@@ -1834,17 +1847,15 @@ function applyLiveConversation(conv) {
     if (!LV.transport || typeof LV.transport.flipCamera !== "function") return;
     if (LV.phase !== "live" || LV.videoMode !== "camera" || LV.videoPending) return;
 
-    /* Reported as an opening camera rather than a silent swap, so the
-       camera button carries the same shine it does while a permission
-       prompt is up — switching lenses can take just as long. */
-    LV.videoPending = true;
-    LV.videoOpening = "camera";
+    /* Not videoPending — see the note on the flag. The controls grey out
+       and the swap waits for the new lens to actually deliver a frame, so
+       nothing expensive competes with the preview while it changes. */
+    LV.videoFlipping = true;
     paintVideoUi();
 
     const res = await LV.transport.flipCamera();
 
-    LV.videoPending = false;
-    LV.videoOpening = "off";
+    LV.videoFlipping = false;
     /* On failure the transport has already released the source and
        onVideoError has reset videoMode and explained why; only the success
        case has anything to adopt here. */
@@ -1863,6 +1874,7 @@ function applyLiveConversation(conv) {
     LV.videoMode = "off";
     LV.videoPending = false;
     LV.videoOpening = "off";
+    LV.videoFlipping = false;
     paintVideoUi();
   }
 
@@ -2164,6 +2176,10 @@ function applyLiveConversation(conv) {
   const VIDEO_QUALITY = 0.55;
   /* First frame goes out as soon as the decoder has one, rather than a
      full second later — this is what makes the button feel instant. */
+  /* How long a lens swap is given to start delivering frames before the
+       flip is reported as done anyway. */
+  const VIDEO_FLIP_WAIT_MS = 1200;
+
   const VIDEO_NUDGE_MS = 600;
   /* Only used when the mic is muted, because then no captured block ever
      reaches the hangover timer that closes a turn on silence. */
@@ -3261,15 +3277,47 @@ function applyLiveConversation(conv) {
       });
     }
 
+    /* Resolves once the preview element actually has a picture.
+
+       A camera that has just been asked for its other lens routinely takes
+       a few hundred milliseconds to hand over its first frame, and a swap
+       that reports itself finished over a frozen element is what reads as
+       a stutter. Capped, so a lens that never produces anything cannot
+       leave the control bar stuck greyed out. */
+    function waitForPreviewFrames(ms) {
+      const v = el("liveVideoEl");
+      if (!v || v.readyState >= 2) return Promise.resolve(true);
+      return new Promise((resolve) => {
+        let settled = false;
+        const finish = (ok) => {
+          if (settled) return;
+          settled = true;
+          v.removeEventListener("loadeddata", onData);
+          clearTimeout(timer);
+          resolve(ok);
+        };
+        const onData = () => finish(true);
+        const timer = setTimeout(() => finish(false), ms);
+        v.addEventListener("loadeddata", onData);
+      });
+    }
+
     /* Stops whatever is being shared.
 
        `announce` is the difference between the user switching a source
        off and the app letting go of it: a swap from camera to screen must
        not announce anything (the incoming source's own first frame says
        what is happening, and two notices in a row is just noise), and
-       neither must the end of the call, where the socket is closing. */
+       neither must the end of the call, where the socket is closing.
+
+       `keepPreview` is for a lens swap. Pausing the element and throwing
+       away its stream tears the media pipeline down and builds it again
+       from scratch, and on a phone that rebuild is what shows up as the
+       picture stuttering. The new stream is assigned over the old one
+       instead, so the element never has nothing to play. */
     function stopVideo(opts) {
       const announce = !!(opts && opts.announce);
+      const keepPreview = !!(opts && opts.keepPreview);
       const was = videoMode;
 
       if (videoTimer) { clearInterval(videoTimer); videoTimer = null; }
@@ -3277,7 +3325,7 @@ function applyLiveConversation(conv) {
       if (videoTurnTimer) { clearTimeout(videoTurnTimer); videoTurnTimer = null; }
 
       const v = el("liveVideoEl");
-      if (v) {
+      if (v && !keepPreview) {
         try { v.pause(); } catch (e) { /* never started */ }
         v.srcObject = null;
       }
@@ -3810,7 +3858,9 @@ function applyLiveConversation(conv) {
             if (got === next) {
               videoFacing = next;
               /* The preview is bound to this element, so the picture
-                 changes with the sensor — nothing to reassign. */
+                 changes with the sensor — nothing to reassign, only time
+                 to wait for the new lens to produce a frame. */
+              await waitForPreviewFrames(VIDEO_FLIP_WAIT_MS);
               return { ok: true, facing: next };
             }
           } catch (e) {
@@ -3821,10 +3871,12 @@ function applyLiveConversation(conv) {
         /* Released silently: the source never stopped, the model is just
            being pointed somewhere else, so it must not be told the camera
            went away — that notice would land in the conversation as the
-           user changing their mind about sharing. */
-        stopVideo();
+           user changing their mind about sharing. The preview element is
+           kept, and the new stream goes straight onto it. */
+        stopVideo({ keepPreview: true });
         if (stopped) return { ok: false, facing: videoFacing };
         const ok = await openVideo("camera", { facing: next });
+        if (ok) await waitForPreviewFrames(VIDEO_FLIP_WAIT_MS);
         return { ok: !!ok, facing: videoFacing };
       },
       /* One ordinary frame, with no turn opened around it, so the model
