@@ -195,7 +195,7 @@
 
   /* ── Control bar phase ────────────────────────────────────────
      blank   → "Start live chat" is the only enabled control
-     loading → Start spins, everything else inert
+     loading → Start shines, everything else inert
      live    → Start hidden, Mute + End available
      ────────────────────────────────────────────────────────── */
 
@@ -244,6 +244,11 @@
        jump as it started its flight. */
     if (stage) stage.hidden = !live;
 
+    /* The shine is driven from whichever controls ended up waiting, so it
+       has to be re-synced after the flags above rather than from the
+       branch that happens to be running. */
+    syncLiveShines();
+
     /* Greet the way a new normal chat does, so the start screen feels
        like the same app rather than a separate product. */
     if (phase === "blank") renderLiveBlankCopy();
@@ -254,6 +259,137 @@
        morph's own timers always tidy up. */
     if (loading) runStartMorph();
     else if (phase !== "live") cancelStartMorph();
+  }
+
+  /* ── Loading shine ──────────────────────────────────────────────
+     One band of light crosses a waiting control, over its icon and its
+     label together. Sweeping the two separately looks wrong: the flare
+     would cross the 18px icon in a fraction of the time it takes to cross
+     the word beside it, so the control reads as two things happening at
+     once rather than one light passing over it.
+
+     They are painted by different things — an SVG paint server for the
+     icon, a background clipped to the text for the label — and CSS cannot
+     give two elements one shared coordinate space, so this walks the band
+     across the button and writes each half's offset from the same number.
+     Everything is re-measured every frame, which is what keeps the band
+     honest when a label changes width or the bar reflows.
+
+     The band is a fixed slice of the button rather than a fraction of it:
+     half the button wide would be so broad that the icon and the label
+     would never be lit at the same time — the flare would finish crossing
+     the icon while the word was still dark, which is the two-separate-
+     effects look all over again. Roughly a third keeps it narrow enough to
+     read as light travelling rather than a wash, and the floor stops it
+     from shrinking below the icon it has to light.
+
+     It enters from wholly off the left edge and leaves wholly past the
+     right, so both ends of a cycle are the same unlit state and the loop
+     has no seam — and it holds over the middle for a beat. ───────────── */
+
+  var SHINE_MS = 1200;
+  var SHINE_HOLD_IN = 0.44;  // fraction of the cycle spent reaching the middle
+  var SHINE_HOLD_OUT = 0.66; // …and spent starting to leave it
+
+  var shineRaf = 0;
+  var shineFrom = 0;
+  var shineGradient = null;
+
+  function easeInOut(p) {
+    return p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+  }
+
+  /* 0 → 1 across one cycle, with the middle fifth of it held at 0.5. The
+     easing stands in for cubic-bezier(0.4, 0, 0.2, 1) on the two moving
+     legs; the held leg needs none because the value is not changing. */
+  function shineTravel(p) {
+    if (p < SHINE_HOLD_IN) return 0.5 * easeInOut(p / SHINE_HOLD_IN);
+    if (p < SHINE_HOLD_OUT) return 0.5;
+    return 0.5 + 0.5 * easeInOut((p - SHINE_HOLD_OUT) / (1 - SHINE_HOLD_OUT));
+  }
+
+  /* Where the middle of the band sits, in px from the button's left edge.
+     The travel overshoots the button by a whole band at each end so the
+     band is entirely clear of it, which is what makes the first and last
+     frame of a cycle identical; the hold lands it on the button's middle
+     either way, since 0.5 * (width + 2 * band) - band = width / 2. */
+  function shineCore(progress, width, band) {
+    return -band + shineTravel(progress) * (width + 2 * band);
+  }
+
+  function paintShine(btn, progress) {
+    var box = btn.getBoundingClientRect();
+    if (!box.width) return;
+    var band = Math.max(34, box.width * 0.3);
+    var core = shineCore(progress, box.width, band);
+
+    var icon = btn.querySelector(".live-ctl-icon");
+    if (icon) {
+      var ir = icon.getBoundingClientRect();
+      /* The icon is 24 user units wide whatever px size it is drawn at, so
+         the band is converted into that space and slid by however far the
+         core sits from the icon's left edge. A hidden or zero-width icon
+         is skipped rather than dividing by it. */
+      if (ir.width) {
+        var span = (band / ir.width) * 24;
+        var at = ((core - (ir.left - box.left)) / ir.width) * 24;
+        shineGradient.setAttribute("x2", span);
+        shineGradient.setAttribute("gradientTransform", "translate(" + (at - span / 2) + " 0)");
+      }
+    }
+
+    var label = btn.querySelector(".live-ctl-label");
+    if (label) {
+      var lr = label.getBoundingClientRect();
+      /* Hidden on phones, where the whole row is icon-only. */
+      if (lr.width) {
+        /* The band image is two bands wide, so its hot stop — the middle of
+           the gradient — lands one band-width in from wherever the image
+           is placed. The second value positions the flat under-layer,
+           which never moves. */
+        label.style.backgroundSize = band * 2 + "px 100%, 100% 100%";
+        label.style.backgroundPosition = core - (lr.left - box.left) - band + "px 0px, 0px 0px";
+      }
+    }
+  }
+
+  /* Starts the loop if anything is waiting, stops it if nothing is. Safe to
+     call after every .is-loading toggle: it re-reads the set each time, so
+     a caller cannot leave the bar sweeping when it should be still. */
+  function syncLiveShines() {
+    var waiting = document.querySelectorAll(".live-ctl-btn.is-loading");
+    if (!waiting.length || prefersReducedMotion() || typeof requestAnimationFrame !== "function") {
+      if (shineRaf) {
+        cancelAnimationFrame(shineRaf);
+        shineRaf = 0;
+      }
+      return;
+    }
+    if (shineRaf) return;
+
+    /* Taken once and reused. A button that stops waiting partway through a
+       pass keeps getting painted for the rest of that cycle, which is
+       invisible: without .is-loading neither rule that reads these values
+       applies, so they are simply inert until the class comes back. */
+    var buttons = [];
+    for (var i = 0; i < waiting.length; i++) buttons.push(waiting[i]);
+    if (!shineGradient) shineGradient = document.getElementById("liveSweepGrad");
+    if (!shineGradient) return;
+
+    shineFrom = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+    var step = function (now) {
+      var progress = (((now - shineFrom) % SHINE_MS) + SHINE_MS) % SHINE_MS / SHINE_MS;
+      for (var j = 0; j < buttons.length; j++) {
+        try {
+          paintShine(buttons[j], progress);
+        } catch (err) {
+          /* A control mid-teardown must not take the bar's only animation
+             loop down with it. */
+        }
+      }
+      shineRaf = requestAnimationFrame(step);
+    };
+    shineRaf = requestAnimationFrame(step);
   }
 
   /* ── Start-of-call morph ────────────────────────────────────────
@@ -1589,7 +1725,29 @@ function applyLiveConversation(conv) {
       screenBtn.title = mode === "screen" ? "Stop sharing screen" : "Share screen";
     }
 
-    /* Spinner on whichever button is waiting on the prompt, so a screen
+    /* The flip control only exists while the camera does, and only where
+       there is a second lens: on a laptop with one webcam a button that
+       cannot do anything is worse than no button. Left in place but
+       disabled while a swap is running, so the row does not reflow
+       around the thing being pressed. */
+    const flip = el("lvFlipBtn");
+    if (flip) {
+      const onCamera = mode === "camera";
+      const canFlip = onCamera && LV.transport &&
+        typeof LV.transport.canFlipCamera === "function" &&
+        LV.transport.canFlipCamera();
+      flip.hidden = !canFlip;
+      flip.disabled = !canFlip || LV.videoPending;
+      const back = LV.transport && typeof LV.transport.cameraFacing === "function" &&
+        LV.transport.cameraFacing() === "environment";
+      const verb = back ? "Switch to front camera" : "Switch to back camera";
+      flip.title = verb;
+      flip.setAttribute("aria-label", verb);
+      const flipLabel = el("lvFlipLabel");
+      if (flipLabel) flipLabel.textContent = "Flip";
+    }
+
+    /* The shine on whichever button is waiting on the prompt, so a screen
        picker sitting open for ten seconds still looks like it is working. */
     if (cam) cam.classList.toggle("is-loading", LV.videoPending && LV.videoOpening === "camera");
     if (screenBtn) {
@@ -1598,6 +1756,7 @@ function applyLiveConversation(conv) {
         LV.videoPending && LV.videoOpening === "screen"
       );
     }
+    syncLiveShines();
   }
 
   /* Serialises the toggles. A permission prompt is open for as long as the
@@ -1663,19 +1822,34 @@ function applyLiveConversation(conv) {
     setLiveVideo(videoIntent() === "screen" ? "off" : "screen");
   }
 
-  /* Sends one high-detail frame of whatever is on screen right now, as
-     its own turn. The 1 fps feed is sized for "what am I looking at";
-     when the answer turns on a word or a number, the same view at twice
-     the pixels is what actually resolves it. */
-  function lookAtLiveVideo() {
-    if (LV.phase !== "live" || LV.videoMode === "off") return;
-    if (!LV.transport || typeof LV.transport.lookNow !== "function") return;
-    if (!LV.transport.lookNow()) {
-      /* Nothing to send: no frame decoded yet, or the socket is still
-         down. The preview is right there showing the same thing, so this
-         only ever fires on a genuine edge case. */
-      if (typeof showToast === "function") showToast("Could not send that frame.", "error");
-    }
+  /* Front lens to back lens and back again, on the same queue as the
+     source toggles: it is a re-acquisition like any other, and two of them
+     racing is how a call ends up with two cameras open. */
+  function flipLiveCamera() {
+    videoQueue = videoQueue.then(() => applyLiveFlip()).catch(() => {});
+    return videoQueue;
+  }
+
+  async function applyLiveFlip() {
+    if (!LV.transport || typeof LV.transport.flipCamera !== "function") return;
+    if (LV.phase !== "live" || LV.videoMode !== "camera" || LV.videoPending) return;
+
+    /* Reported as an opening camera rather than a silent swap, so the
+       camera button carries the same shine it does while a permission
+       prompt is up — switching lenses can take just as long. */
+    LV.videoPending = true;
+    LV.videoOpening = "camera";
+    paintVideoUi();
+
+    const res = await LV.transport.flipCamera();
+
+    LV.videoPending = false;
+    LV.videoOpening = "off";
+    /* On failure the transport has already released the source and
+       onVideoError has reset videoMode and explained why; only the success
+       case has anything to adopt here. */
+    paintVideoUi();
+    return res;
   }
 
   /* Releases whatever is being shared and returns both buttons and the
@@ -1988,11 +2162,6 @@ function applyLiveConversation(conv) {
   const VIDEO_LONG_EDGE = 640;
   const VIDEO_SCREEN_LONG_EDGE = 768;
   const VIDEO_QUALITY = 0.55;
-  /* The on-demand frame from the preview's corner button: big enough to
-     read a code editor or a spreadsheet cell, still a JPEG rather than a
-     screenshot. */
-  const VIDEO_LOOK_LONG_EDGE = 1280;
-  const VIDEO_LOOK_QUALITY = 0.8;
   /* First frame goes out as soon as the decoder has one, rather than a
      full second later — this is what makes the button feel instant. */
   const VIDEO_NUDGE_MS = 600;
@@ -2045,6 +2214,16 @@ function applyLiveConversation(conv) {
     let videoNudgeTimer = null;
     let videoTurnTimer = null;
     let videoMode = "off";   // "off" | "camera" | "screen"
+    /* Which camera is live. Starts on the front one and is remembered for
+       the rest of the session, so a user who flipped to the back lens
+       does not get the front one again the next time they switch the
+       camera on. */
+    let videoFacing = "user";
+    /* How many cameras the device admits to. Only consulted when the open
+       track does not say which way it faces, which is the case on
+       laptops — a phone always reports a facingMode, a single-lens
+       desktop webcam never does. */
+    let videoInputCount = 0;
     let videoTurnOpen = false; // a video frame is what opened the open turn
     let lastVideoAt = 0;       // performance.now() of the last frame sent
     let videoCanvas = null;
@@ -2879,7 +3058,8 @@ function applyLiveConversation(conv) {
       return mode === "screen" ? "Screen sharing failed." : "Camera unavailable.";
     }
 
-    async function openVideo(mode) {
+    async function openVideo(mode, opts) {
+      const facing = (opts && opts.facing) || "user";
       const md = navigator.mediaDevices;
       if (!md) {
         return videoError("Camera and screen sharing need a secure (https) connection.",
@@ -2906,7 +3086,7 @@ function applyLiveConversation(conv) {
           }
           acquired = await md.getUserMedia({
             video: {
-              facingMode: "user",
+              facingMode: facing,
               /* Asked for generously and used at a trickle: the constraint
                  is about what the sensor hands over, not about what is
                  sent. Capturing 30fps to keep one frame a second only
@@ -2921,7 +3101,7 @@ function applyLiveConversation(conv) {
       } catch (e) {
         const msg = videoDeniedMessage(mode, e);
         /* A cancelled picker is not a failure, and nothing was opened, so
-           this path only has to stop the button spinning. Every other
+           this path only has to stop the button waiting. Every other
            failure goes through videoError, which releases and reports. */
         if (!msg) {
           if (typeof console !== "undefined") {
@@ -2954,6 +3134,30 @@ function applyLiveConversation(conv) {
       videoStream = acquired;
       videoTrack = track;
       videoMode = mode;
+      /* Whatever the device actually gave us, not what was asked for: a
+         phone with one camera asked for the back one hands over the front
+         one, and the flip button has to keep saying what will happen when
+         it is pressed. */
+      try {
+        const s = track.getSettings ? track.getSettings() : null;
+        if (s && s.facingMode) videoFacing = s.facingMode;
+        else videoFacing = facing;
+      } catch (e) {
+        videoFacing = facing;
+      }
+      /* Permission has been granted by this point, so this resolves with
+         real device labels rather than opaque ones — but it is only a
+         hint for the single-lens case, and a failure here must never stop
+         the camera opening. */
+      if (mode === "camera" && typeof md.enumerateDevices === "function") {
+        try {
+          md.enumerateDevices().then((list) => {
+            videoInputCount = list.filter((d) => d.kind === "videoinput").length;
+          }).catch(() => {});
+        } catch (e) {
+          /* Older shape, no problem — the facingMode check carries it. */
+        }
+      }
 
       /* The browser's own "Stop sharing" bar ends the track without ever
          telling the page first. Honour it: otherwise the model keeps
@@ -3560,9 +3764,68 @@ function applyLiveConversation(conv) {
       releaseVideo() {
         stopVideo();
       },
-      lookNow() {
-        if (stopped || videoMode === "off" || !ready) return false;
-        return pushVideoTurn(grabFrame(VIDEO_LOOK_LONG_EDGE, VIDEO_LOOK_QUALITY));
+      /* Which lens is live, for the button's own label. */
+      cameraFacing() {
+        return videoFacing;
+      },
+      /* Whether there is a second camera worth switching to.
+
+         Synchronous on purpose: the buttons are painted synchronously
+         from applyLiveVideo, and a control that appears a frame later than
+         the camera it belongs to reads as a glitch. Two cheap signals, in
+         the order they are trustworthy: a phone reports the way its
+         camera faces, and any device with more than one video input has
+         something to switch to even when it does not. */
+      canFlipCamera() {
+        if (videoMode !== "camera" || !videoTrack) return false;
+        try {
+          if (videoTrack.getSettings && videoTrack.getSettings().facingMode) return true;
+        } catch (e) {
+          /* getSettings missing or throwing: fall through to the count. */
+        }
+        return videoInputCount > 1;
+      },
+      /* Points the model at the other camera.
+
+         Tries to move the existing track first, which on Android switches
+         the sensor in place — no black frame, no second permission
+         prompt. Safari refuses the constraint, and some webcams accept it
+         and quietly hand back the same lens, so both are checked: the
+         settings are read back and anything short of the lens we asked
+         for falls through to a fresh capture.
+
+         Resolves to { ok, facing } rather than rejecting, so the caller
+         paints from one place; a real failure still goes out through
+         onVideoError the same way the first open does. */
+      async flipCamera() {
+        if (stopped || videoMode !== "camera") {
+          return { ok: false, facing: videoFacing };
+        }
+        const next = videoFacing === "environment" ? "user" : "environment";
+
+        if (videoTrack && typeof videoTrack.applyConstraints === "function") {
+          try {
+            await videoTrack.applyConstraints({ facingMode: next });
+            const got = videoTrack.getSettings ? videoTrack.getSettings().facingMode : next;
+            if (got === next) {
+              videoFacing = next;
+              /* The preview is bound to this element, so the picture
+                 changes with the sensor — nothing to reassign. */
+              return { ok: true, facing: next };
+            }
+          } catch (e) {
+            /* OverconstrainedError here is the expected path on Safari. */
+          }
+        }
+
+        /* Released silently: the source never stopped, the model is just
+           being pointed somewhere else, so it must not be told the camera
+           went away — that notice would land in the conversation as the
+           user changing their mind about sharing. */
+        stopVideo();
+        if (stopped) return { ok: false, facing: videoFacing };
+        const ok = await openVideo("camera", { facing: next });
+        return { ok: !!ok, facing: videoFacing };
       },
       /* One ordinary frame, with no turn opened around it, so the model
          updates without being interrupted mid-sentence. Used when the tab
@@ -3594,7 +3857,7 @@ function applyLiveConversation(conv) {
   window.toggleLiveMute = toggleLiveMute;
   window.toggleLiveCamera = toggleLiveCamera;
   window.toggleLiveScreen = toggleLiveScreen;
-  window.lookAtLiveVideo = lookAtLiveVideo;
+  window.flipLiveCamera = flipLiveCamera;
 
   /* ── Lifecycle hooks ─────────────────────────────────────── */
 

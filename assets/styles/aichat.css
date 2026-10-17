@@ -8772,6 +8772,16 @@ body.light-mode .ai-card-body pre {
    .sidebar-btn:hover svg (rgb(80,200,120)) and --rs-bar-active. */
 .chat-main.live-active {
     --lv-accent: rgb(80, 200, 120);
+    /* The three stops of the loading shine, in the order the light meets
+       them: dim at either edge, body either side of the flare, flare at
+       the centre. Declared here rather than on the <stop> elements
+       because the icon (which reads them off #liveSweepGrad) and the
+       button's label (which reads them into a CSS gradient) have to be
+       lit from the same three colours or the bar would shimmer in two
+       different hues at the same moment. */
+    --lv-sweep-dim: rgb(46, 118, 82);
+    --lv-sweep-body: rgb(80, 200, 120);
+    --lv-sweep-hot: rgb(255, 255, 255);
     /* How solid the live orb's body is filled. It is the one part of the
        orb that cannot be theme-agnostic: a translucent creature all but
        disappears against white, so light mode needs it far more opaque.
@@ -9527,6 +9537,15 @@ body.light-mode .live-view.is-switching {
     box-shadow: none;
 }
 
+/* The #liveSweepGrad definition in aichat.html. Taken out of flow so its
+   zero size cannot open a gap in the composer shell it is parked in. */
+.live-sweep-defs {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+}
+
 .live-ctl-btn {
     display: flex;
     align-items: center;
@@ -9558,23 +9577,108 @@ body.light-mode .live-view.is-switching {
     transform: none;
 }
 
+/* .live-ctl-btn declares `display: flex`, which is author CSS and so
+   outranks the UA rule behind the hidden attribute — without this the
+   flip button would sit in the bar while hidden. Same reason as
+   .live-video-panel[hidden]. */
+.live-ctl-btn[hidden] {
+    display: none;
+}
+
 .live-ctl-icon {
     flex-shrink: 0;
 }
 
-/* Spinner shown on Start while the connection is being established. The
+/* Waiting signal on Start while the connection is being established. The
    camera and screen buttons use the same signal while they wait on a
    permission prompt — getDisplayMedia in particular blocks for as long as
-   the user takes to pick a window. */
+   the user takes to pick a window.
+
+   A shine rather than a spinner: the icon is repainted with #liveSweepGrad
+   instead of turning, and that gradient slides across the viewBox from off
+   the left edge to off the right one, holding still over the middle for a
+   beat before it repeats. Swapping the paint server is all this rule has
+   to do — the motion belongs to the gradient, which is why it is SMIL. */
 .live-ctl-start.is-loading .live-ctl-icon,
 .live-ctl-btn.is-loading .live-ctl-icon {
-    animation: lvSpin 0.9s linear infinite;
+    stroke: url(#liveSweepGrad);
 }
 
-@keyframes lvSpin {
-    to {
-        transform: rotate(360deg);
-    }
+/* The label is swept with the same gradient as the icon, but it cannot
+   simply repeat the icon's keyframe: the two would run on their own
+   boxes, so the flare would cross the 18px icon in a fraction of the time
+   it takes to cross the word beside it and the control would read as two
+   things happening at once. Instead aichat-livevoice.js drives
+   background-position here from the same band position it feeds to the
+   icon's gradient, which is why there is no animation shorthand on this
+   rule — only the paint.
+
+   Two layers, both clipped to the glyphs. The top one is the band, which
+   the script slides along; the flat one underneath is what the text looks
+   like before the band arrives and after it has left. It has to be a
+   second layer rather than the gradient's own dim ends, because the band
+   is narrower than the word: with the gradient alone and no-repeat, the
+   part of the label the band had already passed would have nothing behind
+   it and the glyphs would simply vanish mid-sweep. With repeat instead,
+   the next copy of the gradient arrives and lights a second flare across
+   the text — the seam the band used to have at the top of every cycle.
+
+   background-clip is the only way to paint a gradient through text, and
+   the label has to give up its own colour for both layers — hence
+   color/-webkit-text-fill-color transparent, or the glyph sits on top as
+   a flat silhouette. */
+.live-ctl-btn.is-loading .live-ctl-label {
+    background-image: linear-gradient(
+        90deg,
+        var(--lv-sweep-dim) 0%,
+        var(--lv-sweep-body) 22%,
+        var(--lv-sweep-hot) 50%,
+        var(--lv-sweep-body) 78%,
+        var(--lv-sweep-dim) 100%
+    ),
+    linear-gradient(var(--lv-sweep-dim), var(--lv-sweep-dim));
+    background-repeat: no-repeat, no-repeat;
+    background-size: 200% 100%, 100% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+}
+
+/* Stop colours for #liveSweepGrad. They are thin wrappers over the
+   --lv-sweep-* tokens, which is where the per-theme values live: the same
+   three colours have to reach the label through a CSS gradient, and a
+   variable is the one thing both a <stop> and a background-image can
+   read. */
+.lv-sweep-dim {
+    stop-color: var(--lv-sweep-dim);
+}
+
+.lv-sweep-body {
+    stop-color: var(--lv-sweep-body);
+}
+
+.lv-sweep-hot {
+    stop-color: var(--lv-sweep-hot);
+}
+
+/* The shine in light mode. A descendant selector, not the compound
+   `body.light-mode.chat-main.live-active` used for the rest of the live
+   tokens below: .chat-main is the <main>, so nothing is ever body and
+   chat-main at once. Written this way these three actually apply, which
+   matters here — the shine is the only part of the live bar whose colours
+   cannot be spelled out as a literal in a `body.light-mode .live-ctl-btn`
+   rule, because it is read by a <stop> and by a background-image inside a
+   label the button rule never sees.
+
+   The ramp inverts rather than merely dims. These buttons sit on a near-
+   white surface, where a white flare would disappear at exactly the moment
+   the animation is trying to say something, so here "brighter" has to mean
+   "darker": pale and unlit, deepening to the darkest emerald. */
+body.light-mode .chat-main.live-active {
+    --lv-sweep-dim: rgb(178, 186, 180);
+    --lv-sweep-body: rgb(35, 154, 77);
+    --lv-sweep-hot: rgb(13, 88, 46);
 }
 
 /* While loading, mute/end stay visible but inert so the bar doesn't
@@ -9649,7 +9753,11 @@ body.light-mode .live-ctl-btn.live-ctl-video[aria-pressed="true"]:hover {
     position: absolute;
     right: 20px;
     bottom: 14px;
-    width: 216px;
+    /* Big enough to actually read small text the model might have
+       misheard — the panel exists to show what the model is looking at,
+       and at 216px on a laptop that was a postage stamp. It is still a
+       picture-in-picture in the corner, not a second video surface. */
+    width: 300px;
     border-radius: 14px;
     overflow: hidden;
     /* --lv-* resolves in both themes because the panel sits inside
@@ -9719,35 +9827,6 @@ body.light-mode .live-ctl-btn.live-ctl-video[aria-pressed="true"]:hover {
     border-radius: 50%;
     background: rgb(239, 68, 68);
     animation: lvVideoPulse 1.6s ease-in-out infinite;
-}
-
-.live-video-look {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    width: 26px;
-    height: 26px;
-    padding: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    background: rgba(0, 0, 0, 0.55);
-    color: rgb(255, 255, 255);
-    font-family: inherit;
-    cursor: pointer;
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    transition: background 0.2s, transform 0.15s;
-}
-
-.live-video-look:hover {
-    background: rgba(0, 0, 0, 0.75);
-}
-
-.live-video-look:active {
-    transform: scale(0.92);
 }
 
 @keyframes lvVideoIn {
@@ -9929,22 +10008,24 @@ body.light-mode .live-ctl-start:hover {
         font-size: 0.8rem;
     }
 
-    /* Mute / End go icon-only, but Start keeps its label — it is the
-       primary action and has no other affordance. */
+    /* Every button goes icon-only on phones, including Start — the row is
+       already the widest element in the composer shell and the labels are
+       what push it past the edge. The title attribute carries the wording
+       on tap/hover, same as the rest. */
     .live-ctl-btn .live-ctl-label {
         display: none;
     }
 
-    .live-ctl-start .live-ctl-label {
-        display: inline;
-    }
-
-    /* Five buttons and a preview now share a phone-width bar with the
+    /* Six buttons and a preview now share a phone-width bar with the
        orb. The panel shrinks rather than disappearing — seeing what the
        model is looking at is the entire point of the feature — and the
-       chrome inside it shrinks with it so the picture stays readable. */
+       chrome inside it shrinks with it so the picture stays readable.
+       Just under half the width of the narrowest phone, which is as much
+       as the panel can take before it starts covering the orb it shares
+       the view with. */
     .live-video-panel {
-        width: 132px;
+        width: 46vw;
+        max-width: 190px;
         right: 12px;
         bottom: 10px;
         border-radius: 10px;
@@ -9955,13 +10036,6 @@ body.light-mode .live-ctl-start:hover {
         bottom: 6px;
         padding: 2px 6px;
         font-size: 0.62rem;
-    }
-
-    .live-video-look {
-        top: 6px;
-        right: 6px;
-        width: 22px;
-        height: 22px;
     }
 }
 
@@ -9985,6 +10059,22 @@ body.light-mode .live-ctl-start:hover {
     }
 
     .live-video-dot {
+        animation: none;
+    }
+
+    /* The shine is dropped whole rather than slowed: the icons and the
+       labels keep the colours they would have anyway, and only the
+       references to the gradient go away. The SMIL keeps ticking inside
+       an unreferenced gradient, which paints nothing. */
+    .live-ctl-start.is-loading .live-ctl-icon,
+    .live-ctl-btn.is-loading .live-ctl-icon {
+        stroke: currentColor;
+    }
+
+    .live-ctl-btn.is-loading .live-ctl-label {
+        background-image: none;
+        color: currentColor;
+        -webkit-text-fill-color: currentColor;
         animation: none;
     }
 }
