@@ -9786,18 +9786,29 @@ body.light-mode .live-ctl-btn.live-ctl-video[aria-pressed="true"]:hover {
     aspect-ratio: 16 / 9;
     object-fit: cover;
     background: rgb(0, 0, 0);
-    /* Not mirrored, so the preview is the picture the model is looking
-       at: what is on the left of the preview is on the left of the frame
-       that gets sent. Anything held up to read — a code editor, a
-       spreadsheet cell, a page of notes — lines up with the answer instead
-       of having to be read backwards.
+}
 
-       The usual argument for mirroring a selfie preview does not hold
-       here anyway: a good number of phones hand over an already-mirrored
-       front stream, so a scaleX(-1) on top of that flips the one preview
-       that was meant to look natural. Unmirrored is the same on every
-       device, and matches what the grabber sends either way — CSS
-       transforms do not touch the pixels drawImage reads. */
+/* Mirrored, and only on the front lens.
+
+   Phones are inconsistent here in a way that has nothing to do with this
+   app: many of them hand over the front camera already mirrored, because
+   that is what a selfie view is supposed to look like. Mirroring those
+   again flips the one view that was meant to read as a reflection, and
+   leaves a preview that looks like it was shot from behind a sheet of
+   glass. So the front lens gets the counter-flip and nothing else does —
+   the back camera and a PC webcam both arrive the right way round and are
+   left alone, as is a shared screen, which is never a mirror at all.
+
+   Keyed off the lens rather than the source, since both lenses arrive
+   through data-source="camera" and only one of them wants this. Only the
+   literal "user" is treated as the front lens: devices that report
+   "left" or "right" are not the selfie camera and are not flipped.
+
+   The frames sent to the model are unaffected either way — the grabber
+   reads the video's intrinsic pixels and CSS transforms do not touch
+   those — so this is purely about what the user is looking at. */
+.live-video-panel[data-facing="user"] .live-video-el {
+    transform: scaleX(-1);
 }
 
 /* A shared window or tab is rarely 16:9, and cropping the edges off a
