@@ -1747,6 +1747,47 @@ body {
   flex: 0 0 auto;
 }
 
+/* ===================== Imported PDF pages =====================
+   "Keep the page exactly as it is": the page's artwork — images, tables,
+   rules, colours — is the background with only the glyph pixels removed, and
+   every line is rebuilt as live text on top at the position, font, size,
+   weight and colour the PDF gave it. The break between pages is hidden: it
+   only mirrors the PDF's own pagination. */
+.page-content .emdocs-pdf-page {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.page-content img.emdocs-pdf-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  margin: 0;
+  border-radius: 0;
+  max-width: none;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+.page-content .emdocs-pdf-run {
+  position: absolute;
+  display: block;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  cursor: text;
+}
+
+.page-content .emdocs-page-break--pdf {
+  display: none;
+}
+
 /* ===================== Link hover preview ===================== */
 .link-preview {
   position: fixed;

@@ -2705,7 +2705,7 @@ function startAutosaveSnapshots() {
     }).catch(function () {});
   }
 
-  /* ---------------- Import (.txt / .md / .html / .docx / .doc / .odt / .rtf) ---------------- */
+  /* ---------------- Import (.txt / .md / .html / .docx / .doc / .odt / .rtf / .pdf) ---------------- */
   function importTextToHtml(text, isMarkdown) {
     var lines = String(text).replace(/\r\n?/g, "\n").split("\n");
     var out = [];
@@ -3363,6 +3363,432 @@ function startAutosaveSnapshots() {
     return importTextToHtml(plain || "", false);
   }
 
+  /* ---------------- PDF import ----------------
+     One Docs page per PDF page, at the PDF's own size and orientation — what
+     you see is what you get. The page is rendered as drawn (images, tables,
+     rules, colours all kept), only the glyph pixels are taken out of it, and
+     every line is rebuilt on top as live text in its original font, size,
+     weight, style and colour, sitting on the baseline the PDF gave it. Click
+     any word and it is editable; type and the text flows on from there. */
+  var PDF_WORKER_SRC = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  var PDF_MAX_RENDER_PX = 2000;  // ~170 DPI cap when cutting artwork out
+  var PDF_EXACT_MARGIN = 8;      // hairline, so the page image fills the sheet
+  // Colour-emoji fonts, best first. Every platform has one of these.
+  var PDF_EMOJI_FONT = "'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji'," +
+    "'Twemoji Mozilla','Segoe UI Symbol','Arial Unicode MS',sans-serif";
+  // Characters drawn from an emoji/symbol face, or the pictographic blocks
+  // themselves (pictographs, dingbats, arrows, variation selectors).
+  var PDF_EMOJI_RE = /[\u2190-\u21FF\u2300-\u23FF\u2460-\u24FF\u25A0-\u27BF\u2934-\u2935\u2B00-\u2BFF\u3030\u303D\u3297\u3299\uFE0F\u{1F000}-\u{1FAFF}]/u;
+  function pdfIsEmojiRun(run) {
+    if (!run) return false;
+    if (/emoji|symbol|marlett|wingding|webding/i.test(run.family || "")) return true;
+    try { return PDF_EMOJI_RE.test(run.text || ""); } catch (e) { return false; }
+  }
+
+  var PDF_BREAK_HTML = '<div class="emdocs-page-break emdocs-page-break--pdf" contenteditable="false"></div>';
+
+  function pdfRound(n) { return Math.round(n * 100) / 100; }
+  function pdfClamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+  function pdfRgb(c) { return "rgb(" + (c[0] | 0) + "," + (c[1] | 0) + "," + (c[2] | 0) + ")"; }
+
+  /* --- Fonts: PDF PostScript name → a CSS stack that looks the same ------- */
+  function pdfCssFontFamily(rawName, generic) {
+    // NB: test mono first and exclude "sans-serif" — it contains "serif".
+    var g = String(generic || "").toLowerCase();
+    var gen = /mono/.test(g) ? "monospace" : (/serif/.test(g) && !/sans/.test(g) ? "serif" : "sans-serif");
+    var name = String(rawName || "")
+      .replace(/^[A-Z]{6}\+/, "")                                   // subset prefix
+      .replace(/[-_,]\s*(BoldMT|ItalicMT|BoldItalicMT|Bold|Italic|Oblique|Black|Light|Medium|Semibold|Semilight|Demi|ExtraLight|Regular|Roman|Thin|Heavy|Ultra|PS|MT|MS|Book|Text|Display)\s*$/i, "")
+      .replace(/\s+(Bold|Italic|Oblique|Black|Light|Medium|Semibold|Demi|Regular|Roman|Thin|Heavy|Ultra)\s*$/i, "")
+      .replace(/["',()]/g, "")
+      .trim();
+    // pdf.js's own generic names (g_d0_f3) carry no family information.
+    if (!name || /^g_?d\d+_f\d+$/i.test(name) || /^pdfjs/i.test(name)) return gen;
+    // Emoji and symbol faces live in their own fonts. Naming one of those
+    // directly renders as an empty box on most systems, so offer the real
+    // colour-emoji families instead.
+    if (/emoji|emojimono|symbol|marlett|wingding|webding|opensymbol|applecolor/i.test(name)) {
+      return PDF_EMOJI_FONT;
+    }
+    // Single-quoted: these strings end up inside a double-quoted style
+    // attribute, so a double quote here would close the attribute early.
+    if (/courier|mono|consol/i.test(name)) return "'" + name + "', 'Courier New', monospace";
+    if (/times|georgia|garamond|cambria|bookman|palatino|baskerville|didot|minion|century/i.test(name)) {
+      return "'" + name + "', 'Times New Roman', Times, serif";
+    }
+    if (/helvetica|arial/i.test(name)) return "'" + name + "', Helvetica, Arial, sans-serif";
+    return "'" + name + "', " + gen;
+  }
+
+  /* --- Text extraction: positions, fonts and colours ---------------------- */
+  function pdfNormText(s) { return String(s == null ? "" : s).replace(/\s+/g, ""); }
+
+  // Building the operator list is the expensive half of reading a page; the
+  // text pass and the artwork pass both need it.
+  function pdfPageOps(page) {
+    if (!page.__emuOps) page.__emuOps = page.getOperatorList();
+    return page.__emuOps;
+  }
+
+  // The string a showText / showSpacedText operator draws. A plain Tj hands
+  // back a flat list of glyphs; TJ hands back a mix of glyph runs and spacing.
+  function pdfShowTextString(args) {
+    try {
+      var items = args && args[0];
+      if (typeof items === "string") return items;
+      if (!Array.isArray(items)) return "";
+      if (items.length && typeof items[0] === "object" && items[0] &&
+          ("unicode" in items[0] || "fontChar" in items[0])) return pdfGlyphsToText(items);
+      var out = "";
+      for (var i = 0; i < items.length; i++) {
+        var it = items[i];
+        if (typeof it === "string") { out += it; continue; }
+        if (Array.isArray(it)) { out += pdfGlyphsToText(it); continue; }
+        if (it && typeof it.str === "string") { out += it.str; continue; }
+        if (it && Array.isArray(it.glyphs)) { out += pdfGlyphsToText(it.glyphs); continue; }
+      }
+      return out;
+    } catch (e) { return ""; }
+  }
+  function pdfGlyphsToText(glyphs) {
+    var out = "";
+    for (var i = 0; i < glyphs.length; i++) {
+      var g = glyphs[i];
+      if (!g) continue;
+      if (typeof g === "string") { out += g; continue; }
+      var ch = (typeof g.unicode === "string" && g.unicode) ? g.unicode
+        : (typeof g.fontChar === "string" ? g.fontChar : "");
+      if (!ch && g.isSpace) ch = " ";
+      out += ch;
+    }
+    return out;
+  }
+
+  async function pdfPageRuns(page, viewport) {
+    var lib = window.pdfjsLib;
+    var tc = await page.getTextContent();
+    // The operator list also resolves the page's font objects, which is what
+    // carries the real family name plus the bold/italic flags.
+    var ops = await pdfPageOps(page);
+    var styles = tc.styles || {};
+
+    // Exact fill colour per text-showing operator, in stream order.
+    var entries = [];
+    var curFont = null, curColor = [0, 0, 0];
+    for (var i = 0; i < ops.fnArray.length; i++) {
+      var fn = ops.fnArray[i], args = ops.argsArray[i];
+      if (fn === lib.OPS.setFont) curFont = args[0];
+      else if (fn === lib.OPS.setFillRGBColor) curColor = [args[0] || 0, args[1] || 0, args[2] || 0];
+      else if (fn === lib.OPS.setFillGray) curColor = [args[0] || 0, args[0] || 0, args[0] || 0];
+      else if (fn === lib.OPS.showText || fn === lib.OPS.showSpacedText) {
+        entries.push({ font: curFont, color: curColor, norm: pdfNormText(pdfShowTextString(args)), off: 0 });
+      }
+    }
+
+    // One showText can arrive as several text items (and several showTexts as
+    // one item), so the two sequences are matched by their text rather than by
+    // index — matching by index silently drifts the fonts and colours.
+    var entryIdx = 0, lastEntry = null;
+    function entryFor(text) {
+      var norm = pdfNormText(text);
+      while (entryIdx < entries.length) {
+        var e = entries[entryIdx];
+        var rest = e.norm.slice(e.off);
+        if (!rest) { entryIdx++; continue; }
+        if (rest.indexOf(norm) === 0) { e.off += norm.length; lastEntry = e; return e; }
+        if (norm.indexOf(rest) === 0) { entryIdx++; lastEntry = e; return e; }
+        entryIdx++;                                  // out of sync: resynchronise
+      }
+      return lastEntry;                              // colours/fonts persist anyway
+    }
+
+    var fontCache = {};
+    async function fontInfo(fontName) {
+      var info = fontCache[fontName];
+      if (!info) info = fontCache[fontName] = { bold: false, italic: false, family: "" };
+      var fo = null;
+      try { fo = await page.commonObjs.get(fontName); } catch (e) { fo = null; }
+      if (fo) {
+        info.bold = info.bold || !!fo.bold;
+        info.italic = info.italic || !!fo.italic;
+        info.family = fo.loadedName || fo.name || info.family;
+      }
+      // PostScript names spell out the weight/slant even when the flags are
+      // missing (subset fonts often report neither).
+      var src = String((fo && fo.name) || info.family || "").replace(/^[A-Z]{6}\+/, "");
+      if (/bold|black|heavy|semibold|demibold|extrabold|[_-]bd$/i.test(src)) info.bold = true;
+      if (/italic|oblique/i.test(src)) info.italic = true;
+      return info;
+    }
+
+    var items = [];
+    for (var k = 0; k < tc.items.length; k++) {
+      var it = tc.items[k];
+      if (!it || typeof it.str !== "string") continue;
+      if (!it.str.replace(/\s/g, "")) continue;      // positioning spacer, no glyphs
+      var style = entryFor(it.str);
+
+      var tx = lib.Util.transform(viewport.transform, it.transform);
+      var size = Math.hypot(tx[2], tx[3]);
+      if (!(size > 0.4)) continue;
+      var st = styles[it.fontName] || {};
+      var ascent = typeof st.ascent === "number" ? st.ascent : 0.8;
+      var fontName = (style && style.font) || it.fontName;
+      var finfo = await fontInfo(fontName);
+      items.push({
+        text: it.str,
+        x: tx[4],
+        baseline: tx[5],
+        top: tx[5] - size * ascent,
+        bottom: tx[5] + size * Math.abs(typeof st.descent === "number" ? st.descent : 0.2),
+        width: (typeof it.width === "number" && it.width > 0) ? it.width : it.str.length * size * 0.5,
+        size: size,
+        fontKey: fontName || "",
+        family: pdfCssFontFamily(finfo.family, st.fontFamily),
+        bold: !!finfo.bold,
+        italic: !!finfo.italic,
+        color: (style && style.color) ? style.color : [0, 0, 0],
+      });
+    }
+    return pdfMergeRuns(items);
+  }
+
+  // Neighbouring glyph runs on the same line with the same styling become one
+  // run, so a sentence is one text box rather than fifty. A wide gap means a
+  // column or a table cell — those stay apart.
+  function pdfMergeRuns(items) {
+    var runs = [];
+    // Bucket the baseline to half a pixel so everything on one line sorts
+    // together — and so the result is a real total order (an "almost equal"
+    // comparator is not, and leaves the runs unordered).
+    items.sort(function (a, b) {
+      return (Math.round(a.baseline * 2) - Math.round(b.baseline * 2)) || (a.x - b.x);
+    });
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      var last = runs[runs.length - 1];
+      var sameLine = last && Math.abs(last.baseline - it.baseline) <= Math.max(last.size, it.size) * 0.4;
+      var sameStyle = last && last.fontKey === it.fontKey && last.bold === it.bold &&
+        last.italic === it.italic && last.family === it.family &&
+        last.color[0] === it.color[0] && last.color[1] === it.color[1] && last.color[2] === it.color[2];
+      if (sameLine && sameStyle) {
+        var gap = it.x - (last.x + last.width);
+        if (gap > Math.max(last.size, it.size) * 0.6) {
+          runs.push({
+            text: it.text, x: it.x, baseline: it.baseline, top: it.top, bottom: it.bottom,
+            width: it.width, size: it.size, fontKey: it.fontKey,
+            family: it.family, bold: it.bold, italic: it.italic, color: it.color,
+          });
+          continue;
+        }
+        if (gap > it.size * 0.14 && !/\s$/.test(last.text) && !/^\s/.test(it.text)) last.text += " ";
+        last.text += it.text;
+        last.width = Math.max(last.width, it.x + it.width - last.x);
+        last.size = Math.max(last.size, it.size);
+        last.bottom = Math.max(last.bottom, it.bottom);
+      } else {
+        runs.push({
+          text: it.text, x: it.x, baseline: it.baseline, top: it.top, bottom: it.bottom,
+          width: it.width, size: it.size, fontKey: it.fontKey,
+          family: it.family, bold: it.bold, italic: it.italic, color: it.color,
+        });
+      }
+    }
+    var out = [];
+    for (var r = 0; r < runs.length; r++) {
+      runs[r].text = runs[r].text.replace(/\s+$/, "");
+      if (runs[r].text) out.push(runs[r]);
+    }
+    return out;
+  }
+
+  /* --- Text removal from the rendered page (used before artwork is cut) --- */
+  // Most common colour in a ring just outside a box: the local background the
+  // text is drawn on (paper, a table band, a coloured callout…).
+  function pdfRingColor(d, W, H, x0, y0, x1, y1) {
+    var counts = {}, bestIdx = -1, bestN = 0, total = 0;
+    function add(x, y) {
+      if (x < 0 || y < 0 || x >= W || y >= H) return;
+      var i = (y * W + x) * 4;
+      var key = ((d[i] >> 4) << 8) | ((d[i + 1] >> 4) << 4) | (d[i + 2] >> 4);
+      counts[key] = (counts[key] || 0) + 1;
+      total++;
+      if (counts[key] > bestN) { bestN = counts[key]; bestIdx = i; }
+    }
+    for (var t = 0; t < 2; t++) {
+      for (var x = x0 - 2 + t; x <= x1 + 1 - t; x++) { add(x, y0 - 2 + t); add(x, y1 + 1 - t); }
+      for (var y = y0 - 1 + t; y <= y1 - t; y++) { add(x0 - 2 + t, y); add(x1 + 1 - t, y); }
+    }
+    if (bestIdx < 0 || total < 6) return null;
+    return [d[bestIdx], d[bestIdx + 1], d[bestIdx + 2]];
+  }
+
+  // Replaces the glyph pixels of every run with the background colour, leaving
+  // anything that is not text-coloured (rules, borders, fills, photos) alone.
+  function pdfEraseText(canvas, runs, pxPerUnit, keepEmoji) {
+    var ctx;
+    try { ctx = canvas.getContext("2d", { willReadFrequently: true }); } catch (e) { return; }
+    if (!ctx) return;
+    var img;
+    try { img = ctx.getImageData(0, 0, canvas.width, canvas.height); }
+    catch (e) { return; }                       // tainted canvas: leave the text in
+    var d = img.data, W = canvas.width, H = canvas.height;
+    for (var r = 0; r < runs.length; r++) {
+      var run = runs[r];
+      // An emoji is a colour bitmap, not text-coloured pixels. Removing it
+      // would punch a hole in the page, so it stays in the picture and the live
+      // text on top of it is what the reader edits.
+      if (keepEmoji && pdfIsEmojiRun(run)) continue;
+      var x0 = pdfClamp(Math.floor(run.x * pxPerUnit) - 1, 0, W);
+      var y0 = pdfClamp(Math.floor(run.top * pxPerUnit) - 1, 0, H);
+      var x1 = pdfClamp(Math.ceil((run.x + run.width) * pxPerUnit) + 1, 0, W);
+      var y1 = pdfClamp(Math.ceil(run.bottom * pxPerUnit) + 1, 0, H);
+      if (x1 - x0 < 2 || y1 - y0 < 2) continue;
+      var bg = pdfRingColor(d, W, H, x0, y0, x1, y1);
+      if (!bg) continue;
+      var dr = run.color[0] - bg[0], dg = run.color[1] - bg[1], db = run.color[2] - bg[2];
+      var dLen2 = dr * dr + dg * dg + db * db;
+      if (dLen2 < 900) continue;                // text and background too alike
+      var dLen = Math.sqrt(dLen2);
+      for (var y = y0; y < y1; y++) {
+        for (var x = x0; x < x1; x++) {
+          var i = (y * W + x) * 4;
+          var vr = d[i] - bg[0], vg = d[i + 1] - bg[1], vb = d[i + 2] - bg[2];
+          // Unmix: a pixel belongs to the text when it lies on the line between
+          // the background and the text colour — which also catches the
+          // anti-aliased edges a "closest colour" test leaves as a ghost.
+          var t = (vr * dr + vg * dg + vb * db) / dLen2;
+          if (t <= 0.04 || t >= 1.3) continue;
+          var pr = vr - t * dr, pg = vg - t * dg, pb = vb - t * db;
+          if (pr * pr + pg * pg + pb * pb > dLen2 * 0.16) continue;
+          d[i] = bg[0]; d[i + 1] = bg[1]; d[i + 2] = bg[2];
+        }
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+
+  async function pdfRenderPage(page, scale) {
+    var viewport = page.getViewport({ scale: scale });
+    var canvas = document.createElement("canvas");
+    canvas.width = Math.ceil(viewport.width);
+    canvas.height = Math.ceil(viewport.height);
+    var ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+    return canvas;
+  }
+
+  /* Exact mode puts each line back on the baseline the PDF gave it. The line
+     box keeps a comfortable height for clicking; the top offset carries the
+     precision, because the DOM font's own ascent decides where a baseline sits
+     inside a line box. */
+  var pdfMetricsCache = {};
+  function pdfDomFontMetrics(family, bold, italic) {
+    var key = family + "|" + (bold ? 700 : 400) + "|" + (italic ? "i" : "n");
+    if (pdfMetricsCache[key]) return pdfMetricsCache[key];
+    var m = { a: 0.9, d: 0.22 };
+    try {
+      var ctx = document.createElement("canvas").getContext("2d");
+      ctx.font = (italic ? "italic " : "") + (bold ? "700 " : "400 ") + "100px " + family;
+      var t = ctx.measureText("Hxg");
+      if (t.fontBoundingBoxAscent > 0 && t.fontBoundingBoxDescent >= 0) {
+        m = { a: t.fontBoundingBoxAscent / 100, d: t.fontBoundingBoxDescent / 100 };
+      }
+    } catch (e) {}
+    pdfMetricsCache[key] = m;
+    return m;
+  }
+  function pdfTextBox(size, family, bold, italic) {
+    var m = pdfDomFontMetrics(family, bold, italic);
+    var lineHeight = Math.max(size * 0.95, size * (1.2 - m.a + m.d));
+    return {
+      lineHeight: lineHeight,
+      baseline: (lineHeight - (m.a + m.d) * size) / 2 + m.a * size,
+    };
+  }
+
+  // The page artwork with the words taken out, and every line rebuilt as live
+  // text at its original position, font, size, weight and colour. This is the
+  // WYSIWYG import: it looks exactly like the PDF and every word is editable.
+  function pdfExactPageHtml(dataUrl, runs, fit, boxW, boxH) {
+    var html = '<div class="emdocs-pdf-page" style="height:' + pdfRound(boxH) + 'px">' +
+      '<img class="emdocs-pdf-bg" src="' + dataUrl + '" alt="" style="width:' + pdfRound(boxW) + 'px;height:' + pdfRound(boxH) + 'px" />';
+    for (var i = 0; i < runs.length; i++) {
+      var r = runs[i];
+      var size = r.size * fit;
+      var box = pdfTextBox(size, r.family, r.bold, r.italic);
+      html += '<span class="emdocs-pdf-run" style="left:' + pdfRound(r.x * fit) + "px;top:" +
+        pdfRound(r.baseline * fit - box.baseline) + "px;font-size:" + pdfRound(size) +
+        "px;line-height:" + pdfRound(box.lineHeight) + "px;font-family:" + r.family + ";" +
+        (r.bold ? "font-weight:700;" : "") + (r.italic ? "font-style:italic;" : "") +
+        'color:' + pdfRgb(r.color) + '">' + escapeHtml(r.text) + "</span>";
+    }
+    return html + "</div>";
+  }
+
+  /* --- Entry point: .pdf → { html, pageSetup } ----------------------------
+     One Docs page per PDF page: the page's artwork as it was drawn, with the
+     words lifted out of the picture and rebuilt as live text on top. */
+  async function convertPdfToDoc(file, onProgress) {
+    var lib = window.pdfjsLib;
+    if (!lib) throw new Error("PDFLIB");
+    if (!lib.GlobalWorkerOptions.workerSrc) lib.GlobalWorkerOptions.workerSrc = PDF_WORKER_SRC;
+    var pdf = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+    var total = pdf.numPages;
+    if (!total) throw new Error("EMPTYPDF");
+
+    var unit = (await pdf.getPage(1)).getViewport({ scale: 1 });
+    var rawW = unit.width, rawH = unit.height;
+    var portrait = rawH >= rawW;
+    var pageW = Math.round(portrait ? rawW : rawH);
+    var pageH = Math.round(portrait ? rawH : rawW);
+    // The page is shown at its own size, so it is rendered at roughly 1.7x —
+    // rasterising a whole sheet at 2000px only to display it smaller is what
+    // made big PDFs slow to import.
+    var scale = Math.max(1, Math.min(2.4, PDF_MAX_RENDER_PX / Math.max(rawW, rawH)));
+    var boxW = pageW - PDF_EXACT_MARGIN * 2 - 1;
+    var boxH = pageH - PDF_EXACT_MARGIN * 2 - 1;
+    var fit = Math.min(boxW / rawW, boxH / rawH);
+
+    var out = [];
+    for (var n = 1; n <= total; n++) {
+      var page = n === 1 ? null : await pdf.getPage(n);
+      if (!page) page = await pdf.getPage(1);
+      var runs = await pdfPageRuns(page, unit);
+      var canvas = await pdfRenderPage(page, scale);
+      pdfEraseText(canvas, runs, scale, true);
+      var url = canvas.toDataURL("image/jpeg", 0.9);
+      canvas.width = 0;
+      canvas.height = 0;
+      out.push(pdfExactPageHtml(url, runs, fit, boxW, boxH));
+      // The break only mirrors the PDF's own pagination: hidden, no label.
+      if (n < total) out.push(PDF_BREAK_HTML);
+      if (onProgress) onProgress(n, total);
+    }
+    try { await pdf.destroy(); } catch (e) {}
+
+    return {
+      html: out.join(""),
+      pageSetup: {
+        w: pageW, h: pageH, portrait: portrait,
+        marginTop: PDF_EXACT_MARGIN, marginRight: PDF_EXACT_MARGIN,
+        marginBottom: PDF_EXACT_MARGIN, marginLeft: PDF_EXACT_MARGIN,
+        bg: "#ffffff",
+      },
+    };
+  }
+
+  // Progress toast for imports that take a while (long PDFs, big .docx).
+  function toastSticky(message, type) {
+    toast(message, type);
+    var el = $("toast");
+    if (!el) return;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.className = "toast"; }, 60000);
+  }
+
   async function importDocumentFromFile(file) {
     var ext = (file.name.toLowerCase().split(".").pop() || "");
     var baseName = file.name.replace(/\.[^.]+$/, "").trim() || "Imported Document";
@@ -3381,8 +3807,13 @@ function startAutosaveSnapshots() {
       contentPromise = file.text().then(function (t) { return convertRtfToText(t); }).then(nullContentToSpacer);
     } else if (ext === "doc") {
       contentPromise = convertDocToHtml(file);
+    } else if (ext === "pdf" || file.type === "application/pdf") {
+      toastSticky("Importing PDF…");
+      contentPromise = convertPdfToDoc(file, function (done, total) {
+        toastSticky("Importing PDF… page " + done + " of " + total);
+      });
     } else {
-      toast("Unsupported file type. Please use .doc, .docx, .odt, .txt, .md or .html.", "error");
+      toast("Unsupported file type. Please use .pdf, .doc, .docx, .odt, .txt, .md or .html.", "error");
       return;
     }
 
@@ -3390,6 +3821,12 @@ function startAutosaveSnapshots() {
     try { content = await contentPromise; } catch (e) {
       if (e && e.message === "EMPTYDOC") {
         toast("Could not extract readable text from this .doc file.", "error");
+      } else if (e && e.message === "PDFLIB") {
+        toast("PDF library not loaded. Check your internet connection and try again.", "error");
+      } else if (e && e.message === "EMPTYPDF") {
+        toast("This PDF has no pages.", "error");
+      } else if (e && /password/i.test(String(e && e.message))) {
+        toast("This PDF is password protected. Remove the password and try again.", "error");
       } else {
         toast("Could not read file", "error");
       }
@@ -4127,6 +4564,12 @@ function startAutosaveSnapshots() {
       if (!files || files.length === 0) return;
       for (var i = 0; i < files.length; i++) {
         var file = files[i];
+        var isPdf = /\.pdf$/i.test(file.name) || file.type === "application/pdf";
+        if (isPdf) {
+          // A dropped PDF opens as its own document (Word-style import).
+          (function (f) { importDocumentFromFile(f); })(file);
+          continue;
+        }
         if (!file.type || !file.type.match(/^image\//)) {
           toast("Skipping non-image file: " + file.name, "error");
           continue;
@@ -4769,6 +5212,14 @@ function startAutosaveSnapshots() {
   function clampMargin(v) {
     if (typeof v !== "number" || isNaN(v)) return 96;
     return Math.max(MIN_MARGIN, Math.min(MAX_MARGIN, Math.round(v)));
+  }
+
+  // Same ceiling, but no MIN_MARGIN floor: an imported .docx/.pdf keeps the
+  // margins it came with (Word permits 0, and an imported PDF page image is
+  // sized for its own margins).
+  function clampImportedMargin(v) {
+    if (typeof v !== "number" || isNaN(v)) return 96;
+    return Math.max(0, Math.min(MAX_MARGIN, Math.round(v)));
   }
 
   /* ---------------- Margins dialog ---------------- */
@@ -5589,11 +6040,16 @@ function startAutosaveSnapshots() {
     }
     if (data.pageMargins) {
       var m = data.pageMargins;
-      if (m.left && m.top && m.right && m.bottom) {
-        pageMargins.left = clampMargin(m.left);
-        pageMargins.top = clampMargin(m.top);
-        pageMargins.right = clampMargin(m.right);
-        pageMargins.bottom = clampMargin(m.bottom);
+      // Imported layouts keep their own margins — including the very small
+      // (or zero) ones Word/PDF sections are allowed to have. The app's own
+      // MIN_MARGIN floor only guards the Layout > Margins dialog, so applying
+      // it here would reflow an imported document away from its original page.
+      if (typeof m.left === "number" && typeof m.top === "number" &&
+          typeof m.right === "number" && typeof m.bottom === "number") {
+        pageMargins.left = clampImportedMargin(m.left);
+        pageMargins.top = clampImportedMargin(m.top);
+        pageMargins.right = clampImportedMargin(m.right);
+        pageMargins.bottom = clampImportedMargin(m.bottom);
       }
     }
     applyDocMarginsVars();
@@ -7314,6 +7770,7 @@ function startAutosaveSnapshots() {
       importDocumentFromFile(file);
       e.target.value = "";
     });
+
 
     // ── DELETE DOCUMENT CONFIRMATION (Slides/Notes-style) ──
     if ($("deleteDocConfirm")) $("deleteDocConfirm").addEventListener("click", function () {

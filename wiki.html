@@ -969,11 +969,15 @@
                     </p>
 
                     <h3>Importing</h3>
-                    <p>Use <b>Import File</b> on the welcome screen. Each import becomes a new document titled after the file.</p>
+                    <p>
+                        Use <b>Import File</b> on the welcome screen, or drop the file onto the page. Each import
+                        becomes a new document titled after the file.
+                    </p>
                     <div class="wiki-table-wrap">
                         <table class="wiki-table">
                             <thead><tr><th>Format</th><th>How it is handled</th></tr></thead>
                             <tbody>
+                                <tr><td><b>.pdf</b></td><td>One Docs page per PDF page, at the PDF's own size and orientation — what you see is what you get. Images, tables, rules and colours stay exactly as drawn, and every word, emoji included, is live text you can click and edit in its original font, size, weight and colour. Needs an internet connection the first time. Password-protected files are not supported.</td></tr>
                                 <tr><td><b>.docx</b></td><td>Rich import — headings, alignment, bold/italic/underline, colours, shading, tables, lists, page size, orientation and margins are all preserved.</td></tr>
                                 <tr><td><b>.odt</b></td><td>Text and paragraphs are read; headings arrive as plain paragraphs.</td></tr>
                                 <tr><td><b>.rtf</b></td><td>Best-effort text extraction.</td></tr>
@@ -2378,7 +2382,7 @@
                             <tbody>
                                 <tr><td>Suite hub</td><td><span class="wiki-tag">Everything</span></td><td>Nothing.</td></tr>
                                 <tr><td>Notes</td><td><span class="wiki-tag">Everything</span></td><td>Live sharing and web fonts.</td></tr>
-                                <tr><td>Docs</td><td><span class="wiki-tag">Most</span></td><td>PDF export, the rich <b>.docx</b> fallback, web fonts.</td></tr>
+                                <tr><td>Docs</td><td><span class="wiki-tag">Most</span></td><td>PDF export, PDF import, the rich <b>.docx</b> fallback, web fonts.</td></tr>
                                 <tr><td>Slides</td><td><span class="wiki-tag">Most</span></td><td>PPTX export, PDF export, PDF import, web fonts.</td></tr>
                                 <tr><td>Sheets</td><td><span class="wiki-tag">Most</span></td><td>XLSX import and export only. CSV and printing are fine.</td></tr>
                                 <tr><td>Flowchart</td><td><span class="wiki-tag">Everything</span></td><td>Nothing.</td></tr>
@@ -2404,6 +2408,8 @@
                                 <tr><td>Docs</td><td>10 version snapshots</td><td>Older versions fall off the end.</td></tr>
                                 <tr><td>Docs</td><td>No live collaboration</td><td>Comments exist but are not simultaneous.</td></tr>
                                 <tr><td>Docs</td><td>Read aloud stops at 3,000 characters</td><td>Use it to spot-check the opening.</td></tr>
+                                <tr><td>Docs</td><td>An imported PDF keeps its layout</td><td>Pages, margins, indents and line breaks stay where the PDF drew them, so the layout does not reflow. Text you add flows on from where it is placed.</td></tr>
+                                
                                 <tr><td>Slides</td><td>Decks grow large with media</td><td>Video and audio are stored inline, so keep an eye on size.</td></tr>
                                 <tr><td>Slides</td><td>Morph needs two slides</td><td>On a single slide it falls back to a fade.</td></tr>
                                 <tr><td>Sheets</td><td>10 sheets per workbook</td><td>Names are limited to 30 characters and must be unique.</td></tr>
@@ -2435,6 +2441,7 @@
                                 <tr><td>The library is empty after a reload</td><td>Check you are in the same browser and not a private window. If you cleared site data, the files are gone — nothing recovers them.</td></tr>
                                 <tr><td>"Save failed" in Sheets</td><td>Sheets uses IndexedDB only, with no localStorage fallback. Private browsing or a full disk will cause this.</td></tr>
                                 <tr><td>PDF or XLSX export fails</td><td>Those features download a library on first use. Reconnect and try again.</td></tr>
+                                <tr><td>PDF import fails or says the library is not loaded</td><td>Same cause — pdf.js is downloaded the first time a PDF is opened. Reconnect and import again; a password-protected PDF cannot be imported.</td></tr>
                                 <tr><td>A note will not finish a share link</td><td>It has grown past what a URL can hold. Split it, or use a live session instead.</td></tr>
                                 <tr><td>Live sharing says "Connection Lost"</td><td>The network dropped mid-session. Reload when you are back online.</td></tr>
                                 <tr><td>Flowchart behaves oddly after moving shapes</td><td>Make sure the connection landed on the shape you meant — click a line to see whether it is the connection you think it is.</td></tr>
