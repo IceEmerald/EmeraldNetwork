@@ -10199,7 +10199,10 @@ function promptDialog(title, label, value, onOk) {
 function openDefineNameDialog() {
   const sh = activeSheet();
   const rg = activeSelRange();
-  const content = el('<div class="define-name-content"><div class="define-name-fields"><div class="form-row"><label for="nm-name">Name</label><div class="fr-input"><input type="text" id="nm-name" placeholder="e.g. Sales2024"></div></div><div class="form-row"><label for="nm-ref">Refers to</label><div class="fr-input"><input type="text" id="nm-ref" value="' + sh.name + '!' + addr(rg.r1, rg.c1) + ':' + addr(rg.r2, rg.c2) + '"></div></div><div class="hint">Names can be used in formulas (e.g. =SUM(Sales2024)) and in the Name Box.</div></div><aside class="define-name-panel" aria-label="Defined names"><h3 class="define-name-list-heading">Defined names</h3><div id="nm-list" class="define-name-list"></div></aside></div>');
+  // esc() covers the quotes too: a sheet may legitimately be named e.g.
+  // Q1" or a>b, and without it the name breaks out of the value attribute.
+  const refValue = esc(sh.name + '!' + addr(rg.r1, rg.c1) + ':' + addr(rg.r2, rg.c2));
+  const content = el('<div class="define-name-content"><div class="define-name-fields"><div class="form-row"><label for="nm-name">Name</label><div class="fr-input"><input type="text" id="nm-name" placeholder="e.g. Sales2024"></div></div><div class="form-row"><label for="nm-ref">Refers to</label><div class="fr-input"><input type="text" id="nm-ref" value="' + refValue + '"></div></div><div class="hint">Names can be used in formulas (e.g. =SUM(Sales2024)) and in the Name Box.</div></div><aside class="define-name-panel" aria-label="Defined names"><h3 class="define-name-list-heading">Defined names</h3><div id="nm-list" class="define-name-list"></div></aside></div>');
   const listBox = content.querySelector('#nm-list');
   function renderNames() {
     listBox.innerHTML = '';
