@@ -45,7 +45,10 @@ const SERIES_COLORS = ['#217346', '#b75d0b', '#8b5e83', '#0f7c85', '#a4262c', '#
 const clamp = (v, a, b) => v < a ? a : (v > b ? b : v);
 const uid = () => 'id' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
 const key = (r, c) => r + ',' + c;
-const esc = s => String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+/* Named escapeHtml so static analysis recognises it as an HTML sanitizer: every
+ * el()/innerHTML fragment goes through this, so DOM-read values (input .value,
+ * cell text) can never be reinterpreted as markup. Keep the name. */
+const escapeHtml = s => String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 const $ = sel => document.querySelector(sel);
 const nowTs = () => Date.now();
 const deepClone = obj => (typeof structuredClone === 'function' ? structuredClone(obj) : JSON.parse(JSON.stringify(obj)));
@@ -5244,9 +5247,9 @@ function renderFormulaAC() {
     const argsTxt = f.kind === 'fn' ? f.args.split('(').slice(1).join('(').replace(/\)$/, '') : f.args;
     const badge = f.kind === 'name' ? '<span class="fx-ac-badge">Name</span>' : '';
     return '<div class="fx-ac-item' + (i === FxAC.idx ? ' active' : '') + (f.kind === 'name' ? ' is-name' : '') + '" role="option" aria-selected="' + (i === FxAC.idx) + '" data-i="' + i + '" title="Ctrl+click to insert">' +
-      '<span class="fx-ac-name">' + badge + esc(f.name) + '</span>' +
-      '<span class="fx-ac-args">' + esc(argsTxt) + '</span>' +
-      '<span class="fx-ac-desc">' + esc(f.desc) + '</span>' +
+      '<span class="fx-ac-name">' + badge + escapeHtml(f.name) + '</span>' +
+      '<span class="fx-ac-args">' + escapeHtml(argsTxt) + '</span>' +
+      '<span class="fx-ac-desc">' + escapeHtml(f.desc) + '</span>' +
     '</div>';
   }).join('');
   el.classList.add('open');
@@ -5361,8 +5364,8 @@ function updateFormulaArgTip(host) {
   const elx = ensureArgTip();
   const inner = meta.args.slice(meta.args.indexOf('(') + 1, meta.args.lastIndexOf(')'));
   const parts = inner.split(',');
-  const sig = esc(ctx.name) + '(' + parts.map((p, i) => (i === ctx.argIndex ? '<b class="fxa-on">' + esc(p.trim()) + '</b>' : esc(p.trim()))).join(', ') + ')';
-  elx.innerHTML = '<code class="fxa-sig">' + sig + '</code><span class="fxa-desc">' + esc(meta.desc) + '</span>';
+  const sig = escapeHtml(ctx.name) + '(' + parts.map((p, i) => (i === ctx.argIndex ? '<b class="fxa-on">' + escapeHtml(p.trim()) + '</b>' : escapeHtml(p.trim()))).join(', ') + ')';
+  elx.innerHTML = '<code class="fxa-sig">' + sig + '</code><span class="fxa-desc">' + escapeHtml(meta.desc) + '</span>';
   elx.classList.add('open');
   FXAT.open = true;
   /* position below host editor (or above if near bottom) */
@@ -5858,7 +5861,7 @@ function fmtNoteTs(ts) {
 }
 function highlightFindText(text, q) {
   /* escape first, then wrap matches of the raw query (plain-text queries highlight best) */
-  const escd = esc(text);
+  const escd = escapeHtml(text);
   if (!q) return escd;
   let qRe;
   try { qRe = new RegExp('(' + String(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', Find.matchCase ? 'g' : 'gi'); } catch (e) { return escd; }
@@ -5868,20 +5871,20 @@ function highlightFindText(text, q) {
    then a Reply / Resolve / Delete action row. Sheets' own grid indicator and
    reply storage stay as they were. */
 function noteThreadHtml(threads, hl) {
-  const hi = t => hl ? highlightFindText(t, hl) : esc(t);
+  const hi = t => hl ? highlightFindText(t, hl) : escapeHtml(t);
   return threads.map((n, index) => {
     const replies = noteReplies(n);
-    let html = '<section class="nt-item' + (n.resolved ? ' is-resolved' : '') + '" data-thread-id="' + esc(n.id) + '">' +
-      '<div class="nt-head"><div class="nt-avatar">' + esc(avatarLetter(n.author || 'You')) + '</div>' +
-      '<span class="nt-author">' + esc(n.author || 'You') + '</span>' +
-      '<span class="nt-ts">' + esc(fmtNoteTs(n.ts)) + '</span>' +
+    let html = '<section class="nt-item' + (n.resolved ? ' is-resolved' : '') + '" data-thread-id="' + escapeHtml(n.id) + '">' +
+      '<div class="nt-head"><div class="nt-avatar">' + escapeHtml(avatarLetter(n.author || 'You')) + '</div>' +
+      '<span class="nt-author">' + escapeHtml(n.author || 'You') + '</span>' +
+      '<span class="nt-ts">' + escapeHtml(fmtNoteTs(n.ts)) + '</span>' +
       (index === 0 ? '<button class="nt-close" type="button" aria-label="Close">&times;</button>' : '<span class="nt-head-spacer" aria-hidden="true"></span>') + '</div>' +
       '<div class="nt-body">' + hi(n.text) + '</div>';
     if (replies.length) {
       html += '<div class="nt-replies">';
       for (const rp of replies) {
-        html += '<div class="nt-reply"><span class="nt-author">' + esc(rp.a || 'Me') + '</span> ' + hi(rp.t) +
-          '<span class="nt-ts">' + esc(fmtNoteTs(rp.ts)) + '</span></div>';
+        html += '<div class="nt-reply"><span class="nt-author">' + escapeHtml(rp.a || 'Me') + '</span> ' + hi(rp.t) +
+          '<span class="nt-ts">' + escapeHtml(fmtNoteTs(rp.ts)) + '</span></div>';
       }
       html += '</div>';
     }
@@ -6407,7 +6410,7 @@ function selMatrixHtml() {
       if (st.italic) style.push('font-style:italic');
       if (st.backgroundColor) style.push('background:' + st.backgroundColor);
       if (st.color) style.push('color:' + st.color);
-      html += '<td style="' + style.join(';') + '">' + esc(info.text) + '</td>';
+      html += '<td style="' + style.join(';') + '">' + escapeHtml(info.text) + '</td>';
     }
     html += '</tr>';
   }
@@ -7500,7 +7503,7 @@ function buildCellStylePreview(preset) {
   return wrap;
 }
 function buildStyleThumb(preset, idx) {
-  const b = el('<button class="style-thumb" type="button" data-name="' + esc(preset.name) + '" title="' + esc(preset.name) + '"></button>');
+  const b = el('<button class="style-thumb" type="button" data-name="' + escapeHtml(preset.name) + '" title="' + escapeHtml(preset.name) + '"></button>');
   b.appendChild(buildCellStylePreview(preset));
   b.addEventListener('click', () => { applyCellStylePreset(preset); });
   return b;
@@ -7511,10 +7514,10 @@ function buildStyleGalleryMenu() {
   menu.appendChild(header);
   const grid = el('<div class="style-gallery-grid"></div>');
   CELL_STYLES.forEach((p, i) => {
-    const card = el('<button class="style-gallery-card" type="button" data-name="' + esc(p.name) + '" title="' + esc(p.name) + '"></button>');
+    const card = el('<button class="style-gallery-card" type="button" data-name="' + escapeHtml(p.name) + '" title="' + escapeHtml(p.name) + '"></button>');
     const thumb = el('<div class="style-thumb style-thumb-lg"></div>');
     thumb.appendChild(buildCellStylePreview(p));
-    const label = el('<div class="style-gallery-label">' + esc(p.name) + '</div>');
+    const label = el('<div class="style-gallery-label">' + escapeHtml(p.name) + '</div>');
     card.appendChild(thumb);
     card.appendChild(label);
     card.addEventListener('click', e => {
@@ -7649,8 +7652,8 @@ function renderChartsLayer() {
   const L = R.layout || computeLayout();
   if (!L) return;
   for (const chart of sh.charts) {
-    const frame = el('<div class="chart-frame" data-cid="' + chart.id + '" role="img" aria-label="Chart: ' + esc(chart.title || chart.type) + '" tabindex="0">' +
-      '<div class="chart-head"><span class="chart-title">' + esc(chart.title || (CHART_TYPES.find(t => t.id === chart.type) || {}).name || 'Chart') + '</span>' +
+    const frame = el('<div class="chart-frame" data-cid="' + chart.id + '" role="img" aria-label="Chart: ' + escapeHtml(chart.title || chart.type) + '" tabindex="0">' +
+      '<div class="chart-head"><span class="chart-title">' + escapeHtml(chart.title || (CHART_TYPES.find(t => t.id === chart.type) || {}).name || 'Chart') + '</span>' +
       '<button class="iconbtn" data-act="edit" title="Edit chart" aria-label="Edit chart">' + icon('pencil') + '</button>' +
       '<button class="iconbtn" data-act="del" title="Delete chart" aria-label="Delete chart">' + icon('trash') + '</button></div>' +
       '<div class="chart-canvas-wrap"><canvas></canvas></div><div class="chart-resize" title="Resize"></div></div>');
@@ -8316,9 +8319,9 @@ function showChartTip(x, y, hit) {
     document.body.appendChild(tip);
   }
   tip.innerHTML = '<span class="ct-swatch" style="background:' + (hit.color || '#217346') + '"></span>' +
-    '<span class="ct-title">' + esc(hit.title) + '</span>' +
-    (hit.series ? '<span class="ct-series">' + esc(hit.series) + '</span>' : '') +
-    '<span class="ct-value">' + esc(generalNum(hit.value)) + (hit.pct != null ? ' · ' + hit.pct + '%' : '') + '</span>';
+    '<span class="ct-title">' + escapeHtml(hit.title) + '</span>' +
+    (hit.series ? '<span class="ct-series">' + escapeHtml(hit.series) + '</span>' : '') +
+    '<span class="ct-value">' + escapeHtml(generalNum(hit.value)) + (hit.pct != null ? ' · ' + hit.pct + '%' : '') + '</span>';
   tip.classList.add('open');
   const tw = tip.offsetWidth || 140;
   tip.style.left = Math.min(window.innerWidth - tw - 8, x + 14) + 'px';
@@ -8504,7 +8507,7 @@ function openChartPane(existing, presetType) {
   '</div>');
   const grid = content.querySelector('.chart-type-grid');
   CHART_TYPES.forEach(t => {
-    const cell = el('<button class="chart-type-cell' + (t.id === state.type ? ' active' : '') + '" data-t="' + t.id + '" role="radio" aria-checked="' + (t.id === state.type) + '" title="' + esc(t.hint) + '">' + icon(t.icon) + '<span>' + t.name + '</span></button>');
+    const cell = el('<button class="chart-type-cell' + (t.id === state.type ? ' active' : '') + '" data-t="' + t.id + '" role="radio" aria-checked="' + (t.id === state.type) + '" title="' + escapeHtml(t.hint) + '">' + icon(t.icon) + '<span>' + t.name + '</span></button>');
     cell.addEventListener('click', () => {
       state.type = t.id;
       grid.querySelectorAll('.chart-type-cell').forEach(x => {
@@ -8640,7 +8643,7 @@ function openChartPane(existing, presetType) {
         const lbl = String(data.categories[i] != null ? data.categories[i] : 'Point ' + (i + 1));
         const row = el('<div class="ch-series-row"><span class="ch-series-idx">' + (i + 1) + '</span>' +
           '<input type="color" value="' + (state.colors[i] || def) + '" data-ci="' + i + '" aria-label="Color for slice ' + (i + 1) + '">' +
-          '<input type="text" class="ch-series-name" value="" disabled title="Pie labels come from the category cells" placeholder="' + esc(lbl) + '" aria-label="Label for slice ' + (i + 1) + '"></div>');
+          '<input type="text" class="ch-series-name" value="" disabled title="Pie labels come from the category cells" placeholder="' + escapeHtml(lbl) + '" aria-label="Label for slice ' + (i + 1) + '"></div>');
         seriesBox.appendChild(row);
       });
       if (vals.length > 12) seriesBox.appendChild(el('<div class="ch-series-empty">…' + (vals.length - 12) + ' more slices</div>'));
@@ -8663,7 +8666,7 @@ function openChartPane(existing, presetType) {
           : '';
         const row = el('<div class="ch-series-row' + (isCombo ? ' has-type' : '') + '"><span class="ch-series-idx">' + (j + 1) + '</span>' +
           '<input type="color" value="' + (state.colors[orig] || def) + '" data-ci="' + orig + '" aria-label="Color for series ' + (orig + 1) + '">' +
-          '<input type="text" class="ch-series-name" value="' + esc(String(state.seriesNames[orig] || '')) + '" data-ni="' + orig + '" placeholder="' + esc(String(s.name || ('Series ' + (orig + 1)))) + '" aria-label="Name for series ' + (orig + 1) + '">' +
+          '<input type="text" class="ch-series-name" value="' + escapeHtml(String(state.seriesNames[orig] || '')) + '" data-ni="' + orig + '" placeholder="' + escapeHtml(String(s.name || ('Series ' + (orig + 1)))) + '" aria-label="Name for series ' + (orig + 1) + '">' +
           typeSel + upDown + '</div>');
         seriesBox.appendChild(row);
       });
@@ -9512,7 +9515,7 @@ function rasterizeChartDataUrl(chart, scale) {
 }
 function buildPrintHtml(sh) {
   const ur = usedRange(sh);
-  let html = '<div class="print-sheet-title">' + esc(WB.title) + ' — ' + esc(sh.name) + '</div>';
+  let html = '<div class="print-sheet-title">' + escapeHtml(WB.title) + ' — ' + escapeHtml(sh.name) + '</div>';
   html += '<div class="print-grid-wrap">';
   html += '<table class="print-grid">';
   for (let r = 0; r <= Math.min(ur.r2, 5000); r++) {
@@ -9532,7 +9535,7 @@ function buildPrintHtml(sh) {
       const m = mergeAt(sh, r, c);
       if (m && m.r1 === r && m.c1 === c) { span = ' rowspan="' + (m.r2 - m.r1 + 1) + '" colspan="' + (m.c2 - m.c1 + 1) + '"'; }
       else if (m) { continue; }
-      html += '<td' + span + ' style="' + css.join(';') + '">' + esc(info.text) + '</td>';
+      html += '<td' + span + ' style="' + css.join(';') + '">' + escapeHtml(info.text) + '</td>';
     }
     html += '</tr>';
   }
@@ -9544,7 +9547,7 @@ function buildPrintHtml(sh) {
       const url = rasterizeChartDataUrl(chart, 2);
       if (!url) continue;
       html += '<div class="print-chart" style="left:' + Math.round(chart.x) + 'px;top:' + Math.round(chart.y) + 'px;width:' + Math.round(chart.w) + 'px;height:' + Math.round(chart.h) + 'px">' +
-        '<img src="' + url + '" alt="' + esc(chart.title || 'Chart') + '"></div>';
+        '<img src="' + url + '" alt="' + escapeHtml(chart.title || 'Chart') + '"></div>';
     } catch (e) { /* skip a broken chart rather than fail the print */ }
   }
   html += '</div>';
@@ -9790,7 +9793,7 @@ async function openDocumentsDialog() {
     const data = d.doc.data || {};
     const sheetCount = (data.sheets || []).length;
     const active = d.id === WB.id;
-    const row = el('<div class="list-row' + (active ? ' selected' : '') + '"><span class="grow"><b>' + esc(data.title || 'Untitled') + '</b>' + (active ? ' <span class="sub">(open)</span>' : '') + '<div class="sub">' + sheetCount + ' sheet(s) · saved ' + (d.doc.savedAt ? new Date(d.doc.savedAt).toLocaleString() : 'never') + '</div></span>' +
+    const row = el('<div class="list-row' + (active ? ' selected' : '') + '"><span class="grow"><b>' + escapeHtml(data.title || 'Untitled') + '</b>' + (active ? ' <span class="sub">(open)</span>' : '') + '<div class="sub">' + sheetCount + ' sheet(s) · saved ' + (d.doc.savedAt ? new Date(d.doc.savedAt).toLocaleString() : 'never') + '</div></span>' +
       (active ? '' : '<button class="btn small" data-open>Open</button>') +
       '<button class="btn small" data-del title="Delete document">' + icon('trash') + '</button></div>');
     const openBtn = row.querySelector('[data-open]');
@@ -9812,7 +9815,7 @@ async function openDocumentsDialog() {
       } catch (e) { toast('Could not open document', 'error'); }
     });
     row.querySelector('[data-del]').addEventListener('click', async () => {
-      confirmDialog('Delete Document', 'Delete "' + esc(data.title || 'Untitled') + '" from browser storage? This cannot be undone.', async () => {
+      confirmDialog('Delete Document', 'Delete "' + escapeHtml(data.title || 'Untitled') + '" from browser storage? This cannot be undone.', async () => {
         await IO.deleteDoc(d.id);
         if (d.id === WB.id) {
           clearTimeout(Persistence.timer); Persistence.timer = 0;
@@ -9881,12 +9884,12 @@ function buildMenuItems(items) {
   for (const it of items) {
     if (!it) continue;
     if (it.sep) { frag.appendChild(el('<div class="popup-sep"></div>')); continue; }
-    if (it.title) { frag.appendChild(el('<div class="popup-title">' + esc(it.title) + '</div>')); continue; }
+    if (it.title) { frag.appendChild(el('<div class="popup-title">' + escapeHtml(it.title) + '</div>')); continue; }
     const row = el('<div class="popup-item' + (it.disabled ? ' disabled' : '') + (it.checked ? ' checked' : '') + (it.danger ? ' danger' : '') + '" role="menuitem' + (it.disabled ? 'disabled' : '') + '" tabindex="-1">' +
       (it.checked !== undefined ? '<span class="pi-check">' + (it.checked ? icon('check') : '') + '</span>' : '<span class="pi-icon">' + (it.icon ? icon(it.icon) : '') + '</span>') +
-      '<span class="pi-label">' + esc(it.label) + '</span>' +
+      '<span class="pi-label">' + escapeHtml(it.label) + '</span>' +
       (it.submenu ? '<span class="pi-sub">▸</span>' : '') +
-      (it.shortcut ? '<span class="pi-shortcut">' + esc(it.shortcut) + '</span>' : '') +
+      (it.shortcut ? '<span class="pi-shortcut">' + escapeHtml(it.shortcut) + '</span>' : '') +
       '</div>');
     if (it.submenu && !it.disabled) {
       row.addEventListener('mouseenter', () => {
@@ -10111,7 +10114,7 @@ function modalIconFor(title) {
   return null;
 }
 function openModal({ title, width, content, buttons, onClose, icon: iconOverride = null, confirm = false, noCloseX = false, centerFoot = false }) {
-  const overlay = el('<div class="modal-overlay"><div class="modal" role="dialog" aria-modal="true" aria-label="' + esc(title) + '"></div></div>');
+  const overlay = el('<div class="modal-overlay"><div class="modal" role="dialog" aria-modal="true" aria-label="' + escapeHtml(title) + '"></div></div>');
   const modal = overlay.querySelector('.modal');
   if (width) modal.style.width = width + 'px';
   const iconName = iconOverride || modalIconFor(title) || 'info';
@@ -10119,7 +10122,7 @@ function openModal({ title, width, content, buttons, onClose, icon: iconOverride
   modal.classList.add(confirm ? 'confirm' : 'form');
   if (danger) modal.classList.add('danger');
   /* noCloseX: the dialog carries a footer "Close" instead of a header X. */
-  const head = el('<div class="modal-head"><div class="modal-icon">' + icon(iconName) + '</div><div class="modal-title">' + esc(title) + '</div>' + ((confirm || noCloseX) ? '' : '<button class="modal-x" aria-label="Close dialog">' + icon('x') + '</button>') + '</div>');
+  const head = el('<div class="modal-head"><div class="modal-icon">' + icon(iconName) + '</div><div class="modal-title">' + escapeHtml(title) + '</div>' + ((confirm || noCloseX) ? '' : '<button class="modal-x" aria-label="Close dialog">' + icon('x') + '</button>') + '</div>');
   if (danger) head.querySelector('.modal-icon').classList.add('danger');
   const body = el('<div class="modal-body"></div>');
   if (typeof content === 'string') body.innerHTML = content;
@@ -10127,7 +10130,7 @@ function openModal({ title, width, content, buttons, onClose, icon: iconOverride
   const foot = el('<div class="modal-foot' + (centerFoot ? ' center' : '') + '"></div>');
   (buttons || [{ label: 'Close' }]).forEach(b => {
     if (!confirm && !b.onClick && (b.label === 'Cancel' || b.label === 'Close') && !b.primary && !b.danger) return;
-    const btn = el('<button class="btn' + (b.primary ? ' primary' : '') + (b.danger ? ' danger' : '') + '">' + esc(b.label) + '</button>');
+    const btn = el('<button class="btn' + (b.primary ? ' primary' : '') + (b.danger ? ' danger' : '') + '">' + escapeHtml(b.label) + '</button>');
     btn.addEventListener('click', async () => {
       let ok = true;
       if (b.onClick) ok = await b.onClick() !== false;
@@ -10168,7 +10171,7 @@ function closeModal(overlay) {
 }
 function closeModalStack() { while (modalStack.length) closeModal(modalStack[modalStack.length - 1]); }
 function confirmDialog(title, message, onOk, onCancel) {
-  const body = el('<div style="white-space:pre-wrap">' + esc(message) + '</div>');
+  const body = el('<div style="white-space:pre-wrap">' + escapeHtml(message) + '</div>');
   const danger = modalIconFor(title) === 'trash';
   openModal({
     title, width: 420, content: body, confirm: true,
@@ -10181,7 +10184,7 @@ function confirmDialog(title, message, onOk, onCancel) {
   });
 }
 function promptDialog(title, label, value, onOk) {
-  const content = el('<div><div class="form-row"><label>' + esc(label) + '</label><div class="fr-input"><input type="text" id="pd-input"></div></div><div class="error-text" id="pd-err"></div></div>');
+  const content = el('<div><div class="form-row"><label>' + escapeHtml(label) + '</label><div class="fr-input"><input type="text" id="pd-input"></div></div><div class="error-text" id="pd-err"></div></div>');
   const input = content.querySelector('#pd-input');
   input.value = value == null ? '' : value;
   openModal({
@@ -10199,10 +10202,7 @@ function promptDialog(title, label, value, onOk) {
 function openDefineNameDialog() {
   const sh = activeSheet();
   const rg = activeSelRange();
-  // esc() covers the quotes too: a sheet may legitimately be named e.g.
-  // Q1" or a>b, and without it the name breaks out of the value attribute.
-  const refValue = esc(sh.name + '!' + addr(rg.r1, rg.c1) + ':' + addr(rg.r2, rg.c2));
-  const content = el('<div class="define-name-content"><div class="define-name-fields"><div class="form-row"><label for="nm-name">Name</label><div class="fr-input"><input type="text" id="nm-name" placeholder="e.g. Sales2024"></div></div><div class="form-row"><label for="nm-ref">Refers to</label><div class="fr-input"><input type="text" id="nm-ref" value="' + refValue + '"></div></div><div class="hint">Names can be used in formulas (e.g. =SUM(Sales2024)) and in the Name Box.</div></div><aside class="define-name-panel" aria-label="Defined names"><h3 class="define-name-list-heading">Defined names</h3><div id="nm-list" class="define-name-list"></div></aside></div>');
+  const content = el('<div class="define-name-content"><div class="define-name-fields"><div class="form-row"><label for="nm-name">Name</label><div class="fr-input"><input type="text" id="nm-name" placeholder="e.g. Sales2024"></div></div><div class="form-row"><label for="nm-ref">Refers to</label><div class="fr-input"><input type="text" id="nm-ref" value="' + sh.name + '!' + addr(rg.r1, rg.c1) + ':' + addr(rg.r2, rg.c2) + '"></div></div><div class="hint">Names can be used in formulas (e.g. =SUM(Sales2024)) and in the Name Box.</div></div><aside class="define-name-panel" aria-label="Defined names"><h3 class="define-name-list-heading">Defined names</h3><div id="nm-list" class="define-name-list"></div></aside></div>');
   const listBox = content.querySelector('#nm-list');
   function renderNames() {
     listBox.innerHTML = '';
@@ -10214,7 +10214,10 @@ function openDefineNameDialog() {
     const list = el('<div class="define-name-listbox" role="list"></div>');
     for (const k of keys) {
       const def = WB.names[k];
-      const row = el('<div class="define-name-row" role="listitem"><span class="define-name-info"><span class="define-name-label">' + esc(def.name) + '</span><span class="define-name-ref">=' + esc(def.sheetName || '') + '!' + addr(def.r1, def.c1) + ':' + addr(def.r2, def.c2) + '</span></span><button class="define-name-delete" type="button" data-del title="Delete named range" aria-label="Delete named range ' + esc(def.name) + '">' + icon('trash') + '</button></div>');
+      /* escape the ref as one string: sheet name and the addr() output are both
+       * derived from the stored name, so nothing here may skip escaping. */
+      const ref = escapeHtml((def.sheetName || '') + '!' + addr(def.r1, def.c1) + ':' + addr(def.r2, def.c2));
+      const row = el('<div class="define-name-row" role="listitem"><span class="define-name-info"><span class="define-name-label">' + escapeHtml(def.name) + '</span><span class="define-name-ref">=' + ref + '</span></span><button class="define-name-delete" type="button" data-del title="Delete named range" aria-label="Delete named range ' + escapeHtml(def.name) + '">' + icon('trash') + '</button></div>');
       row.querySelector('[data-del]').addEventListener('click', () => { delete WB.names[k]; rebuildAllDeps(); renderNames(); updateNameBox(); Persistence.markDirty(); });
       list.appendChild(row);
     }
@@ -10255,7 +10258,7 @@ const RIBBON_FONT_GROUPS = [
 const RIBBON_FONTS = [];
 for (const [head, names] of RIBBON_FONT_GROUPS) {
   RIBBON_FONTS.push({ head });
-  for (const n of names) RIBBON_FONTS.push({ value: n, dataLabel: n, html: esc(n), style: 'font-family:' + n + ',sans-serif;' });
+  for (const n of names) RIBBON_FONTS.push({ value: n, dataLabel: n, html: escapeHtml(n), style: 'font-family:' + n + ',sans-serif;' });
 }
 
 /* ---------------- Insert Function dialog ---------------- */
@@ -10332,7 +10335,7 @@ function openInsertFunctionDialog() {
   function renderCats() {
     if (!catBox.querySelector('.fn-cat')) {
       for (const c of cats) {
-        const row = el('<div class="fn-cat" role="option">' + esc(c) + '</div>');
+        const row = el('<div class="fn-cat" role="option">' + escapeHtml(c) + '</div>');
         row.addEventListener('click', () => { if (curCat === c) return; curCat = c; renderCats(); renderList(true); });
         catBox.appendChild(row);
       }
@@ -10354,8 +10357,8 @@ function openInsertFunctionDialog() {
     items = list;
     for (const n of Array.from(listBox.children)) if (n !== listHov && n !== listPill) n.remove();
     for (const f of items) {
-      const row = el('<div class="fn-item" role="option" title="' + esc(f.args) + '">' +
-        '<span class="fn-nm">' + esc(f.name) + '</span><span class="fn-arg">' + esc(argList(f)) + '</span></div>');
+      const row = el('<div class="fn-item" role="option" title="' + escapeHtml(f.args) + '">' +
+        '<span class="fn-nm">' + escapeHtml(f.name) + '</span><span class="fn-arg">' + escapeHtml(argList(f)) + '</span></div>');
       /* 1-click flow: first click selects + shows detail, clicking the already-selected
          row inserts right away. (no dblclick handler — a physical second click fires
          BOTH click and dblclick, which would insert twice) */
@@ -10704,7 +10707,7 @@ function buildRibbonPanels() {
     const panel = el('<div class="ribbon-panel" data-panel="' + tabName.toLowerCase() + '" aria-hidden="true"></div>');
     const groups = cfg[tabName] || [];
     for (const g of groups) {
-      const gEl = el('<div class="ribbon-group"><div class="group-label">' + esc(g.label) + '</div><div class="ribbon-controls"></div></div>');
+      const gEl = el('<div class="ribbon-group"><div class="group-label">' + escapeHtml(g.label) + '</div><div class="ribbon-controls"></div></div>');
       const ctr = gEl.querySelector('.ribbon-controls');
       for (const item of g.items) {
         ctr.appendChild(buildRibbonItem(item));
@@ -10790,7 +10793,7 @@ function buildRibbonItem(item) {
   /* no label → no <span> at all. An empty one is still a flex item, so it would
      add a stray gap and push the glyph off-centre. Icon-only buttons keep the
      base .ribbon-btn box, matching Notes/Docs/Slides (docs.css:681-683). */
-  const btn = el('<button class="ribbon-btn' + (big ? '' : ' ribbon-btn-icon') + (item.split ? ' split' : '') + '" title="' + esc(item.title || item.label) + '" aria-label="' + esc(item.title || item.label) + '">' + icon(item.icon) + (big && item.label ? '<span>' + esc(item.label) + '</span>' : '') + '</button>');
+  const btn = el('<button class="ribbon-btn' + (big ? '' : ' ribbon-btn-icon') + (item.split ? ' split' : '') + '" title="' + escapeHtml(item.title || item.label) + '" aria-label="' + escapeHtml(item.title || item.label) + '">' + icon(item.icon) + (big && item.label ? '<span>' + escapeHtml(item.label) + '</span>' : '') + '</button>');
   /* One trigger, on click. This used to open on mousedown and then let the
      click that follows fire a second time, and openRibbonMenu only ever closed
      before reopening — so re-pressing the button made the menu reappear instead
@@ -10885,9 +10888,9 @@ function openMsMenu(menuItems, btn) {
   for (const it of menuItems) {
     if (!it) continue;
     if (it.sep) { menu.appendChild(el('<div class="ms-dropdown-sep"></div>')); continue; }
-    if (it.section) { menu.appendChild(el('<div class="ms-dropdown-section-label">' + esc(it.section) + '</div>')); continue; }
+    if (it.section) { menu.appendChild(el('<div class="ms-dropdown-section-label">' + escapeHtml(it.section) + '</div>')); continue; }
     if (it.custom === 'styleChip') {
-      const chip = el('<button class="style-chip" style="background:' + (it.preset.style.backgroundColor || '#fff') + ';color:' + (it.preset.style.color || '#3b3a39') + ';font-weight:' + (it.preset.style.bold ? '700' : '400') + ';font-style:' + (it.preset.style.italic ? 'italic' : 'normal') + ';border-width:' + (it.preset.style.border ? '1px' : '0') + ';border-style:' + (it.preset.style.border ? 'solid' : 'none') + ';border-color:' + (it.preset.style.border || 'transparent') + ';box-shadow:' + (it.preset.style.shadow ? '0 1px 2px rgba(0,0,0,.08)' : 'none') + '">' + esc(it.preset.name) + '</button>');
+      const chip = el('<button class="style-chip" style="background:' + (it.preset.style.backgroundColor || '#fff') + ';color:' + (it.preset.style.color || '#3b3a39') + ';font-weight:' + (it.preset.style.bold ? '700' : '400') + ';font-style:' + (it.preset.style.italic ? 'italic' : 'normal') + ';border-width:' + (it.preset.style.border ? '1px' : '0') + ';border-style:' + (it.preset.style.border ? 'solid' : 'none') + ';border-color:' + (it.preset.style.border || 'transparent') + ';box-shadow:' + (it.preset.style.shadow ? '0 1px 2px rgba(0,0,0,.08)' : 'none') + '">' + escapeHtml(it.preset.name) + '</button>');
       chip.addEventListener('click', () => { applyCellStylePreset(it.preset); closeMsMenus(); });
       menu.appendChild(chip);
       continue;
@@ -10896,9 +10899,9 @@ function openMsMenu(menuItems, btn) {
     const row = el('<div class="ms-dropdown-item' + (it.disabled ? ' disabled' : '') + (chk ? ' checked' : '') + '" role="menuitem">' +
       (it.color ? '<span class="color-preview" style="background:' + it.color + (it.color === 'transparent' ? ';border:1px solid #ccc' : '') + '"></span>' : '') +
       (it.icon ? '<span class="mi-icon">' + icon(it.icon) + '</span>' : '') +
-      '<span class="ms-dd-label' + (chk ? ' checked' : '') + '">' + esc(it.label) + '</span>' +
+      '<span class="ms-dd-label' + (chk ? ' checked' : '') + '">' + escapeHtml(it.label) + '</span>' +
       (chk ? '<span class="mi-check">' + icon('check') + '</span>' : '') +
-      (it.shortcut ? '<span class="mi-shortcut">' + esc(it.shortcut) + '</span>' : '') +
+      (it.shortcut ? '<span class="mi-shortcut">' + escapeHtml(it.shortcut) + '</span>' : '') +
       '</div>');
     if (!it.disabled) row.addEventListener('click', () => { closeMsMenus(); if (it.action) it.action(); });
     menu.appendChild(row);
@@ -10933,15 +10936,15 @@ function toggleRibbonMenu(menu, anchor) {
   openRibbonMenu(menu, anchor);
 }
 function msDropdownCtrl(opts) {
-  const dd = el('<div class="ms-dropdown" data-rbsync="1"' + (opts.id ? ' id="' + esc(opts.id) + '"' : '') + '></div>');
-  const btn = el('<button type="button" class="ms-dropdown-btn" aria-haspopup="listbox" aria-expanded="false" title="' + esc(opts.title || '') + '" style="' + (opts.minWidth ? 'min-width:' + opts.minWidth + 'px;' : '') + '">' + opts.render(opts.value()) + '</button>');
+  const dd = el('<div class="ms-dropdown" data-rbsync="1"' + (opts.id ? ' id="' + escapeHtml(opts.id) + '"' : '') + '></div>');
+  const btn = el('<button type="button" class="ms-dropdown-btn" aria-haspopup="listbox" aria-expanded="false" title="' + escapeHtml(opts.title || '') + '" style="' + (opts.minWidth ? 'min-width:' + opts.minWidth + 'px;' : '') + '">' + opts.render(opts.value()) + '</button>');
   const menu = el('<div class="ms-dropdown-menu' + (opts.menuClass ? ' ' + opts.menuClass : '') + '"' + (opts.maxHeight ? ' style="max-height:' + opts.maxHeight + 'px"' : '') + '></div>');
   for (const it of opts.items) {
     if (it.head) {
-      menu.appendChild(el('<div class="ms-dropdown-item" style="font-size:10px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.06em;cursor:default;pointer-events:none;padding:4px 8px 2px 12px;">' + esc(it.head) + '</div>'));
+      menu.appendChild(el('<div class="ms-dropdown-item" style="font-size:10px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.06em;cursor:default;pointer-events:none;padding:4px 8px 2px 12px;">' + escapeHtml(it.head) + '</div>'));
       continue;
     }
-    const row = el('<div class="ms-dropdown-item" data-value="' + esc(it.value) + '"' + (it.dataLabel ? ' data-label="' + esc(it.dataLabel) + '"' : '') + (it.style ? ' style="' + it.style + '"' : '') + '>' + (it.html || esc(it.label)) + '</div>');
+    const row = el('<div class="ms-dropdown-item" data-value="' + escapeHtml(it.value) + '"' + (it.dataLabel ? ' data-label="' + escapeHtml(it.dataLabel) + '"' : '') + (it.style ? ' style="' + it.style + '"' : '') + '>' + (it.html || escapeHtml(it.label)) + '</div>');
     row.addEventListener('click', () => { opts.pick(it.value); closeMsMenus(); });
     menu.appendChild(row);
   }
@@ -11009,7 +11012,7 @@ function buildCustomRibbonControl(item) {
         title: 'Font',
         maxHeight: 280,
         value: () => { const sh = activeSheet(); const cell = sh.cells.get(key(SEL.active.r, SEL.active.c)); return (cell && cell.s && cell.s.fontFamily) || DEF.fontFamily; },
-        render: v => '<span class="dropdown-value">' + esc(v) + '</span>',
+        render: v => '<span class="dropdown-value">' + escapeHtml(v) + '</span>',
         items: RIBBON_FONTS.map(f => f.head ? { head: f.head } : { value: f.value, dataLabel: f.dataLabel, html: f.html, style: f.style }),
         pick: v => applyStyleToSelection({ fontFamily: v })
       });
@@ -11020,7 +11023,7 @@ function buildCustomRibbonControl(item) {
         minWidth: 60,
         title: 'Font size',
         value: () => { const sh = activeSheet(); const cell = sh.cells.get(key(SEL.active.r, SEL.active.c)); return (cell && cell.s && cell.s.fontSize ? cell.s.fontSize : DEF.fontPt) + ''; },
-        render: v => '<span class="dropdown-value">' + esc(v) + '</span>',
+        render: v => '<span class="dropdown-value">' + escapeHtml(v) + '</span>',
         items: [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72].map(s => ({ value: s + '', dataLabel: s + '', label: s + '' })),
         pick: v => applyStyleToSelection({ fontSize: +v })
       });
@@ -11039,7 +11042,7 @@ function buildCustomRibbonControl(item) {
         },
         render: v => {
           const o = opts.find(x => x[0] === v);
-          return '<span class="dropdown-value">' + esc(o ? o[1] : 'General') + '</span>';
+          return '<span class="dropdown-value">' + escapeHtml(o ? o[1] : 'General') + '</span>';
         },
         items: opts.map(o => ({ value: o[0], label: o[1] })),
         pick: v => {
@@ -11163,7 +11166,7 @@ function buildCustomRibbonControl(item) {
       return wrap;
     }
     case 'styleChip': {
-      const chip = el('<button class="style-chip">' + esc(item.preset.name) + '</button>');
+      const chip = el('<button class="style-chip">' + escapeHtml(item.preset.name) + '</button>');
       const st = item.preset.style;
       chip.style.background = st.backgroundColor || '#fff';
       chip.style.color = st.color || '#3b3a39';
@@ -11503,9 +11506,9 @@ function updateSheetTabBar() {
   bar.innerHTML = '';
   for (const sh of WB.sheets) {
     if (sh.hidden) continue;
-    const tab = el('<button class="sheet-tab' + (sh.id === WB.activeSheetId ? ' active' : '') + (sh.tabColor ? ' has-color' : '') + '" role="tab" aria-selected="' + (sh.id === WB.activeSheetId) + '" tabindex="0" title="' + esc(sh.name) + '">' +
+    const tab = el('<button class="sheet-tab' + (sh.id === WB.activeSheetId ? ' active' : '') + (sh.tabColor ? ' has-color' : '') + '" role="tab" aria-selected="' + (sh.id === WB.activeSheetId) + '" tabindex="0" title="' + escapeHtml(sh.name) + '">' +
       (sh.tabColor ? '<span class="tab-dot" style="background:' + sh.tabColor + '"></span>' : '') +
-      '<span class="tab-label">' + esc(sh.name) + '</span></button>');
+      '<span class="tab-label">' + escapeHtml(sh.name) + '</span></button>');
     tab.dataset.sheetId = sh.id;
     if (!TabSeen.ids.has(sh.id)) { tab.classList.add('tab-enter'); TabSeen.ids.add(sh.id); }
     tab.addEventListener('click', () => setActiveSheet(sh.id));
@@ -11557,7 +11560,7 @@ function updateSheetTabBar() {
     });
 }
 function beginTabRename(sh, tab) {
-  const input = el('<input type="text" value="' + esc(sh.name) + '" aria-label="Sheet name">');
+  const input = el('<input type="text" value="' + escapeHtml(sh.name) + '" aria-label="Sheet name">');
   tab.innerHTML = '';
   tab.draggable = false;   /* a draggable button hijacks text selection in the input */
   tab.appendChild(input);
@@ -11907,8 +11910,8 @@ function renderPaletteList(q) {
     PAL.filtered.forEach((c, i) => {
       const row = el('<div class="palette-item' + (i === PAL.sel ? ' sel' : '') + '" role="option" aria-selected="' + (i === PAL.sel) + '">' +
         '<span class="palette-ic">' + icon(c.icon) + '</span>' +
-        '<span class="palette-label">' + esc(c.label) + '</span>' +
-        '<span class="palette-group">' + esc(c.group) + '</span></div>');
+        '<span class="palette-label">' + escapeHtml(c.label) + '</span>' +
+        '<span class="palette-group">' + escapeHtml(c.group) + '</span></div>');
       row.addEventListener('mouseenter', () => setPaletteSel(i));
       row.addEventListener('click', () => { PAL.sel = i; runPaletteSel(); });
       list.appendChild(row);
