@@ -408,7 +408,7 @@
                             <img src="/assets/images/sheetsicon.webp" alt="" loading="lazy" width="36" height="36">
                             <span class="wiki-app-body">
                                 <b>EmeraldSheets</b>
-                                <span>96 functions, charts, comments, named ranges, and XLSX import and export.</span>
+                                <span>96 functions, charts, comments, named ranges, and XLSX/CSV import and export that keeps your formatting.</span>
                             </span>
                         </a>
                         <a class="wiki-app" href="#flowchart">
@@ -1231,23 +1231,23 @@
             </section>
 
             <!-- BLOCK: sheets -->
-            <section class="wiki-block" id="sheets" data-group="EmeraldSuite" data-tags="sheets emeraldsheets spreadsheet formulas functions charts comments named ranges conditional number format sort filter print xlsx csv import export command palette go to trace" style="--w-app:#217346" data-product="emeraldsuite" data-product-label="EmeraldSuite" data-category="Create">
+            <section class="wiki-block" id="sheets" data-group="EmeraldSuite" data-tags="sheets emeraldsheets spreadsheet formulas functions charts comments named ranges sort print xlsx csv import export formatting colours styles command palette go to trace" style="--w-app:#217346" data-product="emeraldsuite" data-product-label="EmeraldSuite" data-category="Create">
                 <header class="wiki-block-head">
                     <span class="wiki-block-icon"><img src="/assets/images/sheetsicon.webp" alt=""></span>
                     <div class="wiki-block-titles">
                         <h2>EmeraldSheets</h2>
-                        <p>A spreadsheet app: 96 functions, charts, comments, named ranges, auditing tools and XLSX/CSV.</p>
+                        <p>A spreadsheet app: 96 functions, charts, comments, named ranges and auditing tools — with XLSX/CSV that keeps your formatting.</p>
                     </div>
                 </header>
                 <div class="wiki-block-body">
 
 <p class="wiki-lead">
-                        Sheets is the only app in the suite that does arithmetic, and it is a spreadsheet: formulas, named ranges, cell comments, charts and genuine XLSX import and export rather
-                        than a CSV dressed up as one.
+                        Sheets is the only app in the suite that does arithmetic, and it is a spreadsheet: formulas, named ranges, cell comments and charts, with genuine XLSX
+                        import and export rather than a CSV dressed up as one.
                     </p>
                     <p>
                         If your data would end up in Excel eventually, build it here. The file you export opens
-                        there with its formulas, formatting and column widths intact.
+                        there with its formulas, colours, formatting and column widths intact — and a workbook from Excel comes in the same way.
                     </p>
 
                     <h3>Empty workbook to a finished one</h3>
@@ -1386,8 +1386,8 @@
                             <thead><tr><th>Direction</th><th>Format</th><th>Notes</th></tr></thead>
                             <tbody>
                                 <tr><td>Import</td><td><b>.csv</b> <b>.txt</b> <b>.tsv</b></td><td>Delimiter is detected automatically. Values, numbers, dates and percentages are typed on import. Each file becomes a new sheet.</td></tr>
-                                <tr><td>Import</td><td><b>.xlsx</b> <b>.xlsm</b></td><td>One sheet per workbook sheet, with formulas, values, number formats, comments, merges and column/row sizes preserved.</td></tr>
-                                <tr><td>Export</td><td><b>.xlsx</b></td><td>Formulas, cached values, number formats, comments, merges and sizes. Hidden sheets are skipped. Needs an internet connection the first time.</td></tr>
+                                <tr><td>Import</td><td><b>.xlsx</b> <b>.xlsm</b></td><td>One sheet per workbook sheet. Formulas, values, merges, comments, frozen panes, hidden rows and columns, and column/row sizes are preserved, together with the full cell formatting — fill, font name, size, colour, bold, italic, underline, strike, all four borders, alignment, indent, wrap and number format.</td></tr>
+                                <tr><td>Export</td><td><b>.xlsx</b></td><td>Everything above, written the same way: colours and formatting travel with the file, so a workbook exported here opens in Excel looking the way it looked here. Hidden sheets are skipped. Needs an internet connection the first time.</td></tr>
                                 <tr><td>Export</td><td><b>.csv</b></td><td>The active sheet's displayed text, UTF-8 with a BOM so Excel opens it correctly.</td></tr>
                                 <tr><td>Export</td><td><b>Print / PDF</b></td><td>Builds a print-ready layout including formatting, merges, sizes and up to 20 charts, then opens the browser print dialog — choose "Save as PDF" there.</td></tr>
                             </tbody>
@@ -1432,7 +1432,7 @@
                         <li>Autosave runs about 0.9 seconds after you stop typing; the pill reads <em>Saving…</em> then <em>All changes saved</em>.</li>
                         <li>Drag the small square at the corner of a selection to <b>fill down or across</b>, shifting formula references as it goes.</li>
                         <li>Sheets only stores workbooks in IndexedDB — there is no localStorage fallback, and a failed save tells you so.</li>
-                        <li>Not included yet: conditional formatting, data validation, autofilter and pivot tables.</li>
+                                                <li>A <b>double underline</b> exports as a single underline; Excel's file format only records the distinction on a handful of style features and that is one of them.</li>
                     </ul>
                 </div>
             </section>
@@ -2358,7 +2358,7 @@
                                 <tr><td>Notes</td><td>Share link</td><td>Export Note</td><td>Formatting and colour. Very long notes exceed the URL limit and cannot be linked.</td></tr>
                                 <tr><td>Docs</td><td>PDF, HTML, TXT, print</td><td>File menu</td><td>PDF is a faithful image of the pages; HTML is text plus styling.</td></tr>
                                 <tr><td>Slides</td><td>PPTX, PDF, SVG, print</td><td>File menu</td><td>PPTX keeps text, shapes and images. It drops video, audio, drawings, links, comments, transitions and animations.</td></tr>
-                                <tr><td>Sheets</td><td>XLSX, CSV, print</td><td>File menu</td><td>XLSX keeps formulas, formats, comments, merges and sizes. Hidden sheets are skipped.</td></tr>
+                                <tr><td>Sheets</td><td>XLSX, CSV, print</td><td>File menu</td><td>XLSX keeps formulas, colours and full cell formatting, comments, merges and sizes. Hidden sheets are skipped.</td></tr>
                                 <tr><td>Flowchart</td><td><code class="wiki-code">.emeraldcore</code>, PNG</td><td>File bar</td><td>The editable file keeps everything. PNG is only a picture.</td></tr>
                                 <tr><td>AI Chat</td><td>Share link, <code class="wiki-code">.json</code></td><td>Right-click a chat</td><td>Full transcript including attachments.</td></tr>
                             </tbody>
@@ -2408,7 +2408,8 @@
                                 <tr><td>Slides</td><td>Morph needs two slides</td><td>On a single slide it falls back to a fade.</td></tr>
                                 <tr><td>Sheets</td><td>10 sheets per workbook</td><td>Names are limited to 30 characters and must be unique.</td></tr>
                                 <tr><td>Sheets</td><td>Zoom 30% – 400%</td><td>Use <b>Fit to Window</b> for a whole sheet.</td></tr>
-                                <tr><td>Sheets</td><td>No conditional formatting or pivot tables</td><td>Use formulas and <b>Data → Sort</b> instead.</td></tr>
+                                <tr><td>Sheets</td><td>Double underline exports as single</td><td>Excel's format records the distinction on very few style attributes and this is one of them.</td></tr>
+                                <tr><td>Sheets</td><td>XLSX needs the library once</td><td>First use downloads it; after that it is cached. CSV and printing never need it.</td></tr>
                                 <tr><td>Flowchart</td><td>100,000 iterations per run</td><td>A runaway loop stops and says so.</td></tr>
                                 <tr><td>Flowchart</td><td>Variables must be declared</td><td>Assigning before declaring stops the run with a message.</td></tr>
                                 <tr><td>Flowchart</td><td>No undo or multi-select</td><td>Duplicate a shape rather than expecting Ctrl+Z.</td></tr>

@@ -243,8 +243,12 @@
 <div id="print-root" aria-hidden="true"></div>
 <textarea id="clip-helper" aria-hidden="true" tabindex="-1"></textarea>
 
-<!-- SheetJS (XLSX import/export) — optional; the app degrades gracefully if unavailable -->
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" crossorigin="anonymous" onerror="window.__XLSX_CDN_FAIL=true"></script>
+<!-- XLSX engine — optional; the app degrades gracefully if unavailable.
+     xlsx-js-style is a SheetJS fork that can *write* cell styles (fills, fonts,
+     borders, alignment); upstream SheetJS CE silently drops them on export.
+     ensureXlsxLib() retries from a CDN list if this tag never arrives. -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js" crossorigin="anonymous" onerror="window.__XLSX_CDN_FAIL=true"></script>
+<script src="/assets/scripts/zipreader.js"></script>
 <script src="/assets/scripts/es-ai.js"></script>
 <script src="/assets/scripts/sheets.js"></script>
 </body>

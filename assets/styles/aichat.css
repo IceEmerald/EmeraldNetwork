@@ -11,6 +11,11 @@
     --text: #e0e0e0;
     --text-muted: #888888;
     --hover: #2a2a2a;
+    /* Ink for a highlighted run. Same in both modes, on purpose: a
+       highlight is always a light paint, so its text is always the Docs
+       paper ink (docs.css --paper-ink) whether the bubble behind it is
+       dark or light. */
+    --md-tint-ink: #1a1a1a;
 }
 
 body.light-mode {
@@ -2583,6 +2588,71 @@ body.light-mode .ai-modal {
 body.light-mode .md-content code {
     background: rgb(255, 255, 255);
     border: 1px solid transparent;
+}
+
+/* Text colour + highlight ─────────────────────────────────────
+   The chat's answer to the two formatting operations a user reaches
+   for when they select text in a document: Docs writes them with
+   exec("foreColor") and exec("hiliteColor"), both driven by the named
+   swatch lists in aichat.js, and this is the same pair of spans those
+   calls leave behind. .md-color carries no rule of its own — the colour
+   itself is inline, exactly as execCommand writes it. */
+.md-hl {
+    color: var(--md-tint-ink);
+    border-radius: 3px;
+    padding: 0.05em 0.15em;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+}
+
+/* A run is an inline span, but the markdown elements inside it carry
+   their OWN colour rules — strong is near-white, em is grey, a link is
+   green — and those would beat the run's colour, so
+   <color red>**bold**</color> would come out grey. The run wins here.
+   The light-mode copy is not optional: those element colours are
+   re-declared under body.light-mode at a higher specificity than the
+   dark ones, so a single selector cannot cover both modes. */
+.md-content .md-color strong,
+.md-content .md-color em,
+.md-content .md-color b,
+.md-content .md-color i,
+.md-content .md-color a,
+.md-content .md-color h1,
+.md-content .md-color h2,
+.md-content .md-color h3,
+.md-content .md-color h4,
+.md-content .md-color h5,
+.md-content .md-hl strong,
+.md-content .md-hl em,
+.md-content .md-hl b,
+.md-content .md-hl i,
+.md-content .md-hl a,
+.md-content .md-hl h1,
+.md-content .md-hl h2,
+.md-content .md-hl h3,
+.md-content .md-hl h4,
+.md-content .md-hl h5,
+body.light-mode .md-content .md-color strong,
+body.light-mode .md-content .md-color em,
+body.light-mode .md-content .md-color b,
+body.light-mode .md-content .md-color i,
+body.light-mode .md-content .md-color a,
+body.light-mode .md-content .md-color h1,
+body.light-mode .md-content .md-color h2,
+body.light-mode .md-content .md-color h3,
+body.light-mode .md-content .md-color h4,
+body.light-mode .md-content .md-color h5,
+body.light-mode .md-content .md-hl strong,
+body.light-mode .md-content .md-hl em,
+body.light-mode .md-content .md-hl b,
+body.light-mode .md-content .md-hl i,
+body.light-mode .md-content .md-hl a,
+body.light-mode .md-content .md-hl h1,
+body.light-mode .md-content .md-hl h2,
+body.light-mode .md-content .md-hl h3,
+body.light-mode .md-content .md-hl h4,
+body.light-mode .md-content .md-hl h5 {
+    color: inherit;
 }
 
 .md-code-block {

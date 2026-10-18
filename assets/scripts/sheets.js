@@ -14,7 +14,7 @@
  *   9. Interactions: selection, keyboard, in-cell editing, fill handle, drag-move
  *  10. Clipboard (internal + system TSV), format painter
  *  11. Structure operations (insert/delete rows, cols, sheets, merge, hide)
- *  12. Sorting, filtering, data validation
+ * 12. Sorting, region detection, cell style presets
  *  13. Floating charts
  *  14. Import / export (CSV, XLSX) and print
  *  15. Chrome UI: header, menus, ribbon, dialogs, context menus, toasts
@@ -3585,6 +3585,8 @@ function drawCellContent(sh, ctx, r, c, rect, L, clip) {
   }
   ctx.fillText(info.text, tx, textY);
 }
+/* A data bar sits behind the cell's text, anchored to the left edge and inset
+   slightly, with the rounded cap Excel draws at the end of the bar. */
 
 function wrapText(ctx, text, maxW) {
   const words = String(text).split(/\r?\n/);
@@ -5153,7 +5155,6 @@ function commitCellValue(sh, r, c, text) {
   const snapAfter = { v: parsed.f !== undefined ? null : (parsed.v !== undefined ? parsed.v : null), f: parsed.f !== undefined ? parsed.f : null, s: sPatch };
   writeCell(sh, r, c, { v: snapAfter.v, f: snapAfter.f, s: snapAfter.s });
   pushHistory(histCellChange(sh, r, c, prevSnap, snapAfter));
-  /* data validation */
   afterCellCommit(sh, r, c);
 }
 function afterCellCommit(sh, r, c) {
@@ -7328,7 +7329,7 @@ function recalcWorkbook(evaluateAll) {
 }
 
 /* ==========================================================================
- * 12. SORTING / FILTERING / DATA VALIDATION UI
+ * 12. SORTING / REGION DETECTION / CELL STYLE PRESETS
  * ========================================================================== */
 function detectRegionAround(r, c) {
   const sh = activeSheet();
@@ -7434,12 +7435,6 @@ function parseRangeText(txt) {
     }
     return null;
   } catch (e) { return null; }
-}
-function restoreSheet(sh, snap) {
-  const after = snapshotSheet(sh);
-  rebuildAllDeps();
-  requestPaint();
-  Persistence.markDirty();
 }
 
 /* ---------------- cell styles gallery ---------------- */
@@ -8797,22 +8792,474 @@ function openChartPane(existing, presetType) {
 /* ==========================================================================
  * 14. IMPORT / EXPORT / PRINT
  * ========================================================================== */
+/* --------------------------------------------------------------------------
+ * Style bridge — app style objects <-> XLSX style objects
+ *
+ * The app keeps one flat, frozen style object per cell (normStyle); XLSX nests
+ * the same information under font / fill / alignment / border. These two pairs
+ * of functions are the only place that knows about either shape.
+ *
+ * Reading is done here rather than through the library because SheetJS's
+ * parser only surfaces the fill: `cellStyles: true` yields
+ *   {patternType, fgColor}                       // nothing else
+ * and silently drops fonts, borders and alignment. styles.xml is parsed
+ * directly instead, which round-trips the whole vocabulary.
+ * ----------------------------------------------------------------------- */
+
+/* XLSX writes colours as ARGB ("FFRRGGBB") but readers hand back anything from
+   6 to 8 digits, and may instead describe the colour by theme slot or legacy
+   palette index. Resolve all of those to "#rrggbb", or null when the colour is
+   absent/automatic — callers treat null as "leave the default alone". */
+const XLSX_INDEXED = [
+  '000000', 'ffffff', 'ff0000', '00ff00', '0000ff', 'ffff00', 'ff00ff', '00ffff',
+  '000000', 'ffffff', 'ff0000', '00ff00', '0000ff', 'ffff00', 'ff00ff', '00ffff',
+  '800000', '008000', '000080', '808000', '800080', '008080', 'c0c0c0', '808080',
+  '9999ff', '993366', 'ffffcc', 'ccffff', '660066', 'ff8080', '0066cc', 'ccccff',
+  '000080', 'ff00ff', 'ffff00', '00ffff', '800080', '800000', '008080', '0000ff',
+  '00ccff', 'ccffff', 'ccffcc', 'ffff99', '99ccff', 'ff99cc', 'cc99ff',
+  'ffcc99', '3366ff', '33cccc', '99cc00', 'ff00ff', 'ff6600', '666699', '969696',
+  '003366', '339966', '003300', '333300', '993300', '993366', '333399', '333333'
+];
+/* Legacy theme slots, resolved against the Office colour scheme. Only the
+   handful a spreadsheet realistically carries; anything else stays null. */
+const XLSX_THEME = ['ffffff', '000000', 'e7e6e6', '44546a', '5b9bd5', 'ed7d31', 'a5a5a5', 'ffc000',
+  '4472c4', '70ad47', '0563c1', '954f72'];
+/* OOXML tint: positive lightens toward white, negative darkens toward black */
+function applyTint(hex, tint) {
+  if (!tint) return hex;
+  const n = parseInt(hex, 16);
+  let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const mix = (c) => Math.round(tint > 0 ? c + (255 - c) * tint : c * (1 + tint));
+  r = clamp(mix(r), 0, 255); g = clamp(mix(g), 0, 255); b = clamp(mix(b), 0, 255);
+  return (r << 16 | g << 8 | b).toString(16).padStart(6, '0');
+}
+function xlsxColorToHex(col) {
+  if (!col || typeof col !== 'object') return null;
+  if (col.rgb != null) {
+    let s = String(col.rgb).replace(/[^0-9a-fA-F]/g, '');
+    if (s.length === 8) s = s.slice(2);              /* drop the alpha byte */
+    if (s.length === 3) s = s[0] + s[0] + s[1] + s[1] + s[2] + s[2];
+    return s.length === 6 ? '#' + s.toLowerCase() : null;
+  }
+  if (col.theme != null) {
+    const base = XLSX_THEME[col.theme];
+    return base ? '#' + applyTint(base, col.tint) : null;
+  }
+  if (col.indexed != null) {
+    const base = XLSX_INDEXED[col.indexed];
+    return base ? '#' + base : null;
+  }
+  return null;
+}
+/* Normalise anything that can describe a colour into "#rrggbb". */
+function hexNorm(c) {
+  if (!c) return null;
+  if (typeof c === 'object') return xlsxColorToHex(c);
+  let s = String(c).trim();
+  if (s[0] === '#') s = s.slice(1);
+  s = s.replace(/[^0-9a-fA-F]/g, '');
+  if (s.length === 8) s = s.slice(2);
+  if (s.length === 3) s = s[0] + s[0] + s[1] + s[1] + s[2] + s[2];
+  if (s.length !== 6) return null;
+  return '#' + s.toLowerCase();
+}
+function hexToArgb(hex) {
+  const h = hexNorm(hex);
+  return h ? ('FF' + h.slice(1).toUpperCase()) : null;
+}
+
+/* OOXML line styles <-> the app's border vocabulary. The app draws four
+   weights (BORDER_W); everything finer collapses to thin so a hairline from
+   Excel still renders as a visible rule. */
+const BORDER_FROM_XLSX = {
+  thin: 'thin', medium: 'medium', thick: 'thick', double: 'double',
+  hair: 'thin', dotted: 'thin', dashed: 'thin', dashDot: 'thin', dashDotDot: 'thin',
+  slantDashDot: 'thin', mediumDashed: 'medium', mediumDashDot: 'medium',
+  mediumDashDotDot: 'medium', mediumDouble: 'double'
+};
+const BORDER_TO_XLSX = { thin: 'thin', medium: 'medium', thick: 'thick', double: 'double' };
+
+/* XLSX cell.s -> app style patch (or null when the cell carries nothing worth
+   keeping, so we do not allocate a style for every cell in a plain file).
+   `numFmt` is accepted either on the style object or as the second argument,
+   because the two readers that feed this disagree about where it lives. */
+function xlsxStyleToApp(s, numFmt) {
+  const fmt = numFmt || (s && s.numFmt) || null;
+  if (!s && !fmt) return null;
+  const patch = {};
+  let any = false;
+  if (s) {
+    const f = s.font;
+    if (f) {
+      if (f.name) { patch.fontFamily = String(f.name); any = true; }
+      if (f.sz) { patch.fontSize = clamp(Math.round(+f.sz), 1, 409); any = true; }
+      if (f.bold) { patch.bold = true; any = true; }
+      if (f.italic) { patch.italic = true; any = true; }
+      if (f.strike) { patch.strike = true; any = true; }
+      /* u may be boolean, 1, or "single"/"double" — the library's own reader keys it
+         as `u`, readStyleTable keys it as `underline`. Accept either. */
+      if (f.underline || f.u) {
+        const raw = f.underline || f.u;
+        patch.underline = /double/i.test(String(raw)) ? 2 : 1;
+        any = true;
+      }
+      const fc = hexNorm(f.color);
+      /* Automatic is black — leaving it unset keeps theme-following text black,
+         which is what the cell already draws. */
+      if (fc && fc !== '#000000') { patch.color = fc; any = true; }
+    }
+    /* Only a solid pattern paints; Excel's hatch/gradient fills have no
+       equivalent here and would otherwise wash the cell a misleading colour. */
+    const fill = s.fill;
+    if (fill && (!fill.patternType || fill.patternType === 'solid')) {
+      const bg = hexNorm(fill.fgColor) || hexNorm(fill.bgColor);
+      if (bg) { patch.backgroundColor = bg; any = true; }
+    }
+    const a = s.alignment;
+    if (a) {
+      const h = a.horizontal ? String(a.horizontal).toLowerCase() : null;
+      if (h === 'left' || h === 'center' || h === 'centre' || h === 'right') { patch.halign = (h === 'centre' ? 'center' : h); any = true; }
+      const v = a.vertical ? String(a.vertical).toLowerCase() : null;
+      if (v === 'top' || v === 'bottom' || v === 'center' || v === 'centre' || v === 'justify' || v === 'distributed') { patch.valign = (v === 'centre' ? 'middle' : v === 'center' ? 'middle' : v); any = true; }
+      if (a.wrapText) { patch.wrap = true; any = true; }
+      if (a.indent) { patch.indent = clamp(+a.indent || 0, 0, 250); any = true; }
+    }
+    const b = s.border;
+    if (b) {
+      const side = (sd) => {
+        if (!sd || !sd.style) return null;
+        const style = BORDER_FROM_XLSX[sd.style];
+        if (!style) return null;
+        return { style, color: hexNorm(sd.color) || DEFAULT_BORDER.color };
+      };
+      const border = { t: side(b.top), r: side(b.right), b: side(b.bottom), l: side(b.left) };
+      if (border.t || border.r || border.b || border.l) { patch.border = border; any = true; }
+    }
+  }
+  if (fmt && fmt !== 'General') { patch.numberFormat = fmt; any = true; }
+  if (!any) return null;
+  return patch;
+}
+
+/* app style -> XLSX cell.s. Only called when XLSX_STYLE_WRITE is true. */
+function appStyleToXlsx(s) {
+  if (!s) return null;
+  const out = {};
+  const font = {};
+  if (s.fontFamily) font.name = s.fontFamily;
+  if (s.fontSize) font.sz = +s.fontSize;
+  if (s.bold) font.bold = true;
+  if (s.italic) font.italic = true;
+  if (s.strike) font.strike = true;
+  /* The writer looks for `underline`, not the `u` key its own reader produces.
+     It emits a bare <u/>, so a double underline lands as single. */
+  if (s.underline === 1 || s.underline === 2) font.underline = true;
+  const fc = hexToArgb(s.color);
+  if (fc) font.color = { rgb: fc };
+  out.font = font;
+
+  const bg = hexToArgb(s.backgroundColor);
+  if (bg) out.fill = { patternType: 'solid', fgColor: { rgb: bg } };
+
+  const al = {};
+  if (s.halign) al.horizontal = s.halign;
+  if (s.valign) al.vertical = s.valign === 'middle' ? 'center' : s.valign;
+  if (s.wrap) al.wrapText = true;
+  if (s.indent) al.indent = s.indent;
+  out.alignment = al;
+
+  if (s.border) {
+    const bd = {};
+    const side = (sd) => {
+      if (!sd || !sd.style) return null;
+      const style = BORDER_TO_XLSX[sd.style];
+      if (!style) return null;
+      const col = hexToArgb(sd.color);
+      return col ? { style, color: { rgb: col } } : { style };
+    };
+    const t = side(s.border.t), r = side(s.border.r), b = side(s.border.b), l = side(s.border.l);
+    if (t) bd.top = t;
+    if (r) bd.right = r;
+    if (b) bd.bottom = b;
+    if (l) bd.left = l;
+    if (t || r || b || l) out.border = bd;
+  }
+  if (s.numberFormat && s.numberFormat !== 'General') out.numFmt = s.numberFormat;
+  return out;
+}
+
+/* --------------------------------------------------------------------------
+ * XLSX engine
+ *
+ * Upstream SheetJS CE parses styles on read but its writer ignores them
+ * entirely, so every fill / font / border would silently vanish on export.
+ * xlsx-js-style is a drop-in fork with a style-aware writer, and we prefer it.
+ * If only CE ever loads we still import and export everything else — the
+ * writer path just skips the style table and says so.
+ * ----------------------------------------------------------------------- */
+let XLSX_STYLE_WRITE = false;
+const XLSX_CDN = [
+  'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js',
+  'https://unpkg.com/xlsx-js-style@1.2.0/dist/xlsx.bundle.js',
+  'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+];
+function detectXlsxStyleWriter() {
+  /* The fork reports upstream SheetJS 0.18.5 as .version and tags its own build
+     in .style_version — so matching the version string alone would silently
+     disable styling. Either marker counts; anything else is treated as CE so we
+     never advertise fidelity we cannot deliver. */
+  try {
+    const X = window.XLSX || {};
+    XLSX_STYLE_WRITE = !!(X.style_version || /js-style/i.test(String(X.version || '')));
+  } catch (e) { XLSX_STYLE_WRITE = false; }
+  return XLSX_STYLE_WRITE;
+}
 function ensureXlsxLib() {
   return new Promise((resolve) => {
-    if (window.XLSX) return resolve(true);
-    const tryLoad = (urls, i) => {
-      if (i >= urls.length) return resolve(false);
+    if (window.XLSX) { detectXlsxStyleWriter(); resolve(true); }
+    let i = 0;
+    const tryLoad = () => {
+      if (i >= XLSX_CDN.length) { resolve(false); return; }
       const s = document.createElement('script');
-      s.src = urls[i];
-      s.onload = () => resolve(!!window.XLSX);
-      s.onerror = () => tryLoad(urls, i + 1);
+      s.src = XLSX_CDN[i++];
+      s.onload = () => {
+        if (window.XLSX) { detectXlsxStyleWriter(); resolve(true); }
+        else tryLoad();
+      };
+      s.onerror = tryLoad;
       document.head.appendChild(s);
     };
-    tryLoad([
-      'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js',
-      'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
-    ], 0);
+    tryLoad();
   });
+}
+
+/* ---- minimal XML scraping (styles.xml and <c> tags are machine-generated) ---- */
+const decodeXml = s => String(s == null ? '' : s)
+  .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+  .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+  .replace(/&#(\d+);/g, (_, d) => String.fromCharCode(+d))
+  .replace(/&amp;/g, '&');
+const xmlAttr = (attrs, name) => {
+  const m = new RegExp('\\s' + name + '="([^"]*)"').exec(attrs || '');
+  return m ? decodeXml(m[1]) : null;
+};
+/* Direct children of `tag`, each as {attrs, inner}. Self-closing elements come
+   back with an empty inner. */
+function xmlElements(xml, tag) {
+  const out = [];
+  const open = new RegExp('<' + tag + '(\\s[^>]*?)?(/?)>', 'g');
+  let m;
+  while ((m = open.exec(xml))) {
+    if (m[2] === '/') { out.push({ attrs: m[1] || '', inner: '' }); continue; }
+    const close = xml.indexOf('</' + tag + '>', open.lastIndex);
+    if (close === -1) break;
+    out.push({ attrs: m[1] || '', inner: xml.slice(open.lastIndex, close) });
+    open.lastIndex = close + tag.length + 3;
+  }
+  return out;
+}
+/* Contents of the first <tag>…</tag> block — used to scope <xf> lookups to
+   cellXfs rather than picking up the cellStyleXfs entries as well. */
+function xmlBlock(xml, tag) {
+  const open = xml.indexOf('<' + tag);
+  if (open === -1) return '';
+  const gt = xml.indexOf('>', open);
+  if (gt === -1 || xml[gt - 1] === '/') return '';
+  const close = xml.indexOf('</' + tag + '>', gt);
+  return close === -1 ? '' : xml.slice(gt + 1, close);
+}
+/* A colour element may describe itself by rgb, theme slot or palette index. */
+function xmlColorNode(attrs) {
+  if (!attrs) return null;
+  const rgb = xmlAttr(attrs, 'rgb');
+  const theme = xmlAttr(attrs, 'theme');
+  const indexed = xmlAttr(attrs, 'indexed');
+  const tint = xmlAttr(attrs, 'tint');
+  if (rgb == null && theme == null && indexed == null) return null;
+  return { rgb: rgb || undefined, theme: theme != null ? +theme : undefined, indexed: indexed != null ? +indexed : undefined, tint: tint != null ? +tint : undefined };
+}
+function readColorTable(xml, names) {
+  const out = {};
+  for (const n of names) {
+    const e = xmlElements(xml, n)[0];
+    out[n] = xmlColorNode(e ? e.attrs : null);
+  }
+  return out;
+}
+/* Resolve a styles.xml into the four tables cellXfs indexes into. */
+function readStyleTable(stylesXml) {
+  const numFmts = {};
+  for (const nf of xmlElements(xmlBlock(stylesXml, 'numFmts'), 'numFmt')) {
+    const id = xmlAttr(nf.attrs, 'numFmtId'), code = xmlAttr(nf.attrs, 'formatCode');
+    if (id != null && code != null) numFmts[id] = code;
+  }
+  const fonts = xmlElements(xmlBlock(stylesXml, 'fonts'), 'font').map(f => {
+    const o = {};
+    const nm = xmlElements(f.inner, 'name')[0], sz = xmlElements(f.inner, 'sz')[0];
+    if (nm) { const v = xmlAttr(nm.attrs, 'val'); if (v) o.name = v; }
+    if (sz) { const v = xmlAttr(sz.attrs, 'val'); if (v) o.sz = +v; }
+    if (xmlElements(f.inner, 'b').length) o.bold = true;
+    if (xmlElements(f.inner, 'i').length) o.italic = true;
+    if (xmlElements(f.inner, 'u').length) o.underline = true;
+    if (xmlElements(f.inner, 'strike').length) o.strike = true;
+    Object.assign(o, readColorTable(f.inner, ['color']));
+    return o;
+  });
+  const fills = xmlElements(xmlBlock(stylesXml, 'fills'), 'fill').map(f => {
+    const pf = xmlElements(f.inner, 'patternFill')[0];
+    if (!pf) return null;
+    return Object.assign({ patternType: xmlAttr(pf.attrs, 'patternType') }, readColorTable(pf.inner, ['fgColor', 'bgColor']));
+  });
+  const borders = xmlElements(xmlBlock(stylesXml, 'borders'), 'border').map(b => {
+    const o = {};
+    for (const side of ['left', 'right', 'top', 'bottom']) {
+      const e = xmlElements(b.inner, side)[0];
+      const style = e ? xmlAttr(e.attrs, 'style') : null;
+      if (!style) continue;
+      const col = xmlElements(e.inner, 'color')[0];
+      o[side] = { style, color: xmlColorNode(col ? col.attrs : null) };
+    }
+    return o;
+  });
+  const cellXfs = xmlElements(xmlBlock(stylesXml, 'cellXfs'), 'xf').map(x => {
+    const al = xmlElements(x.inner, 'alignment')[0];
+    return {
+      numFmtId: +(xmlAttr(x.attrs, 'numFmtId') || 0),
+      fontId: +(xmlAttr(x.attrs, 'fontId') || 0),
+      fillId: +(xmlAttr(x.attrs, 'fillId') || 0),
+      borderId: +(xmlAttr(x.attrs, 'borderId') || 0),
+      alignment: al ? {
+        horizontal: xmlAttr(al.attrs, 'horizontal'),
+        vertical: xmlAttr(al.attrs, 'vertical'),
+        wrapText: xmlAttr(al.attrs, 'wrapText') === '1' || xmlAttr(al.attrs, 'wrapText') === 'true',
+        indent: +(xmlAttr(al.attrs, 'indent') || 0)
+      } : null
+    };
+  });
+  return { numFmts, fonts, fills, borders, cellXfs };
+}
+/* Built-in number formats, from the library's own table when it is loaded and
+   from a short fallback otherwise. */
+function builtinNumFmtCode(id, table) {
+  try {
+    if (window.XLSX && window.XLSX.SSF && window.XLSX.SSF._table && window.XLSX.SSF._table[id]) return window.XLSX.SSF._table[id];
+  } catch (e) { /* fall through */ }
+  if (id === 0) return null;
+  if (id === 14) return 'm/d/yyyy';
+  if (id === 9) return '0%';
+  if (id === 10) return '0.00%';
+  if (id === 2) return '0.00';
+  return (table && table.numFmts[id]) || null;
+}
+/* One style record -> an xlsx-shaped style, or null when the record says
+   nothing the app's default style does not already say.
+
+   The null case matters: writers stamp an s="" index on *every* cell, and most
+   of those records point at the workbook's base font. Importing them as real
+   styles would give every plain cell in the file an explicit Calibri 11. */
+function xfToStyle(xf, table) {
+  const font = table.fonts[xf.fontId] || null;
+  const rawFill = table.fills[xf.fillId] || null;
+  /* Only solid fills paint here; Excel's hatch/gradient patterns have no
+     equivalent in the canvas renderer. */
+  const fill = rawFill && rawFill.patternType === 'solid'
+    ? { patternType: 'solid', fgColor: rawFill.fgColor || rawFill.bgColor || null }
+    : null;
+  const border = table.borders[xf.borderId] || null;
+  const emphasised = !!(font && (font.bold || font.italic || font.underline || font.strike || font.color));
+  /* fontId 0 is the workbook base font — its name and size are the app's own
+     default, so only emphasis on it is worth carrying across. */
+  const fontOut = font && (emphasised || xf.fontId !== 0) ? font : null;
+  const numFmt = builtinNumFmtCode(xf.numFmtId, table) || table.numFmts[xf.numFmtId] || null;
+  if (!fontOut && !fill && !border && !xf.alignment && !numFmt) return null;
+  return {
+    font: fontOut,
+    fill,
+    border: border && (border.top || border.right || border.bottom || border.left) ? border : null,
+    alignment: xf.alignment,
+    numFmt: numFmt === 'General' ? null : numFmt
+  };
+}
+/* address ("A1") -> style index, from the s="N" attribute on each <c>. */
+function readSheetStyleIndexes(sheetXml) {
+  const map = new Map();
+  const re = /<c r="([A-Z]{1,3}\d{1,7})"([^>]*)>/g;
+  let m;
+  while ((m = re.exec(sheetXml))) {
+    const s = /\ss="(\d+)"/.exec(m[2]);
+    if (s) map.set(m[1], +s[1]);
+  }
+  return map;
+}
+
+function parseRelTargets(relsXml) {
+  const relMap = {};
+  const relRe = /<Relationship\b([^>]*?)\/?>/g;
+  let m;
+  while ((m = relRe.exec(relsXml))) {
+    const id = /Id="([^"]+)"/.exec(m[1]), tgt = /Target="([^"]+)"/.exec(m[1]);
+    if (id && tgt) relMap[id[1]] = 'xl/' + tgt[1].replace(/^\.?\/?xl\//, '').replace(/^\//, '');
+  }
+  return relMap;
+}
+/* Worksheet parts in workbook order. Resolved through workbook.xml + its rels
+   rather than assuming sheet1.xml, sheet2.xml… — the writer skips hidden
+   sheets, so file order does not line up with our own sheet list. */
+async function xlsxSheetParts(zip) {
+  const wbEntry = zip.file('xl/workbook.xml');
+  if (!wbEntry) return null;
+  const wbXml = await wbEntry.async('text');
+  const relsEntry = zip.file('xl/_rels/workbook.xml.rels');
+  if (!relsEntry) return null;
+  const relMap = parseRelTargets(await relsEntry.async('text'));
+  const order = [];
+  const sheetRe = /<sheet\b([^>]*?)\/?>/g;
+  let m;
+  while ((m = sheetRe.exec(wbXml))) {
+    const rid = /(?:r:)?id="([^"]+)"/.exec(m[1]);
+    const p = rid && relMap[rid[1]];
+    if (p) order.push({ path: p, name: (/\bname="([^"]*)"/.exec(m[1]) || [])[1] || '' });
+  }
+  return order.length ? order : null;
+}
+
+/* Resolve every styled cell in an .xlsx. Returns null when the archive cannot
+   be opened, so the caller can still import values and formulas on its own. */
+async function readXlsxStyles(buf) {
+  if (typeof openZipBuffer !== 'function') return null;
+  try {
+    const zip = openZipBuffer(buf);
+    const parts = await xlsxSheetParts(zip);
+    const stylesEntry = zip.file('xl/styles.xml');
+    if (!parts || !stylesEntry) return null;
+    const table = readStyleTable(await stylesEntry.async('text'));
+    /* Cache the resolved style per xf index — a workbook usually has far fewer
+       distinct styles than styled cells. */
+    const byXf = new Map();
+    const sheets = [];
+    for (const part of parts) {
+      const entry = zip.file(part.path);
+      const map = new Map();
+      if (entry) {
+        const xml = await entry.async('text');
+        for (const [a, xi] of readSheetStyleIndexes(xml)) {
+          if (!xi || xi >= table.cellXfs.length) continue;
+          let patch = byXf.get(xi);
+          if (patch === undefined) {
+            patch = xlsxStyleToApp(xfToStyle(table.cellXfs[xi], table), null);
+            byXf.set(xi, patch);
+          }
+          if (patch) map.set(a, patch);
+        }
+      }
+      sheets.push(map);
+    }
+    return { table, sheets };
+  } catch (e) {
+    console.warn('style import skipped', e);
+    return null;
+  }
 }
 
 function importFileDialog() {
@@ -8839,85 +9286,42 @@ function importFileDialog() {
   });
   input.click();
 }
-function typeFromText(txt) {
-  const t = String(txt).trim();
-  if (t === '') return { v: null };
-  if (/^-?(\d{1,3}(,\d{3})*|\d+)(\.\d+)?([eE][+-]?\d+)?$/.test(t) && /\d/.test(t)) return { v: Number(t.replace(/,/g, '')) };
-  const d = tryParseDateStr(t);
-  if (d != null) return { v: d, s: { numberFormat: NUMCAT.shortDate } };
-  return { v: txt };
-}
-async function importCsv(file) {
-  const text = await file.text();
-  /* delimiter detection */
-  const sample = text.slice(0, 5000);
-  const counts = { ',': 0, ';': 0, '\t': 0, '|': 0 };
-  let inQ = false;
-  for (const ch of sample) { if (ch === '"') inQ = !inQ; else if (!inQ && counts[ch] != null) counts[ch]++; }
-  let delim = ',';
-  let best = 0;
-  for (const d in counts) if (counts[d] > best) { best = counts[d]; delim = d; }
-  const rows = parseDelimited(text, delim);
-  if (!rows.length) { toast('The file appears to be empty', 'warn'); return; }
-  const base = file.name.replace(/\.[^.]+$/, '') || 'Imported';
-  const sh = makeSheet(uniqueSheetName(base.slice(0, 24)));
-  const maxCols = Math.min(1000, Math.max(...rows.map(r => r.length)));
-  for (let r = 0; r < Math.min(rows.length, MAX_ROWS); r++) {
-    for (let c = 0; c < Math.min(rows[r].length, maxCols); c++) {
-      const tv = typeFromText(rows[r][c]);
-      if (tv.v != null) writeCell(sh, r, c, tv);
-    }
-  }
-  sh.usedMax = { r: Math.min(rows.length - 1, MAX_ROWS - 1), c: maxCols - 1 };
-  WB.sheets.push(sh);
-  setActiveSheet(sh.id);
-  updateSheetTabBar();
-  rebuildAllDeps();
-  Persistence.markDirty();
-  toast('Imported "' + file.name + '" — ' + Math.min(rows.length, MAX_ROWS) + ' rows into sheet "' + sh.name + '"', 'success', 4200);
-}
-function parseDelimited(text, delim) {
-  const rows = [];
-  let row = [], field = '', inQ = false;
-  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (inQ) {
-      if (ch === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else inQ = false; }
-      else field += ch;
-    } else if (ch === '"') inQ = true;
-    else if (ch === delim) { row.push(field); field = ''; }
-    else if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
-    else field += ch;
-  }
-  if (field !== '' || row.length) { row.push(field); rows.push(row); }
-  return rows;
-}
 async function importXlsx(file) {
   const buf = await file.arrayBuffer();
-  const wb = XLSX.read(buf, { type: 'array', cellFormula: true, cellStyles: false, cellNF: true, sheetStubs: false });
+  /* Values and formulas come from the library; cell styles do not — its reader
+     returns only the fill. Styles are read straight from styles.xml + the
+     worksheet's s="" attributes by readStyleTable/readSheetStyleIndexes. */
+  const wb = XLSX.read(buf, { type: 'array', cellFormula: true, cellStyles: false, cellNF: true, cellDates: false, sheetStubs: false });
   if (!wb.SheetNames.length) { toast('The workbook has no sheets', 'warn'); return; }
-  for (const name of wb.SheetNames) {
+  const styleSrc = await readXlsxStyles(buf);
+  let styled = 0;
+  for (let si = 0; si < wb.SheetNames.length; si++) {
+    const name = wb.SheetNames[si];
     const ws = wb.Sheets[name];
     const sh = makeSheet(uniqueSheetName(name.slice(0, 28)));
     const ref = ws['!ref'] || 'A1';
     const range = XLSX.utils.decode_range(ref);
+    /* address -> app style patch, resolved once for the whole sheet */
+    const patchByAddr = styleSrc ? styleSrc.sheets[si] || new Map() : new Map();
     for (let R0 = range.s.r; R0 <= Math.min(range.e.r, 100000); R0++) {
       for (let C0 = range.s.c; C0 <= Math.min(range.e.c, 1000); C0++) {
         const cell = ws[XLSX.utils.encode_cell({ r: R0, c: C0 })];
-        if (!cell) continue;
         const addrKey = key(R0, C0);
         const patch = {};
-        if (cell.f) { patch.f = '=' + cell.f; if (cell.v !== undefined) patch.v = cell.v; }
-        else if (cell.t === 'n') patch.v = cell.v;
-        else if (cell.t === 'b') patch.v = !!cell.v;
-        else if (cell.t === 's' || cell.t === 'str') patch.v = cell.w != null && cell.v == null ? cell.w : cell.v;
-        else if (cell.t === 'd') patch.v = dateToSerial(cell.v);
-        else if (cell.w != null) patch.v = cell.w;
-        if (cell.z && cell.t === 'n' && cell.z !== 'General') { patch.s = { numberFormat: cell.z }; }
+        if (cell) {
+          if (cell.f) { patch.f = '=' + cell.f; if (cell.v !== undefined) patch.v = cell.v; }
+          else if (cell.t === 'n') patch.v = cell.v;
+          else if (cell.t === 'b') patch.v = !!cell.v;
+          else if (cell.t === 's' || cell.t === 'str') patch.v = cell.w != null && cell.v == null ? cell.w : cell.v;
+          else if (cell.t === 'd') patch.v = dateToSerial(cell.v);
+          else if (cell.w != null) patch.v = cell.w;
+        }
+        const st = patchByAddr.get(XLSX.utils.encode_cell({ r: R0, c: C0 }));
+        if (st) { patch.s = st; styled++; }
         if (patch.v !== undefined || patch.f) writeCell(sh, R0, C0, patch);
+        else if (patch.s) writeCell(sh, R0, C0, { s: patch.s });
         /* cell comments → notes (thread replies flattened as extra comment entries) */
-        if (cell.c && cell.c.length) {
+        if (cell && cell.c && cell.c.length) {
           if (!sh.notes) sh.notes = new Map();
           const main = cell.c[0] || {};
           const replies = cell.c.slice(1).filter(cm => cm && (cm.t != null)).map(cm => ({ a: String(cm.a || 'Me'), t: String(cm.t || ''), ts: null }));
@@ -8932,29 +9336,72 @@ async function importXlsx(file) {
       rebuildMergeMap(sh);
     }
     if (ws['!cols']) {
-      ws['!cols'].forEach((cd, i) => { if (cd && cd.wpx) sh.cols.set(i, { size: Math.round(cd.wpx) }); else if (cd && cd.wch) sh.cols.set(i, { size: Math.round(cd.wch * 7) }); });
+      ws['!cols'].forEach((cd, i) => {
+        if (!cd) return;
+        const patch = {};
+        if (cd.wpx) patch.size = Math.round(cd.wpx);
+        else if (cd.wch) patch.size = Math.round(cd.wch * 7);
+        if (cd.hidden) patch.hidden = true;
+        if (patch.size != null || patch.hidden) sh.cols.set(i, patch);
+      });
     }
     if (ws['!rows']) {
-      ws['!rows'].forEach((rd, i) => { if (rd && rd.hpx) sh.rows.set(i, { size: Math.round(rd.hpx) }); else if (rd && rd.hpt) sh.rows.set(i, { size: Math.round(rd.hpt * 4 / 3) }); });
+      ws['!rows'].forEach((rd, i) => {
+        if (!rd) return;
+        const patch = {};
+        if (rd.hpx) patch.size = Math.round(rd.hpx);
+        else if (rd.hpt) patch.size = Math.round(rd.hpt * 4 / 3);
+        if (rd.hidden) patch.hidden = true;
+        if (patch.size != null || patch.hidden) sh.rows.set(i, patch);
+      });
     }
+    /* Frozen panes + gridline visibility + the sheet's own hidden flag live on
+       the workbook-level sheet record rather than the worksheet body. */
+    const meta = (wb.Workbook && wb.Workbook.Sheets || [])[wb.SheetNames.indexOf(name)] || null;
+    if (meta) {
+      if (meta.Hidden) sh.hidden = true;
+      const pane = meta.Panes || ws['!freeze'];
+      if (pane && (pane.ySplit || pane.xSplit)) {
+        sh.freeze = { r: pane.ySplit || 0, c: pane.xSplit || 0 };
+        if (pane.topLeftCell) {
+          const tl = parseAddr(String(pane.topLeftCell).replace(/\$/g, ''));
+          if (tl) { sh.freeze.r = tl.r; sh.freeze.c = tl.c; }
+        }
+      }
+    }
+    if (ws['!gridlines'] === false) sh.showGridlines = false;
     sh.usedMax = { r: Math.min(range.e.r, 100000), c: Math.min(range.e.c, 1000) };
     WB.sheets.push(sh);
   }
-  setActiveSheet(WB.sheets[WB.sheets.length - 1].id);
+  setActiveSheet((visibleSheets().pop() || WB.sheets[WB.sheets.length - 1]).id);
   updateSheetTabBar();
   rebuildAllDeps();
   Persistence.markDirty();
-  toast('Imported workbook with ' + wb.SheetNames.length + ' sheet(s)', 'success', 4200);
+  const bits = [];
+  if (styled) bits.push(styled.toLocaleString() + ' formatted cell(s)');
+  toast('Imported workbook with ' + wb.SheetNames.length + ' sheet(s)' + (bits.length ? ' — ' + bits.join(', ') : ''), 'success', 4200);
 }
 async function exportXlsx() {
   const ok = await ensureXlsxLib();
   if (!ok) { toast('XLSX export needs the SheetJS library (internet). Try CSV export instead.', 'error', 5000); return; }
   const wb = XLSX.utils.book_new();
+  let styledTotal = 0;
   for (const sh of WB.sheets) {
     if (sh.hidden) continue;
     const ws = {};
     const ur = usedRange(sh);
     const range = { s: { r: 0, c: 0 }, e: { r: Math.min(ur.r2, 100000), c: Math.min(ur.c2, 1000) } };
+    /* One translated style object per distinct app style, reused across cells —
+       the writer hashes them into a style table anyway, this just avoids
+       rebuilding the same nested object tens of thousands of times. */
+    const xstyleCache = new Map();
+    const xstyleFor = (s) => {
+      if (!s) return null;
+      let hit = xstyleCache.get(s);
+      if (hit === undefined) { hit = appStyleToXlsx(s); xstyleCache.set(s, hit); }
+      return hit;
+    };
+    let styled = 0;
     for (let r = range.s.r; r <= range.e.r; r++) {
       for (let c = range.s.c; c <= range.e.c; c++) {
         const cell = sh.cells.get(key(r, c));
@@ -8967,6 +9414,9 @@ async function exportXlsx() {
           o.t = typeof cell.v === 'number' ? 'n' : typeof cell.v === 'boolean' ? 'b' : 's';
           if (cell.v == null) continue;
         }
+        if (XLSX_STYLE_WRITE && cell.s) { const xs = xstyleFor(cell.s); if (xs) { o.s = xs; styled++; } }
+        /* The writer takes the number format from the cell's own z, not from
+           the style object, so it has to be set either way. */
         if (cell.s && cell.s.numberFormat) o.z = cell.s.numberFormat;
         ws[XLSX.utils.encode_cell({ r, c })] = o;
       }
@@ -8992,17 +9442,29 @@ async function exportXlsx() {
     ws['!ref'] = XLSX.utils.encode_range(range);
     if (sh.merges.length) ws['!merges'] = sh.merges.map(m => ({ s: { r: m.r1, c: m.c1 }, e: { r: m.r2, c: m.c2 } }));
     const cols = [];
-    for (let c = 0; c <= range.e.c; c++) cols.push({ wpx: sh.cols.sizeOf(c) });
+    for (let c = 0; c <= range.e.c; c++) cols.push({ wpx: sh.cols.sizeOf(c), hidden: sh.cols.get(c).hidden ? 1 : 0 });
     ws['!cols'] = cols;
     const rowsA = [];
-    for (let r = 0; r <= range.e.r; r++) rowsA.push({ hpx: sh.rows.sizeOf(r) });
+    for (let r = 0; r <= range.e.r; r++) rowsA.push({ hpx: sh.rows.sizeOf(r), hidden: sh.rows.get(r).hidden ? 1 : 0 });
     ws['!rows'] = rowsA;
+    if (sh.freeze.r || sh.freeze.c) {
+      ws['!freeze'] = sh.freeze.c ? 'C' + (sh.freeze.r + 1) : 'A' + (sh.freeze.r + 1);
+      ws['!margins'] = { left: 0.7, right: 0.7, top: 0.75, bottom: 0.75, header: 0.3, footer: 0.3 };
+    }
+    if (!sh.showGridlines) ws['!gridlines'] = false;
     XLSX.utils.book_append_sheet(wb, ws, sh.name.slice(0, SHEET_NAME_MAX));
+    styledTotal += styled;
   }
   const fname = (WB.title || 'workbook').replace(/[\\/:*?"<>|]/g, '_') + '.xlsx';
   try {
-    XLSX.writeFile(wb, fname);
-    toast('Workbook exported as XLSX (values, formulas, widths, merges, comments)', 'success', 4000);
+    /* Built in memory rather than via writeFile so the toast can report what
+       actually went into the file. */
+    const out = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+    downloadBlob(new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), fname);
+    const notes = ['values', 'formulas', 'widths', 'merges', 'comments'];
+    if (XLSX_STYLE_WRITE && styledTotal) notes.splice(1, 0, styledTotal.toLocaleString() + ' formatted cell(s)');
+    else if (!XLSX_STYLE_WRITE) notes.push('no colours — the styling library did not load');
+    toast('Workbook exported as XLSX (' + notes.join(', ') + ')', 'success', 4000);
   } catch (e) {
     console.error(e);
     toast('XLSX export failed: ' + (e && e.message ? e.message : 'unknown error'), 'error', 5000);
@@ -9026,6 +9488,7 @@ function exportCsv() {
   downloadBlob(blob, (WB.title || 'sheet').replace(/[\\/:*?"<>|]/g, '_') + ' - ' + sh.name.replace(/[\\/:*?"<>|]/g, '_') + '.csv');
   toast('Active sheet exported as CSV', 'success', 3000);
 }
+
 function downloadBlob(blob, name) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -11634,7 +12097,7 @@ async function boot() {
     historyLabels: () => H.undo.map(e => e.label || '?'),
     redoLabels: () => H.redo.map(e => e.label || '?'),
     auditState: () => ({ mode: Audit.mode, target: Audit.target, count: Audit.arrows.length, arrows: Audit.arrows.map(a => a.kind === 'xsheet' ? 'xsheet:' + a.dir + ':' + a.label : a.kind + (a.from ? ' from ' + a.from.r + ',' + a.from.c : '') + (a.to ? ' to ' + a.to.r + ',' + a.to.c : '') + (a.range ? ' rng ' + JSON.stringify(a.range) : '')) }),
-    cell: (addr) => { try { const sh = activeSheet(); const p = parseAddr(addr); const m = sh.cells.get(key(p.r, p.c)); if (!m) return null; const cv = m.cv == null ? null : (typeof m.cv === 'object' ? (m.cv.err || m.cv.rows ? (m.cv.err || 'range/array') : 'obj') : m.cv); return { v: m.v, f: m.f, cv }; } catch (e) { return 'err:' + e.message; } },
+    cell: (addr) => { try { const sh = activeSheet(); const p = parseAddr(addr); const m = sh.cells.get(key(p.r, p.c)); if (!m) return null; const raw = getComputedCell(sh.id, p.r, p.c); const cv = raw == null ? null : (typeof raw === 'object' ? (isErr(raw) ? raw.err : (raw.__r ? 'range' : 'obj')) : raw); return { v: m.v, f: m.f, cv }; } catch (e) { return 'err:' + e.message; } },
     xy: (addr) => { try { const sh = activeSheet(); const p = parseAddr(addr); const x = colScreenX(sh, p.c) + colScreenW(sh, p.c) / 2; const y = rowScreenY(sh, p.r) + rowScreenH(sh, p.r) / 2; const cv = document.getElementById('grid-canvas').getBoundingClientRect(); return { x: Math.round(cv.left + x), y: Math.round(cv.top + y), corner: { x: Math.round(cv.left + colScreenX(sh, p.c) + colScreenW(sh, p.c) - 2), y: Math.round(cv.top + rowScreenY(sh, p.r) + rowScreenH(sh, p.r) - 2) } }; } catch (e) { return 'err:' + e.message; } },
     view: () => ({ zoom: VIEW.zoom, headings: VIEW.showHeadings, gridlines: activeSheet().showGridlines, scrollX: Scroll.x, scrollY: Scroll.y, sheet: activeSheet().name, cells: activeSheet().cells.size, notes: activeSheet().notes ? activeSheet().notes.size : -1 }),
     extent: () => { const sh = activeSheet(); return { rows: sh.rows.max, cols: sh.cols.max, totalRowPx: Math.round(sh.rows.total()), totalColPx: Math.round(sh.cols.total()), usedMax: Object.assign({}, sh.usedMax) }; },
@@ -11673,7 +12136,56 @@ async function boot() {
     },
     chartInfo: (idx) => { try { const ch = activeSheet().charts[idx]; return ch ? { type: ch.type, range: ch.range, x: ch.x, y: ch.y, w: ch.w, h: ch.h, labels: !!ch.dataLabels, labelPos: ch.labelPos || 'out', labelFmt: ch.labelFmt || null, axisTitles: ch.axisTitles || null } : null; } catch (e) { return 'err:' + e.message; } },
     printDry: () => { try { const html = buildPrintHtml(activeSheet()); return { len: html.length, charts: (html.match(/class="print-chart"/g) || []).length, hasWrap: html.indexOf('print-grid-wrap') !== -1 }; } catch (e) { return 'err:' + e.message; } },
-    importBuffer: async (buf, name) => { try { await importXlsx(new File([buf], name || 'import.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })); return ZS.stats(); } catch (e) { return 'err:' + e.message; } }
+    importBuffer: async (buf, name) => { try { await importXlsx(new File([buf], name || 'import.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })); return ZS.stats(); } catch (e) { return 'err:' + e.message; } },
+    formula: (addr, f) => { try { const p = parseAddr(addr); writeCell(activeSheet(), p.r, p.c, { v: null, f }); rebuildAllDeps(); const v = getComputedCell(activeSheet().id, p.r, p.c); return { v: isErr(v) ? v.err : v }; } catch (e) { return 'err:' + e.message; } },
+    undo: () => { undo(); return ZS.historyLabels(); },
+    redo: () => { redo(); return ZS.redoLabels(); },
+    sortRange: (rg, keys, opts) => { sortRange(rg, keys, opts || { header: false }); return true; },
+    newSheet: () => { const sh = makeSheet(uniqueSheetName('Sheet')); WB.sheets.push(sh); setActiveSheet(sh.id); updateSheetTabBar(); requestPaint(); return sh.name; },
+    sheets: () => WB.sheets.map(s => ({ name: s.name, cells: s.cells.size })),
+    stats: () => ({ sheets: WB.sheets.length, active: activeSheet().name, cells: activeSheet().cells.size }),
+    style: (addr) => { try { const p = parseAddr(addr); const cell = activeSheet().cells.get(key(p.r, p.c)); return cell && cell.s ? Object.assign({}, cell.s) : null; } catch (e) { return 'err:' + e.message; } },
+    /* workbook state must survive a save/load cycle unchanged */
+    persistRoundTrip: () => {
+      const before = serializeWorkbook();
+      const json = JSON.parse(JSON.stringify(before));
+      deserializeWorkbook(json);
+      rebuildAllDeps();
+      return ZS.features();
+    },
+    /* build the real .xlsx bytes so a round-trip can be asserted from outside */
+    exportBytes: async () => { try { const ok = await ensureXlsxLib(); if (!ok) return 'err:no library'; detectXlsxStyleWriter(); const wb = XLSX.utils.book_new(); for (const sh of WB.sheets) { const ws = {}; const ur = usedRange(sh); const range = { s: { r: 0, c: 0 }, e: { r: Math.min(ur.r2, 100000), c: Math.min(ur.c2, 1000) } }; const cache = new Map(); for (let r = range.s.r; r <= range.e.r; r++) for (let c = range.s.c; c <= range.e.c; c++) { const cell = sh.cells.get(key(r, c)); if (!cell) continue; const o = { v: cell.v, t: typeof cell.v === 'number' ? 'n' : typeof cell.v === 'boolean' ? 'b' : 's' }; if (cell.v == null) continue; if (XLSX_STYLE_WRITE && cell.s) { let xs = cache.get(cell.s); if (xs === undefined) { xs = appStyleToXlsx(cell.s); cache.set(cell.s, xs); } if (xs) o.s = xs; } if (cell.s && cell.s.numberFormat) o.z = cell.s.numberFormat; ws[XLSX.utils.encode_cell({ r, c })] = o; } ws['!ref'] = XLSX.utils.encode_range(range); ws['!merges'] = sh.merges.map(m => ({ s: { r: m.r1, c: m.c1 }, e: { r: m.r2, c: m.c2 } })); XLSX.utils.book_append_sheet(wb, ws, sh.name.slice(0, SHEET_NAME_MAX)); } const out = XLSX.write(wb, { type: 'array', bookType: 'xlsx' }); return { bytes: out, styleWriter: XLSX_STYLE_WRITE, version: String((window.XLSX && window.XLSX.version) || ''), styleVersion: String((window.XLSX && window.XLSX.style_version) || '') }; } catch (e) { return 'err:' + e.message; } },
+    importBytes: async (buf) => ZS.importBuffer(buf, 'roundtrip.xlsx'),
+    /* minimal write helpers so the feature set can be driven from the console */
+    fresh: () => {
+      /* Start from a single empty sheet, so a console-driven run does not
+         inherit whatever the last run saved. */
+      deserializeWorkbook(newWorkbookData(WB.title));
+      WB._persist = false;
+      H.undo.length = 0; H.redo.length = 0;
+      updateUndoRedoUI();
+      rebuildAllDeps();
+      Persistence.setDocId(WB.id);
+      updateSheetTabBar();
+      SEL.ranges = [{ r1: 0, c1: 0, r2: 0, c2: 0 }];
+      SEL.active = { r: 0, c: 0 }; SEL.activeIdx = 0;
+      requestPaint();
+      return ZS.stats();
+    },
+    reset: () => {
+      const sh = activeSheet();
+      for (const k of [...sh.cells.keys()]) writeCell(sh, +k.split(',')[0], +k.split(',')[1], { v: null, f: null, s: null });
+      for (const [i] of [...sh.rows.meta]) sh.rows.set(+i, { hidden: false, fhidden: false, size: null });
+      for (const [i] of [...sh.cols.meta]) sh.cols.set(+i, { hidden: false, fhidden: false, size: null });
+      SEL.ranges = [{ r1: 0, c1: 0, r2: 0, c2: 0 }];
+      SEL.active = { r: 0, c: 0 }; SEL.activeIdx = 0;
+      requestPaint();
+      return ZS.stats();
+    },
+    styleCell: (addr, st) => { try { const p = parseAddr(addr); writeCell(activeSheet(), p.r, p.c, { s: normStyle(st) }); return ZS.style(addr); } catch (e) { return 'err:' + e.message; } },
+    display: (addr) => { try { const p = parseAddr(addr); return displayValue(activeSheet(), p.r, p.c).text; } catch (e) { return 'err:' + e.message; } },
+    write: (addr, v) => { try { const p = parseAddr(addr); writeCell(activeSheet(), p.r, p.c, { v: typeof v === 'number' ? v : String(v) }); rebuildAllDeps(); return true; } catch (e) { return 'err:' + e.message; } },
+    errors: () => window.__errs || []
   };
 }
 document.addEventListener('DOMContentLoaded', () => { boot(); });

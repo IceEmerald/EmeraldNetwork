@@ -808,6 +808,79 @@ function setupMarked() {
     marked.setOptions({ renderer, breaks: true, gfm: true });
   }
 }
+// ── Text colour + highlight: the Docs app is the reference ───────
+//
+// Docs already had the two formatting operations a user reaches for when
+// they select text and want it to stand out: exec("foreColor") for text
+// colour and exec("hiliteColor") for a highlight behind it, both driven
+// by the two named swatch lists in docs.html. The chat had no equivalent
+// — the model improvised hex codes, and the only colour vocabulary it had
+// was the private \color rewrite further down — so a colour could mean
+// one thing in a reply and something else in a document.
+//
+// The two lists below are docs.html's swatches verbatim, and they are now
+// the only colour vocabulary in the chat: prose colour, highlight and
+// KaTeX \textcolor all resolve through _mdResolveColor(), so "red" is the
+// same red in a chat bubble as on a Docs page.
+const _MD_TEXT_COLORS = {
+  black: "#000000",
+  "dark gray": "#333333",
+  gray: "#888888",
+  red: "#FF0000",
+  orange: "#FF6600",
+  gold: "#FFD700",
+  green: "#008000",
+  lime: "#BFFF00",
+  blue: "#0000FF",
+  cyan: "#00FFFF",
+  purple: "#800080",
+  pink: "#FF1493",
+  brown: "#8B4513"
+};
+const _MD_HILITE_COLORS = {
+  yellow: "#FFFF00",
+  gold: "#FFD700",
+  "light green": "#90EE90",
+  "pale green": "#98FB98",
+  "light pink": "#FFB6C1",
+  salmon: "#FF8C69",
+  "light blue": "#ADD8E6",
+  "sky blue": "#87CEFA",
+  plum: "#DDA0DD",
+  peach: "#FFDAB9",
+  clear: "transparent"
+};
+// "Clear" and its aliases all mean the same thing: no highlight at all.
+_MD_HILITE_COLORS.none = "transparent";
+_MD_HILITE_COLORS.transparent = "transparent";
+function _mdColorKey(raw) {
+  return String(raw ?? "").trim().toLowerCase().replace(/[\s_-]+/g, " ");
+}
+/* Resolve a colour against one of the swatch lists above. Hex is
+   accepted because the Docs ribbon's own colour input takes arbitrary hex,
+   so a hex the user typed there works here too. Anything else returns
+   null — the caller then drops the styling and keeps the text, because
+   guessing at an unknown colour is exactly the "custom, not detected"
+   behaviour this replaces. */
+function _mdResolveColor(raw, palette) {
+  const v = _mdColorKey(raw);
+  if (!v) return null;
+  if (Object.prototype.hasOwnProperty.call(palette, v)) return palette[v];
+  return /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/.test(v) ? v : null;
+}
+/* KaTeX knows CSS colour names but not the swatch names above ("light
+   blue" has a space, "pale green" isn't a CSS keyword), so a \textcolor
+   written with a swatch name is mapped to its hex first — one vocabulary,
+   one rendering. Both swatch lists are consulted, because unlike prose
+   colour an unresolved name here is not a colour that quietly vanishes but
+   a formula KaTeX cannot typeset at all. Anything unresolved is passed
+   through untouched so KaTeX's own names keep working. */
+function _mdLatexColor(raw) {
+  return _mdResolveColor(raw, _MD_TEXT_COLORS) ||
+    _mdResolveColor(raw, _MD_HILITE_COLORS) ||
+    String(raw ?? "").trim();
+}
+
 // Preprocess LaTeX source to convert \color{X}... into \textcolor{X}{...}
 // (the two-argument form KaTeX renders reliably even in nested contexts).
 //
@@ -841,7 +914,7 @@ function _preprocessLatexColor(src) {
   // only matches \color{ (not \textcolor{) because of the negative lookbehind
   // for "text" before the backslash.
   result = result.replace(/(?<!\\text)\\color\{([^}]+)\}(\s*)\{/g,
-    (full, color, ws) => '\\textcolor{' + color + '}' + ws + '{');
+    (full, color, ws) => '\\textcolor{' + _mdLatexColor(color) + '}' + ws + '{');
 
   // ── Pass 2: \color{X}content (one-arg switch) → \textcolor{X}{content}
   // Now any remaining \color{X} is the switch form (NOT immediately followed
@@ -855,7 +928,7 @@ function _preprocessLatexColor(src) {
   while ((match = re.exec(result)) !== null) {
     const start = match.index;
     const afterColor = start + match[0].length;
-    const color = match[1];
+    const color = _mdLatexColor(match[1]);
     // Skip if immediately followed by { — that was Pass 1's job.
     // (Pass 1 already converted those, but be defensive in case the regex
     // missed something — e.g. whitespace edge cases.)
@@ -1026,10 +1099,18 @@ const _AI_ICONS = {
 // Resolve a name to markup, or "" when it is not in the registry.
 // An unknown name renders nothing rather than echoing the tag back
 // at the user, so a typo disappears instead of showing as raw text.
+//
+// data-ai-icon carries the name onto the SVG. That is what makes an icon
+// REVERSIBLE: the same renderMarkdown runs over document content, where an
+// inline SVG is a picture — you cannot retype it, the ribbon cannot colour
+// it, and deleting it leaves an empty shell. _esNormaliseAiRichText() reads
+// this attribute back and swaps the SVG for the character Docs' own Symbols
+// bar would have inserted. Harmless on screen; nothing renders it.
 function aiSVGIcon(name) {
   const body = _AI_ICONS[String(name || "").trim().toLowerCase()];
   if (!body) return "";
-  return `<svg class="ai-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${body}</svg>`;
+  const key = String(name || "").trim().toLowerCase();
+  return `<svg class="ai-icon" data-ai-icon="${escapeHtmlAttr(key)}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${body}</svg>`;
 }
 function _aiIconAttr(attrs) {
   return aiSVGIcon(_aiTagAttr(attrs, "icon"));
@@ -1476,6 +1557,82 @@ function _tagOpenRe(tag) {
 }
 const _TAG_QUIZ = _TAGS[0], _TAG_APP = _TAGS[1], _TAG_EDIT = _TAGS[2], _TAG_SUGGEST = _TAGS[3];
 
+// ── Text colour + highlight spans (the model emits these) ─────
+//
+// The model's two Docs-parity tags: <color name="red">…</color> and
+// <highlight color="Yellow">…</highlight>. Both are lifted to
+// placeholders before marked runs — so DOMPurify never sees the raw tag —
+// and re-injected after it, exactly like the dropdowns and cards below.
+//
+// ORDER MATTERS: this runs BEFORE the dropdown/card pass, because a run may
+// wrap one of those blocks and a <dropdown> captured into ddBody first would
+// be a bare AIDROPDOWNnAIDROPDOWN token by the time the colour run was read
+// back — resolved against the wrong array, block gone. Lifting the colour
+// run first keeps its body as ordinary markdown, so the recursive
+// renderMarkdown() that renders it finds the block intact.
+//
+// The stash is GLOBAL and consume-once, unlike the per-call arrays beside
+// it, because a <color> inside a <dropdown>/<card> body is lifted by that
+// block's own recursive renderMarkdown() rather than by this one. A
+// per-call index would then be written against one array and read out of
+// another, and the text would silently vanish. A globally unique token
+// cannot be misread, and deleting the entry on use means it resolves exactly
+// once no matter which pass reaches it first.
+const _mdTint = (window._mdTint = window._mdTint || {});
+const _mdFence = (window._mdFence = window._mdFence || {});
+function _mdLiftTints(src) {
+  if (!/<(?:color|highlight)\b/i.test(src)) return src;
+  // Code fences are MASKED, not split out. A run may legitimately wrap a
+  // code span — "use <color name=red>`npm run dev`</color>" — and splitting
+  // on the fence would cut that run in half and drop the colour. The mask
+  // is undone before the body is handed on (see the AIMDTINT injector), so
+  // the recursive renderMarkdown() lifts the fence itself.
+  let work = src.replace(/(```[\s\S]*?```|`[^`\n]+`)/g, (m) => {
+    const key = "f" + (window._mdFenceSeq = (window._mdFenceSeq || 0) + 1);
+    _mdFence[key] = m;
+    return "\u0003MDTF" + key + "\u0003";
+  });
+  for (;;) {
+    const re = /<(color|highlight)\b([^>]*)>/gi;
+    let hit = null, m;
+    while ((m = re.exec(work)) !== null) {
+      const name = m[1].toLowerCase();
+      const close = "</" + name + ">";
+      const closeIdx = work.toLowerCase().indexOf(close, m.index + m[0].length);
+      if (closeIdx === -1) continue;
+      const inner = work.slice(m.index + m[0].length, closeIdx);
+      // Only the OUTERMOST tag of a run is lifted here. If the body still
+      // holds a <color>/<highlight>, the recursive renderMarkdown() we
+      // hand that body to lifts that one instead — so nesting resolves
+      // inside-out and no span is ever wrapped twice.
+      if (/<(color|highlight)\b/i.test(inner)) continue;
+      hit = { name, attrs: m[2], inner, start: m.index, end: closeIdx + close.length };
+      break;
+    }
+    if (!hit) break;
+    const key = "t" + (window._mdTintSeq = (window._mdTintSeq || 0) + 1);
+    _mdTint[key] = { name: hit.name, attrs: hit.attrs, body: hit.inner };
+    work = work.slice(0, hit.start) + "AIMDTINT" + key + "AIMDTINT" + work.slice(hit.end);
+  }
+  return work.replace(/\u0003MDTF(f\d+)\u0003/g, (_, k) => {
+    const fence = _mdFence[k];
+    delete _mdFence[k];
+    return fence ?? "";
+  });
+}
+/* A colour/highlight run is INLINE, so its body must not arrive wrapped in
+   a <p>: a paragraph inside the span the run becomes is invalid nesting and
+   the parser hoists it straight back out, which snaps the sentence in half
+   mid-word. renderMarkdown() block-wraps everything it returns, so exactly
+   one wrapper is peeled — and only when the body really is a single
+   paragraph. Block markup of its own (a list, a table, a card) is left
+   alone: that case renders beside the run rather than inside it. */
+function _mdTintBody(body) {
+  const m = /^\s*<p>([\s\S]*)<\/p>\s*$/.exec(body);
+  if (!m) return body;
+  return /<\/?p[\s>]/i.test(m[1]) ? body : m[1];
+}
+
 function renderMarkdown(raw) {
   if (typeof marked === "undefined") return escapeHtml(raw);
   let text = raw;
@@ -1485,6 +1642,10 @@ function renderMarkdown(raw) {
   text = text.replace(_tagBlockRe(_TAG_APP, true), "");
   text = text.replace(_tagBlockRe(_TAG_EDIT, true), "");
   text = text.replace(_tagBlockRe(_TAG_SUGGEST, true), "");
+  // ── Text colour + highlight runs ──────────────────────────
+  // Lifted first, ahead of every other block-level tag below, so a run
+  // that wraps one of those blocks keeps its body as ordinary markdown.
+  text = _mdLiftTints(text);
   // ── Collapsible dropdowns + card groups + icons ─────────────
   // The model may wrap any part of its answer in a collapsible
   // section, a group of cards, or drop an <icon name="…"/> anywhere
@@ -1556,12 +1717,20 @@ function renderMarkdown(raw) {
   // Applied per non-fence segment only: the "…through end of text"
   // rule would otherwise start inside a fence and swallow its closing
   // backticks, taking the whole code block with it.
+  //
+  // A colour/highlight run contributes only its LONE closing tag here.
+  // An unclosed opening tag is deliberately left alone: the lift declined
+  // it, and the "…through end of text" rule would swallow every remaining
+  // sentence of a still-streaming reply to remove a tag that renders as
+  // nothing anyway. The browser drops the unknown element and keeps the
+  // text, which is the right trade.
   const _cleanStrayTags = (s) => s
     .replace(/<dropdown\b(?:(?:"[^"]*"|'[^']*'|[^>"'])*)>[\s\S]*$/gi, "")
     .replace(/<details\b[^>]*>[\s\S]*$/gi, "")
     .replace(/<cards\b(?:(?:"[^"]*"|'[^']*'|[^>"'])*)>[\s\S]*$/gi, "")
     .replace(/<(chart|flowchart)\b[^>]*>[\s\S]*$/gi, "")
-    .replace(/<\/?(dropdown|details|summary|cards|card|icon|chart|flowchart)\b[^>]*>/gi, "");
+    .replace(/<\/?(dropdown|details|summary|cards|card|icon|chart|flowchart)\b[^>]*>/gi, "")
+    .replace(/<\/?(color|highlight)\b[^>]*>/gi, "");
   // split() with a capturing group interleaves: even indexes are prose,
   // odd indexes are the fences.
   text = text
@@ -1725,6 +1894,40 @@ function renderMarkdown(raw) {
     const blk = cardBlocks[+(a ?? b)];
     if (!blk) return "";
     return aiCardsHTML(_aiTagAttr(blk.attrs, "layout"), _aiTagAttr(blk.attrs, "title"), blk.inner, _aiTagAttr(blk.attrs, "icon"));
+  });
+  // Colour + highlight, injected after sanitization for the same reason,
+  // and — like <icon/> — INLINE: no <p> is eaten, or the span would tear
+  // its own sentence in half.
+  //
+  // The emitted span is the markup Docs' own execCommand("foreColor") /
+  // exec("hiliteColor") calls leave behind, so a coloured run is the same
+  // construct in a reply as on a page. The body goes back through
+  // renderMarkdown() so markdown inside a coloured run still renders, and
+  // any nested <color>/<highlight> inside it is lifted by that pass.
+  //
+  // A name or hex the shared Docs swatches do not know is dropped and the
+  // text is kept unstyled — the span never falls back to a colour the
+  // model made up.
+  html = html.replace(/AIMDTINT(t\d+)AIMDTINT/g, (_, key) => {
+    const item = _mdTint[key];
+    if (!item) return "";
+    delete _mdTint[key];
+    // Unmask any fence the run wrapped, so the recursive renderMarkdown()
+    // below lifts that fence as an ordinary code block.
+    const src = item.body.replace(/\u0003MDTF(f\d+)\u0003/g, (_, k) => {
+      const fence = _mdFence[k];
+      delete _mdFence[k];
+      return fence ?? "";
+    });
+    const body = _mdTintBody(renderMarkdown(src));
+    const isColor = item.name === "color";
+    const attrs = item.attrs || "";
+    const css = _mdResolveColor(
+      _aiTagAttr(attrs, "name") || _aiTagAttr(attrs, "color") || _aiTagAttr(attrs, "value"),
+      isColor ? _MD_TEXT_COLORS : _MD_HILITE_COLORS
+    );
+    if (!css) return body;
+    return `<span class="${isColor ? "md-color" : "md-hl"}" style="${isColor ? "color" : "background-color"}:${css}">${body}</span>`;
   });
   // Inline <icon/> is different: it sits INSIDE a paragraph, so the
   // placeholder is replaced on its own — no <p> is eaten, or the icon
@@ -7769,6 +7972,158 @@ function _esSanitizeHtml(html) {
 function _esPlainText(s) {
   return String(s == null ? "" : s).replace(/<[^>]*>/g, " ").replace(/[#*_>`~]/g, " ").replace(/\s+/g, " ").trim();
 }
+
+/* ── AI-authored rich text, normalised to the app's own formatting ───
+   The model reaches for the only vocabulary it has: raw CSS. So a Docs
+   page arrives with runs like
+     <span style="background:#0b1a2b;color:#4cc2ff;padding:8px 14px;
+                 border-radius:6px;font-family:monospace">
+   which paints fine and is the reason a document can look designed and
+   still be uneditable in the only sense that matters — the ribbon has no
+   control for padding or a radius or a shadow, so selecting that text
+   shows the colour button resting and the highlight button resting, and
+   there is nothing to toggle. Word has no such gap: every mark-up a run
+   can carry has a ribbon control behind it.
+
+   Two rules, both applied here at the single point every AI-authored
+   string passes through on its way into storage:
+
+   1. A text run keeps ONLY what a ribbon control can put on one —
+      colour, highlight, font family/size/weight/style, underline. The
+      rest goes. BLOCK elements are untouched, so the <div> code blocks
+      and callouts the model is told to build survive intact.
+   2. A picture the model can see but cannot put in the file — "[Image 1]"
+      and its relatives — is removed along with the caption line that
+      exists only to name it. There is no image behind the reference, so
+      the reference is the whole of what the reader gets. The real route
+      is the add_image op with an https URL or a gen token. */
+const _ES_RIBBON_RUN_PROPS = new Set([
+  "color", "background-color", "background", "font", "font-family",
+  "font-size", "font-weight", "font-style", "text-decoration",
+  "text-decoration-line", "text-decoration-color", "text-decoration-style"
+]);
+/* A `background` value that is still a highlight once you look: one flat
+   colour. A gradient or an image is decoration the ribbon cannot express
+   and getComputedStyle would not report as a highlight anyway. */
+function _esIsFlatPaint(value) {
+  return !/gradient|url\s*\(|image-set|repeating|\brepeat\b|\/|\bnone\b/i.test(String(value || ""));
+}
+/* ── Symbols are characters, not pictures ─────────────────────────
+   Docs has a Symbols bar, and every button on it does one thing:
+   document.execCommand("insertText", "★"). A symbol in a document is a
+   CHARACTER — you select it, retype it, recolour it with the ribbon,
+   delete it and it leaves nothing behind.
+
+   The icon tag is the opposite. renderMarkdown turns <icon name="check"/>
+   into an inline <svg>, and the very same function renders document
+   content, so a model reaching for a checkmark in a note or a doc got a
+   picture pasted into the text: unselectable, un-recolourable, and a hole
+   when deleted. That is what the AI's symbols looked like.
+
+   So each icon name is mapped to the character it stands for and the SVG
+   is swapped for it. Where no real glyph exists for a name the fallback is
+   a bullet — still text, still editable, and honest about being a stand-in;
+   the prompt now tells the model to write the character outright, so this
+   table is the safety net rather than the main path. */
+const _ES_ICON_CHARS = {
+  "info": "ℹ", "warning": "⚠",
+  "check": "✓", "check-circle": "✔",
+  "x": "✗", "x-circle": "✘",
+  "bolt": "⚡", "star": "★", "heart": "♥",
+  "clock": "◷", "calendar": "▦", "mail": "✉",
+  "lock": "⚿", "key": "⚿",
+  "search": "⌕", "filter": "▽",
+  "link": "∞", "globe": "⊕", "cloud": "☁",
+  "database": "▤", "server": "▦", "folder": "▢", "file": "▤",
+  "code": "‹›", "terminal": "❯",
+  "user": "●", "users": "●●",
+  "shield": "◈", "settings": "⚙",
+  "target": "◎", "rocket": "▲",
+  "trending-up": "▲", "dollar": "$", "tag": "◈",
+  "eye": "◉", "edit": "✎", "trash": "✗",
+  "copy": "⧉", "play": "▶", "refresh": "↻",
+  "lightbulb": "☀", "layers": "≡", "sparkles": "✦"
+};
+
+function _esNormaliseAiRichText(html) {
+  const src = _esSanitizeHtml(html);
+  if (!src || src.indexOf("<") === -1) return src;
+  let body;
+  try { body = new DOMParser().parseFromString(src, "text/html").body; } catch { return src; }
+  if (!body) return src;
+
+  // ── 2. Drop the "[Image 1]" references ────────────────────────
+  const IMG_REF = /\[\s*(?:image|img|photo|picture|figure|圖|图|圖片|图片|图像|图象)\s*[#:]?\s*\d*\s*(?:[:：][^\]\n]*)?\]/gi;
+  // A caption that is the WHOLE of its block and only names a picture
+  // ("*Figure 2: the request path*") goes with the reference. Requiring a
+  // colon right after the number is what stops "Figure 3 shows the
+  // results." from being mistaken for one.
+  const CAPTION_LINE = /^\s{0,3}(?:[*_]\s*)?(?:figure|fig\.?|圖|图)\s*\d+\s*[:：.、][^\n]*$/i;
+  const BLOCK = "p,li,h1,h2,h3,h4,h5,h6,td,th,div,blockquote";
+  const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT, null);
+  const texts = [];
+  let node;
+  while ((node = walker.nextNode())) texts.push(node);
+  let droppedRef = false;
+  for (const t of texts) {
+    const v = t.nodeValue;
+    if (!v) continue;
+    const stripped = v.replace(IMG_REF, "");
+    if (stripped !== v) {
+      /* The reference sat between words, so removing it leaves the gap it
+         occupied behind ("Before [Image 1] the" -> "Before  the"). Closed up
+         here rather than left to the renderer, and only in the node that was
+         actually touched — a deliberate double space elsewhere is untouched. */
+      t.nodeValue = stripped.replace(/[ \t\u00a0]{2,}/g, " ");
+      droppedRef = true;
+    }
+  }
+  if (droppedRef) {
+    // Clean up the blocks the references left behind: one that is now empty,
+    // and one that was only ever a caption naming the missing picture.
+    body.querySelectorAll(BLOCK).forEach((el) => {
+      if (el.querySelector(BLOCK)) return;              // a wrapper, not the holder
+      if (el.querySelector("img,svg,table,input,hr")) return;  // real content
+      const raw = (el.textContent || "").trim();
+      if (raw.replace(/[*_`~\s]/g, "") === "" || CAPTION_LINE.test(raw)) el.remove();
+    });
+  }
+
+  // ── 3. Symbols back to characters ─────────────────────────────
+  // Runs before the CSS trim below, which is only about colour anyway.
+  const svgs = body.querySelectorAll("svg");
+  for (const svg of svgs) {
+    const name = String(svg.getAttribute("data-ai-icon") || "").trim().toLowerCase();
+    if (name) {
+      /* A recognised icon becomes the character it stands for. */
+      svg.replaceWith(document.createTextNode(_ES_ICON_CHARS[name] || "•"));
+    } else {
+      /* An SVG the model wrote by hand carries no name and has no Docs
+         equivalent — an inline vector can never be typed, coloured or
+         cleanly deleted, which is the whole complaint. Gone rather than
+         left as a picture pretending to be text. Real <img> is untouched: a
+         photograph is legitimately a picture, and the app can resize one. */
+      svg.remove();
+    }
+  }
+
+  // ── 1. Trim text runs to what the ribbon can express ───────────
+  const runs = body.querySelectorAll("span,font,b,strong,i,em,u,s,strike,sub,sup,code,mark,a,small,big");
+  for (const el of runs) {
+    const cs = el.style;
+    if (!cs || !cs.length) continue;
+    for (let i = cs.length - 1; i >= 0; i--) {
+      const prop = cs[i];
+      if (_ES_RIBBON_RUN_PROPS.has(prop)) {
+        // Keep `background` only when it is really a highlight.
+        if (prop === "background" && !_esIsFlatPaint(cs.getPropertyValue(prop))) cs.removeProperty(prop);
+        continue;
+      }
+      cs.removeProperty(prop);
+    }
+  }
+  return body.innerHTML;
+}
 function _esUid(prefix) { return (prefix || "el_") + Date.now().toString(36) + generateSecureId(6); }
 function _esWordCount(md) {
   const t = _esPlainText(md);
@@ -7779,18 +8134,32 @@ async function _esImportNotes(data) {
   const now = new Date().toISOString();
   let arr = await _esStoreGet("emeraldcore.storage.suite.notes");
   arr = Array.isArray(arr) ? arr : [];
-  arr.unshift({ id, title: _esPlainText(data.title) || "Imported Note", content: _esHtml(data.content), createdAt: now, modifiedAt: now });
+  arr.unshift({ id, title: _esPlainText(data.title) || "Imported Note", content: _esNormaliseAiRichText(_esHtml(data.content)), createdAt: now, modifiedAt: now });
   /* Notes carry a background colour (notes.js updateNoteColor). It was never
      settable from here, so "make me a yellow note" silently did nothing. */
   if (data.color) arr[0].color = String(data.color);
   await _esStoreSet("emeraldcore.storage.suite.notes", arr);
   return id;
 }
+/* A document watermark, as one short line of text drawn behind the page.
+   Normalised here rather than trusted: docs.js renders it with textContent
+   (so no markup can ride in), and it only ever shows as a single centred
+   word — "DRAFT", "CONFIDENTIAL", "DO NOT DISTRIBUTE". A model asking for
+   "watermark: 40px rotated grey text behind every page" gets the word, not
+   the CSS. Empty, "none", "off" and "clear" all mean "remove it", which is
+   the only way to take one off once it is set. */
+function _esWatermark(v) {
+  if (v == null) return "";
+  const s = String(v).replace(/\s+/g, " ").trim();
+  if (!s || /^(none|off|remove|clear|no|false|null)$/i.test(s)) return "";
+  return s.slice(0, 60);
+}
+
 async function _esImportDoc(data) {
   const id = "doc_" + Date.now() + "_" + generateSecureId(9);
   const now = Date.now();
   const title = _esPlainText(data.title) || "Imported Document";
-  const content = _esHtml(data.content) || "<p><br></p>";
+  const content = _esNormaliseAiRichText(_esHtml(data.content)) || "<p><br></p>";
   let idx = await _esStoreGet("emeraldcore.storage.suite.docs");
   idx = Array.isArray(idx) ? idx : [];
   idx.unshift({ id, title, updatedAt: now, wordCount: _esWordCount(data.content) });
@@ -7798,7 +8167,15 @@ async function _esImportDoc(data) {
   await _esStoreSet("emeraldcore.storage.suite.docs." + id, {
     id, title, content, savedAt: now,
     theme: data.theme === "dark" ? "dark" : "light",
-    header: "", footer: "", footnotes: [], endnotes: [], comments: []
+    // Header, footer and the notes lists were hard-coded empty here even
+    // though the prompt advertises them, so a document created with a
+    // watermark (or a running header) arrived with neither.
+    header: data.header != null ? String(data.header) : "",
+    footer: data.footer != null ? String(data.footer) : "",
+    watermark: _esWatermark(data.watermark),
+    footnotes: Array.isArray(data.footnotes) ? data.footnotes : [],
+    endnotes: Array.isArray(data.endnotes) ? data.endnotes : [],
+    comments: []
   });
   return id;
 }
@@ -8979,7 +9356,8 @@ async function _suiteAutoContext(userText) {
       ' slides {"app":"slides","title":"...","background":"#hex","slides":[{"title":"...","content":"...","background":"#hex","transition":{"type":"fade","duration":0.7},"animations":[{"target":0,"type":"fade","start":"click","duration":0.5}]}]};' +
       ' sheets {"app":"sheets","title":"...","sheets":[{"sheetName":"Sheet1","rows":[["A1","B1"]],"cellStyles":{"A1":{"bold":true,"backgroundColor":"#eef"}},"merges":["A1:B1"],"columnWidths":{"A":160},"charts":[{"range":"A1:C10","type":"column","title":"Sales"}]}]}.' +
       _esSlideSpec() + _esOpsSpec() +
-      " Emit exactly one payload and do not also emit <es-edit>.";
+      " Emit exactly one payload and do not also emit <es-edit>." +
+      " NEVER emit <es-edit> for a file from earlier in this conversation that is not in the list below: that list is what exists right now, so a missing id means the file was DELETED. If the user asks about such a file, say in one line that it is gone and offer to recreate it.";
   }
   items.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   const CATALOG = items.slice(0, 30);
@@ -8992,10 +9370,17 @@ async function _suiteAutoContext(userText) {
     if (body.length > 5000) body = body.slice(0, 5000) + "\n[...truncated...]";
     block += "\n### " + _efLabel(it.app) + " — \"" + it.title.replace(/\n/g, " ") + "\" (ID: " + it.id + ")\n" + body + "\n";
   }
-  block += "\nYou may edit these files whenever it helps — decide for yourself whether this message calls for a change.\n" +
-      'PREFER targeted ops: <es-edit>{"app":"the-app","id":"the-file-id","ops":[...]}</es-edit>, which changes only what it names. Use ops for recolouring, resizing, moving, inserting text/shapes/images, adding a chart, setting a border, merging, adding or animating a slide, appending to a note, and so on.\n' +
-      'Use {"app":"...","id":"...","content":"full new markdown"} ONLY when the whole file should be replaced, and <es-app>{...}</es-app> to CREATE a brand-new file.\n' +
-      "But answer in plain text and write nothing when the user only asked a question or wanted a summary, review, comparison or explanation.\n" +
+block += "\nYou may edit these files whenever it helps — decide for yourself whether this message calls for a change.\n" +
+    'PREFER targeted ops: <es-edit>{"app":"the-app","id":"the-file-id","ops":[...]}</es-edit>, which changes only what it names. Use ops for recolouring, resizing, moving, inserting text/shapes/images, adding a chart, setting a border, merging, adding or animating a slide, appending to a note, and so on.\n' +
+    'Use {"app":"...","id":"...","content":"full new markdown"} ONLY when the whole file should be replaced, and <es-app>{...}</es-app> to CREATE a brand-new file.\n' +
+/* The catalog above is rebuilt every turn, but the CONVERSATION is not: an
+   id the model was given three messages ago is still sitting in its history,
+   and nothing in the history says whether that file still exists. Without
+   this it cheerfully edits a file the user deleted an hour ago, and the user
+   is told the deletion needed their permission — advice that can only end in
+   the same failure. */
+"THE LIST ABOVE IS WHAT EXISTS RIGHT NOW. If the user asks you to change a file you edited earlier in this conversation and its id is NOT in this list, the file has been DELETED since you last saw it. In that case do NOT emit <es-edit> for it and do NOT pretend the change worked: say in one line that the file is gone and offer to create it again, then stop.\n" +
+    "But answer in plain text and write nothing when the user only asked a question or wanted a summary, review, comparison or explanation.\n" +
       "Change ONLY what the request calls for, touch no other file, and emit exactly one payload." +
       _esOpsSpec() + _esSlideSpec();
   if (block.length > 26000) block = block.slice(0, 26000) + "\n[...truncated...]";
@@ -9047,7 +9432,7 @@ function _esOpsSpec() {
     "  Formula functions available include SUM AVERAGE COUNT COUNTA COUNTIF COUNTIFS SUMIF SUMIFS SUMPRODUCT MIN MAX MEDIAN ABS SQRT POWER ROUND AND OR NOT XOR IF IFERROR IFS SWITCH CONCATENATE CONCAT TEXTJOIN LEFT RIGHT MID LEN UPPER LOWER TRIM REPLACE SUBSTITUTE FIND SEARCH VLOOKUP HLOOKUP XLOOKUP INDEX MATCH INDIRECT ROW COLUMN ROWS COLUMNS TODAY NOW DATE YEAR MONTH DAY PMT FV PV NPV IRR SPARKLINE.\n" +
     "NOTES/DOCS ops: append_html{html} | prepend_html{html} | append{markdown} | prepend{markdown} | replace_html{html} | replace_all{find,text} | delete_html{find} | insert_before{find,html|markdown} | insert_after{find,html|markdown} | " +
     'add_image{src,alt,anchor}\n' +
-    'Set "title" on the payload to rename; "color" renames a note background; "header"/"footer" set a doc\'s running header/footer.\n' +
+    'Set "title" on the payload to rename; "color" renames a note background; "watermark" sets a doc\'s page watermark; "header"/"footer" set a doc\'s running header/footer.\n' +
     "  IMAGE SOURCES: \"src\" accepts an https image URL, or a token naming an image ALREADY GENERATED earlier in this conversation. " +
     "That is how you put something you just made into a file: emit the [GENERATE_IMAGE] tag as usual, then in a later message (or the same reply, if the image is already in context) use add_image with the matching token." +
     _esGenImagesNote() + "\n" +
@@ -9056,7 +9441,15 @@ function _esOpsSpec() {
     '  image: <img src="https://..." alt="..." style="max-width:100%;height:auto;border-radius:6px;"> (https/data-image only)\n' +
     '  checklist: <div class="todo-item"><input type="checkbox" class="todo-checkbox"><span class="todo-label"> text</span></div>\n' +
     "  table: <table><thead><tr><th>H</th></tr></thead><tbody><tr><td>v</td></tr></tbody></table>\n" +
-    "  docs only, page break: <div class=\"emdocs-page-break\"><span class=\"pb-label\">— Page Break —</span></div><p><br></p>\n"
+    "  docs only, page break: <div class=\"emdocs-page-break\"><span class=\"pb-label\">— Page Break —</span></div><p><br></p>\n" +
+    '  docs only, watermark: {\"op\":\"set_watermark\",\"text\":\"DRAFT\"} sets the diagonal word drawn behind every page; \"none\" removes it. One short word or phrase, no size/colour/angle. It is the only way to put a watermark on or take one off a doc.\n' +
+  '  a SYMBOL in a document is a plain CHARACTER typed inline, exactly what the user\'s own Symbols button inserts - that is what makes it editable. There is NO icon feature: never emit <icon name="..."/> and never <svg> for a symbol, just type the character. App symbols: Stars ★ ☆ ✦ ✧ ✩ ✪ ✫ ✬ ✭ ✮ ✯ ✰ ✱ ✲ ✳ ✴ ✹ ❂ ❃ ❊ ❋; Marks ✓ ✔ ✗ ✘ ✚ ♥ ♦ ♣ ♠ ● ○ ■ □ ▲ △ ▼ ▽ ◆ ◇; Arrows → ← ↑ ↓ ↔ ↕ ⇒ ⇐ ⇑ ⇓ ↗ ↘ ↙ ↖; Math ∞ ≈ ≠ ≤ ≥ ± × ÷ ∑ ∏ ∫ ∂ ∇ √ ∝ ∠ ⊥ ≡ ∈ ∉ ⊂ ⊃ ∪ ∩ ∀ ∃ ∴ ∵ ∼ ƒ; Numbers ① ② ③ ④ ⑤ ⑥ ⑦ ⑧ ⑨ ⑩ • ◦; Special ✿ ❀ ❁ ✽ ❄ ❅ ❆ ❇ ❈ ❉ ✶ ✷ ✸ ✺ ✻ ✼ ✾. Any ordinary Unicode symbol is fine. Never an emoji.\n' +
+        '  text colour: <span style="color:#FF0000">text</span> — what the user\'s own Text-colour button writes. ' +
+    "Highlight behind text: <span style=\"background-color:#FFFF00\">text</span> — what their Highlight button writes.\n" +
+    "  TEXT COLOUR SWATCHES: #000000 Black, #333333 Dark Gray, #888888 Gray, #FF0000 Red, #FF6600 Orange, #FFD700 Gold, #008000 Green, #BFFF00 Lime, #0000FF Blue, #00FFFF Cyan, #800080 Purple, #FF1493 Pink, #8B4513 Brown. Any other hex is fine too.\n" +
+    "  HIGHLIGHT SWATCHES: #FFFF00 Yellow, #FFD700 Gold, #90EE90 Light Green, #98FB98 Pale Green, #FFB6C1 Light Pink, #FF8C69 Salmon, #ADD8E6 Light Blue, #87CEFA Sky Blue, #DDA0DD Plum, #FFDAB9 Peach.\n" +
+    "  On a text run, ONLY those two properties plus font-family/font-size/font-weight/font-style/text-decoration. NEVER build a chip, pill, badge or callout card out of a text run — no padding, no border, no border-radius, no box-shadow, no letter-spacing, no gradient. The ribbon has a control for every property above and none of the rest, so anything else is formatting the user can see but cannot select, change or undo. For a box, use a block element (a <div> or a table cell).\n" +
+    '  NEVER write "[Image 1]", "Figure 3:" or any other picture reference as literal text — you have no image there, so the reference is all the reader sees. A real picture goes in via add_image{src} with an https URL or a gen token; with nothing to pass add_image, write the sentence without the picture.\n'
   );
 }
 
@@ -9864,6 +10257,10 @@ function _esOpsHtml(ops, get, set) {
   const notes = [];
   let applied = 0;
   let cur = get();
+  /* Every fragment the model supplies is normalised on its way in, so an
+     edit can no more leave behind a run that paints colour and highlight
+     the ribbon has no control for than an import could. */
+  const rich = (h) => _esNormaliseAiRichText(h);
   for (const op of ops) {
     if (!op || typeof op === "string") { notes.push("skipped a non-object op"); continue; }
     if (typeof op !== "object") { notes.push("skipped a non-object op"); continue; }
@@ -9891,14 +10288,14 @@ function _esOpsHtml(ops, get, set) {
         applied++;
         break;
       }
-      case "append_html": cur = cur + String(op.html == null ? "" : op.html); applied++; break;
-      case "prepend_html": cur = String(op.html == null ? "" : op.html) + cur; applied++; break;
-      case "append": cur = cur + _esHtml(op.markdown); applied++; break;
-      case "prepend": cur = _esHtml(op.markdown) + cur; applied++; break;
-      case "replace_html": cur = String(op.html == null ? "" : op.html); applied++; break;
+      case "append_html": cur = cur + rich(op.html); applied++; break;
+      case "prepend_html": cur = rich(op.html) + cur; applied++; break;
+      case "append": cur = cur + rich(_esHtml(op.markdown)); applied++; break;
+      case "prepend": cur = rich(_esHtml(op.markdown)) + cur; applied++; break;
+      case "replace_html": cur = rich(op.html) || "<p><br></p>"; applied++; break;
       case "replace_all": {
         const find = String(op.find == null ? "" : op.find);
-        const body = String(op.text == null ? (op.html != null ? op.html : "") : op.text);
+        const body = rich(op.text == null ? (op.html != null ? op.html : "") : op.text);
         if (!find) { notes.push("replace_all needs \"find\""); break; }
         if (cur.indexOf(find) < 0) { notes.push("replace_all: text not found"); break; }
         cur = cur.split(find).join(body);
@@ -9917,7 +10314,7 @@ function _esOpsHtml(ops, get, set) {
         const find = String(op.find == null ? "" : op.find);
         const i = cur.indexOf(find);
         if (i < 0) { notes.push("insert_before: anchor not found"); break; }
-        cur = cur.slice(0, i) + String(op.html != null ? op.html : _esHtml(op.markdown)) + cur.slice(i);
+        cur = cur.slice(0, i) + rich(op.html != null ? op.html : _esHtml(op.markdown)) + cur.slice(i);
         applied++;
         break;
       }
@@ -9926,7 +10323,7 @@ function _esOpsHtml(ops, get, set) {
         const i = cur.indexOf(find);
         if (i < 0) { notes.push("insert_after: anchor not found"); break; }
         const at = i + find.length;
-        cur = cur.slice(0, at) + String(op.html != null ? op.html : _esHtml(op.markdown)) + cur.slice(at);
+        cur = cur.slice(0, at) + rich(op.html != null ? op.html : _esHtml(op.markdown)) + cur.slice(at);
         applied++;
         break;
       }
@@ -10001,11 +10398,28 @@ async function _efApplyOps(app, id, ops, meta, gate) {
       const key = "emeraldcore.storage.suite.docs." + id;
       const prev = await _esStoreGet(key);
       if (!prev) return { app, id, ok: false, error: "not-found" };
-      const r = _esOpsHtml(list, () => prev.content || "", (v) => { prev.content = v; });
-      if (!r.applied) return { app, id, ok: false, error: "patch-not-found", notes: r.notes };
+      /* The watermark is drawn OUTSIDE .page-content, so it is a document
+         property rather than content and cannot be set with a *_html op. It
+         is peeled off here and written to the record; everything left is the
+         content work _esOpsHtml already knew how to do. */
+      let applied = 0;
+      const notes = [];
+      const rest = [];
+      for (const op of list) {
+        const kind = String((op && op.op) || "").toLowerCase();
+        if (kind !== "set_watermark") { rest.push(op); continue; }
+        if (!op || typeof op !== "object") { notes.push("skipped a non-object op"); continue; }
+        prev.watermark = _esWatermark(op.text != null ? op.text : op.watermark);
+        applied++;
+      }
+      const r = _esOpsHtml(rest, () => prev.content || "", (v) => { prev.content = v; });
+      applied += r.applied;
+      notes.push(...r.notes);
+      if (!applied) return { app, id, ok: false, error: "patch-not-found", notes };
       if (payloadTitle) prev.title = payloadTitle;
       if (M_.header != null) prev.header = String(M_.header);
       if (M_.footer != null) prev.footer = String(M_.footer);
+      if (M_.watermark != null) prev.watermark = _esWatermark(M_.watermark);
       prev.savedAt = now;
       const plainText = _esPlainText(prev.content);
       let idx = await _esStoreGet("emeraldcore.storage.suite.docs");
@@ -10014,7 +10428,7 @@ async function _efApplyOps(app, id, ops, meta, gate) {
       if (meta) { meta.title = prev.title; meta.updatedAt = now; meta.wordCount = _esWordCount(plainText); }
       await _esStoreSet("emeraldcore.storage.suite.docs", idx);
       await _esStoreSet(key, prev);
-      return { app, id, ok: true, title: prev.title, applied: r.applied, notes: r.notes, held: (gate && gate.held) || [] };
+      return { app, id, ok: true, title: prev.title, applied, notes, held: (gate && gate.held) || [] };
     }
   } catch (e) {
     console.warn("Ops edit failed:", e);
@@ -10033,6 +10447,23 @@ async function _efApplyEdit(fEditRes, msgId, userText) {
   const id = String((edit && edit.id) || "").trim();
   if (!app || !_ES_APPS[app]) return { ok: false, error: "no-app" };
   if (!id) return { ok: false, error: "no-id" };
+  /* Does the file still exist, and that is settled FIRST — before the
+     destructive-op gate and before anything is written.
+     A file deleted after the model read its catalog left the model holding a
+     perfectly valid id for something that no longer exists. It would emit a
+     delete-flavoured edit for it, the gate would hold that back for want of a
+     removal signal, and the badge would tell the user "that was a deletion, so
+     it needs you to ask for it" — which is about their wording, and has
+     nothing to do with the real problem. Re-asking could never have worked.
+
+     _efRead is the same read the per-turn catalog is built from, so the
+     verdict here can never disagree with the list the model was just shown. */
+  try {
+    if (!(await _efRead(app, id)).exists) return { ok: false, error: "gone" };
+  } catch (e) {
+    // Storage unreachable: fall through and let the app branch report it,
+    // rather than inventing a "deleted" verdict out of a failed read.
+  }
 /* Targeted ops are preferred over a whole-file rewrite whenever present:
      they cannot clobber the parts of the file the model did not intend to
      change, which is the whole point of the agentic path. */
@@ -10065,11 +10496,11 @@ if (Array.isArray(edit.ops) && edit.ops.length) {
       if (!hasBody && !hasTitle && !hasPatches) return { app, id, ok: false, error: "no-content" };
       const title = hasTitle ? _esPlainText(edit.title) : (note.title || "Untitled Note");
       let content;
-      if (hasBody) content = _esHtml(edit.content) || "";
+      if (hasBody) content = _esNormaliseAiRichText(_esHtml(edit.content)) || "";
       else if (hasPatches) {
         const r = _efApplyPatches(_esPlainText(note.content || ""), edit.patches);
         if (!r.applied) return { app, id, ok: false, error: "patch-not-found" };
-        content = _esHtml(r.text) || "";
+        content = _esNormaliseAiRichText(_esHtml(r.text)) || "";
       } else content = note.content || "";
       note.title = title; note.content = content; note.modifiedAt = now;
       await _esStoreSet(key, arr);
@@ -10090,12 +10521,12 @@ if (Array.isArray(edit.ops) && edit.ops.length) {
       const title = hasTitle ? _esPlainText(edit.title) : (meta.title || (prev && prev.title) || "Untitled Document");
       let content;
       let plainText;
-      if (hasBody) { content = _esHtml(edit.content) || "<p><br></p>"; plainText = _esPlainText(edit.content); }
+      if (hasBody) { content = _esNormaliseAiRichText(_esHtml(edit.content)) || "<p><br></p>"; plainText = _esPlainText(edit.content); }
       else if (hasPatches) {
         const r = _efApplyPatches(_esPlainText((prev && prev.content) || ""), edit.patches);
         if (!r.applied) return { app, id, ok: false, error: "patch-not-found" };
         plainText = r.text;
-        content = _esHtml(r.text) || "<p><br></p>";
+        content = _esNormaliseAiRichText(_esHtml(r.text)) || "<p><br></p>";
       } else { content = (prev && prev.content) || "<p><br></p>"; plainText = _esPlainText(content); }
       meta.title = title; meta.updatedAt = now; meta.wordCount = _esWordCount(plainText);
       await _esStoreSet("emeraldcore.storage.suite.docs", idx);
@@ -10109,6 +10540,9 @@ if (Array.isArray(edit.ops) && edit.ops.length) {
         theme: edit.theme === "dark" ? "dark" : ((prev && prev.theme) || "light"),
         header: edit.header != null ? String(edit.header) : ((prev && prev.header) || ""),
         footer: edit.footer != null ? String(edit.footer) : ((prev && prev.footer) || ""),
+        // Same treatment as header/footer: carried forward unless the
+        // payload names one, so a "fix this typo" never silently strips it.
+        watermark: edit.watermark != null ? _esWatermark(edit.watermark) : ((prev && prev.watermark) || ""),
         footnotes: keepList(edit.footnotes, (prev && prev.footnotes) || []),
         endnotes: keepList(edit.endnotes, (prev && prev.endnotes) || []),
         comments: keepList(edit.comments, (prev && prev.comments) || [])
@@ -10228,7 +10662,11 @@ let label = ok ? "Updated File" : "Edit not applied";
       (outcome.held.length === 1 ? "" : "s") + " for you to confirm";
   }
   if (!ok && outcome) {
-    if (outcome.error === "needs-confirmation") label = "Nothing changed \u2014 that was a deletion, so it needs you to ask for it";
+    // "Gone" is checked first: it is the only one of these that is not about
+    // what the model asked for, and every other label would misdirect the
+    // user into re-issuing a request that can never succeed.
+    if (outcome.error === "gone") label = "File already deleted \u2014 the AI can\u2019t edit it";
+    else if (outcome.error === "needs-confirmation") label = "Nothing changed \u2014 that was a deletion, so it needs you to ask for it";
     else if (outcome.error === "not-requested") label = "No file changed";
     else if (outcome.error === "no-app" || outcome.error === "no-id") label = "Which file? — the AI must target the exact file";
     else if (outcome.error === "not-found") label = "File not found to edit";

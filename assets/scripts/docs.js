@@ -797,6 +797,50 @@
   }
 
   /* ---------------- Events ---------------- */
+  /* Deleting text leaves the run that formatted it behind. contenteditable
+     keeps the <span>/<font> that carried the colour or highlight and just
+     empties it — and an empty element with a background is still painted, so
+     the deleted words leave a coloured sliver where they were. One is easy to
+     miss; a few stacked up read as an outline box sitting in the paragraph
+     that no amount of typing will shift. Word drops the run with the text, and
+     so does this.
+
+     Only inline runs, and only ones holding absolutely nothing. A run wrapping
+     an image, a footnote marker or a comment pin is content, not residue; a
+     <br> is the browser's own keep-alive for an empty line, so childNodes
+     being non-empty already excludes it; and block elements are never touched.
+     Repeated until stable, because removing an inner run can leave the run
+     wrapping it empty too. */
+  var PRUNABLE_RUNS = "span,font,b,strong,i,em,u,s,strike,sub,sup,code,mark,small,big";
+  function pruneEmptyRuns(root) {
+    if (!root || !root.querySelectorAll) return 0;
+    // A run the caret is sitting in is left for the next edit to clear.
+    // Removing it mid-input can move the caret out from under the user in
+    // some browsers, and one leftover empty run costs nothing — the next
+    // backspace collects it.
+    var sel = window.getSelection();
+    var caret = sel && sel.rangeCount ? (sel.getRangeAt(0).startContainer) : null;
+    var removed = 0;
+    // Eight passes is far more nesting than a run can have here, and it caps
+    // the loop rather than trusting a malformed tree to terminate.
+    for (var pass = 0; pass < 8; pass++) {
+      var els = root.querySelectorAll(PRUNABLE_RUNS);
+      var hit = null;
+      for (var i = 0; i < els.length; i++) {
+        var el = els[i];
+        if (el.getAttribute("contenteditable") === "false") continue;
+        if (el.childNodes.length !== 0) continue;
+        if (el === caret || (caret && el.contains && el.contains(caret))) continue;
+        hit = el;
+        break;
+      }
+      if (!hit || !hit.parentNode) break;
+      hit.parentNode.removeChild(hit);
+      removed++;
+    }
+    return removed;
+  }
+
   function onInput(e) {
     startSessionTimer();
     startAutosaveSnapshots();
@@ -804,6 +848,17 @@
     // AutoCorrect: when user types a space, check the preceding word
     if (e && (e.data === " " || e.data === "\u00a0")) {
       try { checkAutoCorrect(); } catch (err) {}
+    }
+    // Only on a deletion: a keystroke that added text cannot have emptied
+    // anything, and this walks the page's runs. e.inputType is absent on
+    // input events synthesised by older paths, and those are treated as
+    // "check it anyway" rather than skipped.
+    if (!e || !e.inputType || e.inputType.indexOf("delete") === 0) {
+      try {
+        var block = getCurrentBlock();
+        var host = block && block.closest ? block.closest(".page-content") : null;
+        if (host) pruneEmptyRuns(host);
+      } catch (err) {}
     }
     schedulePaginate();
     scheduleAutosave();
@@ -1660,6 +1715,219 @@ function startAutosaveSnapshots() {
 
   function clearFormatting() { exec("removeFormat"); }
 
+  /* ---------------- Colour / highlight: Word parity ----------------
+     queryCommandState is what makes a ribbon button light up for bold,
+     italic and underline — but there is no queryCommandState for colour,
+     and no queryCommandValue for hiliteColor at all outside IE. So both
+     are read off the RENDERED text instead, via getComputedStyle.
+
+     That is not just a workaround, it is the point: a colour the AI
+     wrote into the document as inline CSS and one the user applied from
+     this ribbon end up as the same computed value, so the ribbon reports
+     them identically and the user can toggle either one. Reading the
+     markup (a <font color>, a class) instead would only ever see half of
+     what is on the page. */
+
+  /* Computed colours arrive as "rgb(255, 255, 0)" / "rgba(0, 0, 0, 0)".
+     Returns a #rrggbb string, or "" for anything with no visible colour
+     (transparent, a gradient, a background-image) so callers can treat
+     "nothing there" as one value instead of three spellings of it. */
+  function cssColorToHex(value) {
+    var v = String(value == null ? "" : value).trim().toLowerCase();
+    if (!v || v === "transparent" || v === "none" || v === "currentcolor" || v === "inherit") return "";
+    if (v.charAt(0) === "#") {
+      if (v.length === 7) return v;
+      if (v.length === 4) return "#" + v[1] + v[1] + v[2] + v[2] + v[3] + v[3];
+      return "";
+    }
+    var m = /^rgba?\(([^)]*)\)$/.exec(v);
+    if (!m) return "";
+    var parts = m[1].split(/[,\s\/]+/).filter(Boolean);
+    if (parts.length < 3) return "";
+    if (parts.length > 3 && parseFloat(parts[3]) === 0) return "";
+    var hex = "#";
+    for (var i = 0; i < 3; i++) {
+      var n = Math.round(parseFloat(parts[i]));
+      if (isNaN(n)) return "";
+      hex += ("0" + Math.max(0, Math.min(255, n)).toString(16)).slice(-2);
+    }
+    return hex;
+  }
+
+  /* The colour the selection is already in, or "" when it is mixed /
+     uncoloured / outside the editor. Read from every text node the range
+     touches, so a selection spanning "red bold" and "plain" reports mixed
+     rather than whichever end happened to be first — the same rule the
+     bold button follows.
+
+     Returns #rrggbb where it can. Where it cannot — the wide-gamut syntaxes
+     (oklch, color(srgb …)) a model or a designer can put in a document and
+     the browser hands straight back — the raw CSS is returned instead, and
+     the caller paints that onto the swatch, which CSS understands. Reading
+     only rgb() would report "no colour" for colour that is visibly there. */
+  function selectionTint(prop) {
+    var sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return "";
+    var range = sel.getRangeAt(0);
+    var host = range.commonAncestorContainer;
+    var hostEl = host.nodeType === Node.TEXT_NODE ? host.parentElement : host;
+    if (!hostEl || !hostEl.closest || !hostEl.closest(".page-content")) return "";
+
+    var nodes = [];
+    var walker = document.createTreeWalker(hostEl, NodeFilter.SHOW_TEXT, null);
+    var n;
+    while ((n = walker.nextNode())) {
+      if (!n.nodeValue || !n.nodeValue.length) continue;
+      if (range.intersectsNode ? range.intersectsNode(n) : true) nodes.push(n);
+      if (nodes.length >= 60) break;
+    }
+    // A collapsed caret covers no text. What the next character will look
+    // like is decided by the element it sits in, which is exactly what
+    // Word shows for a bare caret.
+    if (!nodes.length) nodes = [range.startContainer];
+
+    // Compared on the RESOLVED string rather than on a hex of it, because a
+    // value no parser here understands still has to compare equal to itself
+    // across every node in the selection.
+    var first = "";
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i].nodeType === Node.TEXT_NODE ? nodes[i].parentElement : nodes[i];
+      if (!el || !el.closest || !el.closest(".page-content")) continue;
+      var raw = String(window.getComputedStyle(el)[prop] || "").trim().toLowerCase();
+      if (!first) first = raw;
+      else if (raw !== first) return "";
+    }
+    if (!first || first === "rgba(0, 0, 0, 0)" || first === "transparent") return "";
+    return cssColorToHex(first) || first;
+  }
+
+  /* Drives one of the two swatch dropdowns. The swatch list in the markup
+     is the only list — read back off the items rather than duplicated in
+     JS, so a swatch added to the ribbon needs no second edit here.
+
+     The LABEL only ever names a colour that is on the list. Word's button
+     carries no per-colour wording at all — it paints the current colour
+     under the "A" and leaves the caption alone — so a colour that came from
+     the colour picker, or from markup the AI wrote, repaints the swatch and
+     changes nothing else. Inventing a word for it ("Custom") would be this
+     app talking about its own swatch list rather than about the document. */
+  function syncColorDropdown(ddId, current) {
+    var dd = $(ddId);
+    if (!dd) return;
+    var btn = dd.querySelector(".ms-dropdown-btn");
+    if (!btn) return;
+    var swatch = btn.querySelector(".color-preview");
+    var label = btn.querySelector(".dropdown-value");
+    // The resting look is whatever the button was authored with in the
+    // markup — snapshotted on the first sync so "no colour here" puts the
+    // ribbon back exactly as it shipped rather than as a half-erased
+    // version of it.
+    if (!dd.hasAttribute("data-rest-label")) {
+      dd.setAttribute("data-rest-label", label ? label.textContent : "");
+      dd.setAttribute("data-rest-bg", swatch ? swatch.style.background : "");
+      dd.setAttribute("data-rest-border", swatch ? swatch.style.border : "");
+    }
+    var items = dd.querySelectorAll(".ms-dropdown-item[data-value]");
+    // Normalised before comparing: the swatches are #rrggbb, and anything
+    // arriving as "rgb(255, 0, 0)" would otherwise miss the Red it IS.
+    var cur = cssColorToHex(current).toLowerCase();
+    var match = null;
+    for (var i = 0; i < items.length; i++) {
+      var v = cssColorToHex(items[i].getAttribute("data-value"));
+      if (v && cur && v.toLowerCase() === cur) { match = items[i]; break; }
+    }
+    dd.setAttribute("data-current", match ? cur : "");
+    if (match) {
+      var raw = match.getAttribute("data-value");
+      if (swatch) { swatch.style.background = raw === "transparent" ? "transparent" : raw; swatch.style.border = ""; }
+      if (label) label.textContent = match.getAttribute("data-label") || "";
+      return;
+    }
+    if (current) {
+      // Off-list colour: paint the swatch with it — the raw value, so a
+      // wide-gamut one shows as itself rather than as nothing. The caption
+      // goes back to rest, because this branch names no colour and leaving
+      // the last matched name up there would claim a colour that isn't there.
+      if (swatch) { swatch.style.background = cur || current; swatch.style.border = ""; }
+      if (label) label.textContent = dd.getAttribute("data-rest-label") || label.textContent;
+      return;
+    }
+    // Nothing selected, or a mixed selection: back to the resting state, so
+    // an untouched ribbon never changes just because the caret moved. (The
+    // caret itself always reports the colour it sits in, so the resting
+    // state really does mean "nothing to report".)
+    if (swatch) {
+      swatch.style.background = dd.getAttribute("data-rest-bg") || "";
+      swatch.style.border = dd.getAttribute("data-rest-border") || "";
+    }
+    if (label) label.textContent = dd.getAttribute("data-rest-label") || label.textContent;
+  }
+
+  /* True when this swatch IS the colour the selection is already in, read
+     from the value syncColorDropdown() parked on the dropdown. That value
+     describes the selection as it was BEFORE this click, which is what a
+     toggle test needs. */
+  function isCurrentSwatch(dd, value) {
+    var v = cssColorToHex(value);
+    var cur = dd ? String(dd.getAttribute("data-current") || "") : "";
+    return !!(v && cur && v === cur);
+  }
+
+  function syncColorRibbon() {
+    syncColorDropdown("fontColorDropdown", selectionTint("color"));
+    syncColorDropdown("highlightColorDropdown", selectionTint("backgroundColor"));
+  }
+
+  /* Removing ONLY the colour. removeFormat would take the bold and the
+     underline down with it, which is not what "no highlight" means in
+     Word. Colour lives in the inline `color` / `background-color` the
+     ribbon writes and in the <font color> wrapper it writes when
+     styleWithCSS is off, so both are unwound and nothing else is touched. */
+  function clearSelectionTint(prop, unwrapFontColor) {
+    var sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    var range = sel.getRangeAt(0);
+    var host = range.commonAncestorContainer;
+    var hostEl = host.nodeType === Node.TEXT_NODE ? host.parentElement : host;
+    var scope = hostEl && hostEl.closest ? hostEl.closest(".page-content") : null;
+    if (!scope) return;
+
+    var styled = scope.querySelectorAll("[style]");
+    for (var i = 0; i < styled.length; i++) {
+      var el = styled[i];
+      if (range.intersectsNode && !range.intersectsNode(el)) continue;
+      if (prop === "color") {
+        el.style.removeProperty("color");
+        continue;
+      }
+      // The `background` shorthand carries the colour too, so removing only
+      // background-color would leave the highlight painted. Guarded on
+      // background-image so a real image run is never cleared.
+      var cs = window.getComputedStyle(el);
+      if (cs.backgroundImage && cs.backgroundImage !== "none") continue;
+      el.style.removeProperty("background-color");
+      el.style.removeProperty("background");
+    }
+
+    if (unwrapFontColor) {
+      var fonts = scope.querySelectorAll("font[color]");
+      for (var j = 0; j < fonts.length; j++) {
+        if (range.intersectsNode && !range.intersectsNode(fonts[j])) continue;
+        var parent = fonts[j].parentNode;
+        while (fonts[j].firstChild) parent.insertBefore(fonts[j].firstChild, fonts[j]);
+        parent.removeChild(fonts[j]);
+      }
+    }
+
+    // Unwrapping a <font> collapses the range out from under the caret, so
+    // the selection is put back before the next paint — otherwise one click
+    // on "Automatic" silently drops the text the user was looking at.
+    restoreEditorSelection();
+    schedulePaginate();
+    scheduleAutosave();
+    setTimeout(function () { updateToolbarStates(); updateRibbonAvailability(); }, 10);
+  }
+
   function getCurrentBlock() {
     var sel = window.getSelection();
     if (!sel || !sel.rangeCount) return null;
@@ -1683,6 +1951,11 @@ function startAutosaveSnapshots() {
       if (active) btn.classList.add("active"); else btn.classList.remove("active");
     }
     updateDropCapState();
+    // Colour and highlight are read off the rendered selection rather than
+    // queryCommandState, so this is what makes the two swatch buttons report
+    // a colour the user never picked from them — one the AI wrote into the
+    // document, or one applied earlier and the caret has since moved into.
+    syncColorRibbon();
     // Block-type dropdown removed — nothing else to sync.
   }
 
@@ -1806,6 +2079,9 @@ function startAutosaveSnapshots() {
       theme: theme,
       header: headerActive && hfHasContent(headerHTML) ? headerHTML : "",
       footer: footerActive && hfHasContent(footerHTML) ? footerHTML : "",
+      // The watermark is drawn OUTSIDE .page-content, so the loop above
+      // cannot see it — without this line it was simply never saved.
+      watermark: watermarkText,
       footnotes: footnotes,
       endnotes: endnotes,
       comments: comments,
@@ -2128,6 +2404,10 @@ function startAutosaveSnapshots() {
     headerHTML = headerActive ? data.header : "";
     footerActive = hfHasContent(data.footer);
     footerHTML = footerActive ? data.footer : "";
+    // Redrawn from the stored value, not from whatever the previous document
+    // had on it — applyWatermark() replaces rather than adds, so a document
+    // with no watermark clears the last one's.
+    applyWatermark(data.watermark || "");
     // Footnotes/endnotes are per-document. Docs saved before this existed
     // have no field — keep whatever loadFootnotes()/loadEndnotes() loaded
     // from the legacy global store so their notes aren't lost.
@@ -5542,23 +5822,33 @@ function startAutosaveSnapshots() {
     }, 0);
   }
 
-  /* ---------------- Watermark ---------------- */
+  /* ---------------- Watermark ----------------
+     The watermark is a sibling of .page-content, not a child of it, which is
+     why it never reached serialize() and never survived a save — a watermark
+     the user applied with the ribbon vanished on reload, and the AI had no way
+     to set one at all. It is a document property now, stored alongside
+     header/footer/footnotes, and redrawn from that value on every open. */
+  var watermarkText = "";
+
   function applyWatermark(text) {
+    watermarkText = String(text == null ? "" : text).trim();
     var pages = getPages();
     // remove existing
     for (var i = 0; i < pages.length; i++) {
       var existing = pages[i].querySelector(".page-watermark");
       if (existing) existing.remove();
     }
-    if (!text) return;
+    if (!watermarkText) return;
     for (var j = 0; j < pages.length; j++) {
       var wm = document.createElement("div");
       wm.className = "page-watermark";
-      wm.textContent = text;
+      wm.textContent = watermarkText;
       wm.setAttribute("contenteditable", "false");
       pages[j].insertBefore(wm, pages[j].firstChild);
     }
   }
+
+  function getWatermark() { return watermarkText; }
 
   function openWatermark() {
     openModal("watermarkModal");
@@ -6712,7 +7002,11 @@ function startAutosaveSnapshots() {
     wireSelectDropdown("fontFamilyDropdown", "fontFamily");
     wireSelectDropdown("fontSizeDropdown", "fontSize");
 
-    // Font color — vertical list (same behavior as Slides)
+    // Font color — vertical list (same behavior as Slides).
+    // The button repaints itself from syncColorRibbon() after the edit rather
+    // than from the click: that way it shows what the selection actually is,
+    // which is the same value whether the colour came from this list, from
+    // the colour picker, or from markup already in the document.
     var fontColorDd = $("fontColorDropdown");
     if (fontColorDd) {
       var fcItems = fontColorDd.querySelectorAll(".ms-dropdown-item[data-value]");
@@ -6720,17 +7014,20 @@ function startAutosaveSnapshots() {
         (function (item) {
           item.addEventListener("click", function () {
             var color = item.getAttribute("data-value");
-            var btn = fontColorDd.querySelector(".ms-dropdown-btn");
-            var swatch = btn ? btn.querySelector(".color-preview") : null;
-            var label = btn ? btn.querySelector(".dropdown-value") : null;
-            if (swatch) {
-              swatch.style.background = color === "transparent" ? "transparent" : color;
-              swatch.style.border = (color === "transparent") ? "1px solid #ccc" : "";
+            // "Automatic" is Word's name for "no colour of my own": the run
+            // goes back to inheriting, which is what an uncoloured run
+            // already does.
+            if (color === "transparent" || isCurrentSwatch(fontColorDd, color)) {
+              // Word toggles — clicking the colour the selection already is
+              // takes it back off, so a swatch can be undone by clicking it
+              // again rather than by hunting for Automatic.
+              clearSelectionTint("color", true);
+            } else {
+              applyTextColor(color);
             }
-            if (label) label.textContent = item.getAttribute("data-label") || "Text";
-            applyTextColor(color === "transparent" ? "#000000" : color);
             fontColorDd.classList.remove("active");
             closePortalDropdown();
+            setTimeout(function () { updateToolbarStates(); updateRibbonAvailability(); }, 10);
           });
         })(fcItems[f]);
       }
@@ -6744,22 +7041,14 @@ function startAutosaveSnapshots() {
         (function (item) {
           item.addEventListener("click", function () {
             var color = item.getAttribute("data-value");
-            var btn = hlColorDd.querySelector(".ms-dropdown-btn");
-            var swatch = btn ? btn.querySelector(".color-preview") : null;
-            var label = btn ? btn.querySelector(".dropdown-value") : null;
-            if (swatch) {
-              if (color === "transparent") {
-                swatch.style.background = "transparent";
-                swatch.style.border = "1px solid #ccc";
-              } else {
-                swatch.style.background = color;
-                swatch.style.border = "";
-              }
+            if (color === "transparent" || isCurrentSwatch(hlColorDd, color)) {
+              clearSelectionTint("background-color", false);
+            } else {
+              applyHiliteColor(color);
             }
-            if (label) label.textContent = item.getAttribute("data-label") || "Highlight";
-            applyHiliteColor(color === "transparent" ? "transparent" : color);
             hlColorDd.classList.remove("active");
             closePortalDropdown();
+            setTimeout(function () { updateToolbarStates(); updateRibbonAvailability(); }, 10);
           });
         })(hlItems[h]);
       }
@@ -6917,11 +7206,18 @@ function startAutosaveSnapshots() {
     $("watermarkConfirm").addEventListener("click", function () {
       applyWatermark($("watermarkText").value.trim());
       closeModal("watermarkModal");
+      // The watermark is a document property now, so applying one is an edit
+      // like any other: without this it was never written to storage and was
+      // gone on the next reload.
+      scheduleAutosave();
+      setAutosaveState("saving");
       toast("Watermark applied", "success");
     });
     $("watermarkRemove").addEventListener("click", function () {
       applyWatermark(null);
       closeModal("watermarkModal");
+      scheduleAutosave();
+      setAutosaveState("saving");
       toast("Watermark removed", "success");
     });
     var wmPresets = document.querySelectorAll(".watermark-presets .preset-btn");
@@ -7330,6 +7626,10 @@ function startAutosaveSnapshots() {
       headerHTML = headerActive ? data.header : "";
       footerActive = hfHasContent(data.footer);
       footerHTML = footerActive ? data.footer : "";
+      // A cross-tab reload has to redraw the watermark too: it lives outside
+      // .page-content, so the innerHTML swap above never touches it, and an
+      // AI edit that set one would otherwise land with nothing on the page.
+      applyWatermark(data.watermark || "");
       paginate();
       setAutosaveState("saved");
       // Restore caret if we had focus and the block still exists
