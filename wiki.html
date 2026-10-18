@@ -977,11 +977,11 @@
                         <table class="wiki-table">
                             <thead><tr><th>Format</th><th>How it is handled</th></tr></thead>
                             <tbody>
-                                <tr><td><b>.pdf</b></td><td>One Docs page per PDF page, at the PDF's own size and orientation — what you see is what you get. Images, tables, rules and colours stay exactly as drawn, and every word, emoji included, is live text you can click and edit in its original font, size, weight and colour. Needs an internet connection the first time. Password-protected files are not supported.</td></tr>
-                                <tr><td><b>.docx</b></td><td>Rich import — headings, alignment, bold/italic/underline, colours, shading, tables, lists, page size, orientation and margins are all preserved.</td></tr>
+                                <tr><td><b>.pdf</b></td><td>One Docs page per PDF page, at each page's own size and orientation — what you see is what you get, including documents that mix portrait and landscape sheets. Images, tables, rules and colours stay exactly as drawn, and every word, emoji included, is live text you can click and edit in its original font, size, weight and colour. Needs an internet connection the first time. Password-protected files are not supported.</td></tr>
+                                <tr><td><b>.docx</b></td><td>Full-fidelity import that keeps Word's own layout: theme fonts, named styles and their inheritance, indents, line spacing, alignment, colours and highlights, superscript/subscript, small caps and letter spacing, numbered and bulleted lists, tables with their column widths, cell shading and merged cells, images at their true size and rotation, hyperlinks, page breaks, headers and footers, and the section's page size, orientation and margins.</td></tr>
                                 <tr><td><b>.odt</b></td><td>Text and paragraphs are read; headings arrive as plain paragraphs.</td></tr>
                                 <tr><td><b>.rtf</b></td><td>Best-effort text extraction.</td></tr>
-                                <tr><td><b>.doc</b></td><td>Heuristic text extraction. If it fails, Docs tells you it could not read the file.</td></tr>
+                                <tr><td><b>.doc</b></td><td>Docs reads what the file really is. A <b>.docx</b> that was merely renamed to <b>.doc</b> imports at full <b>.docx</b> fidelity, and files that are really RTF or HTML are imported as such. A genuine Word 97-2003 binary <b>.doc</b> keeps its layout in a table Docs cannot read, so only its text is recovered — re-save it as <b>.docx</b> for a faithful import.</td></tr>
                                 <tr><td><b>.md</b> / <b>.markdown</b></td><td>Headings, fenced code, horizontal rules, block quotes and both list styles.</td></tr>
                                 <tr><td><b>.html</b> / <b>.htm</b></td><td>Sanitised and imported as-is.</td></tr>
                                 <tr><td><b>.txt</b></td><td>One paragraph per line.</td></tr>
@@ -2382,7 +2382,7 @@
                             <tbody>
                                 <tr><td>Suite hub</td><td><span class="wiki-tag">Everything</span></td><td>Nothing.</td></tr>
                                 <tr><td>Notes</td><td><span class="wiki-tag">Everything</span></td><td>Live sharing and web fonts.</td></tr>
-                                <tr><td>Docs</td><td><span class="wiki-tag">Most</span></td><td>PDF export, PDF import, the rich <b>.docx</b> fallback, web fonts.</td></tr>
+                                <tr><td>Docs</td><td><span class="wiki-tag">Most</span></td><td>PDF export, PDF import, full-fidelity <b>.docx</b> import, web fonts.</td></tr>
                                 <tr><td>Slides</td><td><span class="wiki-tag">Most</span></td><td>PPTX export, PDF export, PDF import, web fonts.</td></tr>
                                 <tr><td>Sheets</td><td><span class="wiki-tag">Most</span></td><td>XLSX import and export only. CSV and printing are fine.</td></tr>
                                 <tr><td>Flowchart</td><td><span class="wiki-tag">Everything</span></td><td>Nothing.</td></tr>
@@ -2409,6 +2409,8 @@
                                 <tr><td>Docs</td><td>No live collaboration</td><td>Comments exist but are not simultaneous.</td></tr>
                                 <tr><td>Docs</td><td>Read aloud stops at 3,000 characters</td><td>Use it to spot-check the opening.</td></tr>
                                 <tr><td>Docs</td><td>An imported PDF keeps its layout</td><td>Pages, margins, indents and line breaks stay where the PDF drew them, so the layout does not reflow. Text you add flows on from where it is placed.</td></tr>
+                                <tr><td>Docs</td><td>An imported image looks stretched or squashed</td><td>Images used to carry a fixed height that did not shrink with the picture when it was wider than the text column. Images now keep their proportions at any width — if one still looks wrong, resize it with the corner handles, which always hold the aspect ratio.</td></tr>
+                                <tr><td>Docs</td><td>An imported PDF gained extra blank pages</td><td>Pages a different shape from the first one used to be forced onto the first page's size, which overflowed and split into empty pages. Each page now keeps its own size, so the page count matches the PDF.</td></tr>
                                 
                                 <tr><td>Slides</td><td>Decks grow large with media</td><td>Video and audio are stored inline, so keep an eye on size.</td></tr>
                                 <tr><td>Slides</td><td>Morph needs two slides</td><td>On a single slide it falls back to a fade.</td></tr>

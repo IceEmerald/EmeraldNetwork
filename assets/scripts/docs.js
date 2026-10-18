@@ -311,7 +311,9 @@
       document.execCommand("defaultParagraphSeparator", false, "p");
     } catch (e) {}
 
-    // PRE-PASS: enforce hard page breaks first (before overflow logic)
+    // PRE-PASS: give every page its own sheet size (PDF imports) and enforce
+    // hard page breaks before any overflow maths.
+    applyPdfPageSizes();
     var pbChanged = true;
     var pbIter = 0;
     while (pbChanged && pbIter++ < MAX_PAGINATE_ITER) {
@@ -326,6 +328,7 @@
       for (var i = 0; i < pages.length; i++) {
         var content = getContent(pages[i]);
         normalizeContent(content);
+        unstretchImages(content);
 
         var guard = 0;
         while (isOverflow(content) && guard++ < 300) {
@@ -448,6 +451,28 @@
       if (cells[i].getAttribute("contenteditable") !== "true") {
         cells[i].setAttribute("contenteditable", "true");
       }
+    }
+  }
+
+  /* max-width:100% shrinks an over-wide image, but an inline height does not
+     shrink with it — the picture is then squeezed out of shape. Whenever the
+     clamp actually bit, restate the height as the ratio the author asked for,
+     so the image keeps its proportions at any width. Images already carrying
+     an aspect-ratio, and images the user resized, are left alone. */
+  function unstretchImages(content) {
+    var imgs = content.querySelectorAll("img");
+    for (var i = 0; i < imgs.length; i++) {
+      var img = imgs[i];
+      if (img.closest && img.closest(".emdocs-pdf-page")) continue;   // fixed artwork
+      if (!img.style.width || !img.style.height) continue;            // nothing to compare
+      if (img.style.aspectRatio) continue;                           // already ratio-bound
+      var want = parseFloat(img.style.width);
+      var wantH = parseFloat(img.style.height);
+      if (!(want > 0) || !(wantH > 0)) continue;
+      var got = img.offsetWidth;
+      if (!got || got >= want - 1) continue;                          // not clamped
+      img.style.height = "auto";
+      img.style.aspectRatio = Math.round(want) + " / " + Math.round(wantH);
     }
   }
 
@@ -2787,9 +2812,11 @@ function startAutosaveSnapshots() {
   }
   function inflate(array) {
     // DecompressionStream is available in Chromium 103+/Safari 16.4+/Firefox 113+.
+    // A ReadableStream has no arrayBuffer() of its own — Response wraps one that
+    // does, which is what actually collects the inflated bytes.
     var ds = new DecompressionStream("deflate-raw");
     var stream = new Blob([array]).stream().pipeThrough(ds);
-    return stream.arrayBuffer();
+    return new Response(stream).arrayBuffer();
   }
 
   // Extract the visible text from an ODT file (a ZIP whose content.xml holds
@@ -2939,6 +2966,13 @@ function startAutosaveSnapshots() {
     for (var i = 0; i < node.kids.length; i++) if (node.kids[i].tag === tag) out.push(node.kids[i]);
     return out;
   }
+  // xmlParse wraps every part in a synthetic "#root"; step into the real
+  // document element before looking for w:styles / w:numbering / w:Relationship.
+  function xmlTop(root) {
+    if (!root) return null;
+    if (root.tag !== "#root") return root;
+    return root.kids.length ? root.kids[0] : null;
+  }
   function nodeText(node) {
     var s = node.text || "";
     for (var i = 0; i < node.kids.length; i++) s += nodeText(node.kids[i]);
@@ -2966,397 +3000,959 @@ function startAutosaveSnapshots() {
     return Math.round((v / 20) * 96 / 72); // twips → px @96dpi
   }
 
-  // ---- styles.xml model ----
-  function parseDocxStyles(stylesRoot) {
-    var para = {}; // styleId → props
-    var run = {};
-    var defPara = null, defRun = null;
-    function styleId(node) {
-      var s = firstChild(node, "styleId");
-      return s ? nodeText(s).trim() : null;
-    }
-    function styleName(node) {
-      var nm = firstChild(node, "name");
-      return nm && nm.attrs.val ? nm.attrs.val : null;
-    }
-    function walkStyle(node, kind) {
+  /* ---------------- .docx ----------------
+     A Word file carries its own layout: indents, spacing, column widths,
+     fonts, headers, footers and page setup. This converter uses those numbers
+     rather than guessing at them, so the document comes back looking like the
+     one Word saved — and every part of it is still live, editable text. */
+  var DOCX_HIGHLIGHTS = {
+    yellow: "#ffff00", green: "#00ff00", cyan: "#00ffff", magenta: "#ff00ff",
+    blue: "#0000ff", red: "#ff0000", darkBlue: "#000080", darkCyan: "#008080",
+    darkGreen: "#008000", darkMagenta: "#800080", darkRed: "#800000",
+    darkYellow: "#808000", darkGray: "#808080", lightGray: "#c0c0c0",
+    black: "#000000", white: "#ffffff", none: null,
+  };
+
+  function docxOn(node) {
+    // An OOXML toggle is on unless it says 0/false.
+    var el = firstChild(node, arguments[1]);
+    if (!el) return false;
+    var v = el.attrs.val;
+    return !(v === "0" || v === "false" || v === "off");
+  }
+
+  function docxTw(v) { return twipToPx(v); }
+  function docxHalfPtPx(v) { var hp = parseFloat(v); return isFinite(hp) ? hp * 2 / 3 : null; }
+  function docxEmuPx(v) { var e = parseFloat(v); return isFinite(e) ? e / 9525 : null; }
+
+  /* ---- styles.xml: defaults + named styles, with basedOn inheritance ---- */
+  function docxReadStyles(root) {
+    var out = { para: {}, run: {}, link: {}, defPara: {}, defRun: {}, theme: {} };
+    root = xmlTop(root);
+    if (!root) return out;
+
+    function collect(node) {
       var pPr = firstChild(node, "pPr"), rPr = firstChild(node, "rPr");
-      var props = { name: styleName(node) };
-      if (pPr) {
-        var jc = firstChild(pPr, "jc");
-        if (jc) props.alignment = jc.attrs.val;
-        var shd = firstChild(pPr, "shd");
-        if (shd && shd.attrs.fill) props.paraShading = ooxmlColor(shd.attrs.fill);
-      }
-      if (rPr) {
-        var color = firstChild(rPr, "color");
-        if (color) props.color = ooxmlColor(color.attrs.val);
-        props.bold = firstChild(rPr, "b") ? firstChild(rPr, "b").attrs.val !== "0" && firstChild(rPr, "b").attrs.val !== "false" : false;
-        props.italic = firstChild(rPr, "i") ? firstChild(rPr, "i").attrs.val !== "0" && firstChild(rPr, "i").attrs.val !== "false" : false;
-        props.underline = firstChild(rPr, "u") ? true : false;
-        var sz = firstChild(rPr, "sz");
-        if (sz) props.fontSize = parseFloat(sz.attrs.val) / 2;
-        var shdR = firstChild(rPr, "shd");
-        if (shdR && shdR.attrs.fill) props.runShading = ooxmlColor(shdR.attrs.fill);
-      }
+      var props = { id: node.attrs.styleId || null };
+      var based = firstChild(node, "basedOn");
+      if (based) props.basedOn = based.attrs.val;
+      if (pPr) Object.assign(props, docxParaProps(pPr));
+      if (rPr) Object.assign(props, docxRunProps(rPr));
       return props;
     }
 
-    function parseStyles(el) {
-      for (var i = 0; i < el.kids.length; i++) {
-        var k = el.kids[i];
-        if (k.tag !== "style") continue;
-        var id = styleId(k);
-        if (id == null) continue;
-        var type = k.attrs.type || "";
-        var styleNode = k;
-        var props = walkStyle(styleNode, type);
-        if (type === "paragraph") para[id] = props;
-        if (type === "character") run[id] = props;
+    var dd = firstChild(root, "docDefaults");
+    if (dd) {
+      var pd = firstChild(dd, "pPrDefault");
+      if (pd) {
+        var pnode = firstChild(pd, "pPr");
+        if (pnode) out.defPara = docxParaProps(pnode);
+      }
+      var rd = firstChild(dd, "rPrDefault");
+      if (rd) {
+        var rnode = firstChild(rd, "rPr");
+        if (rnode) out.defRun = docxRunProps(rnode);
       }
     }
-    // Look for <w:docDefaults> (default paragraph/run props)
-    var dd = firstChild(stylesRoot, "docDefaults");
-    if (dd) {
-      var pPrD = firstChild(dd, "pPrDefault");
-      if (pPrD) { var pj = firstChild(firstChild(pPrD, "pPr"), "jc"); if (pj && pj.attrs.val) defPara = { alignment: pj.attrs.val }; }
-      var rPrD = firstChild(dd, "rPrDefault");
-      if (rPrD) {
-        var rd = firstChild(rPrD, "rPr");
-        if (rd) {
-          defRun = {};
-          var c = firstChild(rd, "color");
-          if (c) defRun.color = ooxmlColor(c.attrs.val, c.attrs.val === "auto" ? null : c.attrs.val);
-          var sz = firstChild(rd, "sz");
-          if (sz) defRun.fontSize = parseFloat(sz.attrs.val) / 2;
+    for (var i = 0; i < root.kids.length; i++) {
+      var st = root.kids[i];
+      if (st.tag !== "style") continue;
+      var type = st.attrs.type || "";
+      var id = st.attrs.styleId;
+      if (!id) continue;
+      var props = collect(st);
+      if (type === "paragraph") out.para[id] = props;
+      else if (type === "character") out.run[id] = props;
+      else if (type === "numbering") out.link[id] = props;
+    }
+    return out;
+  }
+
+  // Flatten a style chain: defaults, then basedOn ancestors, then the style.
+  function docxResolve(styles, id, kind, seen) {
+    var table = kind === "run" ? styles.run : styles.para;
+    var chain = [];
+    var cur = id;
+    seen = seen || {};
+    while (cur && table[cur] && !seen[cur]) {
+      seen[cur] = true;
+      chain.unshift(table[cur]);
+      cur = table[cur].basedOn;
+    }
+    var props = {};
+    var base = kind === "run" ? styles.defRun : styles.defPara;
+    if (base) Object.assign(props, base);
+    for (var i = 0; i < chain.length; i++) Object.assign(props, chain[i]);
+    return props;
+  }
+
+  /* ---- property readers ---- */
+  function docxParaProps(pPr) {
+    var p = {};
+    var jc = firstChild(pPr, "jc");
+    if (jc && jc.attrs.val) p.align = jc.attrs.val;
+    var ind = firstChild(pPr, "ind");
+    if (ind) {
+      if (ind.attrs.left != null) p.marginLeft = docxTw(ind.attrs.left);
+      if (ind.attrs.right != null) p.marginRight = docxTw(ind.attrs.right);
+      if (ind.attrs.firstLine != null) p.textIndent = docxTw(ind.attrs.firstLine);
+      if (ind.attrs.hanging != null) p.textIndent = -docxTw(ind.attrs.hanging);
+    }
+    var sp = firstChild(pPr, "spacing");
+    if (sp) {
+      if (sp.attrs.before != null) p.marginTop = docxTw(sp.attrs.before);
+      if (sp.attrs.after != null) p.marginBottom = docxTw(sp.attrs.after);
+      if (sp.attrs.line != null) {
+        var line = parseFloat(sp.attrs.line);
+        var rule = sp.attrs.lineRule || "auto";
+        if (isFinite(line)) {
+          if (rule === "auto") p.lineHeight = line / 240;         // 240 = single
+          else p.lineHeight = docxTw(String(line));
         }
       }
     }
-    parseStyles(stylesRoot);
-    return { para: para, run: run, defaultRun: defRun || null };
+    var shd = firstChild(pPr, "shd");
+    if (shd && shd.attrs.fill && shd.attrs.val !== "nil") {
+      var fill = ooxmlColor(shd.attrs.fill);
+      if (fill) p.background = fill;
+    }
+    var bdr = firstChild(pPr, "pBdr");
+    if (bdr) {
+      var sides = ["top", "left", "bottom", "right"];
+      for (var i = 0; i < sides.length; i++) {
+        var b = firstChild(bdr, sides[i]);
+        if (!b) continue;
+        var color = b.attrs.color && b.attrs.color !== "auto" ? ooxmlColor(b.attrs.color) : "#000000";
+        var sz = b.attrs.sz ? Math.max(1, Math.round(parseFloat(b.attrs.sz) / 8)) : 1;
+        var style = b.attrs.val && b.attrs.val !== "nil" && b.attrs.val !== "none" ? "solid" : "none";
+        p["border" + sides[i].charAt(0).toUpperCase() + sides[i].slice(1)] = style + " " + sz + "px " + color;
+      }
+    }
+    if (docxOn(pPr, "pageBreakBefore")) p.pageBreakBefore = true;
+    if (docxOn(pPr, "keepNext")) p.keepNext = true;
+    var numPr = firstChild(pPr, "numPr");
+    if (numPr) {
+      var ilvl = firstChild(numPr, "ilvl"), numId = firstChild(numPr, "numId");
+      p.numId = numId ? parseInt(numId.attrs.val, 10) : null;
+      p.ilvl = ilvl ? parseInt(ilvl.attrs.val, 10) || 0 : 0;
+    }
+    var outline = firstChild(pPr, "outlineLvl");
+    if (outline) p.outlineLvl = parseInt(outline.attrs.val, 10);
+    var tabs = firstChild(pPr, "tabs");
+    if (tabs) {
+      var stops = [];
+      for (var t = 0; t < tabs.kids.length; t++) {
+        var tab = tabs.kids[t];
+        if (tab.tag !== "tab") continue;
+        var pos = docxTw(tab.attrs.pos);
+        if (pos != null) stops.push({ pos: pos, val: tab.attrs.val || "left" });
+      }
+      if (stops.length) p.tabs = stops;
+    }
+    return p;
   }
 
-  // ---- page setup from document.xml <w:sectPr> ----
-  function parseDocxPageSetup(documentRoot) {
-    var setup = { w: 794, h: 1123, portrait: true, marginTop: 96, marginRight: 96, marginBottom: 96, marginLeft: 96, bg: null };
+  function docxRunProps(rPr, theme) {
+    var r = {};
+    if (!rPr) return r;
+    var fonts = firstChild(rPr, "rFonts");
+    if (fonts) {
+      var name = fonts.attrs.ascii || fonts.attrs.hAnsi || fonts.attrs.cs || fonts.attrs.eastAsia;
+      var themeAttr = fonts.attrs.asciiTheme || fonts.attrs.hAnsiTheme;
+      // Remember the theme reference: styles.xml is parsed before theme1.xml,
+      // so the actual font name is filled in once the theme is known.
+      if (themeAttr) r.fontTheme = themeAttr;
+      if (!name && themeAttr && theme) {
+        var key = String(themeAttr).replace(/^(major|minor)/, "");
+        name = theme[key] || theme[String(themeAttr)] || null;
+      }
+      if (name) r.fontFamily = name;
+    }
+    var sz = firstChild(rPr, "sz");
+    if (sz) { var px = docxHalfPtPx(sz.attrs.val); if (px) r.fontSize = px; }
+    var szCs = firstChild(rPr, "szCs");
+    if (!sz && szCs) { var px2 = docxHalfPtPx(szCs.attrs.val); if (px2) r.fontSize = px2; }
+    if (docxOn(rPr, "b")) r.bold = true;
+    if (docxOn(rPr, "i")) r.italic = true;
+    var u = firstChild(rPr, "u");
+    if (u && u.attrs.val !== "none") {
+      r.underline = u.attrs.val === "single" || !u.attrs.val ? "underline" : "underline";
+    }
+    if (docxOn(rPr, "strike")) r.strike = true;
+    if (docxOn(rPr, "dstrike")) r.strike = true;
+    if (docxOn(rPr, "caps")) r.caps = true;
+    if (docxOn(rPr, "smallCaps")) r.smallCaps = true;
+    var color = firstChild(rPr, "color");
+    if (color && color.attrs.val && color.attrs.val !== "auto") {
+      var c = ooxmlColor(color.attrs.val);
+      if (c) r.color = c;
+    }
+    var hl = firstChild(rPr, "highlight");
+    if (hl && hl.attrs.val && DOCX_HIGHLIGHTS[hl.attrs.val]) r.background = DOCX_HIGHLIGHTS[hl.attrs.val];
+    var shd = firstChild(rPr, "shd");
+    if (shd && shd.attrs.fill && shd.attrs.val !== "nil") {
+      var rf = ooxmlColor(shd.attrs.fill);
+      if (rf) r.background = rf;
+    }
+    var sp = firstChild(rPr, "spacing");
+    if (sp && sp.attrs.val != null) { var ls = docxTw(sp.attrs.val); if (ls) r.letterSpacing = ls; }
+    var va = firstChild(rPr, "vertAlign");
+    if (va && va.attrs.val === "superscript") r.vertAlign = "super";
+    else if (va && va.attrs.val === "subscript") r.vertAlign = "sub";
+    return r;
+  }
+
+  // Merged run properties: defaults, character style, then direct formatting.
+  function docxRunStyle(styles, rPr, rStyleId, theme, inherited) {
+    var props = {};
+    var base = docxResolve(styles, null, "run");
+    Object.assign(props, base);
+    // A run with no formatting of its own still picks up the paragraph style's
+    // character formatting (a heading's runs are not body size).
+    if (inherited) Object.assign(props, inherited);
+    if (rStyleId && styles.run[rStyleId]) {
+      var chain = [];
+      var cur = rStyleId, seen = {};
+      while (cur && styles.run[cur] && !seen[cur]) { seen[cur] = true; chain.unshift(styles.run[cur]); cur = styles.run[cur].basedOn; }
+      for (var i = 0; i < chain.length; i++) Object.assign(props, chain[i]);
+    }
+    Object.assign(props, docxRunProps(rPr, theme));
+    return props;
+  }
+
+  // Only real CSS leaves the converter: Word bookkeeping (style ids, basedOn,
+  // outline level, numbering) is consumed by the renderer, not emitted.
+  var DOCX_PARA_CSS_PX = {
+    "font-size": 1, "margin-left": 1, "margin-right": 1, "margin-top": 1,
+    "margin-bottom": 1, "text-indent": 1, "letter-spacing": 1,
+  };
+  var DOCX_PARA_CSS = {
+    align: "text-align", indentLeft: "margin-left", indentRight: "margin-right",
+    indentFirstLine: "text-indent", spaceBefore: "margin-top", spaceAfter: "margin-bottom",
+    lineHeight: "line-height", fontFamily: "font-family", fontSize: "font-size",
+    bold: "font-weight", italic: "font-style", underline: "text-decoration",
+    strike: "text-decoration", color: "color", background: "background-color",
+    letterSpacing: "letter-spacing", caps: "text-transform", smallCaps: "font-variant",
+    pageBreakBefore: "page-break-before", keepNext: "break-after", keepLines: "break-inside",
+  };
+  function docxStyleAttr(props, skip) {
+    var out = "";
+    for (var key in props) {
+      if (!Object.prototype.hasOwnProperty.call(props, key)) continue;
+      if (skip && skip[key]) continue;
+      var css = DOCX_PARA_CSS[key];
+      if (!css) continue;
+      var v = props[key];
+      if (v == null || v === false || v === "") continue;
+      if (v === true) {
+        if (css === "font-weight") v = "700";
+        else if (css === "font-style") v = "italic";
+        else if (css === "text-decoration") v = "underline";
+        else continue;
+      }
+      // Measurements are kept as plain numbers internally; CSS needs a unit.
+      if (typeof v === "number" && DOCX_PARA_CSS_PX[css]) v = Math.round(v * 1000) / 1000 + "px";
+      out += css + ":" + v + ";";
+    }
+    // Underline and strike can both apply; emit them as one declaration.
+    if (!skip || !skip.underline) {
+      if (props.underline && props.strike) out += "text-decoration:underline line-through;";
+      else if (props.strike) out += "text-decoration:line-through;";
+    }
+    return out;
+  }
+  function docxFontStack(name) {
+    if (!name) return null;
+    var clean = String(name).replace(/["',]/g, "").trim();
+    if (!clean) return null;
+    return "'" + clean + "'," + clean + ",sans-serif";
+  }
+
+  /* ---- numbering.xml: bullet/number text for list paragraphs ---- */
+  function docxReadNumbering(root) {
+    var abstract = {}, nums = {};
+    root = xmlTop(root);
+    if (!root) return { abstract: abstract, nums: nums };
+    var as = allChildren(root, "abstractNum");
+    for (var i = 0; i < as.length; i++) {
+      var lvls = {};
+      var lv = allChildren(as[i], "lvl");
+      for (var j = 0; j < lv.length; j++) {
+        var fmt = firstChild(lv[j], "numFmt"), txt = firstChild(lv[j], "lvlText");
+        var pPr = firstChild(lv[j], "pPr"), rPr = firstChild(lv[j], "rPr");
+        lvls[j] = {
+          fmt: fmt ? fmt.attrs.val : "decimal",
+          text: txt ? txt.attrs.val : "",
+          start: (function () { var st = firstChild(lv[j], "start"); return st ? parseInt(st.attrs.val, 10) || 1 : 1; })(),
+          font: rPr ? (firstChild(rPr, "rFonts") || {}).attrs : null,
+          ind: pPr ? docxParaProps(pPr) : null,
+        };
+      }
+      abstract[as[i].attrs.abstractNumId] = lvls;
+    }
+    var ns = allChildren(root, "num");
+    for (var n = 0; n < ns.length; n++) {
+      var ref = firstChild(ns[n], "abstractNumId");
+      if (ref) nums[ns[n].attrs.numId] = ref.attrs.val;
+    }
+    return { abstract: abstract, nums: nums };
+  }
+
+  function docxListMarker(numbering, numId, ilvl, counters) {
+    var abstractId = numbering.nums[numId];
+    var lvls = abstractId ? numbering.abstract[abstractId] : null;
+    if (!lvls || !lvls[ilvl]) return "";
+    var lvl = lvls[ilvl];
+    counters[abstractId + ":" + ilvl] = (counters[abstractId + ":" + ilvl] || lvl.start - 1) + 1;
+    var n = counters[abstractId + ":" + ilvl];
+    if (lvl.fmt === "bullet") {
+      var glyph = (lvl.text || "•").replace(/^[^%]*$/, "").trim() || "•";
+      return glyph;
+    }
+    return String(lvl.text || "%1.").replace(/%(\d)/g, function (m, d) {
+      var idx = parseInt(d, 10) - 1;
+      var key = abstractId + ":" + idx;
+      return String(counters[key] || (lvls[idx] ? lvls[idx].start : 1));
+    }).replace(new RegExp("^%" + (ilvl + 1) + "\\.?$"), String(n));
+  }
+
+  /* ---- media + relationships ---- */
+  function docxReadRels(root) {
+    var rels = {};
+    root = xmlTop(root);
+    if (!root) return rels;
+    for (var i = 0; i < root.kids.length; i++) {
+      var r = root.kids[i];
+      if (r.tag === "Relationship" && r.attrs.Id) rels[r.attrs.Id] = r.attrs.Target;
+    }
+    return rels;
+  }
+
+  function docxThemeFonts(root) {
+    var fonts = {};
+    root = xmlTop(root);
+    if (!root) return fonts;
+    var scheme = (function findScheme(el) {
+      for (var i = 0; i < el.kids.length; i++) {
+        if (el.kids[i].tag === "fontScheme") return el.kids[i];
+        var r = findScheme(el.kids[i]);
+        if (r) return r;
+      }
+      return null;
+    })(root);
+    if (!scheme) return fonts;
+    ["majorFont", "minorFont"].forEach(function (which) {
+      var node = firstChild(scheme, which);
+      if (!node) return;
+      var latin = firstChild(node, "latin");
+      if (!latin) return;
+      var prefix = which === "majorFont" ? "major" : "minor";
+      fonts[prefix + "HAnsi"] = latin.attrs.typeface;
+      fonts[prefix + "Ascii"] = latin.attrs.typeface;
+    });
+    return fonts;
+  }
+
+  /* ---- images ---- */
+  function docxDrawingImage(node, ctx) {
+    var blip = (function findBlip(el) {
+      for (var i = 0; i < el.kids.length; i++) {
+        if (el.kids[i].tag === "blip") return el.kids[i];
+        var r = findBlip(el.kids[i]);
+        if (r) return r;
+      }
+      return null;
+    })(node);
+    if (blip && ctx.rels[blip.attrs.embed]) {
+      var media = docxMedia(ctx.rels[blip.attrs.embed]);
+      if (media) {
+        var extent = (function findExtent(el) {
+          for (var i = 0; i < el.kids.length; i++) {
+            if (el.kids[i].tag === "extent") return el.kids[i];
+            var r = findExtent(el.kids[i]);
+            if (r) return r;
+          }
+          return null;
+        })(node);
+        var w = extent ? docxEmuPx(extent.attrs.cx) : null;
+        var h = extent ? docxEmuPx(extent.attrs.cy) : null;
+        var name = (function findName(el) {
+          for (var i = 0; i < el.kids.length; i++) {
+            if (el.kids[i].tag === "docPr") return el.kids[i].attrs.name || "";
+            var r = findName(el.kids[i]);
+            if (r) return r;
+          }
+          return null;
+        })(node) || "";
+        return { src: media, w: w, h: h, alt: name };
+      }
+    }
+    // VML picture (older files): <w:pict><v:shape><v:imagedata r:id="…"/>
+    var imagedata = (function find(el) {
+      for (var i = 0; i < el.kids.length; i++) {
+        if (el.kids[i].tag === "imagedata") return el.kids[i];
+        var r = find(el.kids[i]);
+        if (r) return r;
+      }
+      return null;
+    })(node);
+    if (imagedata && ctx.rels[imagedata.attrs.id]) {
+      var m = docxMedia(ctx.rels[imagedata.attrs.id]);
+      if (m) {
+        // The size and any rotation live in the v:shape style, in points.
+        var shape = (function find(el) {
+          for (var i = 0; i < el.kids.length; i++) {
+            if (el.kids[i].tag === "shape") return el.kids[i];
+            var r = find(el.kids[i]);
+            if (r) return r;
+          }
+          return null;
+        })(node);
+        var st = {};
+        var src2 = (shape && shape.attrs && shape.attrs.style) || "";
+        src2.replace(/([-a-z]+)\s*:\s*([^;]+)/gi, function (_m, k, v) { st[String(k).toLowerCase()] = v.trim(); return _m; });
+        var w = parseFloat(st.width) * (96 / 72);
+        var h = parseFloat(st.height) * (96 / 72);
+        var rot = ((parseFloat(st.rotation) || 0) % 360 + 360) % 360;
+        var swap = rot === 90 || rot === 270;
+        return {
+          src: m, alt: "",
+          w: isFinite(w) && w > 0 ? (swap ? h : w) : null,
+          h: isFinite(h) && h > 0 ? (swap ? w : h) : null,
+          rotation: rot,
+        };
+      }
+    }
+    return null;
+  }
+
+  /* Media is read up front: the zip reader is asynchronous, so every picture a
+     document references is turned into an object URL before rendering starts,
+     and the renderer then just looks it up. */
+  var docxMediaCache = null;
+  async function docxPrimeMedia(arrayBuffer, rels) {
+    docxMediaCache = {};
+    var targets = [];
+    for (var id in rels) {
+      if (!Object.prototype.hasOwnProperty.call(rels, id)) continue;
+      var t = String(rels[id] || "");
+      if (!/^\.\.\/|^\//.test(t) && !/media\//i.test(t)) continue;
+      targets.push(t.replace(/^\.\.\//, "").replace(/^\//, ""));
+    }
+    for (var i = 0; i < targets.length; i++) {
+      var name = targets[i];
+      var candidates = [name, "word/" + name];
+      var url = null;
+      for (var c = 0; c < candidates.length && !url; c++) {
+        var bytes = await zipReadEntry(arrayBuffer, candidates[c]);
+        if (!bytes) continue;
+        var type = /png$/i.test(candidates[c]) ? "image/png"
+          : /gif$/i.test(candidates[c]) ? "image/gif"
+          : /svg$/i.test(candidates[c]) ? "image/svg+xml" : "image/jpeg";
+        try { url = URL.createObjectURL(new Blob([bytes], { type: type })); } catch (e) { url = null; }
+      }
+      docxMediaCache[name] = url;
+      docxMediaCache["word/" + name] = url;
+      docxMediaCache[name.split("/").pop()] = url;
+    }
+    return docxMediaCache;
+  }
+  function docxMedia(target) {
+    if (!docxMediaCache || !target) return null;
+    var name = String(target).replace(/^\.\.\//, "").replace(/^\//, "");
+    if (docxMediaCache[name]) return docxMediaCache[name];
+    if (docxMediaCache["word/" + name]) return docxMediaCache["word/" + name];
+    return docxMediaCache[name.split("/").pop()] || null;
+  }
+
+  /* ---- runs, hyperlinks, breaks ---- */
+  // A run's own text: only w:t / w:tab / w:noBreakHyphen count. Reading every
+  // descendant node would swallow the whitespace Word writes between elements
+  // and the field codes in w:instrText.
+  function docxRunText(node) {
+    var out = "";
+    for (var i = 0; i < node.kids.length; i++) {
+      var k = node.kids[i];
+      if (k.tag === "t") out += k.text || "";
+      else if (k.tag === "tab") out += "\t";
+      else if (k.tag === "noBreakHyphen") out += "\u2011";
+      else if (k.tag === "softHyphen") continue;
+      else if (k.tag === "br" || k.tag === "cr" || k.tag === "drawing" || k.tag === "pict" || k.tag === "object") continue;
+      else if (k.tag === "r") out += docxRunText(k);
+    }
+    return out;
+  }
+  // The first drawing/picture in a run, if any.
+  function docxFindDrawing(el) {
+    for (var i = 0; i < el.kids.length; i++) {
+      var k = el.kids[i];
+      if (k.tag === "drawing" || k.tag === "pict" || k.tag === "object") return k;
+      var r = docxFindDrawing(k);
+      if (r) return r;
+    }
+    return null;
+  }
+  function docxRunHtml(run, ctx, inherited) {
+    var rPr = firstChild(run, "rPr");
+    var rStyle = rPr ? firstChild(rPr, "rStyle") : null;
+    var props = docxRunStyle(ctx.styles, rPr, rStyle ? rStyle.attrs.val : null, ctx.theme, inherited);
+    var text = docxRunText(run);
+    var img = docxFindDrawing(run);
+    if (img) {
+      var pic = docxDrawingImage(img, ctx);
+      if (pic) {
+        // height:auto + aspect-ratio instead of a fixed height: when the
+        // picture is wider than the text column, max-width:100% shrinks it and
+        // the height follows, so it is never stretched.
+        var w = pic.w ? Math.round(pic.w) : null;
+        var h = pic.h ? Math.round(pic.h) : null;
+        var style = "margin:0;";
+        if (w) style += "width:" + w + "px;";
+        if (h) {
+          if (w) style += "height:auto;aspect-ratio:" + w + " / " + h + ";";
+          else style += "height:" + h + "px;";
+        }
+        // Word rotates the shape itself; the layout box above is already the
+        // rotated (swapped) one, so only the drawing needs turning.
+        if (pic.rotation) style += "transform:rotate(" + pic.rotation + "deg);";
+        return '<img src="' + pic.src + '" alt="' + escapeAttr(pic.alt || "") + '" style="' + style + '" />';
+      }
+    }
+    if (!text.replace(/\S/g, "")) return text ? " " : "";
+    var skip = {};
+    var family = docxFontStack(props.fontFamily);
+    var css = "";
+    if (family) css += "font-family:" + family + ";";
+    if (props.fontSize) css += "font-size:" + props.fontSize + "px;";
+    if (props.bold) css += "font-weight:700;";
+    if (props.italic) css += "font-style:italic;";
+    if (props.underline) css += "text-decoration:underline;";
+    if (props.strike) css += "text-decoration:line-through;";
+    if (props.color) css += "color:" + props.color + ";";
+    if (props.background) css += "background-color:" + props.background + ";";
+    if (props.letterSpacing) css += "letter-spacing:" + props.letterSpacing + "px;";
+    if (props.caps) css += "text-transform:uppercase;";
+    if (props.smallCaps) css += "font-variant:small-caps;";
+    var body = escapeHtml(text);
+    if (props.vertAlign === "super") body = "<sup>" + body + "</sup>";
+    else if (props.vertAlign === "sub") body = "<sub>" + body + "</sub>";
+    return css ? '<span style="' + css + '">' + body + "</span>" : body;
+  }
+
+  function docxInlineHtml(p, ctx, inherited) {
+    var html = "";
+    for (var i = 0; i < p.kids.length; i++) {
+      var kid = p.kids[i];
+      if (kid.tag === "pPr") continue;
+      if (kid.tag === "r") {
+        html += docxRunHtml(kid, ctx, inherited);
+        continue;
+      }
+      if (kid.tag === "hyperlink") {
+        var target = kid.attrs.id ? ctx.rels[kid.attrs.id] : null;
+        var inner = "";
+        for (var h = 0; h < kid.kids.length; h++) {
+          if (kid.kids[h].tag === "r") inner += docxRunHtml(kid.kids[h], ctx);
+        }
+        var href = target && /^(https?:|mailto:|tel:|#)/i.test(target) ? normalizeExternalUrl(target) : null;
+        html += href ? '<a href="' + escapeAttr(href) + '" style="color:#2563eb;text-decoration:underline">' + inner + "</a>" : inner;
+        continue;
+      }
+      if (kid.tag === "smartTag" || kid.tag === "ins" || kid.tag === "sdt" || kid.tag === "sdtContent") {
+        var fake = { tag: "p", kids: kid.tag === "sdt" ? (firstChild(kid, "sdtContent") ? firstChild(kid, "sdtContent").kids : []) : kid.kids };
+        html += docxInlineHtml(fake, ctx, inherited);
+        continue;
+      }
+      if (kid.tag === "bookmarkStart" || kid.tag === "bookmarkEnd" || kid.tag === "proofErr") continue;
+      if (kid.tag === "del") continue;
+    }
+    return html;
+  }
+
+  /* ---- paragraphs ---- */
+  function docxParaHtml(p, ctx, tagName) {
+    var pPr = firstChild(p, "pPr");
+    var props = {};
+    var base = docxResolve(ctx.styles, null, "para");
+    Object.assign(props, base);
+    var styleNode = pPr ? firstChild(pPr, "pStyle") : null;
+    if (styleNode && styleNode.attrs.val) Object.assign(props, docxResolve(ctx.styles, styleNode.attrs.val, "para"));
+    if (pPr) Object.assign(props, docxParaProps(pPr));
+
+    var inner = docxInlineHtml(p, ctx, props);
+
+    // Word's own page markers: an explicit break, or the marker it writes
+    // where it last laid out a page.
+    var breaks = (function countBreaks(el) {
+      var n = 0;
+      for (var i = 0; i < el.kids.length; i++) {
+        var k = el.kids[i];
+        if (k.tag === "lastRenderedPageBreak") n++;
+        else if (k.tag === "br" && k.attrs.type === "page") n++;
+        else n += countBreaks(k);
+      }
+      return n;
+    })(p);
+
+    // Numbered / bulleted paragraphs keep Word's own hanging indent.
+    var marker = "";
+    if (props.numId != null && ctx.numbering) {
+      marker = docxListMarker(ctx.numbering, props.numId, props.ilvl || 0, ctx.counters);
+      if (marker) {
+        if (!props.textIndent || props.textIndent >= 0) props.textIndent = -Math.max(18, (props.marginLeft || 36) * 0.5);
+      }
+    }
+
+    var skip = { align: 1, marginLeft: 1, marginRight: 1, textIndent: 1, marginTop: 1, marginBottom: 1, lineHeight: 1, numId: 1, ilvl: 1, tabs: 1, outlineLvl: 1, keepNext: 1, pageBreakBefore: 1, indent: 1 };
+    var css = docxStyleAttr(props, skip);
+    if (props.align && props.align !== "start") {
+      var map = { both: "justify", left: "left", right: "right", center: "center", distribute: "justify", start: "left", end: "right" };
+      css += "text-align:" + (map[props.align] || "left") + ";";
+    }
+    if (props.marginLeft != null) css += "margin-left:" + props.marginLeft + "px;";
+    if (props.marginRight != null) css += "margin-right:" + props.marginRight + "px;";
+    if (props.textIndent) css += "text-indent:" + props.textIndent + "px;";
+    if (props.marginTop != null) css += "margin-top:" + props.marginTop + "px;";
+    if (props.marginBottom != null) css += "margin-bottom:" + props.marginBottom + "px;";
+    if (props.lineHeight != null) {
+      css += "line-height:" + (typeof props.lineHeight === "number" ? props.lineHeight : props.lineHeight + "px") + ";";
+    }
+
+    var tag = tagName || "p";
+    if (!tagName && props.outlineLvl != null && props.outlineLvl >= 0 && props.outlineLvl < 3) {
+      tag = "h" + (props.outlineLvl + 1);
+    }
+    var content = marker ? escapeHtml(marker) + " " + inner : inner;
+    if (!content.trim() && !marker) content = "<br>";
+
+    var out = "";
+    for (var b = 0; b < breaks; b++) out += PDF_BREAK_HTML;
+    if (props.pageBreakBefore) out += PDF_BREAK_HTML;
+    out += "<" + tag + (css ? ' style="' + css + '"' : "") + ">" + content + "</" + tag + ">";
+    return out;
+  }
+
+  /* ---- tables: Word's own column widths, borders and shading ---- */
+  function docxTableHtml(tbl, ctx) {
+    var grid = firstChild(tbl, "tblGrid");
+    var cols = [];
+    if (grid) {
+      var gcs = allChildren(grid, "gridCol");
+      for (var g = 0; g < gcs.length; g++) {
+        var px = docxTw(gcs[g].attrs.w);
+        if (px) cols.push(Math.max(8, Math.round(px)));
+      }
+    }
+    var tblPr = firstChild(tbl, "tblPr");
+    var css = "border-collapse:collapse;";
+    if (cols.length) css += "width:" + cols.reduce(function (a, b) { return a + b; }, 0) + "px;";
+    var tblW = tblPr ? firstChild(tblPr, "tblW") : null;
+    if (tblW && tblW.attrs.type === "pct" && tblW.attrs.w) {
+      css = "border-collapse:collapse;width:" + Math.round(parseFloat(tblW.attrs.w) / 50) + "%;";
+    }
+    if (tblPr) {
+      var jc = firstChild(tblPr, "jc");
+      if (jc && jc.attrs.val === "center") css += "margin-left:auto;margin-right:auto;";
+      var look = firstChild(tblPr, "tblBorders");
+      if (!look) {
+        // Word's default is no borders unless the table asks for them.
+        css += "border:none;";
+      }
+    }
+
+    var html = '<table style="' + css + '">';
+    if (cols.length) {
+      html += "<colgroup>";
+      for (var c = 0; c < cols.length; c++) html += '<col style="width:' + cols[c] + 'px" />';
+      html += "</colgroup>";
+    }
+    var rows = allChildren(tbl, "tr");
+    for (var r = 0; r < rows.length; r++) {
+      var cells = allChildren(rows[r], "tc");
+      var rowHtml = "";
+      var carry = [];                       // vertical merges waiting for more rows
+      var trPr = firstChild(rows[r], "trPr");
+      var headerRow = trPr && firstChild(trPr, "tblHeader");
+      for (var ci = 0; ci < cells.length; ci++) {
+        var tc = cells[ci];
+        var tcPr = firstChild(tc, "tcPr");
+        var cellCss = "";
+        var colspan = 1, rowspan = 1;
+        var vMerge = tcPr ? firstChild(tcPr, "vMerge") : null;
+        if (vMerge && vMerge.attrs.val === "restart") {
+          // Count how many following rows continue this cell.
+          rowspan = 1;
+          for (var f = r + 1; f < rows.length; f++) {
+            var nextCells = allChildren(rows[f], "tc");
+            var nf = nextCells[ci];
+            if (!nf) break;
+            var np = firstChild(nf, "tcPr");
+            var nm = np ? firstChild(np, "vMerge") : null;
+            if (nm && nm.attrs.val !== "restart") rowspan++;
+            else break;
+          }
+        }
+        if (tcPr) {
+          var gs = firstChild(tcPr, "gridSpan");
+          if (gs && gs.attrs.val) colspan = parseInt(gs.attrs.val, 10) || 1;
+          var tcW = firstChild(tcPr, "tcW");
+          if (tcW && tcW.attrs.type === "dxa" && tcW.attrs.w) {
+            var w = docxTw(tcW.attrs.w);
+            if (w) cellCss += "width:" + Math.round(w) + "px;";
+          }
+          var shd = firstChild(tcPr, "shd");
+          if (shd && shd.attrs.fill && shd.attrs.val !== "nil") {
+            var fill = ooxmlColor(shd.attrs.fill);
+            if (fill) cellCss += "background-color:" + fill + ";";
+          }
+          var valign = firstChild(tcPr, "vAlign");
+          if (valign && valign.attrs.val) cellCss += "vertical-align:" + valign.attrs.val + ";";
+          var borders = firstChild(tcPr, "tcBorders");
+          if (borders) {
+            ["top", "left", "bottom", "right"].forEach(function (side) {
+              var b = firstChild(borders, side);
+              if (!b) return;
+              var col = b.attrs.color && b.attrs.color !== "auto" ? ooxmlColor(b.attrs.color) : "#000";
+              var sz = b.attrs.sz ? Math.max(1, Math.round(parseFloat(b.attrs.sz) / 8)) : 1;
+              var style = b.attrs.val && b.attrs.val !== "nil" && b.attrs.val !== "none" ? "solid" : "none";
+              cellCss += "border-" + side + ":" + style + " " + sz + "px " + (col || "#000") + ";";
+            });
+          }
+        }
+        var inner = "";
+        var blocks = allChildren(tc, "p");
+        for (var b2 = 0; b2 < blocks.length; b2++) inner += docxParaHtml(blocks[b2], ctx);
+        if (!inner) inner = "<p><br></p>";
+        rowHtml += "<td" + (colspan > 1 ? ' colspan="' + colspan + '"' : "") +
+          (rowspan > 1 ? ' rowspan="' + rowspan + '"' : "") +
+          (cellCss ? ' style="' + cellCss + '"' : "") + ">" + inner + "</td>";
+      }
+      if (!rowHtml) continue;
+      html += headerRow ? "<tr>" + rowHtml + "</tr>" : "<tr>" + rowHtml + "</tr>";
+    }
+    return html + "</table>";
+  }
+
+  /* ---- body ---- */
+  // xmlParse wraps the file in a synthetic root, so the <w:document> element
+  // sits one level below it.
+  function docxDocumentNode(root) {
+    return xmlTop(root);
+  }
+  function docxBodyHtml(root, ctx) {
+    // A document part has <w:document><w:body>; a header or footer part is
+    // <w:hdr>/<w:ftr> whose paragraphs sit straight under it.
+    var doc = docxDocumentNode(root);
+    var body = firstChild(doc, "body");
+    if (!body) body = (doc.tag === "hdr" || doc.tag === "ftr") ? doc : null;
+    if (!body) return "";
+    var html = "";
+    for (var i = 0; i < body.kids.length; i++) {
+      var node = body.kids[i];
+      if (node.tag === "p") html += docxParaHtml(node, ctx);
+      else if (node.tag === "tbl") {
+        // A table is a block of its own: never wrap it in a paragraph.
+        html += docxTableHtml(node, ctx);
+      } else if (node.tag === "sdt") {
+        var content = firstChild(node, "sdtContent");
+        if (content) {
+          for (var s = 0; s < content.kids.length; s++) {
+            if (content.kids[s].tag === "p") html += docxParaHtml(content.kids[s], ctx);
+            else if (content.kids[s].tag === "tbl") html += docxTableHtml(content.kids[s], ctx);
+          }
+        }
+      }
+    }
+    return html;
+  }
+
+  /* ---- section: page size, margins, columns, header/footer ---- */
+  function docxSection(root) {
+    root = docxDocumentNode(root);
+    var setup = { w: 794, h: 1123, portrait: true, marginTop: 96, marginRight: 96, marginBottom: 96, marginLeft: 96, bg: null, columns: 1, headerRefs: [], footerRefs: [] };
     function findSectPr(el) {
-      if (el.kids) { for (var k = 0; k < el.kids.length; k++) { var r = findSectPr(el.kids[k]); if (r) return r; } }
-      if (el.tag === "sectPr") return el;
+      for (var i = 0; i < el.kids.length; i++) {
+        if (el.kids[i].tag === "sectPr") return el.kids[i];
+        var r = findSectPr(el.kids[i]);
+        if (r) return r;
+      }
       return null;
     }
-    var sect = findSectPr(documentRoot);
+    var sect = findSectPr(root);
     if (!sect) return setup;
     var pgSz = firstChild(sect, "pgSz");
     if (pgSz) {
-      var w = pgSz.attrs.w, h = pgSz.attrs.h;
+      var w = docxTw(pgSz.attrs.w), h = docxTw(pgSz.attrs.h);
       if (w && h) {
-        setup.w = twipToPx(w); setup.h = twipToPx(h);
-        setup.portrait = !(pgSz.attrs.orient === "landscape");
-        if (pgSz.attrs.orient === "landscape") { setup.w = twipToPx(h); setup.h = twipToPx(w); }
+        setup.portrait = pgSz.attrs.orient !== "landscape";
+        setup.w = setup.portrait ? w : h;
+        setup.h = setup.portrait ? h : w;
       }
     }
     var pgMar = firstChild(sect, "pgMar");
     if (pgMar) {
-      if (pgMar.attrs.top) setup.marginTop = twipToPx(pgMar.attrs.top);
-      if (pgMar.attrs.right) setup.marginRight = twipToPx(pgMar.attrs.right);
-      if (pgMar.attrs.bottom) setup.marginBottom = twipToPx(pgMar.attrs.bottom);
-      if (pgMar.attrs.left) setup.marginLeft = twipToPx(pgMar.attrs.left);
+      if (pgMar.attrs.top) setup.marginTop = docxTw(pgMar.attrs.top);
+      if (pgMar.attrs.right) setup.marginRight = docxTw(pgMar.attrs.right);
+      if (pgMar.attrs.bottom) setup.marginBottom = docxTw(pgMar.attrs.bottom);
+      if (pgMar.attrs.left) setup.marginLeft = docxTw(pgMar.attrs.left);
     }
-    var bg = firstChild(sect, "background");
-    if (bg && bg.attrs.color) setup.bg = ooxmlColor(bg.attrs.color, bg.attrs.color === "auto" ? null : bg.attrs.color);
+    var cols = firstChild(sect, "cols");
+    if (cols && cols.attrs.num) setup.columns = parseInt(cols.attrs.num, 10) || 1;
+    var hrefs = allChildren(sect, "headerReference");
+    for (var i = 0; i < hrefs.length; i++) setup.headerRefs.push({ type: hrefs[i].attrs.type, id: hrefs[i].attrs.id });
+    var frefs = allChildren(sect, "footerReference");
+    for (var f = 0; f < frefs.length; f++) setup.footerRefs.push({ type: frefs[f].attrs.type, id: frefs[f].attrs.id });
     return setup;
   }
 
-  // ---- main converter ----
-  function convertDocxTree(documentRoot, styles) {
-    var body = firstChild(documentRoot, "body");
-    if (!body) return "<p><br></p>";
-    var out = "";
-    var listBuf = null; // { type, items:[...] } for consecutive list paragraphs
-    function flushList() {
-      if (listBuf) {
-        out += "<" + listBuf.type + ">" + listBuf.items.join("") + "</" + listBuf.type + ">";
-        listBuf = null;
+  /* ---- entry point: .docx → { html, pageSetup, header, footer } ---- */
+  async function convertDocxDocument(file) {
+    docxMediaCache = null;
+    var ab = await file.arrayBuffer();
+    var docEntry = await zipReadEntry(ab, "word/document.xml");
+    if (!docEntry) {
+      console.warn("[docs] docx: word/document.xml not found in the archive");
+      return null;
+    }
+    var docRoot = xmlParse(new TextDecoder("utf-8").decode(docEntry));
+    var stylesEntry = await zipReadEntry(ab, "word/styles.xml");
+    var styles = stylesEntry ? docxReadStyles(xmlParse(new TextDecoder("utf-8").decode(stylesEntry))) : { para: {}, run: {}, defPara: {}, defRun: {} };
+    var themeEntry = await zipReadEntry(ab, "word/theme/theme1.xml");
+    styles.theme = themeEntry ? docxThemeFonts(xmlParse(new TextDecoder("utf-8").decode(themeEntry))) : {};
+
+    // styles.xml is read before theme1.xml, so theme font references recorded as
+    // "majorHAnsi"/"minorHAnsi" are resolved into real font names only now.
+    [styles.para, styles.run, styles.link, styles.defPara, styles.defRun].forEach(function (table) {
+      for (var id in table) {
+        if (!Object.prototype.hasOwnProperty.call(table, id)) continue;
+        var pr = table[id];
+        if (!pr || !pr.fontTheme || pr.fontFamily) continue;
+        var key = String(pr.fontTheme).replace(/^(major|minor)/, "");
+        var resolved = styles.theme[key] || styles.theme[String(pr.fontTheme)];
+        if (resolved) pr.fontFamily = resolved;
       }
-    }
-    for (var i = 0; i < body.kids.length; i++) {
-      var el = body.kids[i];
-      if (el.tag === "p") {
-        var par = convertDocxPar(el, styles);
-        if (par.isList) {
-          var li = "<li" + par.styleAttr + ">" + par.content + "</li>";
-          if (listBuf) {
-            listBuf.items.push(li);
-          } else {
-            listBuf = { type: "ul", items: [li] };
-          }
-        } else {
-          flushList();
-          out += "<" + par.tag + par.styleAttr + ">" + par.content + "</" + par.tag + ">";
-        }
-      } else if (el.tag === "tbl") {
-        flushList();
-        out += convertDocxTable(el, styles);
-      } else if (el.tag === "sectPr") {} // page setup handled separately
-    }
-    flushList();
-    return out || "<p><br></p>";
-  }
+    });
+    var numberingEntry = await zipReadEntry(ab, "word/numbering.xml");
+    var numbering = numberingEntry ? docxReadNumbering(xmlParse(new TextDecoder("utf-8").decode(numberingEntry))) : null;
+    var relsEntry = await zipReadEntry(ab, "word/_rels/document.xml.rels");
+    var rels = relsEntry ? docxReadRels(xmlParse(new TextDecoder("utf-8").decode(relsEntry))) : {};
 
-  function resolveParaStyle(p, styles, styleId) {
-    var props = { alignment: null, paraShading: null };
-    if (styleId && styles.para[styleId]) {
-      var def = styles.para[styleId];
-      props.alignment = def.alignment || null;
-      props.paraShading = def.paraShading || null;
-    }
-    var pPr = firstChild(p, "pPr");
-    if (pPr) {
-      var jc = firstChild(pPr, "jc");
-      if (jc && jc.attrs.val) props.alignment = jc.attrs.val;
-      var shd = firstChild(pPr, "shd");
-      if (shd && shd.attrs.fill) props.paraShading = ooxmlColor(shd.attrs.fill, shd.attrs.fill === "auto" ? null : shd.attrs.fill);
-    }
-    return props;
-  }
+    await docxPrimeMedia(ab, rels);
+    var ctx = {
+      styles: styles, theme: styles.theme, numbering: numbering, rels: rels,
+      arrayBuffer: ab, counters: {},
+    };
+    var section = docxSection(docRoot);
+    var html = docxBodyHtml(docRoot, ctx);
+    if (!html.replace(/\s/g, "")) html = "<p><br></p>";
 
-  function resolveRunStyle(r, styles, inherit) {
-    var props = { color: null, bold: false, italic: false, underline: false, fontSize: null, runShading: null };
-    if (inherit) {
-      props.color = inherit.color || null; props.bold = inherit.bold; props.italic = inherit.italic;
-      props.underline = inherit.underline; props.fontSize = inherit.fontSize || null;
-    } else if (styles && styles.defaultRun) {
-      props.color = styles.defaultRun.color || null;
-      props.fontSize = styles.defaultRun.fontSize || null;
-    }
-    var rPr = firstChild(r, "rPr");
-    var styleId = null;
-    if (rPr) { var rs = firstChild(rPr, "rStyle"); if (rs) styleId = rs.attrs.val; }
-    if (styleId && styles.run[styleId]) {
-      var def = styles.run[styleId];
-      if (def.color) props.color = def.color;
-      if (def.bold !== undefined) props.bold = def.bold;
-      if (def.italic !== undefined) props.italic = def.italic;
-      if (def.fontSize) props.fontSize = def.fontSize;
-    }
-    if (rPr) {
-      var color = firstChild(rPr, "color");
-      if (color && color.attrs.val) props.color = ooxmlColor(color.attrs.val, color.attrs.val === "auto" ? null : color.attrs.val);
-      var b = firstChild(rPr, "b");
-      if (b) props.bold = b.attrs.val !== "0" && b.attrs.val !== "false";
-      var i = firstChild(rPr, "i");
-      if (i) props.italic = i.attrs.val !== "0" && i.attrs.val !== "false";
-      var u = firstChild(rPr, "u");
-      if (u) props.underline = u.attrs.val !== "0" && u.attrs.val !== "false" && u.attrs.val !== "none";
-      var sz = firstChild(rPr, "sz");
-      if (sz && sz.attrs.val) props.fontSize = parseFloat(sz.attrs.val) / 2;
-      var shd = firstChild(rPr, "shd");
-      if (shd && shd.attrs.fill) props.runShading = ooxmlColor(shd.attrs.fill, shd.attrs.fill === "auto" ? null : shd.attrs.fill);
-    }
-    return props;
-  }
-
-  function convertDocxRunContent(r, styles, inherit) {
-    var runProps = resolveRunStyle(r, styles, inherit);
-    var html = "";
-    for (var i = 0; i < r.kids.length; i++) {
-      var k = r.kids[i];
-      if (k.tag === "t") {
-        var txt = nodeText(k);
-        if (runProps.bold) txt = "<b>" + txt + "</b>";
-        if (runProps.italic) txt = "<i>" + txt + "</i>";
-        if (runProps.underline) txt = "<u>" + txt + "</u>";
-        var styleParts = [];
-        if (runProps.color) styleParts.push("color:" + runProps.color);
-        if (runProps.fontSize) styleParts.push("font-size:" + runProps.fontSize + "pt");
-        if (runProps.runShading) styleParts.push("background:" + runProps.runShading);
-        if (styleParts.length) txt = '<span style="' + styleParts.join(";") + '">' + txt + "</span>";
-        html += txt;
-      } else if (k.tag === "br") {
-        html += runProps.bold ? "<b><br></b>" : "<br>";
-      } else if (k.tag === "tab") {
-        html += "&emsp;";
-      } else if (k.tag === "hyperlink" || k.tag === "ins" || k.tag === "smartTag") {
-        html += convertDocxRunContainer(k, styles, runProps);
-      } else if (k.tag === "drawing" || k.tag === "pict" || k.tag === "object") {
-        // images are dropped in plain import (no data available without
-        // extracting media parts); keep a placeholder so layout is visible.
+    // Header and footer come across as the document's own running heads.
+    var header = "", footer = "";
+    async function readPart(refs, kind) {
+      for (var i = 0; i < refs.length; i++) {
+        if (refs[i].type && refs[i].type !== "default") continue;
+        var target = rels[refs[i].id];
+        if (!target) continue;
+        var entry = await zipReadEntry(ab, "word/" + String(target).replace(/^\.\.\//, ""));
+        if (!entry) continue;
+        var root = xmlParse(new TextDecoder("utf-8").decode(entry));
+        var partCtx = { styles: styles, theme: styles.theme, numbering: numbering, rels: rels, arrayBuffer: ab, counters: {} };
+        return docxBodyHtml(root, partCtx);
       }
+      return "";
     }
-    return html;
+    header = await readPart(section.headerRefs, "header");
+    footer = await readPart(section.footerRefs, "footer");
+
+    var columns = section.columns > 1 ? section.columns : 0;
+    if (columns) {
+      html = '<div style="column-count:' + columns + ';column-gap:36px">' + html + "</div>";
+    }
+
+    return {
+      html: html,
+      pageSetup: {
+        w: section.w, h: section.h, portrait: section.portrait,
+        marginTop: section.marginTop, marginRight: section.marginRight,
+        marginBottom: section.marginBottom, marginLeft: section.marginLeft,
+        bg: section.bg || "#ffffff",
+      },
+      header: header,
+      footer: footer,
+    };
   }
 
-  function convertDocxRunContainer(el, styles, inherit) {
-    var html = "";
-    for (var i = 0; i < el.kids.length; i++) html += convertDocxRunContent(el.kids[i], styles, inherit);
-    return html;
-  }
-
-  function convertDocxPar(p, styles) {
-    var pPr = firstChild(p, "pPr");
-    var styleId = null;
-    if (pPr) { var st = firstChild(pPr, "pStyle"); if (st) styleId = st.attrs.val; }
-    var props = resolveParaStyle(p, styles, styleId);
-    var styleParts = [];
-    var alignMap = { left: "left", center: "center", right: "right", both: "justify", start: "left", end: "right" };
-    if (props.alignment && alignMap[props.alignment]) styleParts.push("text-align:" + alignMap[props.alignment]);
-    if (props.paraShading) styleParts.push("background:" + props.paraShading);
-    var isList = false, listType = null;
-    if (pPr) {
-      var numPr = firstChild(pPr, "numPr");
-      isList = !!numPr;
-      var ilvl = numPr ? firstChild(numPr, "ilvl") : null;
-      // any indentation level renders as a bulleted <li> (kept simple).
-      listType = isList ? "ul" : null;
-    }
-    var inner = "";
-    var kids = p.kids;
-    for (var i = 0; i < kids.length; i++) {
-      if (kids[i].tag === "r") inner += convertDocxRunContent(kids[i], styles, null);
-      else if (kids[i].tag === "hyperlink" || kids[i].tag === "ins" || kids[i].tag === "smartTag") inner += convertDocxRunContainer(kids[i], styles, null);
-    }
-    // fast-ish heading detection: style name "Heading N"
-    var heading = null;
-    if (styleId && styles.para[styleId] && styles.para[styleId].name) {
-      var nm = styles.para[styleId].name.match(/^Heading\s*([1-6])$/i);
-      if (nm) heading = parseInt(nm[1], 10);
-    }
-    var tag = heading ? ("h" + Math.min(6, heading)) : "p";
-    var styleAttr = styleParts.length ? ' style="' + styleParts.join(";") + '"' : "";
-    var content = inner || "<br>";
-    return { tag: tag, styleAttr: styleAttr, content: content, isList: isList };
-  }
-
-  function convertDocxTable(tbl, styles) {
-    var html = "<table>";
-    var tblPr = firstChild(tbl, "tblPr");
-    var rows = allChildren(tbl, "tr");
-    for (var r = 0; r < rows.length; r++) {
-      html += "<tr>";
-      var cells = allChildren(rows[r], "tc");
-      for (var c = 0; c < cells.length; c++) {
-        var cell = cells[c];
-        var styleParts = [];
-        var gridSpanVal = 1;
-        var tcPr = firstChild(cell, "tcPr");
-        if (tcPr) {
-          var shd = firstChild(tcPr, "shd");
-          if (shd && shd.attrs.fill) styleParts.push("background-color:" + ooxmlColor(shd.attrs.fill, shd.attrs.fill === "auto" ? null : shd.attrs.fill));
-          var tcMar = firstChild(tcPr, "tcMar");
-          // Word stores cell margins in twips: left/right in w:start/w:end
-          if (tcMar) {
-            var padVals = { top: null, right: null, bottom: null, left: null };
-            var sides = { top: "top", start: "left", bottom: "bottom", end: "right" };
-            for (var sd in sides) {
-              var sEl = firstChild(tcMar, sd);
-              if (sEl && sEl.attrs.w && sides[sd]) padVals[sides[sd]] = Math.max(0, twipToPx(sEl.attrs.w));
-            }
-            if (padVals.top != null && padVals.right != null && padVals.bottom != null && padVals.left != null && padVals.top === padVals.right && padVals.right === padVals.bottom && padVals.bottom === padVals.left) {
-              styleParts.push("padding:" + padVals.top + "px");
-            } else {
-              var pt = ["top", "right", "bottom", "left"].map(function (s) { return (padVals[s] != null ? padVals[s] : 0) + "px"; }).join(" ");
-              styleParts.push("padding:" + pt);
-            }
-          }
-          var gridSpan = firstChild(tcPr, "gridSpan");
-          if (gridSpan && gridSpan.attrs.val) gridSpanVal = parseInt(gridSpan.attrs.val, 10) || 1;
-        }
-        // cell content: paragraphs
-        var cellHtml = "";
-        var cellKids = cell.kids;
-        for (var k = 0; k < cellKids.length; k++) {
-          if (cellKids[k].tag === "p") {
-            var par = convertDocxPar(cellKids[k], styles);
-            cellHtml += par.isList
-              ? "<ul><li" + par.styleAttr + ">" + par.content + "</li></ul>"
-              : "<" + par.tag + par.styleAttr + ">" + par.content + "</" + par.tag + ">";
-          }
-        }
-        var cellAttr = "";
-        if (gridSpanVal && gridSpanVal > 1) cellAttr = ' colspan="' + gridSpanVal + '"';
-        html += "<td" + cellAttr + (styleParts.length ? ' style="' + styleParts.join(";") + '"' : "") + ">" + (cellHtml || "<p><br></p>") + "</td>";
-      }
-      html += "</tr>";
-    }
-    html += "</table>";
-    return html;
-  }
-
-  // Minimal text fallback: pull w:t text nodes / paragraph boundaries.
-  async function convertDocxTextFallback(arrayBuffer) {
-    var doc = await zipReadEntry(arrayBuffer, "word/document.xml");
-    if (!doc) return null;
-    var xml = new TextDecoder("utf-8").decode(doc);
-    var html = "";
-    var blockRe = /<(?:w:p|w:tbl)\b[\s\S]*?<\/(?:w:p|w:tbl)>/g;
-    var m;
-    while ((m = blockRe.exec(xml)) !== null) {
-      var inner = (m[0].match(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/g) || [])
-        .map(function (t) {
-          return t.replace(/^<w:t\b[^>]*>/, "").replace(/<\/w:t>$/, "")
-            .replace(/&amp;|&lt;|&gt;|&quot;|&apos;/g, function(c) {
-              return { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&apos;': "'" }[c];
-            });
-        }).join("");
-      if (inner.replace(/\s/g, "")) html += "<p>" + escapeHtml(inner) + "</p>";
-    }
-    return html && html.replace(/\S/g, "") ? null : (html || null);
-  }
-
-  // ---- entry point: full .docx → {html, pageSetup} ----
-  async function convertDocxFully(arrayBuffer) {    var docEntry = await zipReadEntry(arrayBuffer, "word/document.xml");
-    if (!docEntry) return null;
-    var docXml = new TextDecoder("utf-8").decode(docEntry);
-    var docRoot = xmlParse(docXml);
-    var stylesEntry = await zipReadEntry(arrayBuffer, "word/styles.xml");
-    var styles = { para: {}, run: {} };
-    if (stylesEntry) {
-      var stylesXml = new TextDecoder("utf-8").decode(stylesEntry);
-      styles = parseDocxStyles(xmlParse(stylesXml));
-    }
-    var html = convertDocxTree(docRoot, styles);
-    var pageSetup = parseDocxPageSetup(docRoot);
-    return { html: html, pageSetup: pageSetup };
-  }
-
-  // Public-ish: convert a .docx file to { html, pageSetup }, preferring the
-  // full custom converter, falling back to mammoth, then plain text.
+  // The converter that reads the file's own layout. Mammoth and the plain-text
+  // reader stay as fallbacks for files it cannot open.
   async function convertDocxToHtml(file) {
     var ab = await file.arrayBuffer();
     var full = null;
-    try { full = await convertDocxFully(ab); } catch (e) { full = null; }
-    if (full && full.html && full.html.replace(/\S/g, "")) {
-      return { html: importHtmlToContent(full.html), pageSetup: full.pageSetup || null };
+    try { full = await convertDocxDocument(file); }
+    catch (e) {
+      full = null;
+      console.warn("[docs] .docx converter fell back to Mammoth:", (e && e.stack) || e);
     }
-    // mammoth fallback (structure only — page setup/alignment lost)
+    if (full && full.html && full.html.replace(/\S/g, "")) {
+      return {
+        html: importHtmlToContent(full.html),
+        pageSetup: full.pageSetup || null,
+        header: full.header || "",
+        footer: full.footer || "",
+      };
+    }
     var text = (typeof mammoth !== "undefined")
       ? await mammoth.convertToHtml({ arrayBuffer: ab })
           .then(function (r) { return r.value; }).catch(function () { return null; })
       : null;
     if (text && text.replace(/\S/g, "")) {
-      return { html: importHtmlToContent(text), pageSetup: null };
+      return { html: importHtmlToContent(text), pageSetup: null, header: "", footer: "" };
     }
-    var ab2 = ab;
-    var plain = await convertDocxTextFallback(ab2);
-    return { html: plain ? importTextToHtml(plain, false) : "<p><br></p>", pageSetup: null };
+    var plain = await convertDocxTextFallback(ab);
+    return { html: plain ? importTextToHtml(plain, false) : "<p><br></p>", pageSetup: null, header: "", footer: "" };
   }
 
-  // Best-effort .doc → HTML. Tries the binary text extractor; the result may
-  // be incomplete for older/newer Word files but preserves readable prose. If
-  // nothing usable is found we surface a helpful error. A .doc that is really
-  // RTF underneath (common for files saved by "Save As Type: .doc") is routed
-  // through the RTF parser first.
+  /* .doc → HTML.
+
+     Plenty of files called ".doc" are not the binary format at all: a great
+     many are .docx renamed, or RTF, or plain HTML saved from a web page. Those
+     are recognised by their own signature and handed to the converter that can
+     read them properly, layout and all. A genuine Word 97-2003 binary has no
+     layout this app can read without a full converter, so its text is
+     recovered and the limits are stated rather than hidden. */
   async function convertDocToHtml(file) {
     var ab = await file.arrayBuffer();
-    var head = new TextDecoder("latin1").decode(ab.slice(0, 16));
-    if (/^\s*\{\\rtf/.test(head)) {
-      return nullContentToSpacer(convertRtfToText(new TextDecoder("latin1").decode(ab)));
+    // Index the bytes through a view: an ArrayBuffer itself has no indexed
+    // properties, so reading ab[0] would always be undefined.
+    var bytes = new Uint8Array(ab);
+    var head = new TextDecoder("latin1").decode(bytes.slice(0, 16));
+    var headText = new TextDecoder("latin1").decode(bytes.slice(0, 2048));
+
+    // PK.. — a ZIP, so a .docx (or .docm) wearing a .doc extension.
+    if (bytes[0] === 0x50 && bytes[1] === 0x4B) {
+      var asDocx = await convertDocxDocument(file);
+      if (asDocx && asDocx.html && asDocx.html.replace(/\S/g, "")) {
+        return {
+          html: importHtmlToContent(asDocx.html),
+          pageSetup: asDocx.pageSetup || null,
+          header: asDocx.header || "",
+          footer: asDocx.footer || "",
+        };
+      }
     }
+    if (/^\s*\{\\rtf/.test(head)) {
+      return { html: importHtmlToContent(convertRtfToText(new TextDecoder("latin1").decode(ab))), pageSetup: null, header: "", footer: "" };
+    }
+    if (/<\s*(!doctype html|html|body|p|div|table|h[1-6])/i.test(headText)) {
+      var doc = xmlParse(headText);
+      return { html: importHtmlToContent(new TextDecoder("utf-8").decode(ab)), pageSetup: null, header: "", footer: "" };
+    }
+
     var txt = convertDocToText(ab);
-    if (!txt) {
+    if (!txt || !txt.replace(/\s/g, "")) {
       throw new Error("EMPTYDOC");
     }
-    return importTextToHtml(txt, false);
+    console.warn("[docs] .doc: recovered text only — this is the binary Word 97-2003 format, which carries its layout in a table this app cannot read. Re-save it as .docx for a faithful import.");
+    return { html: importTextToHtml(txt, false), pageSetup: null, header: "", footer: "" };
   }
 
   function nullContentToSpacer(plain) {
@@ -3712,15 +4308,33 @@ function startAutosaveSnapshots() {
   // The page artwork with the words taken out, and every line rebuilt as live
   // text at its original position, font, size, weight and colour. This is the
   // WYSIWYG import: it looks exactly like the PDF and every word is editable.
-  function pdfExactPageHtml(dataUrl, runs, fit, boxW, boxH) {
-    var html = '<div class="emdocs-pdf-page" style="height:' + pdfRound(boxH) + 'px">' +
-      '<img class="emdocs-pdf-bg" src="' + dataUrl + '" alt="" style="width:' + pdfRound(boxW) + 'px;height:' + pdfRound(boxH) + 'px" />';
+  // The page artwork with the words taken out, and every line rebuilt as live
+  // text at its original position, font, size, weight and colour. This is the
+  // WYSIWYG import: it looks exactly like the PDF and every word is editable.
+  //
+  // `fit` is per page, not per document: a PDF may mix portrait and landscape
+  // sheets, so each page is scaled to fit the Docs page while keeping its own
+  // aspect ratio and then centred. One document-wide factor is what stretched
+  // landscape artwork on a portrait sheet. The page's real size rides along in
+  // data-pdf-w/h so applyPdfPageSizes() can give that Docs page the same sheet.
+  function pdfExactPageHtml(dataUrl, runs, fit, boxW, boxH, sheetW, sheetH) {
+    var artW = Math.round(sheetW * fit);
+    var artH = Math.round(sheetH * fit);
+    // Centre the artwork in the printable area, so a page shaped differently
+    // from the sheet is letterboxed rather than distorted.
+    var offX = Math.round((boxW - artW) / 2);
+    var offY = Math.round((boxH - artH) / 2);
+    var html = '<div class="emdocs-pdf-page" data-pdf-w="' + Math.round(sheetW) +
+      '" data-pdf-h="' + Math.round(sheetH) + '" style="width:' + pdfRound(boxW) +
+      'px;height:' + pdfRound(boxH) + 'px">' +
+      '<img class="emdocs-pdf-bg" src="' + dataUrl + '" alt="" style="left:' + offX +
+      'px;top:' + offY + 'px;width:' + pdfRound(artW) + 'px;height:' + pdfRound(artH) + 'px" />';
     for (var i = 0; i < runs.length; i++) {
       var r = runs[i];
       var size = r.size * fit;
       var box = pdfTextBox(size, r.family, r.bold, r.italic);
-      html += '<span class="emdocs-pdf-run" style="left:' + pdfRound(r.x * fit) + "px;top:" +
-        pdfRound(r.baseline * fit - box.baseline) + "px;font-size:" + pdfRound(size) +
+      html += '<span class="emdocs-pdf-run" style="left:' + pdfRound(offX + r.x * fit) + "px;top:" +
+        pdfRound(offY + r.baseline * fit - box.baseline) + "px;font-size:" + pdfRound(size) +
         "px;line-height:" + pdfRound(box.lineHeight) + "px;font-family:" + r.family + ";" +
         (r.bold ? "font-weight:700;" : "") + (r.italic ? "font-style:italic;" : "") +
         'color:' + pdfRgb(r.color) + '">' + escapeHtml(r.text) + "</span>";
@@ -3739,30 +4353,36 @@ function startAutosaveSnapshots() {
     var total = pdf.numPages;
     if (!total) throw new Error("EMPTYPDF");
 
-    var unit = (await pdf.getPage(1)).getViewport({ scale: 1 });
-    var rawW = unit.width, rawH = unit.height;
-    var portrait = rawH >= rawW;
-    var pageW = Math.round(portrait ? rawW : rawH);
-    var pageH = Math.round(portrait ? rawH : rawW);
-    // The page is shown at its own size, so it is rendered at roughly 1.7x —
-    // rasterising a whole sheet at 2000px only to display it smaller is what
-    // made big PDFs slow to import.
-    var scale = Math.max(1, Math.min(2.4, PDF_MAX_RENDER_PX / Math.max(rawW, rawH)));
-    var boxW = pageW - PDF_EXACT_MARGIN * 2 - 1;
-    var boxH = pageH - PDF_EXACT_MARGIN * 2 - 1;
-    var fit = Math.min(boxW / rawW, boxH / rawH);
+    // The viewport already has the page's own /Rotate and MediaBox applied, so
+    // it is the page as it is meant to be read — no further swapping. The
+    // document's sheet size comes from the widest page, so no page is ever
+    // larger than the sheet it lands on.
+    var firstViewport = (await pdf.getPage(1)).getViewport({ scale: 1 });
+    var portrait = firstViewport.height >= firstViewport.width;
 
     var out = [];
     for (var n = 1; n <= total; n++) {
-      var page = n === 1 ? null : await pdf.getPage(n);
-      if (!page) page = await pdf.getPage(1);
-      var runs = await pdfPageRuns(page, unit);
+      var page = await pdf.getPage(n);
+      var viewport = page.getViewport({ scale: 1 });
+      var sheetW = Math.round(viewport.width);
+      var sheetH = Math.round(viewport.height);
+
+      // Rasterise at ~170 DPI, capped, but per page: one huge page must not
+      // decide the pixel size of every other page.
+      var scale = Math.max(1, Math.min(2.4, PDF_MAX_RENDER_PX / Math.max(sheetW, sheetH)));
+      var runs = await pdfPageRuns(page, viewport);
       var canvas = await pdfRenderPage(page, scale);
       pdfEraseText(canvas, runs, scale, true);
       var url = canvas.toDataURL("image/jpeg", 0.9);
       canvas.width = 0;
       canvas.height = 0;
-      out.push(pdfExactPageHtml(url, runs, fit, boxW, boxH));
+
+      // Give this Docs page the sheet this PDF page really is, then fit the
+      // artwork into it without distorting it.
+      var boxW = sheetW - PDF_EXACT_MARGIN * 2 - 1;
+      var boxH = sheetH - PDF_EXACT_MARGIN * 2 - 1;
+      var fit = Math.min(boxW / sheetW, boxH / sheetH);
+      out.push(pdfExactPageHtml(url, runs, fit, boxW, boxH, sheetW, sheetH));
       // The break only mirrors the PDF's own pagination: hidden, no label.
       if (n < total) out.push(PDF_BREAK_HTML);
       if (onProgress) onProgress(n, total);
@@ -3772,7 +4392,8 @@ function startAutosaveSnapshots() {
     return {
       html: out.join(""),
       pageSetup: {
-        w: pageW, h: pageH, portrait: portrait,
+        w: Math.round(firstViewport.width), h: Math.round(firstViewport.height),
+        portrait: portrait,
         marginTop: PDF_EXACT_MARGIN, marginRight: PDF_EXACT_MARGIN,
         marginBottom: PDF_EXACT_MARGIN, marginLeft: PDF_EXACT_MARGIN,
         bg: "#ffffff",
@@ -3835,9 +4456,13 @@ function startAutosaveSnapshots() {
 
     var id = makeDocId();
     var pageSetup = null;
-    // .docx importer returns {html, pageSetup}. Unwrap it.
+    var header = "";
+    var footer = "";
+    // The .docx importer returns {html, pageSetup, header, footer}. Unwrap it.
     if (content && typeof content === "object" && content.html) {
       pageSetup = content.pageSetup || null;
+      header = content.header || "";
+      footer = content.footer || "";
       content = content.html;
     }
     var plain = htmlToText(content);
@@ -3854,8 +4479,8 @@ function startAutosaveSnapshots() {
       content: content,
       savedAt: Date.now(),
       theme: theme,
-      header: "",
-      footer: "",
+      header: header,
+      footer: footer,
       footnotes: [],
       endnotes: [],
     };
@@ -6494,6 +7119,9 @@ function startAutosaveSnapshots() {
       pages[i].style.height = ph + "px";
       pages[i].classList.toggle("landscape", !!isLandscape);
     }
+    // A PDF page keeps the sheet it came from, so re-apply those per-page sizes
+    // over the new document-wide size.
+    applyPdfPageSizes();
     scheduleThumbnailsUpdate();
   }
 
@@ -8275,6 +8903,32 @@ function startAutosaveSnapshots() {
   // After pagination, scan each page for section-break markers and apply
   // the most recent section config to that page (and subsequent pages until
   // a new section break overrides it).
+  /* A PDF import gives every Docs page the size of the PDF page it came from
+     (data-pdf-w/h), so a document that mixes portrait and landscape sheets keeps
+     each sheet's real shape instead of forcing everything onto page 1's. Pages
+     without those attributes keep the document-wide size. */
+  function applyPdfPageSizes() {
+    var pages = getPages();
+    for (var i = 0; i < pages.length; i++) {
+      var page = pages[i];
+      var holder = page.querySelector(".emdocs-pdf-page[data-pdf-w]");
+      if (!holder) continue;
+      var w = parseInt(holder.getAttribute("data-pdf-w"), 10);
+      var h = parseInt(holder.getAttribute("data-pdf-h"), 10);
+      if (!(w > 0) || !(h > 0)) continue;
+      var landscape = w > h;
+      page.style.width = w + "px";
+      page.style.height = h + "px";
+      page.classList.toggle("landscape", landscape);
+      // The content area is what the artwork was laid out against, so the
+      // margins must be the same hairline the importer used.
+      page.style.setProperty("--sec-mt", PDF_EXACT_MARGIN + "px");
+      page.style.setProperty("--sec-mr", PDF_EXACT_MARGIN + "px");
+      page.style.setProperty("--sec-mb", PDF_EXACT_MARGIN + "px");
+      page.style.setProperty("--sec-ml", PDF_EXACT_MARGIN + "px");
+    }
+  }
+
   function applySectionConfigs() {
     var pages = getPages();
     var currentConfig = null;
