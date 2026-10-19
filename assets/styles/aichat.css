@@ -744,7 +744,7 @@ body.light-mode .model-dropdown-other-list {
     }
 }
 
-.input-reasoning-btn {
+.input-thinking-btn {
     width: 33px;
     height: 33px;
     background: none;
@@ -764,32 +764,32 @@ body.light-mode .model-dropdown-other-list {
     flex-shrink: 0;
 }
 
-.input-reasoning-btn:hover {
+.input-thinking-btn:hover {
     color: rgb(192, 192, 192);
     background: rgb(40, 40, 40);
 }
 
-.input-reasoning-btn:active {
+.input-thinking-btn:active {
     transform: translateY(0.5px);
 }
 
-.reasoning-toggle-icon {
+.thinking-toggle-icon {
     flex-shrink: 0;
     transition: color 0.2s, transform 0.25s;
 }
 
-.input-reasoning-btn.active {
+.input-thinking-btn.active {
     background: rgba(80, 200, 120, 0.12);
     color: rgb(80, 200, 120);
     box-shadow: rgba(80, 200, 120, 0.18) 0px 0px 0px 1px, rgba(80, 200, 120, 0.2) 0px 0px 12px;
 }
 
-.input-reasoning-btn.active .reasoning-toggle-icon {
+.input-thinking-btn.active .thinking-toggle-icon {
     color: rgb(80, 200, 120);
-    animation: 2.4s ease-in-out 0s infinite normal none running reasoning-pulse;
+    animation: 2.4s ease-in-out 0s infinite normal none running thinking-pulse;
 }
 
-@keyframes reasoning-pulse {
+@keyframes thinking-pulse {
     0%, 100% {
         opacity: 1;
         transform: scale(1);
@@ -802,27 +802,27 @@ body.light-mode .model-dropdown-other-list {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .input-reasoning-btn.active .reasoning-toggle-icon {
+    .input-thinking-btn.active .thinking-toggle-icon {
         animation: auto ease 0s 1 normal none running none;
     }
 }
 
-body.light-mode .input-reasoning-btn {
+body.light-mode .input-thinking-btn {
     color: rgb(136, 136, 136);
 }
 
-body.light-mode .input-reasoning-btn:hover {
+body.light-mode .input-thinking-btn:hover {
     background: rgb(240, 240, 240);
     color: rgb(0, 0, 0);
 }
 
-body.light-mode .input-reasoning-btn.active {
+body.light-mode .input-thinking-btn.active {
     background: rgba(80, 200, 120, 0.12);
     color: rgb(42, 157, 84);
     box-shadow: rgba(80, 200, 120, 0.15) 0px 0px 0px 1px, rgba(80, 200, 120, 0.18) 0px 0px 10px;
 }
 
-body.light-mode .input-reasoning-btn.active .reasoning-toggle-icon {
+body.light-mode .input-thinking-btn.active .thinking-toggle-icon {
     color: rgb(42, 157, 84);
 }
 
@@ -1663,11 +1663,11 @@ body.light-mode .esb-citation-chip svg {
 }
 
 /* Active-shade state: the AI is answering in another conversation the user
-   switched away from — gray out the + / reasoning buttons and gray the
+   switched away from — gray out the + / thinking buttons and gray the
    "Ask anything..." placeholder (now "Still answering"). Used only when NOT
    viewing the streaming conversation. */
 .chat-input-box.input-busy .input-attach-btn,
-.chat-input-box.input-busy .input-reasoning-btn {
+.chat-input-box.input-busy .input-thinking-btn {
     opacity: 0.45;
     pointer-events: none;
     cursor: not-allowed;
@@ -1688,7 +1688,7 @@ body.light-mode .esb-citation-chip svg {
 }
 
 body.light-mode .chat-input-box.input-busy .input-attach-btn,
-body.light-mode .chat-input-box.input-busy .input-reasoning-btn {
+body.light-mode .chat-input-box.input-busy .input-thinking-btn {
     opacity: 0.5;
 }
 
@@ -7702,7 +7702,7 @@ body.light-mode .ws-searching-badge {
     color: rgb(102, 102, 102);
 }
 
-.reasoning-block {
+.thinking-block {
     --rs-bar: #6b6b6b;
     --rs-bar-active: #50c878;
     --rs-label: #8a8a8a;
@@ -7729,7 +7729,7 @@ body.light-mode .ws-searching-badge {
     transition: opacity 0.2s;
 }
 
-.reasoning-block::before {
+.thinking-block::before {
     content: "";
     position: absolute;
     left: 0px;
@@ -7741,16 +7741,16 @@ body.light-mode .ws-searching-badge {
     transition: background 0.3s, opacity 0.3s;
 }
 
-.reasoning-block:not(.is-done)::before {
+.thinking-block:not(.is-done)::before {
     background: var(--rs-bar-active);
     opacity: 0.55;
 }
 
-.reasoning-block.is-done::before {
+.thinking-block.is-done::before {
     opacity: 0.85;
 }
 
-.reasoning-header {
+.thinking-header {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -7762,18 +7762,18 @@ body.light-mode .ws-searching-badge {
     transition: background 0.15s;
 }
 
-.reasoning-header:focus-visible {
+.thinking-header:focus-visible {
     box-shadow: rgba(80, 200, 120, 0.3) 0px 0px 0px 2px;
 }
 
-.reasoning-title {
+.thinking-title {
     display: flex;
     align-items: center;
     gap: 8px;
     min-width: 0px;
 }
 
-.reasoning-label {
+.thinking-label {
     font-size: 0.82rem;
     font-weight: 500;
     color: var(--rs-label);
@@ -7824,7 +7824,7 @@ body.light-mode .ws-searching-badge {
     }
 }
 
-.reasoning-block:not(.is-done) .reasoning-label,
+.thinking-block:not(.is-done) .thinking-label,
 .searching-block:not(.is-done) .searching-label {
     background-image: linear-gradient(
         90deg,
@@ -7846,41 +7846,41 @@ body.light-mode .ws-searching-badge {
     animation: panel-label-sweep 2100ms cubic-bezier(0.4, 0, 0.2, 1) 0s infinite normal none running;
 }
 
-.reasoning-block.is-done .reasoning-label {
+.thinking-block.is-done .thinking-label {
     color: var(--rs-label-done);
 }
 
-.reasoning-chevron {
+.thinking-chevron {
     color: var(--rs-chevron);
     flex-shrink: 0;
     opacity: 0.6;
     transition: transform 0.2s, opacity 0.2s;
 }
 
-.reasoning-header:hover .reasoning-chevron, .reasoning-header:focus-visible .reasoning-chevron {
+.thinking-header:hover .thinking-chevron, .thinking-header:focus-visible .thinking-chevron {
     opacity: 1;
 }
 
-.reasoning-block.is-expanded .reasoning-chevron {
+.thinking-block.is-expanded .thinking-chevron {
     transform: rotate(180deg);
 }
 
-.reasoning-body {
+.thinking-body {
     overflow: hidden;
     max-height: 0px;
     transition: max-height 0.3s;
 }
 
-.reasoning-block.is-expanded .reasoning-body {
+.thinking-block.is-expanded .thinking-body {
     max-height: 60vh;
 }
 
-.reasoning-block.is-expanded .reasoning-body > .reasoning-text {
+.thinking-block.is-expanded .thinking-body > .thinking-text {
     max-height: 60vh;
     overflow-y: auto;
 }
 
-.reasoning-text {
+.thinking-text {
     font-family: "DM Sans", sans-serif;
     font-size: 0.82rem;
     line-height: 1.6;
@@ -7889,24 +7889,24 @@ body.light-mode .ws-searching-badge {
     opacity: 0.88;
 }
 
-.reasoning-text p {
+.thinking-text p {
     margin: 0px 0px 8px;
 }
 
-.reasoning-text p:last-child {
+.thinking-text p:last-child {
     margin-bottom: 0px;
 }
 
-.reasoning-text ul, .reasoning-text ol {
+.thinking-text ul, .thinking-text ol {
     margin: 0px 0px 8px;
     padding-left: 20px;
 }
 
-.reasoning-text li {
+.thinking-text li {
     margin-bottom: 3px;
 }
 
-.reasoning-text code {
+.thinking-text code {
     background: rgba(255, 255, 255, 0.06);
     padding: 1px 5px;
     border-radius: 4px;
@@ -7914,7 +7914,7 @@ body.light-mode .ws-searching-badge {
     font-family: "Sarasa Mono SC", "DM Mono", ui-monospace, monospace;
 }
 
-.reasoning-text pre {
+.thinking-text pre {
     background: rgba(0, 0, 0, 0.25);
     padding: 8px 10px;
     border-radius: 6px;
@@ -7923,23 +7923,23 @@ body.light-mode .ws-searching-badge {
     font-size: 0.78rem;
 }
 
-.reasoning-text pre code {
+.thinking-text pre code {
     background: none;
     padding: 0px;
 }
 
-.reasoning-text h1, .reasoning-text h2, .reasoning-text h3, .reasoning-text h4 {
+.thinking-text h1, .thinking-text h2, .thinking-text h3, .thinking-text h4 {
     font-size: 0.88rem;
     font-weight: 600;
     margin: 10px 0px 6px;
     color: var(--rs-label);
 }
 
-.reasoning-icon {
+.thinking-icon {
     display: none !important;
 }
 
-body.light-mode .reasoning-block {
+body.light-mode .thinking-block {
     --rs-bar: #b0b0b0;
     --rs-bar-active: #2a9d54;
     --rs-label: #555;
@@ -7960,32 +7960,32 @@ body.light-mode .reasoning-block {
     --rs-hover: rgba(0, 0, 0, 0.03);
 }
 
-body.light-mode .reasoning-text code {
+body.light-mode .thinking-text code {
     background: rgba(0, 0, 0, 0.05);
 }
 
-body.light-mode .reasoning-text pre {
+body.light-mode .thinking-text pre {
     background: rgba(0, 0, 0, 0.04);
 }
 
 @media (max-width: 640px) {
-    .reasoning-block {
+    .thinking-block {
         margin: 6px 0px 12px;
         padding-left: 12px;
     }
 
-    .reasoning-header {
+    .thinking-header {
         padding: 4px 4px 4px 0px;
     }
 
-    .reasoning-text {
+    .thinking-text {
         padding: 6px 8px 10px 0px;
         font-size: 0.8rem;
     }
 }
-/* ── Searching panel — same design as Reasoning, separate UI block ────── */
-/* Mirrors .reasoning-block styles. The searching block appears BEFORE the
-   reasoning block, giving users a clear visual separation between
+/* ── Searching panel — same design as Thinking, separate UI block ────── */
+/* Mirrors .thinking-block styles. The searching block appears BEFORE the
+   thinking block, giving users a clear visual separation between
    "Searching: <query>" and "Thinking..." panels. */
 
 .searching-block {
@@ -7996,7 +7996,7 @@ body.light-mode .reasoning-text pre {
     --ss-text: #8a8a8a;
     --ss-chevron: #8a8a8a;
     --ss-hover: rgba(255, 255, 255, 0.04);
-    /* See --pl-sweep-* on .reasoning-block. */
+    /* See --pl-sweep-* on .thinking-block. */
     --pl-sweep-dim: #8a8a8a;
     --pl-sweep-body: #c4c4c4;
     --pl-sweep-hot: #ffffff;
@@ -8061,7 +8061,7 @@ body.light-mode .reasoning-text pre {
     text-overflow: ellipsis;
 }
 
-/* The searching label's sweep is declared with the reasoning label's, one
+/* The searching label's sweep is declared with the thinking label's, one
    rule above — the two blocks are the same design and were kept as two
    selectors rather than duplicated. */
 
@@ -8223,7 +8223,7 @@ body.light-mode .searching-block {
     --ss-text: #555;
     --ss-chevron: #888;
     --ss-hover: rgba(0, 0, 0, 0.03);
-    /* See the reasoning block's light-mode --pl-sweep-* note. */
+    /* See the thinking block's light-mode --pl-sweep-* note. */
     --pl-sweep-dim: #6f6f6f;
     --pl-sweep-body: #3a3a3a;
     --pl-sweep-hot: #0d0d0d;
@@ -8902,7 +8902,7 @@ body.light-mode .ai-card-body pre {
        lit from the same three colours or the bar would shimmer in two
        different hues at the same moment.
 
-       Neutral grey, matching the sweep on the Reasoning and Working
+       Neutral grey, matching the sweep on the Thinking and Working
        labels (--pl-sweep-*). They were green and are not any more: the
        band is not a brand-coloured highlight, it is a light travelling
        over a control, and a hue around it turns that into an indicator.
@@ -10384,7 +10384,7 @@ body.light-mode .live-ctl-start:hover {
        alone tells the reader it is live. It is not replaced by the
        ellipsis that used to be here — the seconds in the text already
        said that, which is the whole reason the ellipsis went. */
-    .reasoning-block:not(.is-done) .reasoning-label,
+    .thinking-block:not(.is-done) .thinking-label,
     .searching-block:not(.is-done) .searching-label {
         background-image: none;
         color: currentColor;
