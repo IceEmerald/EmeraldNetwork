@@ -2120,7 +2120,7 @@ class AxisModel {
 /* ---------------- Sheet helpers ---------------- */
 function makeSheet(name, id) {
   return {
-    id: id || uid(), name, tabColor: null, hidden: false,
+    id: id || uid(), name, tabColor: null,
     cells: new Map(),
     notes: new Map(),
     rows: new AxisModel(DEF.rowH, GRID_INIT, MAX_ROWS),
@@ -2162,9 +2162,8 @@ function sheetById(id) { return WB.sheets.find(s => s.id === id) || null; }
 function sheetByName(name) { const low = name.toLowerCase(); return WB.sheets.find(s => s.name.toLowerCase() === low) || null; }
 function sheetIdByName(name) { const s = sheetByName(name); return s ? s.id : null; }
 function activeSheet() { return sheetById(WB.activeSheetId) || WB.sheets[0]; }
-/* The tab bar only ever renders unhidden sheets (updateSheetTabBar skips the
-   rest), so anything walking tabs has to work off this list too. */
-function visibleSheets() { return WB.sheets.filter(s => !s.hidden); }
+/* All sheets are visible (sheet-level hide/unhide removed). */
+function visibleSheets() { return WB.sheets.slice(); }
 function getRawCell(sid, r, c) {
   const sh = sheetById(sid);
   if (!sh) return undefined;
@@ -2634,7 +2633,7 @@ function serializeSheet(sh) {
   for (const [i, m] of sh.rows.meta) if (m.size != null || m.hidden || m.fhidden) rows[i] = { s: m.size, h: m.hidden ? 1 : 0, fh: m.fhidden ? 1 : 0 };
   for (const [i, m] of sh.cols.meta) if (m.size != null || m.hidden || m.fhidden) cols[i] = { s: m.size, h: m.hidden ? 1 : 0, fh: m.fhidden ? 1 : 0 };
   return {
-    id: sh.id, name: sh.name, tabColor: sh.tabColor, hidden: !!sh.hidden,
+    id: sh.id, name: sh.name, tabColor: sh.tabColor,
     cells, rows, cols,
     merges: sh.merges.map(m => [m.r1, m.c1, m.r2, m.c2]),
     notes: [...sh.notes.entries()].map(([k, stored]) => [k, noteThreadsFromValue(stored).map(n => ({ id: n.id, t: n.text, a: n.author, ts: n.ts, r: noteReplies(n), rs: n.resolved ? 1 : 0 }))]),
@@ -2646,7 +2645,6 @@ function serializeSheet(sh) {
 function deserializeSheet(d) {
   const sh = makeSheet(d.name, d.id);
   sh.tabColor = d.tabColor || null;
-  sh.hidden = !!d.hidden;
   let maxR = 0, maxC = 0;   /* used range (from stored cells) */
   for (const k in d.cells) {
     const c = d.cells[k];
@@ -2709,7 +2707,7 @@ function deserializeWorkbook(d) {
   VIEW.showFormulaBar = v.showFormulaBar !== false;
   VIEW.showHeadings = v.showHeadings !== false;
   VIEW.showFormulas = !!v.showFormulas;
-  const act = WB.sheets.find(s => s.id === d.activeSheetId) || WB.sheets.find(s => !s.hidden) || WB.sheets[0];
+  const act = WB.sheets.find(s => s.id === d.activeSheetId) || WB.sheets[0];
   WB.activeSheetId = act.id;
   return WB;
 }
@@ -4103,7 +4101,7 @@ R.canvas.addEventListener('mousedown', e => {
     finishEdit();
   }
   if (PaintState.active) { startPaint(e, hit); e.preventDefault(); return; }
-  if (e.button === 2) { handleRightClick(e, hit); return; }
+  if (e.button === 2) { e.preventDefault(); return; }  /* no custom right-click in sheets except the bottom-bar sheet tabs */
   /* chart pane armed: a click or drag on a cell re-points the data range instead
      of moving the selection. Same sheet only — a cross-sheet range has no
      rectangle to pick from. */
@@ -8116,8 +8114,7 @@ function attachChartEvents(chart, frame) {
     }
   });
   frame.addEventListener('contextmenu', e => {
-    e.preventDefault(); e.stopPropagation();
-    showPopupMenu([{ label: 'Edit Chart', icon: 'pencil', action: () => openChartPane(chart) }, { label: 'Delete Chart', icon: 'trash', action: () => deleteChart(chart) }], e.clientX, e.clientY);
+    e.preventDefault();
   });
   frame.addEventListener('dblclick', e => { e.stopPropagation(); openChartPane(chart); });
   /* hover tooltips (value readout) */
@@ -9362,7 +9359,6 @@ async function importXlsx(file) {
        the workbook-level sheet record rather than the worksheet body. */
     const meta = (wb.Workbook && wb.Workbook.Sheets || [])[wb.SheetNames.indexOf(name)] || null;
     if (meta) {
-      if (meta.Hidden) sh.hidden = true;
       const pane = meta.Panes || ws['!freeze'];
       if (pane && (pane.ySplit || pane.xSplit)) {
         sh.freeze = { r: pane.ySplit || 0, c: pane.xSplit || 0 };
@@ -9390,7 +9386,6 @@ async function exportXlsx() {
   const wb = XLSX.utils.book_new();
   let styledTotal = 0;
   for (const sh of WB.sheets) {
-    if (sh.hidden) continue;
     const ws = {};
     const ur = usedRange(sh);
     const range = { s: { r: 0, c: 0 }, e: { r: Math.min(ur.r2, 100000), c: Math.min(ur.c2, 1000) } };
@@ -9614,8 +9609,7 @@ function fmtCardDate(ts) {
 /* Tiny spreadsheet preview (6x4 cells): header row/col get a green tint when the
    sheet has content; cells with a value/formula get a light fill. */
 function wbMiniGrid(data) {
-  const visible = (data.sheets || []).filter(s => !s.hidden);
-  const sh = visible[0] || (data.sheets || [])[0];
+  const sh = (data.sheets || [])[0];
   const cells = (sh && sh.cells) ? sh.cells : {};
   let anyCell = false; for (const k in cells) { anyCell = true; break; }
   const COLS = 6, ROWS = 4;
@@ -9843,8 +9837,10 @@ async function openDocumentsDialog() {
  * 15. CHROME UI — POPUPS / MENUS / MODALS / TOASTS / CONTEXT MENUS
  * ========================================================================== */
 let activePopup = null;
+let activeSheetTabContextMenu = null;
 function popupOpen() { return !!activePopup; }
 function closePopups() {
+  closeSheetTabContextMenu();
   if (activePopup) {
     const p = activePopup;
     activePopup = null;
@@ -9928,6 +9924,49 @@ function showPopupMenu(items, x, y) {
     document.addEventListener('mousedown', closer);
   }, 0);
   return pop;
+}
+/* Sheet-tab context menu styled like the generic rightclick.js menu:
+   no per-item icons, only a small icon on the category title. */
+function showSheetTabContextMenu(x, y, sh, tab) {
+  closePopups();
+  const menu = el('<div class="rightclick-menu" role="menu" style="display:block;pointer-events:auto;"></div>');
+  const section = el('<div class="context-section"></div>');
+  const title = el('<span class="context-title"></span>');
+  title.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;display:inline-block"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg> Sheet';
+  section.appendChild(title);
+  const makeItem = (label, action, danger) => {
+    const a = el('<a></a>');
+    a.textContent = label;
+    if (danger) a.classList.add('ctx-danger');
+    a.addEventListener('click', (ev) => { ev.stopPropagation(); closeSheetTabContextMenu(); if (action) action(); });
+    return a;
+  };
+
+  section.appendChild(makeItem('Insert Sheet', () => addSheet(sh.id)));
+  section.appendChild(makeItem('Delete Sheet', () => deleteSheetById(sh.id), true));
+  section.appendChild(makeItem('Rename', () => beginTabRename(sh, tab)));
+  section.appendChild(makeItem('Duplicate', () => duplicateSheetById(sh.id)));
+  section.appendChild(makeItem('Move Left', () => moveSheetDelta(sh.id, -1)));
+  section.appendChild(makeItem('Move Right', () => moveSheetDelta(sh.id, 1)));
+  menu.appendChild(section);
+  document.body.appendChild(menu);
+  menu.style.left = clamp(x, 4, window.innerWidth - menu.offsetWidth - 6) + 'px';
+  menu.style.top = clamp(y, 4, window.innerHeight - menu.offsetHeight - 6) + 'px';
+  activeSheetTabContextMenu = menu;
+  setTimeout(() => {
+    const closer = ev => { if (activeSheetTabContextMenu && !activeSheetTabContextMenu.contains(ev.target)) closeSheetTabContextMenu(); };
+    document.addEventListener('mousedown', closer, true);
+    activeSheetTabContextMenu._closer = closer;
+  }, 0);
+  return menu;
+}
+function closeSheetTabContextMenu() {
+  if (activeSheetTabContextMenu) {
+    const m = activeSheetTabContextMenu;
+    activeSheetTabContextMenu = null;
+    if (m._closer) document.removeEventListener('mousedown', m._closer, true);
+    m.remove();
+  }
 }
 function showCellContextMenu(x, y) {
   const shCtx = activeSheet();
@@ -11432,7 +11471,7 @@ function applySheetReorder(dragId, targetId, before) {
   const at = vis.findIndex(s => s.id === targetId);
   vis.splice(before ? at : at + 1, 0, moved);
   const slots = [];
-  WB.sheets.forEach((s, i) => { if (!s.hidden) slots.push(i); });
+  WB.sheets.forEach((s, i) => { slots.push(i); });
   const prevOrder = WB.sheets.slice();
   slots.forEach((slot, k) => { WB.sheets[slot] = vis[k]; });
   const nextOrder = WB.sheets.slice();
@@ -11505,7 +11544,6 @@ function updateSheetTabBar() {
   const bar = $('#sheet-tabs');
   bar.innerHTML = '';
   for (const sh of WB.sheets) {
-    if (sh.hidden) continue;
     const tab = el('<button class="sheet-tab' + (sh.id === WB.activeSheetId ? ' active' : '') + (sh.tabColor ? ' has-color' : '') + '" role="tab" aria-selected="' + (sh.id === WB.activeSheetId) + '" tabindex="0" title="' + escapeHtml(sh.name) + '">' +
       (sh.tabColor ? '<span class="tab-dot" style="background:' + sh.tabColor + '"></span>' : '') +
       '<span class="tab-label">' + escapeHtml(sh.name) + '</span></button>');
@@ -11522,29 +11560,8 @@ function updateSheetTabBar() {
     });
     tab.addEventListener('contextmenu', e => {
       e.preventDefault();
-      showPopupMenu([
-        { label: 'Insert Sheet', icon: 'plusSheet', action: () => addSheet(sh.id) },
-        { label: 'Delete Sheet', icon: 'trash', danger: true, action: () => deleteSheetById(sh.id) },
-        { label: 'Rename', icon: 'pencil', action: () => beginTabRename(sh, tab) },
-        { label: 'Duplicate', icon: 'dup', action: () => duplicateSheetById(sh.id) },
-        { sep: true },
-        { label: 'Move Left', icon: 'arrowLeft', action: () => moveSheetDelta(sh.id, -1) },
-        { label: 'Move Right', icon: 'arrowRight', action: () => moveSheetDelta(sh.id, 1) },
-        { sep: true },
-        { label: 'Tab Color…', icon: 'tag', action: () => { const r = tab.getBoundingClientRect(); showColorPalette(r.left, r.bottom + 2, c => setSheetTabColor(sh.id, c), true); } },
-        { label: 'Hide Sheet', icon: 'eyeOff', action: () => {
-          if (WB.sheets.filter(s => !s.hidden).length <= 1) { toast('Cannot hide the only visible sheet', 'warn'); return; }
-          sh.hidden = true;
-          if (WB.activeSheetId === sh.id) setActiveSheet(WB.sheets.find(s => !s.hidden).id);
-          updateSheetTabBar();
-          Persistence.markDirty();
-        } },
-        { label: 'Unhide Sheets…', icon: 'eye', action: () => {
-          const hiddenSheets = WB.sheets.filter(s => s.hidden);
-          if (!hiddenSheets.length) { toast('No hidden sheets', 'info'); return; }
-          showPopupMenu(hiddenSheets.map(s => ({ label: s.name, action: () => { s.hidden = false; updateSheetTabBar(); Persistence.markDirty(); } })), tab.getBoundingClientRect().left, tab.getBoundingClientRect().bottom + 2);
-        } }
-      ], e.clientX, e.clientY);
+      e.stopPropagation();
+      showSheetTabContextMenu(e.clientX, e.clientY, sh, tab);
     });
     bar.appendChild(tab);
     wireSheetTabDrag(tab, sh);

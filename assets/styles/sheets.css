@@ -557,6 +557,7 @@ button { cursor: default; }
   text-align: left;
   font-family: var(--font-ui);
 }
+
 .toast.show {
   opacity: 1;
   transform: translateX(-50%) translateY(-10px);
@@ -573,7 +574,7 @@ button { cursor: default; }
    ========================================================================== */
 #print-root { display: none; }
 @media print {
-  #app, , #popup-root, #modal-root, #toast, #clip-helper { display: none !important; }
+  #app, #popup-root, #modal-root, #toast, #clip-helper { display: none !important; }
   body { overflow: visible; background: #fff; }
   #print-root { display: block; }
   #print-root .print-sheet-title { font-size: 14px; font-weight: 600; margin: 0 0 8px; font-family: var(--font-ui); }
@@ -976,7 +977,7 @@ button { cursor: default; }
 
 /* ---- Chart frame head: refined title strip ---- */
 .chart-head {
-  background: linear-gradient(180deg, #fdfdfd 0%, #f7f6f5 100%);
+  background: #fdfdfd;
   border-bottom: 1px solid var(--line-soft);
 }
 .chart-head .chart-title {

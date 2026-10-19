@@ -8240,6 +8240,64 @@ function _esCssColor(v, fallback) {
   if (/^(#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})|rgba?\(|hsla?\(|[a-z]+$)/i.test(s)) return s;
   return fallback;
 }
+/* ── Icon library (for AI-authored slide icons) ───────────────────
+   Mirrors slides.js loadIconLibrary so an icon name the model writes can be
+   resolved to its SVG at import time, even though aichat.html does not load
+   the library itself. Cached on window._esIconDb. */
+let _esIconDbPromise = null;
+function _esLoadIconDb() {
+  if (window._esIconDb && window._esIconDb.length) return Promise.resolve(window._esIconDb);
+  if (_esIconDbPromise) return _esIconDbPromise;
+  _esIconDbPromise = (async () => {
+    try {
+      const r = await fetch('/assets/data/icons.emeraldcore');
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const text = await r.text();
+      const src = text.split('\n').filter((l) => !String(l).trim().startsWith('//')).join('\n');
+      const data = JSON.parse(src);
+      window._esIconDb = Array.isArray(data && data.icons) ? data.icons : [];
+      return window._esIconDb;
+    } catch (e) {
+      window._esIconDb = [];
+      return window._esIconDb;
+    }
+  })();
+  return _esIconDbPromise;
+}
+function _esNormIconName(s) {
+  return String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+function _esResolveIconSvg(name) {
+  const db = window._esIconDb || [];
+  if (!db.length || !name) return '';
+  const norm = _esNormIconName(name);
+  if (!norm) return '';
+  let found = db.find((ic) => _esNormIconName(ic.name) === norm);
+  if (!found) found = db.find((ic) => _esNormIconName(ic.name).includes(norm) || norm.includes(_esNormIconName(ic.name)));
+  if (!found) found = db.find((ic) => String(ic.tags || '').toLowerCase().split(/[,\s]+/).some((t) => _esNormIconName(t) === norm));
+  return found ? String(found.svg || '') : '';
+}
+
+
+/* Detect whether a background value reads as dark, so default text can be
+   switched to white for contrast. */
+function _esIsDarkBg(v) {
+  const s = String(v == null ? "" : v).trim().toLowerCase();
+  if (!s) return false;
+  const m = s.match(/#([0-9a-f]{3}|[0-9a-f]{6})/);
+  let hex = m ? m[1] : "";
+  if (hex.length === 3) hex = hex.split("").map((c) => c + c).join("");
+  if (hex) {
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
+    const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return lum < 0.5;
+  }
+  if (/black|navy|dark|slate/.test(s)) return true;
+  return false;
+}
+
 /* ── Generated images ──────────────────────────────────────────────
    Images produced by the image worker come back as data URLs and are stored
    on the conversation message, not in any EmeraldSuite file. Without a way to
@@ -8336,16 +8394,50 @@ function _esSlideElement(el, z, fallbackColor) {
   const src = el && typeof el === "object" ? el : {};
   const box = {
     id: _esUid("el_"),
-    x: _esNum(src.x, 60), y: _esNum(src.y, 60),
-    w: _esNum(src.w, 840), h: _esNum(src.h, 120),
-    r: _esNum(src.r, 0), z: _esNum(src.z, z || 1),
+    x: Math.max(0, Math.min(_ES_CANVAS_W, _esNum(src.x, 60))), y: Math.max(0, Math.min(_ES_CANVAS_H, _esNum(src.y, 60))),
+    w: Math.max(8, Math.min(_ES_CANVAS_W, _esNum(src.w, 840))), h: Math.max(8, Math.min(_ES_CANVAS_H, _esNum(src.h, 120))),
+    r: Math.max(-360, Math.min(360, _esNum(src.r, 0))), z: Math.max(0, Math.min(10000, _esNum(src.z, z || 1))),
     opacity: Math.max(0, Math.min(1, _esNum(src.opacity, 1)))
   };
   const type = String(src.type || "text").toLowerCase();
   const link = _esElLink(src.link);
 
+  /* AI-authored icon: resolve the name against the Slides icon library and
+     store it as a shape:"icon" element carrying its own SVG, exactly like
+     the app's own Insert > Icon command. */
+  const iconName = src.icon || src.iconName || src.name;
+  if (type === "icon" || (type === "shape" && (String(src.shape || "").toLowerCase() === "icon" || iconName && String(src.shape || "").toLowerCase() === "icon"))) {
+    const svg = (typeof src.svg === "string" && src.svg.trim()) ? _esSanitizeHtml(src.svg) : _esResolveIconSvg(iconName);
+    if (svg) {
+      const color = _esCssColor(src.color || src.stroke, fallbackColor || "#1a1a1a");
+      const out = Object.assign(box, {
+        type: "shape", shape: "icon", svg,
+        fill: "none",
+        stroke: color,
+        strokeWidth: Math.max(1, Math.min(40, _esNum(src.strokeWidth, 2)))
+      });
+      if (link) out.link = link;
+      return out;
+    }
+  }
+
   if (type === "shape") {
     const raw = String(src.shape || "rect").trim();
+    /* Allow shape:"icon" with an icon name even when type is "shape". */
+    if (raw.toLowerCase() === "icon") {
+      const svg = (typeof src.svg === "string" && src.svg.trim()) ? _esSanitizeHtml(src.svg) : _esResolveIconSvg(src.icon || src.iconName || src.name);
+      if (svg) {
+        const color = _esCssColor(src.color || src.stroke || src.fill, fallbackColor || "#1a1a1a");
+        const out = Object.assign(box, {
+          type: "shape", shape: "icon", svg,
+          fill: "none",
+          stroke: color,
+          strokeWidth: Math.max(1, Math.min(40, _esNum(src.strokeWidth, 2)))
+        });
+        if (link) out.link = link;
+        return out;
+      }
+    }
     const key = _ES_SHAPE_ALIAS[raw.toLowerCase()] || raw;
     const out = Object.assign(box, {
       type: "shape",
@@ -8392,7 +8484,7 @@ function _esSlideElement(el, z, fallbackColor) {
        the very spans that colour the text. */
     html: src.rawHtml != null ? _esSanitizeHtml(src.rawHtml) : _esHtml(raw),
     fontFamily: String(src.fontFamily || "DM Sans"),
-    fontSize: _esNum(src.fontSize, 24),
+    fontSize: Math.max(8, Math.min(48, _esNum(src.fontSize, 24))),
     bold: !!src.bold, italic: !!src.italic, underline: !!src.underline,
     color: _esCssColor(src.color, fallbackColor || "#1a1a1a"),
     /* Paint behind the text. This is the cheapest way to give a run of
@@ -8433,13 +8525,13 @@ const _ES_CANVAS_H = 540;
    surface, an ink for body text and an accent strong enough to carry a
    heading — contrast is fixed here rather than left to the model. */
 const _ES_PALETTES = [
-  { bg: "#f0fdf4", surface: "#ffffff", ink: "#052e16", muted: "#3f6212", accent: "#059669", onAccent: "#ffffff" },
-  { bg: "#eef2ff", surface: "#ffffff", ink: "#1e1b4b", muted: "#4338ca", accent: "#4f46e5", onAccent: "#ffffff" },
-  { bg: "#fff7ed", surface: "#ffffff", ink: "#431407", muted: "#9a3412", accent: "#ea580c", onAccent: "#ffffff" },
-  { bg: "#f0f9ff", surface: "#ffffff", ink: "#082f49", muted: "#0369a1", accent: "#0284c7", onAccent: "#ffffff" },
-  { bg: "#fdf2f8", surface: "#ffffff", ink: "#500724", muted: "#9d174d", accent: "#db2777", onAccent: "#ffffff" },
-  { bg: "#faf5ff", surface: "#ffffff", ink: "#3b0764", muted: "#7e22ce", accent: "#9333ea", onAccent: "#ffffff" },
-  { bg: "#fefce8", surface: "#ffffff", ink: "#422006", muted: "#a16207", accent: "#ca8a04", onAccent: "#422006" },
+  { bg: "linear-gradient(135deg,#f0fdf4,#dcfce7)", surface: "#ffffff", ink: "#052e16", muted: "#3f6212", accent: "#059669", onAccent: "#ffffff" },
+  { bg: "linear-gradient(135deg,#eef2ff,#e0e7ff)", surface: "#ffffff", ink: "#1e1b4b", muted: "#4338ca", accent: "#4f46e5", onAccent: "#ffffff" },
+  { bg: "linear-gradient(135deg,#fff7ed,#ffedd5)", surface: "#ffffff", ink: "#431407", muted: "#9a3412", accent: "#ea580c", onAccent: "#ffffff" },
+  { bg: "linear-gradient(135deg,#f0f9ff,#e0f2fe)", surface: "#ffffff", ink: "#082f49", muted: "#0369a1", accent: "#0284c7", onAccent: "#ffffff" },
+  { bg: "linear-gradient(135deg,#fdf2f8,#fce7f3)", surface: "#ffffff", ink: "#500724", muted: "#9d174d", accent: "#db2777", onAccent: "#ffffff" },
+  { bg: "linear-gradient(135deg,#faf5ff,#f3e8ff)", surface: "#ffffff", ink: "#3b0764", muted: "#7e22ce", accent: "#9333ea", onAccent: "#ffffff" },
+  { bg: "linear-gradient(135deg,#fefce8,#fef9c3)", surface: "#ffffff", ink: "#422006", muted: "#a16207", accent: "#ca8a04", onAccent: "#422006" },
   { bg: "#0f172a", surface: "#1e293b", ink: "#f1f5f9", muted: "#94a3b8", accent: "#38bdf8", onAccent: "#0f172a" },
   { bg: "#052e2b", surface: "#0f3d38", ink: "#ecfeff", muted: "#5eead4", accent: "#2dd4bf", onAccent: "#052e2b" }
 ];
@@ -8535,6 +8627,8 @@ function _esCard(p, x, y, w, h, text, z, opts) {
     type: "shape", shape: "rounded", x, y, w, h, z,
     fill: p.surface, stroke: p.accent, strokeWidth: o.strokeWidth != null ? o.strokeWidth : 1, opacity: o.opacity != null ? o.opacity : 1
   });
+   /* Modern card: coloured top accent strip */
+   els.push({ type: "shape", shape: "rect", x: x + 1, y: y + 1, w: w - 2, h: 4, z: z + 1, fill: p.accent, stroke: "none", strokeWidth: 0, opacity: 0.9 });
   /* Numbered lists get a filled badge, everything else a slim rule —
      the marker is what makes a column of boxes read as a list. */
   if (o.marker) {
@@ -8559,7 +8653,7 @@ function _esCard(p, x, y, w, h, text, z, opts) {
        three-column card's text down to half its available width. */
     w: Math.max(40, w - padX * 2 - indent),
     h: h - padY * 2,
-    fontSize: o.fontSize || 15, color: p.ink, textAlign: "left"
+    fontSize: o.fontSize || 15, fontFamily: "DM Sans", color: p.ink, textAlign: "left"
   }, z + 2, p.ink));
   return els;
 }
@@ -8575,21 +8669,23 @@ function _esDesignCover(title, subtitle, p, notes) {
   els.push({ type: "shape", shape: "ellipse", x: 712, y: 44, w: 196, h: 196, z: z++, fill: p.accent, stroke: "none", strokeWidth: 0, opacity: 0.18 });
   els.push({ type: "shape", shape: "ellipse", x: 56, y: 344, w: 120, h: 120, z: z++, fill: p.accent, stroke: "none", strokeWidth: 0, opacity: 0.14 });
   els.push({ type: "shape", shape: "rect", x: 0, y: 0, w: 14, h: _ES_CANVAS_H, z: z++, fill: p.accent, stroke: "none", strokeWidth: 0 });
+   els.push({ type: "shape", shape: "ellipse", x: 760, y: 360, w: 260, h: 260, z: z++, fill: p.accent, stroke: "none", strokeWidth: 0, opacity: 0.08 });
+   els.push({ type: "shape", shape: "rect", x: 0, y: 0, w: _ES_CANVAS_W, h: 6, z: z++, fill: p.accent, stroke: "none", strokeWidth: 0, opacity: 0.6 });
 
   const t = String(title || "").trim();
   if (t) {
     els.push(_esSlideElement({
       text: t, x: 76, y: 176, w: 700, h: 132,
-      fontSize: t.length > 64 ? 36 : t.length > 34 ? 44 : 54,
-      bold: true, color: p.ink, textAlign: "left"
+      fontSize: t.length > 64 ? 32 : t.length > 34 ? 38 : 46,
+      bold: true, fontFamily: "Montserrat", color: p.ink, textAlign: "left"
     }, z++, p.ink));
   }
   const s = String(subtitle || "").trim();
   if (s) {
-    els.push(_esSlideElement({ text: s, x: 78, y: 318, w: 620, h: 96, fontSize: 20, color: p.muted, textAlign: "left" }, z++, p.muted));
+    els.push(_esSlideElement({ text: s, x: 78, y: 318, w: 620, h: 96, fontSize: 20, fontFamily: "DM Sans", color: p.muted, textAlign: "left" }, z++, p.muted));
   }
   els.push({ type: "shape", shape: "rounded", x: 76, y: 140, w: 92, h: 8, z: z++, fill: p.accent, stroke: "none", strokeWidth: 0 });
-  return { background: { type: "color", value: p.bg }, elements: els, notes: String(notes == null ? "" : notes) };
+  return { background: _esSlideBg(p.bg), elements: els, notes: String(notes == null ? "" : notes) };
 }
 
 /* Content slide: accent header band, coloured heading, then the parsed
@@ -8600,6 +8696,8 @@ function _esDesignContent(title, items, p, notes) {
   const t = String(title || "").trim();
 
   els.push({ type: "shape", shape: "rect", x: 0, y: 0, w: _ES_CANVAS_W, h: 8, z: z++, fill: p.accent, stroke: "none", strokeWidth: 0 });
+   els.push({ type: "shape", shape: "ellipse", x: 820, y: -60, w: 220, h: 220, z: z++, fill: p.accent, stroke: "none", strokeWidth: 0, opacity: 0.10 });
+   els.push({ type: "shape", shape: "rect", x: 0, y: _ES_CANVAS_H - 6, w: _ES_CANVAS_W, h: 6, z: z++, fill: p.accent, stroke: "none", strokeWidth: 0, opacity: 0.4 });
   if (t) {
     els.push(_esSlideElement({
       text: t, x: 64, y: 38, w: 832, h: 62,
@@ -8643,7 +8741,7 @@ function _esDesignContent(title, items, p, notes) {
     z += 3;
   });
 
-  return { background: { type: "color", value: p.bg }, elements: els, notes: String(notes == null ? "" : notes) };
+  return { background: _esSlideBg(p.bg), elements: els, notes: String(notes == null ? "" : notes) };
 }
 function _esBuildSlide(s, data, index) {
   const src = s && typeof s === "object" ? s : {};
@@ -8659,12 +8757,16 @@ function _esBuildSlide(s, data, index) {
   let els = [];
 
   if (Array.isArray(src.elements) && src.elements.length) {
-    els = src.elements.map((el, j) => _esSlideElement(el || {}, j + 1, textColor));
+     const defaultInk = (!hasText && _esIsDarkBg(bg)) ? "#ffffff" : textColor;
+     els = src.elements.map((el, j) => _esSlideElement(el || {}, j + 1, defaultInk));
     /* A model-provided element list can still leave the page blank; give
        it the deck background rather than pure white. */
     if (!hasBg) {
-      const p = _esPalette(ix);
-      slide.background = { type: "color", value: p.bg };
+      const p = Object.assign({}, _esPalette(ix));
+    if (!hasText && _esIsDarkBg(bg)) { textColor = "#ffffff"; }
+    if (hasText) { p.ink = textColor; p.muted = textColor; }
+    else if (_esIsDarkBg(bg)) { p.ink = "#ffffff"; p.muted = "rgba(255,255,255,0.7)"; }
+      slide.background = _esSlideBg(p.bg);
       if (!hasText) {
         els = els.map((el) => Object.assign({}, el, { color: el.color === "#1a1a1a" ? p.ink : el.color }));
       }
@@ -8676,7 +8778,7 @@ function _esBuildSlide(s, data, index) {
     const title = String(src.title == null ? "" : src.title).trim();
     const content = String(src.content == null ? "" : src.content);
     const items = _esSlideItems(content);
-    const designed = !hasBg && !hasText && (title || items.length);
+    const designed = !!(title || items.length);
     if (designed) {
       /* A slide with a heading and no body is a cover or a section
          divider — it gets the oversized treatment wherever it sits in the
@@ -8685,13 +8787,13 @@ function _esBuildSlide(s, data, index) {
       const built = isCover
         ? _esDesignCover(title, title ? "" : (data && data.title) || "", p, notes)
         : _esDesignContent(title, items, p, notes);
-      slide.background = built.background;
-      els = built.elements.map((el, j) => _esSlideElement(el, j + 1, textColor));
+      slide.background = hasBg ? _esSlideBg(bg) : built.background;
+      els = built.elements.map((el, j) => _esSlideElement(el, j + 1, hasText ? textColor : undefined));
     } else {
       let z = 1;
-      if (title) els.push(_esSlideElement({ text: title, x: 60, y: 44, w: 840, h: 90, fontSize: 40, bold: true, color: textColor }, z++, textColor));
-      if (content) els.push(_esSlideElement({ text: content, x: 60, y: 168, w: 840, h: 320, fontSize: 22, color: textColor }, z++, textColor));
-      if (!els.length) els.push(_esSlideElement({ text: "", x: 60, y: 44, w: 840, h: 90, fontSize: 40, bold: true, color: textColor }, z++, textColor));
+      if (title) els.push(_esSlideElement({ text: title, x: 60, y: 44, w: 840, h: 90, fontSize: 32, bold: true, fontFamily: "Montserrat", color: textColor }, z++, textColor));
+      if (content) els.push(_esSlideElement({ text: content, x: 60, y: 168, w: 840, h: 320, fontSize: 18, fontFamily: "DM Sans", color: textColor }, z++, textColor));
+      if (!els.length) els.push(_esSlideElement({ text: "", x: 60, y: 44, w: 840, h: 90, fontSize: 32, bold: true, fontFamily: "Montserrat", color: textColor }, z++, textColor));
     }
   }
 slide.elements = els;
@@ -8733,6 +8835,7 @@ slide.elements = els;
   return slide;
 }
 async function _esImportSlides(data) {
+  await _esLoadIconDb();
   const id = "pres_" + Date.now() + "_" + generateSecureId(9);
   const now = Date.now();
   const title = _esPlainText(data.title) || "Imported Presentation";
@@ -9414,7 +9517,7 @@ function _esOpsSpec() {
     "move_el{slide,el,x,y} or move_el{slide,el,dx,dy} | resize_el{slide,el,w,h} or resize_el{slide,el,scale} | " +
     "animate{slide,el,animation,start,duration,delay} | delete_animation{slide,index} | delete_el{slide,el} | duplicate_el{slide,el}\n" +
     "  slide background: a hex colour, \"linear-gradient(135deg,#hex,#hex)\", or an https image URL. " +
-    "shapes: rect rounded ellipse triangle rightTriangle diamond pentagon hexagon octagon decagon star star4 star6 star8 star12 seal1 seal2 arrow arrowLeft arrowRight arrowUp arrowDown arrowUturn arrowChevron arrowBent arrowNotched arrowStriped arrowCalloutR arrowCalloutD arrowCircular arrowQuad chevron bar calloutRect calloutRound calloutEllipse calloutCloud heart lightning sun moon cloud wave smile cube can scroll donut teardrop plus cross ribbon plaque chamfer frameRect foldCorner pie bracketL bracketR heartRibbon sunStar gear snowflake fcProcess fcDecision fcData fcDocument fcTerminator fcPreparation fcConnector fcDelay fcDisplay fcManualOp fcSort none. Unknown names fall back to rounded, so use these.\n" +
+    "shapes: rect rounded ellipse triangle rightTriangle diamond pentagon hexagon octagon decagon star star4 star6 star8 star12 seal1 seal2 arrow arrowLeft arrowRight arrowUp arrowDown arrowUturn arrowChevron arrowBent arrowNotched arrowStriped arrowCalloutR arrowCalloutD arrowCircular arrowQuad chevron bar calloutRect calloutRound calloutEllipse calloutCloud heart lightning sun moon cloud wave smile cube can scroll donut teardrop plus cross ribbon plaque chamfer frameRect foldCorner pie bracketL bracketR heartRibbon sunStar gear snowflake fcProcess fcDecision fcData fcDocument fcTerminator fcPreparation fcConnector fcDelay fcDisplay fcManualOp fcSort none, and icon (set icon:\"Star\" and a stroke colour). Unknown names fall back to rounded, so use these.\n" +
     "  text: fontSize in px; fontFamily one of DM Sans, Arial, Helvetica, Verdana, Roboto, Open Sans, Lato, Montserrat, Poppins, Nunito, Ubuntu, Raleway, Oswald, Work Sans, Georgia, Times New Roman, Merriweather, Lora, Libre Baskerville, DM Serif Display, Crimson Text, Fira Code, IBM Plex Mono, Courier New, Dancing Script, Caveat, Pacifico, Lobster, Permanent Marker; color/highlight are any CSS colour; textAlign left|center|right|justify; listType ul|ol|\".\n" +
     "  animations: appear fade fly zoom spin bounce. start: click|with|after. duration and delay are in SECONDS (duration 0.1-10, delay 0-60).\n" +
     "  transitions: none fade push wipe split reveal cut cover uncover shape blinds random-bars morph fade-black zoom cube flip gallery vortex newsflash honeycomb glitch dissolve checkerboard clock ripple doors switch curtains fracture peel-off glitter comb pan rotate orbit fly-through conveyor. duration in seconds (0.1-10).\n" +
@@ -9458,15 +9561,16 @@ function _esSlideSpec() {
     'A slide may be {"title":"...","content":"markdown"} (auto-laid-out with a palette, cards and headings) OR be fully designed with "background" and "elements": [...]. ' +
     '"background" may be a hex colour, a "linear-gradient(135deg,#hex,#hex)" string, or an https image URL — the right type is inferred from the value.\n' +
     'Elements: {"type":"text","x":..,"y":..,"w":..,"h":..,"text":"markdown **bold** ok","fontSize":24,"bold":true,"italic":false,"underline":false,"fontFamily":"DM Sans","color":"#1a1a1a","highlight":"rgba(0,0,0,0.05)","textAlign":"left|center|right","listType":"ul|ol","r":0,"z":1,"opacity":1,"link":"https://..."}; ' +
-    '{"type":"shape","x":..,"y":..,"w":..,"h":..,"shape":"rect|rounded|ellipse|triangle|diamond|hexagon|pentagon|star|arrow|arrowRight|calloutRect|calloutRound|donut|plus|line|lineArrow|arrowChevron|heart|cloud","fill":"#hex or rgba() or linear-gradient()","stroke":"#hex or none","strokeWidth":0}; ' +
+    '{"type":"shape","x":..,"y":..,"w":..,"h":..,"shape":"rect|rounded|ellipse|triangle|diamond|hexagon|pentagon|star|arrow|arrowRight|calloutRect|calloutRound|donut|plus|line|lineArrow|arrowChevron|heart|cloud|icon","fill":"#hex or rgba() or linear-gradient()","stroke":"#hex or none","strokeWidth":0}; ' +
+     '{"type":"icon","x":..,"y":..,"w":48,"h":48,"name":"Star","color":"#hex","strokeWidth":2}; ' +
     '{"type":"image","x":..,"y":..,"w":..,"h":..,"src":"https://...","alt":"...","borderWidth":0,"borderColor":"#hex","crop":{"l":0,"t":0,"r":0,"b":0},"fx":{"brightness":100,"contrast":100,"saturate":100,"hue":0,"grayscale":0,"blur":0}} (crop is a 0-0.9 fraction per side, fx brightness/contrast/saturate are 0-200).\n' +
     'A slide may also carry "transition":{"type":"fade","duration":0.7,"autoAfter":false,"afterSec":5} and "animations":[{"target":0,"type":"fade","start":"click","duration":0.5,"delay":0}] where "target" is the 0-based index into that slide\'s "elements". Animation types: appear fade fly zoom spin bounce; start: click|with|after; duration and delay in seconds.\n' +
     "Design it like a real deck, not a text dump: give EVERY slide a background colour (tinted, not plain white); " +
     "put text in cards/panels by drawing a shape behind it (give the shape a lower \"z\" than the text) or by setting the text element's \"highlight\"; " +
     "colour your headings and key terms rather than leaving every line the same colour; use 1 accent colour consistently across the deck plus 1-2 supporting colours; " +
     "keep body text >=15px, titles 30-54px, and always leave margins (~60px) so nothing touches the edge; " +
-    "and use shapes to break up dense text (bullets, callout boxes, number badges, dividers) instead of one long paragraph. " +
-    "Aim for 6-12 slides for a normal topic. Prefer the simple {\"title\",\"content\"} form unless a specific custom layout is genuinely needed.";
+    "and use shapes and icons (type \"icon\", name from common icons like Star, Heart, Check, Rocket, Users, Lightbulb) to break up dense text (bullets, callout boxes, number badges, dividers) instead of one long paragraph. " +
+    "Images: use real https URLs or generated gen tokens; never invent URLs. Typography: pair a display font (Montserrat, Poppins, DM Serif Display) for titles with a body font (DM Sans, Lato). Aim for 6-12 slides for a normal topic. Prefer the simple {\"title\",\"content\"} form unless a specific custom layout is genuinely needed.";
 }
 
 /* The permission header sent with every EmeraldSuite context block. Kept as its
@@ -10359,7 +10463,7 @@ async function _efApplyOps(app, id, ops, meta, gate) {
       let prev = null;
       try { const d = await _esStoreGet("emeraldcore.storage.suite.slides." + id); if (d && d.id) prev = d; } catch (e) {}
       const slides = prev && Array.isArray(prev.slides) ? prev.slides : [];
-      const r = _esOpsSlides(slides, list);
+      await _esLoadIconDb(); const r = _esOpsSlides(slides, list);
       if (!r.applied) return { app, id, ok: false, error: "patch-not-found", notes: r.notes };
       const pres = { id, title: (prev && prev.title) || meta.title || "Untitled Presentation", createdAt: (prev && prev.createdAt) || now, updatedAt: now, slides: r.slides };
       meta.updatedAt = now; meta.slideCount = r.slides.length;
@@ -10563,6 +10667,7 @@ if (Array.isArray(edit.ops) && edit.ops.length) {
       if (!meta) return { app, id, ok: false, error: "not-found" };
       const title = hasTitle ? _esPlainText(edit.title) : (meta.title || (prev && prev.title) || "Untitled Presentation");
       let slides = (prev && Array.isArray(prev.slides)) ? prev.slides : [];
+      await _esLoadIconDb();
       if (Array.isArray(edit.slides) && edit.slides.length) slides = edit.slides.map((s, i) => _esBuildSlide(s, edit, i));
       else if (hasBody) slides = _esSplitSlides(edit).map((s, i) => _esBuildSlide(s, edit, i));
       else if (hasPatches) {
