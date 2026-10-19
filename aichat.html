@@ -265,11 +265,11 @@
             <svg class="live-sweep-defs" width="0" height="0" aria-hidden="true" focusable="false">
                 <defs>
                     <linearGradient id="liveSweepGrad" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="24" y2="0">
-                        <stop class="lv-sweep-dim" offset="0%" stop-color="#2e7652"></stop>
-                        <stop class="lv-sweep-body" offset="22%" stop-color="#50c878"></stop>
+                        <stop class="lv-sweep-dim" offset="0%" stop-color="#8a8a8a"></stop>
+                        <stop class="lv-sweep-body" offset="22%" stop-color="#c4c4c4"></stop>
                         <stop class="lv-sweep-hot" offset="50%" stop-color="#ffffff"></stop>
-                        <stop class="lv-sweep-body" offset="78%" stop-color="#50c878"></stop>
-                        <stop class="lv-sweep-dim" offset="100%" stop-color="#2e7652"></stop>
+                        <stop class="lv-sweep-body" offset="78%" stop-color="#c4c4c4"></stop>
+                        <stop class="lv-sweep-dim" offset="100%" stop-color="#8a8a8a"></stop>
                     </linearGradient>
                 </defs>
             </svg>
@@ -290,26 +290,76 @@
                         <span class="live-ctl-label">Start live chat</span>
                     </button>
 
-                    <!-- Speaker, not a microphone. Two mic glyphs in one app is one too
-                         many: the sidebar's live-chat button is a mic, and
-                         two identical ones on screen at once read as the
-                         same control twice. A speaker also says "your
-                         voice is not going out" at a glance, which is what
-                         the button does. -->
-                    <button class="live-ctl-btn" id="lvMuteBtn" onclick="toggleLiveMute()" title="Mute microphone" aria-pressed="false" disabled>
-                        <svg class="live-ctl-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <!-- A speaker with sound waves, crossed out when muted.
+
+                         The mute is the user's own microphone and never the
+                         AI's, so the wording on the button and its tooltip
+                         both say microphone — that is what the control
+                         does. The glyph is a volume icon because that is
+                         what "your voice is not going out" looks like, and
+                         because the AI's audio is genuinely still playing
+                         while this is pressed: a glyph that looked struck
+                         through would be a claim about the speakers, and
+                         the speakers are the one thing it does not touch.
+
+                         The slash runs corner to corner across the whole
+                         mark rather than being a small cross over the
+                         waves, which at 18px read as a speck sitting on
+                         top of the icon instead of as a strike through
+                         it. The waves are dropped in the muted state so
+                         nothing pokes out past the end of the slash. -->
+                    <button class="live-ctl-btn" id="lvMuteBtn" onclick="toggleLiveMute()" title="Mute microphone" aria-label="Mute microphone" aria-pressed="false" disabled>
+                        <svg class="live-ctl-icon" id="lvMuteIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
                         </svg>
                         <svg class="live-ctl-icon" id="lvMuteSlash" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
                             <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                            <line x1="23" y1="9" x2="17" y2="15"></line>
-                            <line x1="17" y1="9" x2="23" y2="15"></line>
+                            <line x1="20" y1="8" x2="4" y2="16"></line>
                         </svg>
                         <span class="live-ctl-label" id="lvMuteLabel">Mute</span>
                     </button>
 
-                    <button class="live-ctl-btn live-ctl-video" id="lvCamBtn" onclick="toggleLiveCamera()" title="Share camera" aria-pressed="false" disabled>
+                    <!-- Opens the live typing bar, which replaces this whole
+                         row. A live call is spoken end to end, which is no
+                         use to anyone whose keyboard is faster than their
+                         voice — or who is in a meeting and cannot open the
+                         microphone at all. The bar is the same one the text
+                         chat uses, with the send button on the right.
+
+                         It lives here rather than under the transcript
+                         because the controls row is where the user's hands
+                         already are: the orb is the thing being addressed,
+                         and putting the keyboard control anywhere else
+                         splits the two halves of the same conversation
+                         across opposite ends of the screen. -->
+                    <button class="live-ctl-btn" id="lvTypeBtn" onclick="toggleLiveTyping()" title="Type instead of speaking" aria-pressed="false" disabled>
+                        <svg class="live-ctl-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="4 7 4 4 20 4 20 7"></polyline>
+                            <line x1="9" y1="20" x2="15" y2="20"></line>
+                            <line x1="12" y1="4" x2="12" y2="20"></line>
+                        </svg>
+                        <span class="live-ctl-label" id="lvTypeLabel">Type</span>
+                    </button>
+
+                    <!-- The typing bar. Replaces the controls row rather than
+                         sitting beside it — the row's height is what the bar
+                         occupies, so opening it does not push the transcript
+                         and the orb up the screen mid-call. It is a SIBLING
+                         of the row and carries .input-container too, so the
+                         box the user is looking at does not change furniture
+                         when it becomes writable.
+
+                         The leading "+" is the attach button from the text
+                         chat, kept in the same slot so the two composers are
+                         the same shape. In a live call it would have nothing
+                         to attach to: the model takes audio, video and text,
+                         and a file is none of those — sendText sends a
+                         string, so an attachment would have to be read out or
+                         dropped. So the slot is closed with an X that puts
+                         the controls back instead. -->
+                    <button class="live-ctl-btn" id="lvCamBtn" onclick="toggleLiveCamera()" title="Share camera" aria-pressed="false" disabled>
                         <svg class="live-ctl-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M23 7l-7 5 7 5V7z"></path>
                             <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
@@ -341,7 +391,11 @@
                         <span class="live-ctl-label" id="lvScreenLabel">Screen</span>
                     </button>
 
-                    <button class="live-ctl-btn live-ctl-end" id="lvEndBtn" onclick="endLiveVoice()" title="End live chat" disabled>
+                    <!-- Hidden until a call is actually running — there is nothing to end
+                         before then. setPhase owns the visibility from here on, so the
+                         inline style only covers the first paint before the script
+                         runs and would otherwise flash the button. -->
+                    <button class="live-ctl-btn live-ctl-end" id="lvEndBtn" onclick="endLiveVoice()" title="End live chat" disabled style="display:none;">
                         <svg class="live-ctl-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M2.5 6.5A16 16 0 0 1 12 4a16 16 0 0 1 9.5 2.5"></path>
                             <path d="M5 11v6a1 1 0 0 0 1 1h3v-7H6a1 1 0 0 0-1 1z"></path>
@@ -351,6 +405,40 @@
                         <span class="live-ctl-label">End chat</span>
                     </button>
                 </div>
+
+                <!-- The typing bar. A sibling of the controls row, not a
+                     child of it: the two swap places, so the row is hidden
+                     when this shows and the composer keeps one height — the
+                     transcript and the orb do not move up the screen the
+                     moment the user starts typing.
+
+                     .input-container is the same shell the controls row is
+                     drawn in, so the box does not change furniture when it
+                     becomes writable. That is also why no rule restates the
+                     background, border or radius: the composer already has
+                     them, and restating them is what leaves a borrowed
+                     composer property stuck in the wrong theme.
+
+                     The leading "+" is the attach button from the text chat,
+                     kept in the same slot so the two composers are the same
+                     shape. In a live call it would have nothing to attach
+                     to: the model takes audio, video and text, and a file is
+                     none of those — sendText sends a string, so an
+                     attachment would have to be read out or dropped. So the
+                     slot is closed with an X that puts the controls back. -->
+                <div class="input-container live-typebar" id="lvTypeBar" hidden>
+                    <button class="live-typebar-close" id="lvTypeCloseBtn" type="button" title="Close typing" aria-label="Close typing" onclick="closeLiveTyping()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                    <textarea class="live-typebar-input" id="lvTypeInput" placeholder="Type a message..." rows="1" oninput="autoGrowLiveType()" onkeydown="liveTypeKey(event)"></textarea>
+                    <button class="live-typebar-send" id="lvTypeSendBtn" type="button" title="Send" onclick="sendLiveTyped()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>
+                    </button>
+                </div>
+
                 <p class="input-footer-note">EmeraldBot may produce inaccurate information. Verify important details.</p>
             </div>
         </div>

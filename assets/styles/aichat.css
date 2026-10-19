@@ -7710,6 +7710,18 @@ body.light-mode .ws-searching-badge {
     --rs-text: #8a8a8a;
     --rs-chevron: #8a8a8a;
     --rs-hover: rgba(255, 255, 255, 0.04);
+    /* Stops for the live label's sweep. Deliberately neutral, and not the
+       live call's --lv-sweep-* set: the dim stop here IS the label's
+       resting colour, because it is also the flat under-layer the sweep
+       reveals the text as. Borrowing the buttons' green dim stop made the
+       label sit green at rest, between passes and after the block was
+       done reading as a green word rather than a grey one.
+
+       So this ramp is grey, not green — the text keeps the colour it
+       always had and only brightens while the band is over it. */
+    --pl-sweep-dim: #8a8a8a;
+    --pl-sweep-body: #c4c4c4;
+    --pl-sweep-hot: #ffffff;
     font-family: "DM Sans", sans-serif;
     margin: 8px 0px 8px 0px;
     padding-left: 14px;
@@ -7771,38 +7783,67 @@ body.light-mode .ws-searching-badge {
     text-overflow: ellipsis;
 }
 
-.reasoning-block:not(.is-done) .reasoning-label::after {
-    content: "...";
-    display: inline-block;
-    margin-left: 2px;
-    width: 1.2em;
-    text-align: left;
-    color: var(--rs-bar-active);
-    animation: 1.4s steps(4) 0s infinite normal none running reasoning-ellipsis;
-    overflow: hidden;
-    vertical-align: baseline;
-}
+/* The live label is swept rather than dotted.
 
-@keyframes reasoning-ellipsis {
+   It used to append an animated "..." after the text — width-stepping one
+   dot at a time — which is a timer that has already told you the time.
+   The label reads "Thinking for 12s", so the dots were saying nothing the
+   sentence was not, and they said it in the one place the eye already was:
+   right at the end of the text that is changing. The sweep reuses the
+   live-call loading shine, so a panel that is working looks the same way
+   as a call that is connecting, and the movement is now the thing telling
+   you it is still running.
+
+   Same construction as .live-ctl-btn.is-loading .live-ctl-label: two
+   layers clipped to the glyphs, the band on top and a flat under-layer
+   that never moves. The under-layer is why the sweep does not make the
+   text vanish behind it part-way across — with the gradient alone, the
+   part of the label the band had already passed would have nothing
+   behind it.
+
+   background-position percentages resolve against (container − image), and
+   the image is 200% wide, so ±200% is what puts the band's hot stop a full
+   band-width clear of the text at each end. That is what makes the two
+   ends of the cycle the same unlit picture and the wrap between them
+   invisible. */
+@keyframes panel-label-sweep {
     0% {
-        width: 0px;
+        background-position: 200% 0px, 0px 0px;
     }
 
-    25% {
-        width: 0.4em;
+    62% {
+        background-position: -200% 0px, 0px 0px;
     }
 
-    50% {
-        width: 0.8em;
-    }
-
-    75% {
-        width: 1.2em;
+    81% {
+        background-position: -200% 0px, 0px 0px;
     }
 
     100% {
-        width: 0px;
+        background-position: 200% 0px, 0px 0px;
     }
+}
+
+.reasoning-block:not(.is-done) .reasoning-label,
+.searching-block:not(.is-done) .searching-label {
+    background-image: linear-gradient(
+        90deg,
+        var(--pl-sweep-dim) 0%,
+        var(--pl-sweep-body) 22%,
+        var(--pl-sweep-hot) 50%,
+        var(--pl-sweep-body) 78%,
+        var(--pl-sweep-dim) 100%
+    ),
+    linear-gradient(var(--pl-sweep-dim), var(--pl-sweep-dim));
+    background-repeat: no-repeat, no-repeat;
+    background-size: 200% 100%, 100% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    /* 2100ms, matching SHINE_MS in aichat-livevoice.js, so a thinking panel
+       and a connecting call pulse at the same rate. */
+    animation: panel-label-sweep 2100ms cubic-bezier(0.4, 0, 0.2, 1) 0s infinite normal none running;
 }
 
 .reasoning-block.is-done .reasoning-label {
@@ -7905,6 +7946,17 @@ body.light-mode .reasoning-block {
     --rs-label-done: #666;
     --rs-text: #555;
     --rs-chevron: #888;
+    /* Light mode inverts which end is bright, but the resting colour is
+       still the dim stop and still has to be neutral — hence grey here,
+       not the green-tinted grey the buttons use.
+
+       The band itself stays neutral in both themes: white on a light page
+       is invisible, so the hot stop is white on the dark theme and near
+       black here. Darkening rather than brightening is what keeps the
+       sweep visible on white at all. */
+    --pl-sweep-dim: #6f6f6f;
+    --pl-sweep-body: #3a3a3a;
+    --pl-sweep-hot: #0d0d0d;
     --rs-hover: rgba(0, 0, 0, 0.03);
 }
 
@@ -7944,6 +7996,10 @@ body.light-mode .reasoning-text pre {
     --ss-text: #8a8a8a;
     --ss-chevron: #8a8a8a;
     --ss-hover: rgba(255, 255, 255, 0.04);
+    /* See --pl-sweep-* on .reasoning-block. */
+    --pl-sweep-dim: #8a8a8a;
+    --pl-sweep-body: #c4c4c4;
+    --pl-sweep-hot: #ffffff;
     font-family: "DM Sans", sans-serif;
     margin: 8px 0px 8px 0px;
     padding-left: 14px;
@@ -8005,17 +8061,9 @@ body.light-mode .reasoning-text pre {
     text-overflow: ellipsis;
 }
 
-.searching-block:not(.is-done) .searching-label::after {
-    content: "...";
-    display: inline-block;
-    margin-left: 2px;
-    width: 1.2em;
-    text-align: left;
-    color: var(--ss-bar-active);
-    animation: 1.4s steps(4) 0s infinite normal none running reasoning-ellipsis;
-    overflow: hidden;
-    vertical-align: baseline;
-}
+/* The searching label's sweep is declared with the reasoning label's, one
+   rule above — the two blocks are the same design and were kept as two
+   selectors rather than duplicated. */
 
 .searching-block.is-done .searching-label {
     color: var(--ss-label-done);
@@ -8175,6 +8223,10 @@ body.light-mode .searching-block {
     --ss-text: #555;
     --ss-chevron: #888;
     --ss-hover: rgba(0, 0, 0, 0.03);
+    /* See the reasoning block's light-mode --pl-sweep-* note. */
+    --pl-sweep-dim: #6f6f6f;
+    --pl-sweep-body: #3a3a3a;
+    --pl-sweep-hot: #0d0d0d;
 }
 
 body.light-mode .searching-text code {
@@ -8848,10 +8900,21 @@ body.light-mode .ai-card-body pre {
        because the icon (which reads them off #liveSweepGrad) and the
        button's label (which reads them into a CSS gradient) have to be
        lit from the same three colours or the bar would shimmer in two
-       different hues at the same moment. */
-    --lv-sweep-dim: rgb(46, 118, 82);
-    --lv-sweep-body: rgb(80, 200, 120);
-    --lv-sweep-hot: rgb(255, 255, 255);
+       different hues at the same moment.
+
+       Neutral grey, matching the sweep on the Reasoning and Working
+       labels (--pl-sweep-*). They were green and are not any more: the
+       band is not a brand-coloured highlight, it is a light travelling
+       over a control, and a hue around it turns that into an indicator.
+       The flare itself is white and always was — it was the green on
+       either side of it that was showing.
+
+       The dim stop is also the label's resting colour, since it doubles
+       as the flat under-layer the sweep reveals the text as, which is
+       why it has to be a real text grey rather than a dark tint. */
+    --lv-sweep-dim: #8a8a8a;
+    --lv-sweep-body: #c4c4c4;
+    --lv-sweep-hot: #ffffff;
     /* How solid the live orb's body is filled. It is the one part of the
        orb that cannot be theme-agnostic: a translucent creature all but
        disappears against white, so light mode needs it far more opaque.
@@ -8998,16 +9061,22 @@ body.light-mode .live-view.is-switching {
 
 .live-timer {
     display: none;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: 6px;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    color: rgb(136, 136, 136);
     font-family: "DM Sans", sans-serif;
-    /* Matches .icon-btn / .btn-tooltip (Temporary Chat) exactly:
-       13.28px, weight 500, same grey, same padding — so the swap
-       between them is invisible. */
     font-size: 0.83rem;
     font-weight: 500;
-    color: rgb(170, 170, 170);
-    padding: 7px 10px;
-    white-space: nowrap;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    backdrop-filter: blur(3px);
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
 }
 
 .chat-main.live-active .live-timer {
@@ -9593,6 +9662,138 @@ body.light-mode .live-view.is-switching {
     width: auto;
 }
 
+/* ── Live typing bar ────────────────────────────────────────────
+   The text chat's composer, transplanted into the live control bar.
+
+   It is a sibling of .live-controls-row inside .live-controls and carries
+   .input-container itself — the controls row is an .input-container too, so
+   the bar IS the controls row becoming writable rather than a new widget
+   next to it. That is what keeps the shell's background, border and radius
+   identical for free, and it is why no rule below restates them: the
+   composer already has them, and restating them here is what left the light
+   theme broken the last time the live rules borrowed a composer property.
+
+   The two swap places rather than stacking: JS hides the row and shows the
+   bar, so the box keeps one height and the transcript and orb do not move
+   up the screen the moment the user starts typing. ───────────────────── */
+
+/* The typing bar is the normal composer, at the normal composer's width.
+
+   `.live-controls` is a `.chat-input-box`, so it already carries the text
+   chat's 800px max-width — but the live rule above narrows it to
+   fit-content so the button row can shrink-wrap itself around however many
+   buttons are showing. That leaves the typing bar with nothing to fill: a
+   `width: 100%` child of a fit-content parent is only as wide as the field's
+   minimum, which came out far narrower than the composer the user knows.
+
+   So the shell goes back to being the text chat's shell exactly while the
+   bar is open, and the existing width transition animates between the two —
+   the bar grows from the button row rather than appearing at full size,
+   which is what makes it read as that row becoming writable. */
+.chat-main.live-active .live-controls.is-typing {
+    width: 100%;
+    /* The 800px of .chat-input-box. Not 100%: this has to be the composer's
+       measure, not the window's. */
+    max-width: 800px;
+}
+
+.chat-main.live-active .live-controls .live-typebar {
+    width: 100%;
+    justify-content: flex-end;
+}
+
+.live-typebar-input {
+    flex: 1 1 0%;
+    background: none;
+    border: none;
+    outline: none;
+    resize: none;
+    color: var(--lv-text);
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.93rem;
+    font-weight: 400;
+    line-height: 1.5;
+    min-height: 28px;
+    /* Same ceiling as .chat-textarea, so a long message grows to the same
+       height here as it does in the text chat. JS grows it in steps and
+       stops at LV_TYPE_MAX_H, which is set to match this number. */
+    max-height: 180px;
+    overflow-y: hidden;
+    padding: 0;
+    margin: 0;
+}
+
+/* The placeholder in the live typing bar follows the live palette rather
+   than the text chat's hard-coded rgb(68,68,68), which is already close to
+   invisible on a light bar and would be worse on the light-mode surface. */
+.live-typebar-input::placeholder {
+    color: var(--lv-muted);
+    opacity: 0.75;
+}
+
+body.light-mode .live-typebar-close {
+    color: rgb(60, 60, 60);
+}
+
+body.light-mode .live-typebar-close:hover {
+    color: rgb(30, 30, 30);
+    background: rgb(235, 235, 238);
+}
+
+/* Sits in the attach button's slot from the text composer, and is the same
+   size and shape so the bar has the same outline as the one it replaces.
+   It is an X rather than the "+" it takes the place of because a live call
+   has nothing to attach: the model takes audio, video and text, and
+   sendText sends a string. */
+.live-typebar-close {
+    width: 33px;
+    height: 33px;
+    background: none;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    color: rgb(210, 210, 210);
+    padding: 5px;
+    margin-bottom: 1px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: color 0.2s, background 0.2s, opacity 0.3s ease;
+}
+
+.live-typebar-close:hover {
+    color: rgb(192, 192, 192);
+    background: rgb(40, 40, 40);
+}
+
+/* Identical to .send-btn — the same green disc, the same lift on hover. */
+.live-typebar-send {
+    width: 33px;
+    height: 33px;
+    border-radius: 80px;
+    background: rgb(1, 145, 0);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgb(255, 255, 255);
+    flex-shrink: 0;
+    box-shadow: rgba(80, 200, 120, 0.157) 0px 2px 8px;
+    margin-bottom: 2px;
+    transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+}
+
+.live-typebar-send:hover {
+    opacity: 0.88;
+    box-shadow: rgba(80, 200, 120, 0.25) 0px 4px 14px;
+}
+
+.live-typebar-send:active {
+    transform: scale(0.95);
+}
+
 /* The live controls keep the composer shell so they read as the same
    input box the text chat uses, rather than bare buttons floating on the
    page.
@@ -9645,6 +9846,19 @@ body.light-mode .live-view.is-switching {
     opacity: 0.4;
     cursor: default;
     transform: none;
+}
+
+/* The typing bar and the controls row are BOTH .input-container, which
+   declares `display: flex` in author CSS — and author CSS outranks the UA
+   rule behind the hidden attribute. So neither would ever actually hide,
+   and both would be on screen at once: the bar's field sitting under the
+   button row. Same reason as .live-ctl-btn[hidden] and .live-stage[hidden]
+   above.
+
+   Scoped to .live-controls rather than written for the two classes, so it
+   also covers the End button's initial paint and the Flip button's. */
+.chat-main.live-active .live-controls [hidden] {
+    display: none;
 }
 
 /* .live-ctl-btn declares `display: flex`, which is author CSS and so
@@ -9741,20 +9955,23 @@ body.light-mode .live-view.is-switching {
    rule, because it is read by a <stop> and by a background-image inside a
    label the button rule never sees.
 
-   The ramp inverts rather than merely dims. These buttons sit on a near-
-   white surface, where a white flare would disappear at exactly the moment
-   the animation is trying to say something, so here "brighter" has to mean
-   "darker": pale and unlit, deepening to the darkest emerald. */
+The ramp inverts rather than merely dims. These buttons sit on a near-
+    white surface, where a white flare would disappear at exactly the moment
+    the animation is trying to say something, so here "brighter" has to mean
+    "darker". The same three greys as the dark theme, in the opposite
+    direction — see the dark-theme note on --lv-sweep-dim. */
 body.light-mode .chat-main.live-active {
-    --lv-sweep-dim: rgb(178, 186, 180);
-    --lv-sweep-body: rgb(35, 154, 77);
-    --lv-sweep-hot: rgb(13, 88, 46);
+    --lv-sweep-dim: #6f6f6f;
+    --lv-sweep-body: #3a3a3a;
+    --lv-sweep-hot: #0d0d0d;
 }
 
-/* While loading, mute/end stay visible but inert so the bar doesn't
-   reflow when the state changes. */
-.live-controls[data-phase="loading"] .live-ctl-end,
-.live-controls[data-phase="loading"] .live-ctl-btn:not(.live-ctl-start) {
+/* While loading, the in-call controls stay visible but inert so the bar
+   doesn't reflow when the call starts. End is excluded on purpose: it is
+   hidden outright until phase "live" — see setPhase. The hidden attribute
+   and the inline display:none are both inline, so a rule here could only
+   reach it if it somehow won the cascade, which it must not. */
+.live-controls[data-phase="loading"] .live-ctl-btn:not(.live-ctl-start):not(.live-ctl-end) {
     opacity: 0.35;
     pointer-events: none;
 }
@@ -10089,6 +10306,17 @@ body.light-mode .live-ctl-start:hover {
         display: none;
     }
 
+    /* The typing bar's shell tightens with the controls row's so the
+       composer does not change width the instant it is opened — the row
+       loses its labels here too, and the two boxes are the same box. */
+    .chat-main.live-active .live-controls .live-typebar {
+        padding: 8px 10px;
+    }
+
+    .live-typebar-input {
+        font-size: 0.9rem;
+    }
+
     /* Six buttons and a preview now share a phone-width bar with the
        orb. The panel shrinks rather than disappearing — seeing what the
        model is looking at is the entire point of the feature — and the
@@ -10145,6 +10373,19 @@ body.light-mode .live-ctl-start:hover {
     }
 
     .live-ctl-btn.is-loading .live-ctl-label {
+        background-image: none;
+        color: currentColor;
+        -webkit-text-fill-color: currentColor;
+        animation: none;
+    }
+
+    /* The panel labels' sweep goes the same way: the label keeps the flat
+       dim colour, so it still says "Thinking for 12s" and the sentence
+       alone tells the reader it is live. It is not replaced by the
+       ellipsis that used to be here — the seconds in the text already
+       said that, which is the whole reason the ellipsis went. */
+    .reasoning-block:not(.is-done) .reasoning-label,
+    .searching-block:not(.is-done) .searching-label {
         background-image: none;
         color: currentColor;
         -webkit-text-fill-color: currentColor;

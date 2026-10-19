@@ -214,6 +214,7 @@
        same name here is one more shadow to reason about. */
     const screenBtn = el("lvScreenBtn");
     const end = el("lvEndBtn");
+    const typeBtn = el("lvTypeBtn");
     const stage = el("liveStage");
 
     if (bar) bar.setAttribute("data-phase", phase);
@@ -236,12 +237,28 @@
       start.style.display = live ? "none" : "";
     }
     if (mute) mute.disabled = !live;
+    /* Type is the one control that has to survive the phase change that
+       ends the call: a half-typed message the user then abandons is not
+       worth losing, and the bar is inert without a socket anyway — sendText
+       reports a closed connection rather than pretending to send. It is
+       closed only when the call itself is reset, not on every phase, or
+       ending a call would wipe what the user was in the middle of. */
+    if (typeBtn) typeBtn.disabled = !live;
     /* Camera and screen are only offered during a call: there is no
        socket to put frames on before then, and pressing either one would
        have nothing to show for it. */
     if (cam) cam.disabled = !live;
     if (screenBtn) screenBtn.disabled = !live;
-    if (end) end.disabled = !live;
+    /* End is hidden outright rather than dimmed. There is nothing to end
+       before the call starts, so a greyed-out red button on the blank
+       screen only invited a press that could do nothing — and unlike the
+       controls beside it, ending is destructive. Leaving the controls
+       fixed while nothing is running is also the point of the swap: the
+       start button takes the end button's place when a call begins. */
+    if (end) {
+      end.disabled = !live;
+      end.style.display = live ? "" : "none";
+    }
 
     /* The orb is only meaningful once audio is flowing. The loading
        stage is deliberately left hidden here and revealed by
@@ -291,11 +308,29 @@
 
      It enters from wholly off the left edge and leaves wholly past the
      right, so both ends of a cycle are the same unlit state and the loop
-     has no seam — and it holds over the middle for a beat. ───────────── */
+     has no seam.
 
-  var SHINE_MS = 1200;
-  var SHINE_HOLD_IN = 0.44;  // fraction of the cycle spent reaching the middle
-  var SHINE_HOLD_OUT = 0.66; // …and spent starting to leave it
+     The band comes to rest off the button, at either end, rather than
+     over its middle. Dwelling at the middle held the brightest part of
+     the flare parked on the button — on a Start button that is the one
+     thing the eye goes to, so the control looked lit and stuck rather
+     than waiting. Resting with the hot stop clear of the control reads as
+     a pause between passes instead. ─────────────────────────────── */
+
+  /* One full cycle, travel plus both rests. Slow on purpose: this is the
+     only thing happening on screen while the call connects, and at 1200ms
+     the band went past faster than it could be read as light — the label
+     flickered rather than being swept. At 2100ms a pass takes long enough
+     to watch it cross from the icon, through the word, and off the far
+     edge, which is what makes it read as a sweep and not a flash. Slower
+     than this starts to look stalled rather than patient. */
+  var SHINE_MS = 2100;
+  /* Fraction of the cycle spent travelling, then the rest split between
+     the two off-button rests. Equal rests mean the gap before and after a
+     pass is the same length, so the rhythm does not feel lopsided, and a
+     long rest is what lets the eye leave the button and come back to it. */
+  var SHINE_SWEEP = 0.62;
+  var SHINE_REST = (1 - SHINE_SWEEP) / 2;
 
   var shineRaf = 0;
   var shineFrom = 0;
@@ -305,20 +340,26 @@
     return p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
   }
 
-  /* 0 → 1 across one cycle, with the middle fifth of it held at 0.5. The
-     easing stands in for cubic-bezier(0.4, 0, 0.2, 1) on the two moving
-     legs; the held leg needs none because the value is not changing. */
+  /* 0 → 1 across one cycle, with both ends of it held. The easing stands
+     in for cubic-bezier(0.4, 0, 0.2, 1) on the moving leg; the rests need
+     none because the value is not changing.
+
+     The second rest is a return to 0 rather than a leg of its own, which
+     works only because 0 and 1 are the same picture: both put the band a
+     full band-width clear of the button, so the wrap is invisible and
+     costs no time. Anything less than a whole band of clearance at both
+     ends would show the jump. */
   function shineTravel(p) {
-    if (p < SHINE_HOLD_IN) return 0.5 * easeInOut(p / SHINE_HOLD_IN);
-    if (p < SHINE_HOLD_OUT) return 0.5;
-    return 0.5 + 0.5 * easeInOut((p - SHINE_HOLD_OUT) / (1 - SHINE_HOLD_OUT));
+    if (p < SHINE_SWEEP) return easeInOut(p / SHINE_SWEEP);
+    if (p < SHINE_SWEEP + SHINE_REST) return 1;
+    return 0;
   }
 
   /* Where the middle of the band sits, in px from the button's left edge.
      The travel overshoots the button by a whole band at each end so the
-     band is entirely clear of it, which is what makes the first and last
-     frame of a cycle identical; the hold lands it on the button's middle
-     either way, since 0.5 * (width + 2 * band) - band = width / 2. */
+     band is entirely clear of it — at 0 it sits a full band to the left,
+     at 1 a full band past the right, which is what makes the wrap from
+     one to the other invisible and makes both ends of a cycle identical. */
   function shineCore(progress, width, band) {
     return -band + shineTravel(progress) * (width + 2 * band);
   }
@@ -1662,21 +1703,170 @@ function applyLiveConversation(conv) {
 
   /* ── Controls ────────────────────────────────────────────── */
 
+  /* The user's microphone, and nothing else. The model's audio is not
+     routed through this at all — see transport.setMuted, which cuts the
+     wire and leaves playback alone. */
   function toggleLiveMute() {
     LV.muted = !LV.muted;
     const btn = el("lvMuteBtn");
     const label = el("lvMuteLabel");
     const slash = el("lvMuteSlash");
-    const plainIcon = slash && slash.previousElementSibling;
+    const plainIcon = el("lvMuteIcon");
 
-    if (btn) btn.setAttribute("aria-pressed", LV.muted ? "true" : "false");
+    if (btn) {
+      btn.setAttribute("aria-pressed", LV.muted ? "true" : "false");
+      btn.setAttribute("aria-label", LV.muted ? "Unmute microphone" : "Mute microphone");
+      /* Spelled out, because the button mutes the microphone and leaves
+         the AI audible — a hovered tooltip that did not say so was half
+         the reason it read as a mute-AI control. */
+      btn.title = LV.muted ? "Unmute microphone (the AI stays audible)" : "Mute microphone";
+    }
     if (label) label.textContent = LV.muted ? "Unmute" : "Mute";
     if (slash) slash.style.display = LV.muted ? "" : "none";
     if (plainIcon) plainIcon.style.display = LV.muted ? "none" : "";
 
+    /* The typing bar also holds the microphone off the wire, without
+       pressing this button and without greying the orb. When it is open,
+       unmuting here genuinely does not hand the microphone back, so the
+       tooltip has to say why rather than let the button look broken. */
+    const heldByTyping = !!(el("lvTypeBar") && !el("lvTypeBar").hidden);
+    if (btn && !LV.muted && heldByTyping) {
+      btn.title = "Your microphone stays off while the typing bar is open";
+    }
+
     if (typeof LV.transport !== "undefined" && LV.transport && typeof LV.transport.setMuted === "function") {
       LV.transport.setMuted(LV.muted);
     }
+  }
+
+  /* ── Typing ───────────────────────────────────────────────────
+     A live call is spoken end to end. That is no use to someone whose
+     keyboard is faster than their voice, or who is in a meeting and cannot
+     open the microphone at all — so the same text turn the text chat sends
+     is available here, and the model answers it out loud like anything
+     else. The bar sits where the controls row was rather than under the
+     transcript, so opening it does not move the orb the user is talking
+     to, and closing it puts the controls back exactly as they were.
+
+     Opening the bar takes the microphone off the wire, and deliberately
+     does NOT touch LV.muted — see setTyping. Two reasons, both about what
+     the mute state means. LV.muted is the user's own decision, and quietly
+     setting it would make pressing Mute afterwards toggle something back
+     that the user never pressed. And it is what greys the orb, which would
+     then grey for as long as anyone was typing: a user who picked up the
+     keyboard is still very much in the call, and a dead-looking creature
+     says the opposite. ──────────────────────────────────────────────── */
+
+  /* The bar and the controls row occupy the same box, so the row is
+     hidden rather than the bar being shown beside it. */
+  function paintLiveTyping(open) {
+    const bar = el("lvTypeBar");
+    const row = document.querySelector("#liveControls .live-controls-row");
+    const btn = el("lvTypeBtn");
+    const input = el("lvTypeInput");
+
+    if (bar) bar.hidden = !open;
+    if (row) row.hidden = open;
+    if (btn) btn.setAttribute("aria-pressed", open ? "true" : "false");
+
+    /* The shell is narrowed to fit-content for the button row, which leaves
+       the bar with nothing to fill. is-typing puts it back to the text
+       chat's own 800px composer measure, so the bar is the size of the
+       composer the user already knows rather than a narrow strip. */
+    const shell = el("liveControls");
+    if (shell) shell.classList.toggle("is-typing", open);
+
+    /* Both the transport and the UI are told from here, rather than the
+       transport inferring it from a send. A user who opens the bar, reads
+       two lines and closes it again never sent anything, and the mic should
+       be back the moment the bar is gone rather than when a reply ends. */
+    if (LV.transport && typeof LV.transport.setTyping === "function") {
+      LV.transport.setTyping(open);
+    }
+
+    if (open && input) {
+      /* Deferred so the bar is laid out and the field is focusable before
+         it is focused. Focusing a display:none element does nothing, and
+         the user's first character would land nowhere. */
+      const focus = function () {
+        if (input) input.focus();
+      };
+      if (typeof requestAnimationFrame === "function") requestAnimationFrame(focus);
+      else setTimeout(focus, 16);
+    }
+  }
+
+  function toggleLiveTyping() {
+    const open = !!(el("lvTypeBar") && !el("lvTypeBar").hidden);
+    paintLiveTyping(!open);
+  }
+
+  function closeLiveTyping() {
+    paintLiveTyping(false);
+  }
+
+  /* Grows with the text up to a ceiling, then scrolls. Mirrors the text
+     chat's composer: without this a long message is a one-line slot with
+     the cursor off the top, which makes it impossible to see what has
+     already been typed.
+
+     The ceiling is the text chat's own max-height on .chat-textarea, so a
+     message grows to the same size in both places. It has to be a number
+     rather than being read off the computed style because the field is
+     empty at the moment this first runs, and an empty field's scrollHeight
+     is its minimum, not the cap it would grow to. */
+  const LV_TYPE_MAX_H = 180;
+
+  function autoGrowLiveType() {
+    const input = el("lvTypeInput");
+    if (!input) return;
+    input.style.height = "auto";
+    const h = Math.min(input.scrollHeight, LV_TYPE_MAX_H);
+    input.style.height = h + "px";
+    input.style.overflowY = input.scrollHeight > LV_TYPE_MAX_H ? "auto" : "hidden";
+  }
+
+  /* Enter sends, Shift+Enter breaks the line. The text chat's composer
+     behaves the same way, and a live call gets no more exception than the
+     text one: a message with a newline in it is a message the user meant. */
+  function liveTypeKey(e) {
+    if (e.key !== "Enter" || e.shiftKey) return;
+    if (typeof e.isComposing === "boolean" && e.isComposing) return;
+    e.preventDefault();
+    sendLiveTyped();
+  }
+
+  function sendLiveTyped() {
+    const input = el("lvTypeInput");
+    if (!input) return;
+    const text = input.value;
+    if (!String(text || "").trim()) return;
+
+    const sent = LV.transport && typeof LV.transport.sendText === "function"
+      ? LV.transport.sendText(text)
+      : false;
+
+    if (!sent) {
+      /* No socket: the call is connecting, reconnecting, or over. Said
+         plainly rather than clearing the box, because the user has written
+         a message and losing it to a silent failure is the worse of the
+         two. */
+      if (typeof showToast === "function") {
+        showToast("Not connected yet — the message was kept.");
+      }
+      input.focus();
+      return;
+    }
+
+    /* The turn goes into the transcript here rather than arriving back as a
+       transcription. There is no microphone input for it to be recognised
+       from, so waiting for one would leave the typed message invisible for
+       the length of the reply — it would look like the send did nothing
+       until the AI spoke back. */
+    addTurn("user", text);
+    input.value = "";
+    autoGrowLiveType();
+    input.focus();
   }
 
   /* ── Camera & screen ──────────────────────────────────────────
@@ -1912,12 +2102,29 @@ function applyLiveConversation(conv) {
     /* Reset the mute button to its unpressed visual state. */
     const mute = el("lvMuteBtn");
     const slash = el("lvMuteSlash");
-    if (mute) mute.setAttribute("aria-pressed", "false");
+    if (mute) {
+      mute.setAttribute("aria-pressed", "false");
+      mute.setAttribute("aria-label", "Mute microphone");
+      mute.title = "Mute microphone";
+    }
     if (slash) slash.style.display = "none";
     const label = el("lvMuteLabel");
     if (label) label.textContent = "Mute";
-    const headerIcon = slash && slash.previousElementSibling;
+    const headerIcon = el("lvMuteIcon");
     if (headerIcon) headerIcon.style.display = "";
+
+    /* New Live Chat, so the typing bar closes and the controls come back.
+       This is the only place it is closed on its own: ending a call leaves
+       it open, because a half-written message that survives the end of the
+       conversation is worth more than a tidy control bar. */
+    paintLiveTyping(false);
+    const typeInput = el("lvTypeInput");
+    if (typeInput) {
+      typeInput.value = "";
+      typeInput.style.height = "auto";
+      typeInput.style.overflowY = "hidden";
+    }
+
     /* A new live chat never inherits the last one's camera or screen. */
     resetVideoUi();
   }
@@ -2248,6 +2455,64 @@ function applyLiveConversation(conv) {
     let userBuf = "";
     let modelBuf = "";
     let modelHeard = false;
+
+    /* The user's own state: whether the Mute button is pressed. This is what
+       LV.muted mirrors and what the orb greys for, so it is deliberately
+       NOT the same thing as the microphone actually being off the wire —
+       see micIsOff.
+
+       Set while the typing bar is open, which also takes the microphone off
+       the wire. Separate from `muted` because typing is not the user asking
+       to be muted: the button stays unpressed, the orb keeps its colour,
+       and closing the bar gives the microphone back without the user having
+       pressed anything. */
+    let typing = false;
+
+    /* The one place the mute state is written.
+
+       A closure function rather than logic inside the transport's setMuted
+       method, because setTyping gates the microphone too and two copies of
+       this would drift.
+
+       Mutes the microphone and nothing else. The model's audio keeps going
+       to the speakers; this used to call resetPlayback(), which silenced
+       whatever the model had already queued and made the mute button read
+       as though it stopped the AI. Whatever is already scheduled is left
+       to finish playing; only the wire is cut. */
+    function applyMuted(v) {
+      muted = !!v;
+      syncMicGate();
+    }
+
+    /* The microphone is off the wire if EITHER the button is pressed or the
+       typing bar is open. Everything that gates the microphone reads this
+       rather than `muted`, so typing mode gets the same treatment as the
+       button without pretending to be the button. */
+    function micIsOff() {
+      return muted || typing;
+    }
+
+    /* Settles the user's turn state whenever the wire is about to go quiet.
+       Called on every transition, and only does anything when the mic is
+       actually going off — releasing it has nothing to settle. */
+    function syncMicGate() {
+      if (!micIsOff()) return;
+      /* What needs settling is the user's side of the turn state. A speech
+         turn is normally closed by trailing silence, and trackActivity does
+         not run while the mic is off, so a turn the user opened just before
+         the gate closed would otherwise stay open for the rest of the call
+         and hold every later turn behind it. A video turn already carries
+         its own timer — see pushVideoTurn — so only a speech turn is closed
+         here. */
+      if (speakingNow && !videoOnlyTurn) endActivity();
+      if (vadHang) { clearTimeout(vadHang); vadHang = null; }
+    }
+
+    /* Opens or closes the typing bar's hold on the microphone. */
+    function applyTyping(v) {
+      typing = !!v;
+      syncMicGate();
+    }
 
     /* Local voice activity detection.
 
@@ -2689,7 +2954,10 @@ function applyLiveConversation(conv) {
        Judging survival on the same threshold that opened it is what let
        sustained noise hold a turn open for seconds. */
     function trackActivity(rms, zcr) {
-      if (muted) return;
+      /* micIsOff, not the button: a turn must not open while the typing bar
+         is up either, for the same reason it must not while muted — the
+         microphone is not reaching the model. */
+      if (micIsOff()) return;
 
       /* Only learns the room while it is genuinely quiet. Left running
          during a turn it would take the user's own voice — or the model's
@@ -2813,16 +3081,16 @@ function applyLiveConversation(conv) {
       const rms = pushLevel(block, "onMicLevel");
       /* Video is paced here rather than on a timer of its own, so the feed
          keeps up in a background tab — see pumpVideoTick. It runs before
-         the mute check on purpose: muting stops the microphone going on
-         the wire, it does not stop the model seeing. */
+         the mic gate on purpose: taking the microphone off the wire does
+         not stop the model seeing. */
       pumpVideoTick();
       /* Converted and buffered whether or not the microphone is currently
-         on the wire, so unmuting mid-sentence does not lose the word the
+         on the wire, so unmute mid-sentence does not lose the word the
          user was already in. */
       const bytes = toSendRate(block);
       preroll.push(bytes);
       if (preroll.length > PREROLL_BLOCKS) preroll.shift();
-      if (muted) return;
+      if (micIsOff()) return;
       trackActivity(rms, zeroCrossRate(block));
       /* A turn the video opened carries the frame and nothing else until
          the user actually says something. Room tone streamed into it is
@@ -3020,15 +3288,15 @@ function applyLiveConversation(conv) {
         beginActivity();
         /* confirmed is what makes the hangover close this on the room's
            own noise floor rather than holding it open on the fixed
-           confirm level — see trackActivity, which never runs at all
-           while muted. */
+confirm level — see trackActivity, which never runs at all
+            while the microphone is off. */
         confirmed = true;
         videoTurnOpen = true;
         /* This turn is a picture, not a sentence. The microphone stays
            off the wire until something in it is actually speech, so the
            model is never handed room tone to transcribe. */
         videoOnlyTurn = true;
-        if (muted) {
+        if (micIsOff()) {
           if (videoTurnTimer) clearTimeout(videoTurnTimer);
           videoTurnTimer = setTimeout(endActivity, VIDEO_TURN_HOLD);
         }
@@ -3667,6 +3935,12 @@ function applyLiveConversation(conv) {
           api.onSpeaking(false);
           if (vadHang) { clearTimeout(vadHang); vadHang = null; }
           speakingNow = false;
+          /* The microphone is deliberately NOT released here. A typed turn
+             is sent with the typing bar open, and it is the bar that holds
+             the microphone off the wire for as long as the user stays in it
+             — see setTyping. Releasing it when the model stopped would put
+             the microphone back mid-thought, and would do it a moment after
+             the user is most likely to start talking again. */
         }
       };
 
@@ -3756,6 +4030,11 @@ function applyLiveConversation(conv) {
         muted = false;
         userBuf = "";
         modelBuf = "";
+        /* A typing hold cannot outlive its call: it would leave the
+           microphone off the wire with nothing to release it. The bar itself
+           is closed by resetLive, but the transport's copy is reset here
+           too so the two can never be out of step. */
+        typing = false;
         attempts = 0;
         /* Fresh call, fresh turn state — otherwise a previous hangover
            would suppress the first activityStart. */
@@ -3779,10 +4058,24 @@ function applyLiveConversation(conv) {
         connect();
       },
       setMuted(v) {
-        muted = !!v;
-        /* Keep the capture running so unmuting is instant; just stop
-           putting the microphone on the wire. */
-        if (muted && ctx) resetPlayback();
+        applyMuted(v);
+      },
+      /* Whether the typing bar is open, which takes the microphone off the
+         wire for as long as it is.
+
+         Separate from setMuted so this never touches the button or LV.muted,
+         and therefore never greys the orb. The orb shows who is talking and
+         that the call is healthy; a user who opened the typing bar is still
+         very much in the call, and greying the creature out as a side effect
+         of picking up the keyboard says the opposite.
+
+         The two states are independent and both are honoured: pressing Mute
+         while typing records the user's own choice, and closing the bar does
+         not hand the microphone back over their head. It is the same
+         arrangement as a phone call put on hold with the phone itself still
+         muted. */
+      setTyping(v) {
+        applyTyping(v);
       },
       /* Starts or stops what the model can see. Resolves to whether a
          source is actually running afterwards, so the caller can paint the
@@ -3888,6 +4181,42 @@ function applyLiveConversation(conv) {
         pumpVideo();
         return true;
       },
+      /* A typed message, as a turn of its own.
+
+         The typed path shares the model's reply with the spoken one — that
+         is the whole point of it. There is no way to type at a model that
+         will not then answer out loud, so turnComplete is set and the
+         answer comes back as ordinary synthesised speech and lands in the
+         transcript like any other reply.
+
+         The microphone is already off the wire by the time this runs,
+         because the bar that can reach this button holds it for as long as
+         the bar is open — see setTyping. Nothing has to mute here, and
+         nothing has to release anything afterwards: the whole hold lasts
+         exactly as long as the typing mode does.
+
+         The one thing still needed is the speech turn the user may have
+         opened a moment before picking up the keyboard. It is closed here
+         because the bar has just taken the gate away from trackActivity,
+         and left open it would still be open when turnComplete closes this
+         typed turn. */
+      sendText(text) {
+        const body = String(text || "").trim();
+        if (!body || stopped) return false;
+        if (!sendClient({
+          clientContent: {
+            turns: [{ role: "user", parts: [{ text: body }] }],
+            turnComplete: true
+          }
+        })) {
+          return false;
+        }
+        /* A speech turn the user opened a moment ago is closed here, since
+trackActivity will not run for the rest of this turn. Left open,
+         it would still be open when turnComplete closes the typed one. */
+        if (micIsOff() && speakingNow && !videoOnlyTurn) endActivity();
+        return true;
+      },
       stop() {
         stopped = true;
         teardown();
@@ -3907,6 +4236,11 @@ function applyLiveConversation(conv) {
   window.startLiveSession = startLiveSession;
   window.endLiveVoice = endLiveVoice;
   window.toggleLiveMute = toggleLiveMute;
+  window.toggleLiveTyping = toggleLiveTyping;
+  window.closeLiveTyping = closeLiveTyping;
+  window.sendLiveTyped = sendLiveTyped;
+  window.autoGrowLiveType = autoGrowLiveType;
+  window.liveTypeKey = liveTypeKey;
   window.toggleLiveCamera = toggleLiveCamera;
   window.toggleLiveScreen = toggleLiveScreen;
   window.flipLiveCamera = flipLiveCamera;
