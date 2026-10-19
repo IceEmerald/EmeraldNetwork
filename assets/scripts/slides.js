@@ -8185,9 +8185,15 @@ class SlidesApp {
                 bevel:'rect', foldedCorner:'foldCorner', smileyFace:'smile', heart:'heart'
             };
 
+let slideIndex = 0;
             for (const slidePath of slidePaths) {
+                slideIndex++;
+                this.showToast(`Importing PPTX… slide ${slideIndex} of ${slidePaths.length}`);
                 const slideXmlStr = await zip.file(slidePath).async('string');
                 const slideDoc = new DOMParser().parseFromString(slideXmlStr, 'application/xml');
+                const sldRoot = slideDoc.getElementsByTagNameNS('*', 'sld')[0] || slideDoc.documentElement;
+                // Skip hidden slides (show="0").
+                if (sldRoot && sldRoot.getAttribute('show') === '0') { continue; }
                 const slide = makeSlide();
 
                 // Background (slide → layout → master), resolving theme colors/images.
@@ -8517,7 +8523,15 @@ class SlidesApp {
                         const fillEl = spPr ? (Array.from(spPr.children).find(c => c.localName === 'solidFill') || Array.from(spPr.children).find(c => c.localName === 'gradFill') || Array.from(spPr.children).find(c => c.localName === 'pattFill')) : null;
                         const ln = spPr ? Array.from(spPr.children).find(c => c.localName === 'ln') : null;
                         const lineFill = ln ? (Array.from(ln.children).find(c => c.localName === 'solidFill') || Array.from(ln.children).find(c => c.localName === 'gradFill')) : null;
-                        const fillColor = resolveColor(fillEl);
+                        // Gradient fill: approximate with first stop color; if gradFill has stops, use first.
+                        let fillColor = resolveColor(fillEl);
+                        if (!fillColor && fillEl && fillEl.localName === 'gradFill') {
+                            const firstStop = fillEl.getElementsByTagNameNS('*', 'gs')[0];
+                            if (firstStop) {
+                                const sc = firstStop.getElementsByTagNameNS('*', 'srgbClr')[0] || firstStop.getElementsByTagNameNS('*', 'schemeClr')[0];
+                                fillColor = resolveColor(firstStop);
+                            }
+                        }
                         const strokeColor = resolveColor(lineFill);
                         const strokeW = ln ? (parseInt(ln.getAttribute('w') || '0', 10) / 914400 * 96 * scale) : 0;
 
@@ -8541,6 +8555,18 @@ class SlidesApp {
                             if (strokeColor && strokeW <= 0) el.strokeWidth = 2;
                             el.z = zCounter++;
                             el.r = g0.rot;
+                            // Drop shadow from effectLst.
+                            const effectLst = spPr ? spPr.getElementsByTagNameNS('*', 'effectLst')[0] : null;
+                            const outerShdw = effectLst ? effectLst.getElementsByTagNameNS('*', 'outerShdw')[0] : null;
+                            if (outerShdw) {
+                                const blur = parseInt(outerShdw.getAttribute('blurRad') || '0', 10) / 914400 * 96 * scale;
+                                const dist = parseInt(outerShdw.getAttribute('dist') || '0', 10) / 914400 * 96 * scale;
+                                const dir = (parseInt(outerShdw.getAttribute('dir') || '0', 10) / 60000) * Math.PI / 180;
+                                const sx = Math.round(Math.cos(dir) * dist);
+                                const sy = Math.round(Math.sin(dir) * dist);
+                                const shdClr = resolveColor(outerShdw.getElementsByTagNameNS('*', 'srgbClr')[0]?.parentElement || outerShdw) || '#000000';
+                                el.shadow = { blur: Math.max(0, Math.round(blur)), x: sx, y: sy, color: shdClr, opacity: 0.4 };
+                            }
                             if (fillColor || strokeColor) slide.elements.push(el);
                         }
 
@@ -8570,6 +8596,34 @@ class SlidesApp {
                                 const algn = pPr ? pPr.getAttribute('algn') : null;
                                 const pAlign = algn === 'ctr' ? 'center' : algn === 'r' ? 'right' : (algn && algn.startsWith('just')) ? 'justify' : 'left';
                                 if (html === '') baseAlign = pAlign;
+
+                                // Bullet / numbering detection.
+                                let bullet = '';
+                                let indentPx = 0;
+                                if (pPr) {
+                                    const marL = pPr.getAttribute('marL');
+                                    if (marL) indentPx = parseInt(marL, 10) / 914400 * 96 * scale;
+                                    const buChar = pPr.getElementsByTagNameNS('*', 'buChar')[0];
+                                    const buAutoNum = pPr.getElementsByTagNameNS('*', 'buAutoNum')[0];
+                                    const buNone = pPr.getElementsByTagNameNS('*', 'buNone')[0];
+                                    if (!buNone) {
+                                        if (buChar) bullet = (buChar.getAttribute('char') || '•') + '\u00a0';
+                                        else if (buAutoNum) bullet = '•\u00a0';
+                                    }
+                                }
+
+                                // Line spacing.
+                                let lineHeight = 1.1;
+                                if (pPr) {
+                                    const lnSpc = pPr.getElementsByTagNameNS('*', 'lnSpc')[0];
+                                    if (lnSpc) {
+                                        const pct = lnSpc.getElementsByTagNameNS('*', 'spcPct')[0];
+                                        const pts = lnSpc.getElementsByTagNameNS('*', 'spcPts')[0];
+                                        if (pct) lineHeight = (parseInt(pct.getAttribute('val') || '100000', 10) / 100000);
+                                        else if (pts) lineHeight = (parseInt(pts.getAttribute('val') || '0', 10) / 100) * (96 / 72) * scale / 12;
+                                    }
+                                }
+
                                 const runs = p.getElementsByTagNameNS('*', 'r');
                                 let runHtml = '';
                                 for (const r of Array.from(runs)) {
@@ -8599,9 +8653,25 @@ class SlidesApp {
                                     }
                                     const t = r.getElementsByTagNameNS('*', 't')[0];
                                     const text = t ? t.textContent : '';
-                                    runHtml += `<span style="${style}">${escapeHtml(text)}</span>`;
+                                    let content = `<span style="${style}">${escapeHtml(text)}</span>`;
+                                    // Hyperlink wrapping.
+                                    const hlink = rPr ? rPr.getElementsByTagNameNS('*', 'hlinkClick')[0] : null;
+                                    const rid = hlink ? (hlink.getAttribute('r:id') || hlink.getAttribute('r:embed')) : null;
+                                    if (rid && relsDoc) {
+                                        const rels = relsDoc.getElementsByTagName('Relationship');
+                                        for (let j = 0; j < rels.length; j++) {
+                                            if (rels[j].getAttribute('Id') === rid) {
+                                                const target = rels[j].getAttribute('Target');
+                                                if (target) content = `<a href="${escapeAttr(target)}" target="_blank" style="${style}">${escapeHtml(text)}</a>`;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    runHtml += content;
                                 }
-                                html += `<p style="text-align:${pAlign};margin:0;line-height:1.1;">${runHtml || '<br>'}</p>`;
+                                const indentStyle = indentPx > 0 ? `padding-left:${Math.round(indentPx)}px;` : '';
+                                const bulletHtml = bullet ? `<span style="margin-right:4px;">${escapeHtml(bullet)}</span>` : '';
+                                html += `<p style="text-align:${pAlign};margin:0;line-height:${lineHeight};${indentStyle}">${bulletHtml}${runHtml || '<br>'}</p>`;
                             }
                             if (off && ext) {
                                 const x = emuToX(g0.x) - 10;
@@ -8647,12 +8717,34 @@ class SlidesApp {
                             const imgPath = resolveZipPath(target, 'ppt/slides');
                             const entry = imgPath ? zip.file(imgPath) : null;
                             if (entry) {
-                                const b64 = await entry.async('base64');
-                                const src = 'data:' + imageMimeType(imgPath) + ';base64,' + b64;
-                                const el = makeImageEl(src, emuToX(g0.x), emuToY(g0.y), emuToW(g0.cx), emuToH(g0.cy));
-                                el.r = g0.rot;
-                                el.z = zCounter++;
-                                slide.elements.push(el);
+                                const ext = (imgPath.split('.').pop() || '').toLowerCase();
+                                const isVideo = ['mp4','mov','avi','wmv','webm','m4v'].includes(ext);
+                                const isAudio = ['mp3','wav','m4a','aac','ogg'].includes(ext);
+                                if (isVideo || isAudio) {
+                                    const mime = isVideo ? 'video/mp4' : 'audio/mpeg';
+                                    const b64 = await entry.async('base64');
+                                    const src = 'data:' + mime + ';base64,' + b64;
+                                    const el = isVideo
+                                        ? { id: uid(), type: 'video', x: emuToX(g0.x), y: emuToY(g0.y), w: emuToW(g0.cx), h: emuToH(g0.cy), r: g0.rot, z: zCounter++, src, poster: '', opacity: 1 }
+                                        : { id: uid(), type: 'audio', x: emuToX(g0.x), y: emuToY(g0.y), w: Math.max(120, emuToW(g0.cx)), h: 60, r: g0.rot, z: zCounter++, src, opacity: 1 };
+                                    slide.elements.push(el);
+                                } else {
+                                    const b64 = await entry.async('base64');
+                                    const src = 'data:' + imageMimeType(imgPath) + ';base64,' + b64;
+                                    const el = makeImageEl(src, emuToX(g0.x), emuToY(g0.y), emuToW(g0.cx), emuToH(g0.cy));
+                                    el.r = g0.rot;
+                                    el.z = zCounter++;
+                                    const blipFill = picNode.getElementsByTagNameNS('*', 'blipFill')[0];
+                                    const sr = blipFill ? blipFill.getElementsByTagNameNS('*', 'srcRect')[0] : null;
+                                    if (sr) {
+                                        const l = parseInt(sr.getAttribute('l') || '0', 10) / 100000;
+                                        const t = parseInt(sr.getAttribute('t') || '0', 10) / 100000;
+                                        const r = parseInt(sr.getAttribute('r') || '0', 10) / 100000;
+                                        const b = parseInt(sr.getAttribute('b') || '0', 10) / 100000;
+                                        el.crop = { l, t, r, b };
+                                    }
+                                    slide.elements.push(el);
+                                }
                             }
                         }
                         }
@@ -8736,12 +8828,58 @@ class SlidesApp {
                 }
                 await processContainer(spTree, (o) => ({ x: o.x, y: o.y, cx: o.cx, cy: o.cy, rot: o.rot }));
 
+                // Import slide transition (if present).
+                try {
+                    const tr = slideDoc.getElementsByTagNameNS('*', 'transition')[0];
+                    if (tr) {
+                        const child = Array.from(tr.children)[0];
+                        const name = child ? child.localName : '';
+                        const map = {
+                            fade: 'fade', push: 'push', wipe: 'wipe', split: 'split',
+                            cover: 'cover', pull: 'uncover', uncover: 'uncover', cut: 'cut',
+                            blinds: 'blinds', checker: 'checkerboard', checkerboard: 'checkerboard',
+                            circle: 'shape', comb: 'comb', dissolve: 'dissolve',
+                            newsflash: 'newsflash', plus: 'shape', randomBar: 'random-bars',
+                            strips: 'random-bars', wedge: 'shape', wheel: 'rotate',
+                            zoom: 'zoom', morph: 'morph', blinds: 'blinds',
+                            random: 'random-bars'
+                        };
+                        const type = map[name.toLowerCase()] || 'fade';
+                        const durAttr = tr.getAttribute('dur');
+                        const dur = durAttr ? parseInt(durAttr, 10) / 1000 : 0.7;
+                        slide.transition = { type, duration: dur > 0 ? dur : 0.7, onClick: true };
+                    }
+                } catch (e) {}
+
                 if (slide.elements.length === 0) {
                     const placeholder = makeTextEl(60, 60, 840, 60);
                     placeholder.html = `<p>Slide ${pres.slides.length + 1}</p>`;
                     placeholder.fontSize = 32;
                     slide.elements.push(placeholder);
                 }
+
+                // Import slide notes (if present).
+                try {
+                    const notesRel = Array.from(relsDoc ? relsDoc.getElementsByTagName('Relationship') : []).find(r => (r.getAttribute('Type') || '').endsWith('/notesSlide'));
+                    let notesPath = notesRel ? notesRel.getAttribute('Target') : null;
+                    if (notesPath) {
+                        notesPath = resolveZipPath(notesPath, 'ppt/slides');
+                        const notesXml = await zip.file(notesPath).async('string');
+                        const notesDoc = new DOMParser().parseFromString(notesXml, 'application/xml');
+                        const txBodies = notesDoc.getElementsByTagNameNS('*', 'txBody');
+                        let notesText = '';
+                        for (const tb of Array.from(txBodies)) {
+                            const ps = tb.getElementsByTagNameNS('*', 'p');
+                            const lines = Array.from(ps).map(p => {
+                                const rs = p.getElementsByTagNameNS('*', 'r');
+                                return Array.from(rs).map(r => r.getElementsByTagNameNS('*', 't')[0]?.textContent || '').join('');
+                            });
+                            const joined = lines.join('\n').trim();
+                            if (joined) notesText += (notesText ? '\n' : '') + joined;
+                        }
+                        if (notesText) slide.notes = notesText;
+                    }
+                } catch (e) {}
 
                 pres.slides.push(slide);
             }

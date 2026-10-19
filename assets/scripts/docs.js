@@ -3766,6 +3766,32 @@ function startAutosaveSnapshots() {
     return html;
   }
 
+  function docxBodyHtmlWithSections(root, ctx) {
+    var sections = docxCollectSections(root);
+    var html = "";
+    for (var si = 0; si < sections.length; si++) {
+      var section = sections[si];
+      if (si > 0) {
+        html += docxSectionBreakHtml(section.setup);
+      }
+      if (section.setup.columns > 1) {
+        html += '<div style="column-count:' + section.setup.columns + ';column-gap:36px">';
+      }
+      for (var pi = 0; pi < section.paragraphs.length; pi++) {
+        var item = section.paragraphs[pi];
+        if (item.isTable) {
+          html += docxTableHtml(item.node, ctx);
+        } else {
+          html += docxParaHtml(item.node, ctx);
+        }
+      }
+      if (section.setup.columns > 1) {
+        html += "</div>";
+      }
+    }
+    return html;
+  }
+
   /* ---- section: page size, margins, columns, header/footer ---- */
   function docxSection(root) {
     root = docxDocumentNode(root);
@@ -3805,6 +3831,98 @@ function startAutosaveSnapshots() {
     return setup;
   }
 
+  function docxSectionFromNode(sect) {
+    var setup = { w: 794, h: 1123, portrait: true, marginTop: 96, marginRight: 96, marginBottom: 96, marginLeft: 96, bg: null, columns: 1, headerRefs: [], footerRefs: [] };
+    if (!sect) return setup;
+    var pgSz = firstChild(sect, "pgSz");
+    if (pgSz) {
+      var w = docxTw(pgSz.attrs.w), h = docxTw(pgSz.attrs.h);
+      if (w && h) {
+        setup.portrait = pgSz.attrs.orient !== "landscape";
+        setup.w = setup.portrait ? w : h;
+        setup.h = setup.portrait ? h : w;
+      }
+    }
+    var pgMar = firstChild(sect, "pgMar");
+    if (pgMar) {
+      if (pgMar.attrs.top) setup.marginTop = docxTw(pgMar.attrs.top);
+      if (pgMar.attrs.right) setup.marginRight = docxTw(pgMar.attrs.right);
+      if (pgMar.attrs.bottom) setup.marginBottom = docxTw(pgMar.attrs.bottom);
+      if (pgMar.attrs.left) setup.marginLeft = docxTw(pgMar.attrs.left);
+    }
+    var cols = firstChild(sect, "cols");
+    if (cols && cols.attrs.num) setup.columns = parseInt(cols.attrs.num, 10) || 1;
+    var hrefs = allChildren(sect, "headerReference");
+    for (var i = 0; i < hrefs.length; i++) setup.headerRefs.push({ type: hrefs[i].attrs.type, id: hrefs[i].attrs.id });
+    var frefs = allChildren(sect, "footerReference");
+    for (var f = 0; f < frefs.length; f++) setup.footerRefs.push({ type: frefs[f].attrs.type, id: frefs[f].attrs.id });
+    return setup;
+  }
+
+  function docxCollectSections(root) {
+    root = docxDocumentNode(root);
+    var body = firstChild(root, "body");
+    if (!body) return [{ setup: docxSection(root), startIdx: 0, paragraphs: [] }];
+
+    var defaultSetup = docxSection(root);
+    var sections = [];
+    var currentSection = { setup: defaultSetup, startIdx: 0, paragraphs: [] };
+    var paraIndex = 0;
+
+    function processNode(node) {
+      if (node.tag === "p") {
+        currentSection.paragraphs.push({ node: node, index: paraIndex });
+        var pPr = firstChild(node, "pPr");
+        var sectPr = pPr ? firstChild(pPr, "sectPr") : null;
+        if (sectPr) {
+          var nextSetup = docxSectionFromNode(sectPr);
+          sections.push(currentSection);
+          currentSection = { setup: nextSetup, startIdx: paraIndex + 1, paragraphs: [] };
+        }
+        paraIndex++;
+      } else if (node.tag === "tbl") {
+        currentSection.paragraphs.push({ node: node, index: paraIndex, isTable: true });
+        paraIndex++;
+      } else if (node.tag === "sdt") {
+        var content = firstChild(node, "sdtContent");
+        if (content) {
+          for (var s = 0; s < content.kids.length; s++) {
+            processNode(content.kids[s]);
+          }
+        }
+      }
+    }
+
+    for (var i = 0; i < body.kids.length; i++) {
+      processNode(body.kids[i]);
+    }
+
+    var bodySectPr = firstChild(body, "sectPr");
+    if (bodySectPr) {
+      var finalSetup = docxSectionFromNode(bodySectPr);
+      currentSection.setup = finalSetup;
+    }
+
+    sections.push(currentSection);
+    return sections;
+  }
+
+  function docxSectionConfigToJson(setup) {
+    return JSON.stringify({
+      orientation: setup.portrait ? "portrait" : "landscape",
+      margins: {
+        top: setup.marginTop, right: setup.marginRight,
+        bottom: setup.marginBottom, left: setup.marginLeft
+      },
+      columns: setup.columns || 1
+    });
+  }
+
+  function docxSectionBreakHtml(setup) {
+    var configStr = docxSectionConfigToJson(setup).replace(/'/g, "&apos;");
+    return '<div class="section-break has-config" contenteditable="false" data-section-config=\'' + configStr + '\'></div><p><br></p>';
+  }
+
   /* ---- entry point: .docx → { html, pageSetup, header, footer } ---- */
   async function convertDocxDocument(file) {
     docxMediaCache = null;
@@ -3842,11 +3960,13 @@ function startAutosaveSnapshots() {
       styles: styles, theme: styles.theme, numbering: numbering, rels: rels,
       arrayBuffer: ab, counters: {},
     };
-    var section = docxSection(docRoot);
-    var html = docxBodyHtml(docRoot, ctx);
+    var sections = docxCollectSections(docRoot);
+    var firstSection = sections[0] || { setup: docxSection(docRoot) };
+    var html = docxBodyHtmlWithSections(docRoot, ctx);
     if (!html.replace(/\s/g, "")) html = "<p><br></p>";
 
     // Header and footer come across as the document's own running heads.
+    // Use the first section's header/footer refs for now.
     var header = "", footer = "";
     async function readPart(refs, kind) {
       for (var i = 0; i < refs.length; i++) {
@@ -3861,22 +3981,18 @@ function startAutosaveSnapshots() {
       }
       return "";
     }
-    header = await readPart(section.headerRefs, "header");
-    footer = await readPart(section.footerRefs, "footer");
-
-    var columns = section.columns > 1 ? section.columns : 0;
-    if (columns) {
-      html = '<div style="column-count:' + columns + ';column-gap:36px">' + html + "</div>";
-    }
+    header = await readPart(firstSection.setup.headerRefs, "header");
+    footer = await readPart(firstSection.setup.footerRefs, "footer");
 
     return {
       html: html,
       pageSetup: {
-        w: section.w, h: section.h, portrait: section.portrait,
-        marginTop: section.marginTop, marginRight: section.marginRight,
-        marginBottom: section.marginBottom, marginLeft: section.marginLeft,
-        bg: section.bg || "#ffffff",
+        w: firstSection.setup.w, h: firstSection.setup.h, portrait: firstSection.setup.portrait,
+        marginTop: firstSection.setup.marginTop, marginRight: firstSection.setup.marginRight,
+        marginBottom: firstSection.setup.marginBottom, marginLeft: firstSection.setup.marginLeft,
+        bg: firstSection.setup.bg || "#ffffff",
       },
+      sections: sections.map(function (s) { return s.setup; }),
       header: header,
       footer: footer,
     };
@@ -3898,6 +4014,7 @@ function startAutosaveSnapshots() {
         pageSetup: full.pageSetup || null,
         header: full.header || "",
         footer: full.footer || "",
+        sections: full.sections || null,
       };
     }
     var text = (typeof mammoth !== "undefined")
@@ -3905,10 +4022,10 @@ function startAutosaveSnapshots() {
           .then(function (r) { return r.value; }).catch(function () { return null; })
       : null;
     if (text && text.replace(/\S/g, "")) {
-      return { html: importHtmlToContent(text), pageSetup: null, header: "", footer: "" };
+      return { html: importHtmlToContent(text), pageSetup: null, header: "", footer: "", sections: null };
     }
     var plain = await convertDocxTextFallback(ab);
-    return { html: plain ? importTextToHtml(plain, false) : "<p><br></p>", pageSetup: null, header: "", footer: "" };
+    return { html: plain ? importTextToHtml(plain, false) : "<p><br></p>", pageSetup: null, header: "", footer: "", sections: null };
   }
 
   /* .doc → HTML.
@@ -4421,6 +4538,7 @@ function startAutosaveSnapshots() {
     } else if (ext === "txt" || ext === "text" || file.type.indexOf("text/") === 0) {
       contentPromise = file.text().then(function (t) { return importTextToHtml(t, false); });
     } else if (ext === "docx") {
+      toastSticky("Importing DOCX…");
       contentPromise = convertDocxToHtml(file);
     } else if (ext === "odt") {
       contentPromise = file.arrayBuffer().then(convertOdtToHtml).then(function (h) { return h || "<p><br></p>"; });
@@ -4458,11 +4576,13 @@ function startAutosaveSnapshots() {
     var pageSetup = null;
     var header = "";
     var footer = "";
-    // The .docx importer returns {html, pageSetup, header, footer}. Unwrap it.
+    var sections = null;
+    // The .docx importer returns {html, pageSetup, header, footer, sections}. Unwrap it.
     if (content && typeof content === "object" && content.html) {
       pageSetup = content.pageSetup || null;
       header = content.header || "";
       footer = content.footer || "";
+      sections = content.sections || null;
       content = content.html;
     }
     var plain = htmlToText(content);
@@ -4488,6 +4608,9 @@ function startAutosaveSnapshots() {
       docData.pageSize = { w: pageSetup.w, h: pageSetup.h, portrait: pageSetup.portrait };
       docData.pageMargins = { top: pageSetup.marginTop, right: pageSetup.marginRight, bottom: pageSetup.marginBottom, left: pageSetup.marginLeft };
       if (pageSetup.bg) docData.pageBg = pageSetup.bg;
+    }
+    if (sections) {
+      docData.sections = sections;
     }
     await writeDocData(docData);
     toast("Imported \u201C" + baseName + "\u201D", "success");
