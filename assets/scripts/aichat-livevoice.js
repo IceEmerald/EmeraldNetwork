@@ -1317,7 +1317,14 @@ function updateLiveActions(running) {
       view.classList.toggle("live-running", running);
     }
 
-    box.scrollTop = box.scrollHeight;
+    /* Defer to the next frame so the appended turns are laid out before
+       we scroll — otherwise the box can flash at the old position and then
+       jump, which reads as the message going up and then to the middle. */
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(function () { box.scrollTop = box.scrollHeight; });
+    } else {
+      box.scrollTop = box.scrollHeight;
+    }
   }
 
   function addTurn(role, text) {
@@ -2283,10 +2290,34 @@ function applyLiveConversation(conv) {
   function endLiveVoice() {
     if (!LV.active) return;
     if (LV.transport && typeof LV.transport.stop === "function") LV.transport.stop();
-    /* The call is over, so the camera and the screen go with it — the
-       transport has already released them, this puts the buttons and the
-       preview back. */
+    /* The call is over, so the camera, the screen, the mute state and the
+       typing bar go with it — none of these should survive the end of a
+       call. */
     resetVideoUi();
+
+    /* Mute resets to unmuted. */
+    LV.muted = false;
+    const mute = el("lvMuteBtn");
+    const slash = el("lvMuteSlash");
+    if (mute) {
+      mute.setAttribute("aria-pressed", "false");
+      mute.setAttribute("aria-label", "Mute microphone");
+      mute.title = "Mute microphone";
+    }
+    if (slash) slash.style.display = "none";
+    const muteLabel = el("lvMuteLabel");
+    if (muteLabel) muteLabel.textContent = "Mute";
+    const headerIcon = el("lvMuteIcon");
+    if (headerIcon) headerIcon.style.display = "";
+
+    /* Type mode closes and its input clears on end. */
+    paintLiveTyping(false);
+    const typeInput = el("lvTypeInput");
+    if (typeInput) {
+      typeInput.value = "";
+      typeInput.style.height = "auto";
+      typeInput.style.overflowY = "hidden";
+    }
 
     /* Commit whatever was mid-flight so the last spoken sentence
        isn't lost. */

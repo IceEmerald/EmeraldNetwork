@@ -9517,7 +9517,7 @@ body.light-mode .live-view.is-switching {
    :has() scopes this to the no-reply state, so the normal pair is
    untouched. */
 .live-view.live-running .live-transcript:not(:has(> .message:not(.message--user))) {
-    justify-content: flex-start;
+    justify-content: center;
 }
 
 .live-view.live-running .live-transcript:not(:has(> .message:not(.message--user))) > .message--user {
@@ -9614,6 +9614,15 @@ body.light-mode .live-view.is-switching {
 .live-turn--pending .message-text {
     color: var(--lv-muted);
     font-style: italic;
+}
+
+/* In light mode the finished-text colour override (body.light-mode
+   .message-text) out-specifics the pending rule above, so the interim
+   text would otherwise render as fully dark. Re-assert the muted colour
+   with a more specific selector so speaking text stays grayish until the
+   reply is complete. */
+body.light-mode .live-turn--pending .message-text {
+    color: var(--lv-muted);
 }
 
 /* ── Controls (replaces the composer in place) ──────────── */
@@ -10161,7 +10170,7 @@ body.light-mode .live-video-panel {
    Light mode
    ══════════════════════════════════════════════════════════ */
 
-body.light-mode.chat-main.live-active {
+body.light-mode .chat-main.live-active {
     --lv-surface: rgb(245, 245, 247);
     --lv-surface-2: rgb(238, 238, 240);
     --lv-border: rgba(0, 0, 0, 0.08);
