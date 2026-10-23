@@ -164,6 +164,9 @@ async function initTheme() {
   // Bugfix: sync thinking toggle UI from persisted settings on page load/reload.
   // Without this, the button shows "off" even when settings.thinking is true.
   refreshThinkingToggleUI();
+  // Ensure conversation is loaded from storage on page reload,
+  // even if the AI was in the middle of streaming.
+  restoreConversationOnReload();
 }
 function saveSettingsObj(o) {
   S.set(SETTINGS_KEY, o);
@@ -4168,6 +4171,7 @@ async function handleSend(opts) {
   let aiDiv = null;
   let textEl = null;
   let fullText = "";
+  let _saveTimeout = 0;
   let _usedModelId = "";
   let _usedModelName = "";
   const _buildAIDOM = (text, streaming = false) => buildAIBubbleDOM(text, msgId, streaming);
@@ -4233,6 +4237,28 @@ async function handleSend(opts) {
     _markSearchingDoneOnce();
     _markThinkingDoneOnce();
     fullText += chunk;
+    clearTimeout(_saveTimeout);
+    _saveTimeout = setTimeout(() => {
+      // Append a partial assistant message so it survives a tab close
+      const lastUserMsg = conv.messages[conv.messages.length - 1];
+      if (lastUserMsg && lastUserMsg.role === "user") {
+        conv.messages.push({
+          role: "assistant",
+          text: fullText,
+          id: state.streamMsgId || genId(),
+          _partialStream: true
+        });
+      } else if (conv.messages.length === 0) {
+        conv.messages.push({
+          role: "assistant",
+          text: fullText,
+          id: state.streamMsgId || genId(),
+          _partialStream: true
+        });
+      }
+      conv.updatedAt = Date.now();
+      upsertConv(conv);
+    }, 2000);
     if (!_ensureStreamDom()) return;
     const _sd = _streamDisplayText(fullText);
     textEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.editStarted ? esEditLoadingCardHTML() : _sd.quizStarted ? quizLoadingCardHTML() : _sd.appStarted ? esAppLoadingCardHTML() : '<span class="stream-cursor" aria-hidden="true"></span>');
@@ -4748,6 +4774,7 @@ async function regenerateMessage(msgEl) {
   let aiDiv = null;
   let textEl = null;
   let fullText = "";
+  let _saveTimeout = 0;
   let _usedModelId = "";
   let _usedModelName = "";
   let _thinkingText = "";
@@ -6287,6 +6314,17 @@ async function init() {
     const conv = getConv(ownedParam);
     if (conv) loadConversation(ownedParam);
     else history.replaceState({}, document.title, location.pathname);
+  } else {
+    // No ?chat= parameter: try to restore the most recent conversation
+    // from persistent storage so the user doesn't lose their place after a reload.
+    const storedConvs = loadConvs();
+    const recentConv = storedConvs.find((c) => !c.isTemp && c.messages && c.messages.length > 0);
+    if (recentConv) {
+      state.convId = recentConv.id;
+      loadConversation(recentConv.id);
+    } else {
+      showWelcome();
+    }
   }
   /* Deep-link: #import=<payload> carries a shared chat in the fragment.
      Runs after the ?chat= deep-link so a freshly imported chat wins. */
