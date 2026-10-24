@@ -604,30 +604,28 @@
     return true;
   }
 
+  var aggressiveEmptyPageCleanup = false;
+
   function removeTrailingEmptyPages() {
     var wrapper = $(PAGES_WRAPPER_ID);
-    var pages = getPages();
-
-    // A page is "empty" only if it has NO block-level children at all.
-    // An empty <p> (created by pressing Enter) IS a legitimate block and
-    // must NOT cause its page to be deleted — otherwise pressing Enter on
-    // the last line of a full page (which pushes the new empty paragraph
-    // onto a fresh next page) would have that page immediately removed,
-    // making Enter appear to do nothing.
-    //
-    // EXCEPTION: a trailing page whose ONLY content is page-break markers
-    // (.emdocs-page-break) is a confusing leftover from a page break placed
-    // at the very end of the document. We strip the now-orphaned marker and
-    // remove the page so the document ends cleanly.
-    for (var i = pages.length - 1; i >= 1; i--) {
-      var content = getContent(pages[i]);
-      var hasMedia = content.querySelector("img, table, hr, iframe");
-      if (content.children.length === 0 && !hasMedia) {
-        wrapper.removeChild(pages[i]);
-      } else if (pageIsOnlyBreakMarkers(content)) {
-        wrapper.removeChild(pages[i]);
-      } else {
-        break;
+    var changed = true;
+    while (changed) {
+      changed = false;
+      var pages = getPages();
+      for (var i = pages.length - 1; i >= 1; i--) {
+        var content = getContent(pages[i]);
+        var hasMedia = content.querySelector("img, table, hr, iframe, .emdocs-pdf-page");
+        var isEmpty = (content.children.length === 0 && !hasMedia);
+        if (aggressiveEmptyPageCleanup && !isEmpty && !hasMedia) {
+          if ((content.textContent || "").replace(/\s/g, "") === "") isEmpty = true;
+        }
+        if (isEmpty) {
+          wrapper.removeChild(pages[i]);
+          changed = true;
+        } else if (pageIsOnlyBreakMarkers(content)) {
+          wrapper.removeChild(pages[i]);
+          changed = true;
+        }
       }
     }
   }
@@ -2822,21 +2820,426 @@ function startAutosaveSnapshots() {
   // Extract the visible text from an ODT file (a ZIP whose content.xml holds
   // <text:p> paragraphs and <text:h> headings).
   async function convertOdtToHtml(arrayBuffer) {
-    var entry = await zipReadEntry(arrayBuffer, "content.xml");
-    if (!entry) return null;
-    var text = new TextDecoder("utf-8").decode(entry);
-    var body = (text.match(/<office:body[\s\S]*?<\/office:body>/) || [""])[0];
-    var html = "";
-    var paraRe = /<(?:text:p|text:h)\b[^>]*>([\s\S]*?)<\/(?:text:p|text:h)>/g;
-    var m;
-    while ((m = paraRe.exec(body)) !== null) {
-      // Convert the paragraph's inner markup to plain text via a detached
-      // parser so entities decode fully and no incomplete tag-strip regex
-      // remains (CodeQL js/incomplete-multi-character-sanitization).
-      var inner = htmlFragmentToText(m[1]);
-      html += "<p>" + escapeHtml(inner) + "</p>";
+    var contentEntry = await zipReadEntry(arrayBuffer, "content.xml");
+    if (!contentEntry) return null;
+    var contentText = new TextDecoder("utf-8").decode(contentEntry);
+    var stylesEntry = await zipReadEntry(arrayBuffer, "styles.xml");
+    var stylesText = stylesEntry ? new TextDecoder("utf-8").decode(stylesEntry) : "";
+
+    var NS = {
+      office: "urn:oasis:names:tc:opendocument:xmlns:office:1.0",
+      style: "urn:oasis:names:tc:opendocument:xmlns:style:1.0",
+      text: "urn:oasis:names:tc:opendocument:xmlns:text:1.0",
+      table: "urn:oasis:names:tc:opendocument:xmlns:table:1.0",
+      draw: "urn:oasis:names:tc:opendocument:xmlns:drawing:1.0",
+      fo: "urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0",
+      svg: "urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0",
+      xlink: "http://www.w3.org/1999/xlink"
+    };
+    function gns(parent, nsKey, tag) {
+      if (!parent) return [];
+      return Array.prototype.slice.call(parent.getElementsByTagNameNS(NS[nsKey], tag));
     }
-    return html && html.replace(/\S/g, "") ? null : (html || "<p><br></p>");
+    function attr(el, nsKey, name) {
+      if (!el) return null;
+      var v = el.getAttributeNS(NS[nsKey], name);
+      if (v == null) v = el.getAttribute(name);
+      return v;
+    }
+    function odtLenPx(v) {
+      if (v == null) return null;
+      var s = String(v).trim();
+      var m = s.match(/^([\d.]+)\s*(cm|mm|pt|px|in)?$/);
+      if (!m) return null;
+      var n = parseFloat(m[1]);
+      var u = m[2] || "px";
+      if (u === "cm") return Math.round(n * 96 / 2.54);
+      if (u === "mm") return Math.round(n * 96 / 25.4);
+      if (u === "pt") return Math.round(n * 96 / 72);
+      if (u === "in") return Math.round(n * 96);
+      return Math.round(n);
+    }
+    function odtColor(v) {
+      if (!v) return null;
+      return String(v).trim();
+    }
+
+    var parser = new DOMParser();
+    var cdoc = parser.parseFromString(contentText, "application/xml");
+    var sdoc = stylesText ? parser.parseFromString(stylesText, "application/xml") : null;
+
+    var styles = {};
+    function parseProps(el) {
+      var p = {}, t = {}, cell = {}, table = {};
+      if (!el) return { p: p, t: t, cell: cell, table: table };
+      var pp = gns(el, "style", "paragraph-properties")[0];
+      if (pp) {
+        var a = pp.attributes;
+        for (var i = 0; i < a.length; i++) {
+          var at = a[i];
+          if (at.namespaceURI !== NS.fo && at.namespaceURI !== NS.style) continue;
+          var n = at.localName, v = at.value;
+          if (at.namespaceURI === NS.fo) {
+            if (n === "text-align") p.align = v;
+            else if (n === "margin-left") p.ml = odtLenPx(v);
+            else if (n === "margin-right") p.mr = odtLenPx(v);
+            else if (n === "margin-top") p.mt = odtLenPx(v);
+            else if (n === "margin-bottom") p.mb = odtLenPx(v);
+            else if (n === "text-indent") p.ti = odtLenPx(v);
+            else if (n === "line-height") p.lh = v;
+            else if (n === "background-color") p.bg = odtColor(v);
+            else if (n === "break-before") p.breakBefore = v;
+          }
+        }
+      }
+      var tp = gns(el, "style", "text-properties")[0];
+      if (tp) {
+        var a2 = tp.attributes;
+        for (var j = 0; j < a2.length; j++) {
+          var at2 = a2[j];
+          if (at2.namespaceURI !== NS.fo && at2.namespaceURI !== NS.style) continue;
+          var n2 = at2.localName, v2 = at2.value;
+          if (at2.namespaceURI === NS.fo) {
+            if (n2 === "font-weight") t.bold = (v2 === "bold");
+            else if (n2 === "font-style") t.italic = (v2 === "italic" || v2 === "oblique");
+            else if (n2 === "font-size") t.sz = odtLenPx(v2);
+            else if (n2 === "color") t.color = odtColor(v2);
+            else if (n2 === "background-color") t.bg = odtColor(v2);
+            else if (n2 === "font-variant") t.smallCaps = (v2 === "small-caps");
+            else if (n2 === "text-transform") t.caps = (v2 === "uppercase");
+            else if (n2 === "letter-spacing") t.tracking = odtLenPx(v2);
+          } else {
+            if (n2 === "font-name") t.font = v2;
+            else if (n2 === "text-underline-type") t.underline = (v2 && v2 !== "none");
+            else if (n2 === "text-line-through-type") t.strike = (v2 && v2 !== "none");
+            else if (n2 === "text-position") { if (/super/.test(v2)) t.vert = "super"; if (/sub/.test(v2)) t.vert = "sub"; }
+          }
+        }
+      }
+      var cp = gns(el, "style", "table-cell-properties")[0];
+      if (cp) {
+        var a3 = cp.attributes;
+        for (var k = 0; k < a3.length; k++) {
+          var at3 = a3[k];
+          if (at3.namespaceURI === NS.fo) {
+            var n3 = at3.localName, v3 = at3.value;
+            if (n3 === "background-color") cell.bg = odtColor(v3);
+            else if (n3.indexOf("border-") === 0) cell[n3] = v3;
+            else if (n3 === "padding") cell.padding = v3;
+          } else if (at3.namespaceURI === NS.style) {
+            if (at3.localName === "vertical-align") cell.valign = at3.value;
+          }
+        }
+      }
+      var tp2 = gns(el, "style", "table-properties")[0];
+      if (tp2) {
+        var a4 = tp2.attributes;
+        for (var l = 0; l < a4.length; l++) {
+          var at4 = a4[l];
+          if (at4.namespaceURI === NS.style && at4.localName === "width") table.width = at4.value;
+        }
+      }
+      return { p: p, t: t, cell: cell, table: table };
+    }
+
+    function addStyleEl(el) {
+      var name = attr(el, "style", "name");
+      if (!name) return;
+      var family = attr(el, "style", "family");
+      var parent = attr(el, "style", "parent-style-name");
+      var parsed = parseProps(el);
+      var prev = styles[name] || { family: family, p: {}, t: {}, cell: {}, table: {} };
+      var p = Object.assign({}, prev.p, parsed.p);
+      var t = Object.assign({}, prev.t, parsed.t);
+      var cell = Object.assign({}, prev.cell, parsed.cell);
+      var table = Object.assign({}, prev.table, parsed.table);
+      if (parent && styles[parent]) {
+        p = Object.assign({}, styles[parent].p, p);
+        t = Object.assign({}, styles[parent].t, t);
+        cell = Object.assign({}, styles[parent].cell, cell);
+        table = Object.assign({}, styles[parent].table, table);
+      }
+      styles[name] = { family: family, p: p, t: t, cell: cell, table: table };
+    }
+
+    function collectStyles(doc) {
+      if (!doc) return;
+      var autos = gns(doc, "office", "automatic-styles")[0];
+      if (autos) {
+        var kids = autos.childNodes;
+        for (var i = 0; i < kids.length; i++) {
+          if (kids[i].nodeType === 1 && kids[i].localName === "style" && kids[i].namespaceURI === NS.style) addStyleEl(kids[i]);
+        }
+      }
+      var named = gns(doc, "office", "styles")[0];
+      if (named) {
+        var kids2 = named.childNodes;
+        for (var j = 0; j < kids2.length; j++) {
+          if (kids2[j].nodeType === 1) {
+            if (kids2[j].localName === "style" && kids2[j].namespaceURI === NS.style) addStyleEl(kids2[j]);
+            if (kids2[j].localName === "default-style" && kids2[j].namespaceURI === NS.style) {
+              var fam = attr(kids2[j], "style", "family");
+              var parsed = parseProps(kids2[j]);
+              styles["__default__" + fam] = { family: fam, p: parsed.p, t: parsed.t, cell: parsed.cell, table: parsed.table };
+            }
+          }
+        }
+      }
+    }
+    collectStyles(cdoc);
+    collectStyles(sdoc);
+
+    function resolveStyle(name, family) {
+      if (!name) return styles["__default__" + family] || null;
+      if (styles[name]) return styles[name];
+      return styles["__default__" + family] || null;
+    }
+
+    function pPropsToCss(p) {
+      if (!p) return "";
+      var css = "";
+      if (p.align) css += "text-align:" + p.align + ";";
+      if (p.ml != null) css += "margin-left:" + p.ml + "px;";
+      if (p.mr != null) css += "margin-right:" + p.mr + "px;";
+      if (p.mt != null) css += "margin-top:" + p.mt + "px;";
+      if (p.mb != null) css += "margin-bottom:" + p.mb + "px;";
+      if (p.ti != null) css += "text-indent:" + p.ti + "px;";
+      if (p.lh) {
+        if (String(p.lh).indexOf("%") !== -1) css += "line-height:" + p.lh + ";";
+        else {
+          var px = odtLenPx(p.lh);
+          if (px != null) css += "line-height:" + px + "px;";
+          else css += "line-height:" + p.lh + ";";
+        }
+      }
+      if (p.bg) css += "background-color:" + p.bg + ";";
+      return css;
+    }
+    function tPropsToCss(t) {
+      if (!t) return "";
+      var css = "";
+      if (t.bold) css += "font-weight:700;";
+      if (t.italic) css += "font-style:italic;";
+      if (t.underline) css += "text-decoration:underline;";
+      if (t.strike) css += "text-decoration:line-through;";
+      if (t.color) css += "color:" + t.color + ";";
+      if (t.bg) css += "background-color:" + t.bg + ";";
+      if (t.sz != null) css += "font-size:" + t.sz + "px;";
+      if (t.font) css += "font-family:" + t.font + ";";
+      if (t.vert === "super") css += "vertical-align:super;font-size:smaller;";
+      if (t.vert === "sub") css += "vertical-align:sub;font-size:smaller;";
+      if (t.caps) css += "text-transform:uppercase;";
+      if (t.smallCaps) css += "font-variant:small-caps;";
+      if (t.tracking != null) css += "letter-spacing:" + t.tracking + "px;";
+      return css;
+    }
+
+    var ctx = { noteCounters: { fn: 0, en: 0 }, notes: { fn: [], en: [] } };
+
+    function renderInline(node, inheritedT) {
+      var out = "";
+      for (var c = node.firstChild; c; c = c.nextSibling) {
+        if (c.nodeType === 3) { out += escapeHtml(c.nodeValue); continue; }
+        if (c.nodeType !== 1) continue;
+        var ln = c.localName, ns = c.namespaceURI;
+        if (ns === NS.text) {
+          if (ln === "span") {
+            var sn = attr(c, "text", "style-name");
+            var st = resolveStyle(sn, "text");
+            var merged = Object.assign({}, inheritedT || {}, st ? st.t : {});
+            var css = tPropsToCss(merged);
+            var inner = renderInline(c, merged);
+            out += css ? '<span style="' + css + '">' + (inner || "") + "</span>" : inner;
+          } else if (ln === "a") {
+            var href = attr(c, "xlink", "href");
+            out += '<a href="' + escapeAttr(href || "") + '">' + renderInline(c, inheritedT) + "</a>";
+          } else if (ln === "note") {
+            var cls = attr(c, "text", "note-class") || "footnote";
+            var kind = (cls === "endnote") ? "en" : "fn";
+            ctx.noteCounters[kind]++;
+            var num = ctx.noteCounters[kind];
+            var noteBody = gns(c, "text", "note-body")[0];
+            var noteText = noteBody ? (noteBody.textContent || "") : "";
+            ctx.notes[kind].push({ num: num, text: noteText });
+            out += '<sup class="' + (kind === "fn" ? "footnote-ref" : "endnote-ref") + '" data-' + (kind === "fn" ? "fn" : "en") + '="' + num + '" contenteditable="false">' + num + "</sup> ";
+          } else if (ln === "line-break") {
+            out += "<br>";
+          } else if (ln === "tab") {
+            out += "\t";
+          } else if (ln === "s") {
+            var cnt = parseInt(attr(c, "text", "c") || "1", 10);
+            out += new Array(cnt + 1).join(" ");
+          } else {
+            out += renderInline(c, inheritedT);
+          }
+        } else if (ns === NS.draw) {
+          // images skipped (binary lives in Pictures/)
+        } else {
+          out += renderInline(c, inheritedT);
+        }
+      }
+      return out;
+    }
+
+    function renderPara(el, ctx) {
+      var styleName = attr(el, "text", "style-name");
+      var st = resolveStyle(styleName, "paragraph");
+      var defaultSt = styles["__default__paragraph"];
+      var pProps = Object.assign({}, defaultSt ? defaultSt.p : {}, st ? st.p : {});
+      var tProps = Object.assign({}, defaultSt ? defaultSt.t : {}, st ? st.t : {});
+      var css = pPropsToCss(pProps);
+      var inner = renderInline(el, tProps);
+      var breakHtml = pProps.breakBefore === "page" ? '<div class="emdocs-page-break emdocs-page-break--pdf" contenteditable="false"></div>' : "";
+      return breakHtml + "<p" + (css ? ' style="' + css + '"' : "") + ">" + (inner.trim() ? inner : "<br>") + "</p>";
+    }
+
+    function renderHeading(el, ctx) {
+      var level = parseInt(attr(el, "text", "outline-level") || "1", 10);
+      if (level < 1) level = 1; if (level > 3) level = 3;
+      var styleName = attr(el, "text", "style-name");
+      var st = resolveStyle(styleName, "paragraph");
+      var defaultSt = styles["__default__paragraph"];
+      var pProps = Object.assign({}, defaultSt ? defaultSt.p : {}, st ? st.p : {});
+      var tProps = Object.assign({}, defaultSt ? defaultSt.t : {}, st ? st.t : {});
+      var css = pPropsToCss(pProps);
+      var inner = renderInline(el, tProps);
+      return "<h" + level + (css ? ' style="' + css + '"' : "") + ">" + (inner.trim() ? inner : "<br>") + "</h" + level + ">";
+    }
+
+    function findListStyle(name) {
+      var docs = [cdoc, sdoc].filter(Boolean);
+      for (var d = 0; d < docs.length; d++) {
+        var autos = gns(docs[d], "office", "automatic-styles")[0];
+        if (autos) {
+          var ls = gns(autos, "text", "list-style");
+          for (var i = 0; i < ls.length; i++) if (attr(ls[i], "style", "name") === name) return ls[i];
+        }
+        var named = gns(docs[d], "office", "styles")[0];
+        if (named) {
+          var ls2 = gns(named, "text", "list-style");
+          for (var i2 = 0; i2 < ls2.length; i2++) if (attr(ls2[i2], "style", "name") === name) return ls2[i2];
+        }
+      }
+      return null;
+    }
+
+    function renderList(el, ctx) {
+      var styleName = attr(el, "text", "style-name");
+      var ls = styleName ? findListStyle(styleName) : null;
+      var ordered = false;
+      if (ls) {
+        if (gns(ls, "text", "list-level-style-number").length > 0) ordered = true;
+      }
+      var tag = ordered ? "ol" : "ul";
+      var out = "<" + tag + ">";
+      var items = gns(el, "text", "list-item");
+      for (var i = 0; i < items.length; i++) {
+        var li = items[i];
+        var itemHtml = "";
+        for (var c = li.firstChild; c; c = c.nextSibling) {
+          if (c.nodeType !== 1) continue;
+          var ln = c.localName, ns = c.namespaceURI;
+          if (ns === NS.text) {
+            if (ln === "p") itemHtml += renderPara(c, ctx);
+            else if (ln === "h") itemHtml += renderHeading(c, ctx);
+            else if (ln === "list") itemHtml += renderList(c, ctx);
+            else itemHtml += renderInline(c, {});
+          } else if (ns === NS.table && ln === "table") {
+            itemHtml += renderTable(c, ctx);
+          }
+        }
+        if (!itemHtml.trim()) itemHtml = "<p><br></p>";
+        out += "<li>" + itemHtml + "</li>";
+      }
+      out += "</" + tag + ">";
+      return out;
+    }
+
+    function renderTable(el, ctx) {
+      var rows = gns(el, "table", "table-row");
+      var html = '<table style="border-collapse:collapse;">';
+      for (var r = 0; r < rows.length; r++) {
+        var row = rows[r];
+        var cells = [];
+        for (var c = row.firstChild; c; c = c.nextSibling) {
+          if (c.nodeType === 1 && c.localName === "table-cell" && c.namespaceURI === NS.table) cells.push(c);
+        }
+        html += "<tr>";
+        for (var ci = 0; ci < cells.length; ci++) {
+          var cell = cells[ci];
+          var colspan = attr(cell, "table", "number-columns-spanned");
+          var rowspan = attr(cell, "table", "number-rows-spanned");
+          var styleName = attr(cell, "table", "style-name");
+          var st = resolveStyle(styleName, "table-cell");
+          var cellProps = st ? st.cell : {};
+          var css = "";
+          if (cellProps.bg) css += "background-color:" + cellProps.bg + ";";
+          if (cellProps.valign) css += "vertical-align:" + (cellProps.valign === "middle" ? "middle" : cellProps.valign) + ";";
+          for (var side in { top: 1, left: 1, bottom: 1, right: 1 }) {
+            var b = cellProps["border-" + side];
+            if (b) css += "border-" + side + ":" + b + ";";
+          }
+          if (cellProps.padding) css += "padding:" + cellProps.padding + ";";
+          html += "<td" +
+            (colspan && colspan !== "1" ? ' colspan="' + colspan + '"' : "") +
+            (rowspan && rowspan !== "1" ? ' rowspan="' + rowspan + '"' : "") +
+            (css ? ' style="' + css + '"' : "") + ">";
+          var cellHtml = "";
+          for (var cc = cell.firstChild; cc; cc = cc.nextSibling) {
+            if (cc.nodeType !== 1) continue;
+            var ln = cc.localName, ns = cc.namespaceURI;
+            if (ns === NS.text) {
+              if (ln === "p") cellHtml += renderPara(cc, ctx);
+              else if (ln === "h") cellHtml += renderHeading(cc, ctx);
+              else if (ln === "list") cellHtml += renderList(cc, ctx);
+              else if (ln === "table") cellHtml += renderTable(cc, ctx);
+            }
+          }
+          if (!cellHtml.trim()) cellHtml = "<p><br></p>";
+          html += cellHtml + "</td>";
+        }
+        html += "</tr>";
+      }
+      html += "</table>";
+      return html;
+    }
+
+    var bodyEl = gns(cdoc, "office", "body")[0];
+    var textEl = bodyEl ? gns(bodyEl, "office", "text")[0] : null;
+    var out = [];
+    if (textEl) {
+      for (var c = textEl.firstChild; c; c = c.nextSibling) {
+        if (c.nodeType !== 1) continue;
+        var ln = c.localName, ns = c.namespaceURI;
+        if (ln === "h" && ns === NS.text) out.push(renderHeading(c, ctx));
+        else if (ln === "p" && ns === NS.text) out.push(renderPara(c, ctx));
+        else if (ln === "list" && ns === NS.text) out.push(renderList(c, ctx));
+        else if (ln === "table" && ns === NS.table) out.push(renderTable(c, ctx));
+        else if (ln === "section" && ns === NS.text) {
+          for (var sc = c.firstChild; sc; sc = sc.nextSibling) {
+            if (sc.nodeType !== 1) continue;
+            if (sc.localName === "h" && sc.namespaceURI === NS.text) out.push(renderHeading(sc, ctx));
+            else if (sc.localName === "p" && sc.namespaceURI === NS.text) out.push(renderPara(sc, ctx));
+            else if (sc.localName === "list" && sc.namespaceURI === NS.text) out.push(renderList(sc, ctx));
+            else if (sc.localName === "table" && sc.namespaceURI === NS.table) out.push(renderTable(sc, ctx));
+          }
+        }
+      }
+    }
+    var html = out.join("");
+    if (!html.trim()) html = "<p><br></p>";
+
+    var footnotes = ctx.notes.fn.map(function (n) {
+      return { num: n.num, text: n.text, refId: "fn_ref_" + n.num + "_" + Date.now().toString(36), ts: Date.now() };
+    });
+    var endnotes = ctx.notes.en.map(function (n) {
+      return { num: n.num, text: n.text, refId: "en_ref_" + n.num + "_" + Date.now().toString(36), ts: Date.now() };
+    });
+
+    if (footnotes.length || endnotes.length) {
+      return { html: html, footnotes: footnotes, endnotes: endnotes };
+    }
+    return html;
   }
 
   // Best-effort RTF → plain text (strip control words/symbols, keep readable
@@ -2870,6 +3273,131 @@ function startAutosaveSnapshots() {
       out += ch; i++;
     }
     return out.replace(/[ \t]+/g, " ").replace(/\s*\n\s*/g, "\n").trim();
+  }
+  function convertRtfToHtml(rtf) {
+    var colors = ["#000000"];
+    var ct = rtf.match(/\{\\colortbl[^}]*\}/);
+    if (ct) {
+      var parts = ct[0].replace(/^\{\\colortbl/, "").replace(/\}$/, "").split(";");
+      for (var i = 0; i < parts.length; i++) {
+        var m = parts[i].match(/\\red(\d+)\\green(\d+)\\blue(\d+)/);
+        if (m) {
+          var r = parseInt(m[1], 10), g = parseInt(m[2], 10), b = parseInt(m[3], 10);
+          colors.push("#" + (r < 16 ? "0" : "") + r.toString(16) + (g < 16 ? "0" : "") + g.toString(16) + (b < 16 ? "0" : "") + b.toString(16));
+        } else if (parts[i].trim() === "") {
+          colors.push(null);
+        }
+      }
+    }
+
+    var out = [];
+    var para = "";
+    var bold = false, italic = false, underline = false, strike = false;
+    var superSub = null;
+    var sizePt = null;
+    var colorIdx = 0;
+    var i = 0, n = rtf.length;
+    function flushPara() {
+      var p = para.trim();
+      if (p) out.push("<p>" + p + "</p>");
+      else out.push("<p><br></p>");
+      para = "";
+    }
+    function spanOpen() {
+      var css = "";
+      if (bold) css += "font-weight:700;";
+      if (italic) css += "font-style:italic;";
+      if (underline) css += "text-decoration:underline;";
+      if (strike) css += "text-decoration:line-through;";
+      if (sizePt) css += "font-size:" + sizePt + "pt;";
+      var col = colors[colorIdx];
+      if (col) css += "color:" + col + ";";
+      if (superSub === "super") css += "vertical-align:super;font-size:smaller;";
+      if (superSub === "sub") css += "vertical-align:sub;font-size:smaller;";
+      return css ? '<span style="' + css + '">' : "";
+    }
+    var textBuf = "";
+    function flushText() {
+      if (!textBuf) return;
+      var s = spanOpen();
+      var t = escapeHtml(textBuf);
+      if (s) para += s + t + "</span>";
+      else para += t;
+      textBuf = "";
+    }
+    while (i < n) {
+      var ch = rtf[i];
+      if (ch === "{" || ch === "}") { i++; continue; }
+      if (ch === "\\") {
+        if (i + 1 < n && rtf[i + 1] === "'") {
+          var hex = rtf.substr(i + 2, 2);
+          try { textBuf += String.fromCharCode(parseInt(hex, 16)); } catch (e) {}
+          i += 4; continue;
+        }
+        var um = /^\\u(-?\d+)/.exec(rtf.substr(i));
+        if (um) {
+          var cp = parseInt(um[1], 10);
+          if (cp < 0) cp += 65536;
+          try { textBuf += String.fromCharCode(cp); } catch (e) {}
+          i += um[0].length;
+          if (i < n && rtf[i] !== "\\" && rtf[i] !== "{" && rtf[i] !== "}") i++;
+          continue;
+        }
+        var cw = /^\\([a-zA-Z]+)(-?\d+)?/.exec(rtf.substr(i));
+        if (cw) {
+          var word = cw[1];
+          var param = cw[2] != null ? parseInt(cw[2], 10) : null;
+          i += cw[0].length;
+          if (i < n && rtf[i] === " ") i++;
+          switch (word) {
+            case "par": case "pard": flushText(); flushPara(); bold = false; italic = false; underline = false; strike = false; superSub = null; sizePt = null; colorIdx = 0; break;
+            case "line": flushText(); para += "<br>"; break;
+            case "tab": flushText(); para += "\t"; break;
+            case "page": flushText(); para += '<div class="emdocs-page-break emdocs-page-break--pdf" contenteditable="false"></div>'; break;
+            case "b": bold = (param !== 0); break;
+            case "i": italic = (param !== 0); break;
+            case "ul": case "ulnone": underline = (word === "ul" && param !== 0); break;
+            case "strike": strike = (param !== 0); break;
+            case "super": superSub = "super"; break;
+            case "sub": superSub = "sub"; break;
+            case "nosupersub": superSub = null; break;
+            case "fs": if (param != null) sizePt = (param / 2); break;
+            case "cf": if (param != null && param >= 0 && param < colors.length) colorIdx = param; break;
+            case "s":
+              if (param != null && param >= 1 && param <= 3) {
+                flushText();
+                para += "\u0001H" + param + "\u0001";
+              }
+              break;
+            default: break;
+          }
+          continue;
+        }
+        if (i + 1 < n) { i++; continue; }
+        i++; continue;
+      }
+      if (ch === "\n" || ch === "\r") { i++; continue; }
+      textBuf += ch;
+      i++;
+    }
+    flushText();
+    var finalOut = [];
+    for (var o = 0; o < out.length; o++) {
+      var p = out[o];
+      var m = p.match(/\u0001H(\d)\u0001/);
+      if (m) {
+        var lvl = parseInt(m[1], 10);
+        if (lvl > 3) lvl = 3;
+        p = p.replace(/\u0001H\d\u0001/, "");
+        var inner = p.replace(/^<p>/, "").replace(/<\/p>$/, "");
+        finalOut.push("<h" + lvl + ">" + inner + "</h" + lvl + ">");
+      } else {
+        finalOut.push(p);
+      }
+    }
+    var html = finalOut.join("");
+    if (!html.trim()) html = "<p><br></p>";
+    return html;
   }
 
   // Best-effort legacy .doc text extraction: the Word binary stores readable
@@ -3587,8 +4115,12 @@ function startAutosaveSnapshots() {
       var n = 0;
       for (var i = 0; i < el.kids.length; i++) {
         var k = el.kids[i];
-        if (k.tag === "lastRenderedPageBreak") n++;
-        else if (k.tag === "br" && k.attrs.type === "page") n++;
+        // Only honour EXPLICIT page breaks (w:br w:type="page").
+        // lastRenderedPageBreak is a layout hint Word writes at every page
+        // boundary of its own pagination; treating it as a hard break turns a
+        // short document into 100+ pages because the app re-paginates on top
+        // of Word's recorded boundaries.
+        if (k.tag === "br" && k.attrs.type === "page") n++;
         else n += countBreaks(k);
       }
       return n;
@@ -4084,8 +4616,8 @@ function startAutosaveSnapshots() {
      weight, style and colour, sitting on the baseline the PDF gave it. Click
      any word and it is editable; type and the text flows on from there. */
   var PDF_WORKER_SRC = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-  var PDF_MAX_RENDER_PX = 2000;  // ~170 DPI cap when cutting artwork out
-  var PDF_EXACT_MARGIN = 8;      // hairline, so the page image fills the sheet
+  var PDF_MAX_RENDER_PX = 2400;  // ~200 DPI cap when cutting artwork out
+  var PDF_EXACT_MARGIN = 0;      // no inset: 1:1 with the PDF sheet
   // Colour-emoji fonts, best first. Every platform has one of these.
   var PDF_EMOJI_FONT = "'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji'," +
     "'Twemoji Mozilla','Segoe UI Symbol','Arial Unicode MS',sans-serif";
@@ -4353,9 +4885,10 @@ function startAutosaveSnapshots() {
       // text on top of it is what the reader edits.
       if (keepEmoji && pdfIsEmojiRun(run)) continue;
       var x0 = pdfClamp(Math.floor(run.x * pxPerUnit) - 1, 0, W);
-      var y0 = pdfClamp(Math.floor(run.top * pxPerUnit) - 1, 0, H);
+      var y0 = pdfClamp(Math.floor(run.top * pxPerUnit), 0, H);
       var x1 = pdfClamp(Math.ceil((run.x + run.width) * pxPerUnit) + 1, 0, W);
-      var y1 = pdfClamp(Math.ceil(run.bottom * pxPerUnit) + 1, 0, H);
+      var y1 = pdfClamp(Math.ceil(run.bottom * pxPerUnit) - 2, 0, H);
+      if (y1 <= y0) y1 = Math.min(H, y0 + 1);
       if (x1 - x0 < 2 || y1 - y0 < 2) continue;
       var bg = pdfRingColor(d, W, H, x0, y0, x1, y1);
       if (!bg) continue;
@@ -4371,9 +4904,18 @@ function startAutosaveSnapshots() {
           // the background and the text colour — which also catches the
           // anti-aliased edges a "closest colour" test leaves as a ghost.
           var t = (vr * dr + vg * dg + vb * db) / dLen2;
-          if (t <= 0.04 || t >= 1.3) continue;
+          if (t <= 0.02 || t >= 1.2) continue;
           var pr = vr - t * dr, pg = vg - t * dg, pb = vb - t * db;
-          if (pr * pr + pg * pg + pb * pb > dLen2 * 0.16) continue;
+          if (pr * pr + pg * pg + pb * pb > dLen2 * 0.20) continue;
+          // Preserve horizontal rules / cell borders: if the pixel is part
+          // of a horizontal run of identical colour (a line), leave it alone.
+          if (x > 3 && x < W - 4) {
+            var il = (y * W + (x - 4)) * 4;
+            var ir = (y * W + (x + 4)) * 4;
+            var dl = Math.abs(d[il] - d[i]) + Math.abs(d[il + 1] - d[i + 1]) + Math.abs(d[il + 2] - d[i + 2]);
+            var dr2 = Math.abs(d[ir] - d[i]) + Math.abs(d[ir + 1] - d[i + 1]) + Math.abs(d[ir + 2] - d[i + 2]);
+            if (dl < 30 && dr2 < 30) continue;
+          }
           d[i] = bg[0]; d[i + 1] = bg[1]; d[i + 2] = bg[2];
         }
       }
@@ -4490,14 +5032,14 @@ function startAutosaveSnapshots() {
       var runs = await pdfPageRuns(page, viewport);
       var canvas = await pdfRenderPage(page, scale);
       pdfEraseText(canvas, runs, scale, true);
-      var url = canvas.toDataURL("image/jpeg", 0.9);
+      var url = canvas.toDataURL("image/jpeg", 0.92);
       canvas.width = 0;
       canvas.height = 0;
 
       // Give this Docs page the sheet this PDF page really is, then fit the
       // artwork into it without distorting it.
-      var boxW = sheetW - PDF_EXACT_MARGIN * 2 - 1;
-      var boxH = sheetH - PDF_EXACT_MARGIN * 2 - 1;
+      var boxW = sheetW - PDF_EXACT_MARGIN * 2;
+      var boxH = sheetH - PDF_EXACT_MARGIN * 2;
       var fit = Math.min(boxW / sheetW, boxH / sheetH);
       out.push(pdfExactPageHtml(url, runs, fit, boxW, boxH, sheetW, sheetH));
       // The break only mirrors the PDF's own pagination: hidden, no label.
@@ -4528,6 +5070,8 @@ function startAutosaveSnapshots() {
   }
 
   async function importDocumentFromFile(file) {
+    aggressiveEmptyPageCleanup = true;
+    setTimeout(function () { aggressiveEmptyPageCleanup = false; }, 3000);
     var ext = (file.name.toLowerCase().split(".").pop() || "");
     var baseName = file.name.replace(/\.[^.]+$/, "").trim() || "Imported Document";
     var contentPromise;
@@ -4543,7 +5087,8 @@ function startAutosaveSnapshots() {
     } else if (ext === "odt") {
       contentPromise = file.arrayBuffer().then(convertOdtToHtml).then(function (h) { return h || "<p><br></p>"; });
     } else if (ext === "rtf") {
-      contentPromise = file.text().then(function (t) { return convertRtfToText(t); }).then(nullContentToSpacer);
+      toastSticky("Importing RTF…");
+      contentPromise = file.text().then(convertRtfToHtml);
     } else if (ext === "doc") {
       contentPromise = convertDocToHtml(file);
     } else if (ext === "pdf" || file.type === "application/pdf") {
@@ -4584,6 +5129,16 @@ function startAutosaveSnapshots() {
       footer = content.footer || "";
       sections = content.sections || null;
       content = content.html;
+    }
+    // Imported documents are re-paginated by the editor, so the hard page
+    // breaks recorded by the source (Word's lastRenderedPageBreak, explicit
+    // br type=page, pageBreakBefore) must not be carried over verbatim: they
+    // are the #1 cause of "100 blank pages" on import. Strip them here for
+    // every format except PDF (which relies on its own per-page breaks).
+    if (ext !== "pdf") {
+      if (typeof content === "string") {
+        content = content.replace(/<div\b[^>]*emdocs-page-break[^>]*>(?:[\s\S]*?)<\/div>/gi, "");
+      }
     }
     var plain = htmlToText(content);
     documents.unshift({

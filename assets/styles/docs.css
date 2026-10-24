@@ -3640,6 +3640,12 @@ sup.footnote-ref, sup.endnote-ref {
 }
 sup.footnote-ref:hover, sup.endnote-ref:hover { text-decoration: underline; }
 
+/* Imported .docx visual elements (docs.js converter output) */
+.docx-tab { white-space: nowrap; }
+.docx-textbox { clear: both; box-sizing: border-box; overflow: hidden; }
+.docx-textbox p { margin: 2px 0; }
+.docx-textbox img { max-width: 100%; }
+
 /* Footnotes block rendered at the very end of the document */
 .footnotes-section {
   margin-top: 24px;
