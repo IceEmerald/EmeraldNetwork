@@ -1073,6 +1073,77 @@ body {
   background: var(--accent-soft);
 }
 
+/* Floating table toolbar (Notes-parity) — Row/Column operations when the
+   caret is inside a table. Fixed chrome, never serialized with the page. */
+#tableToolbar {
+  display: none;
+  position: fixed;
+  z-index: 8000;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid var(--ui-accent-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  padding: 6px;
+}
+.tbl-groups {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tbl-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--ui-accent-soft);
+  border-radius: 8px;
+}
+.tbl-group-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9ca3af;
+  padding: 0 5px;
+  user-select: none;
+}
+.tbl-divider {
+  width: 1px;
+  align-self: stretch;
+  background: #e5e7eb;
+  margin: 4px 0;
+}
+.tbl-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: #4b5563;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.1s;
+}
+.tbl-btn svg { display: block; }
+.tbl-btn:hover {
+  background: var(--ui-accent-soft);
+  color: var(--ui-accent);
+}
+.tbl-btn:active {
+  transform: scale(0.94);
+}
+.tbl-btn-danger {
+  color: #dc2626;
+}
+.tbl-btn-danger:hover {
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+}
+
 /* Horizontal rule */
 .page-content hr {
   border: none;
@@ -5072,6 +5143,261 @@ a.emdocs-bookmark.flash {
   max-height: 200px;
   overflow-y: auto;
   white-space: pre-wrap;
+}
+
+/* ===================== Table Design (contextual ribbon tab) ===================== */
+/* Table Style Options render as Slides "Timing › Start"-style pill toggles:
+   recessed container, white pill + accent ring when pressed (aria-pressed). */
+.td-pill-toggle {
+  display: inline-grid;
+  grid-template-columns: repeat(3, minmax(max-content, auto));
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 7px;
+  padding: 2px;
+  gap: 2px;
+  box-shadow: rgba(0, 0, 0, 0.04) 0px 1px 2px inset;
+}
+.td-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  border: none;
+  background: transparent;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(44, 62, 80, 0.7);
+  transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+  font-family: var(--font-ui, inherit);
+  white-space: nowrap;
+}
+.td-pill svg {
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+.td-pill:hover {
+  color: rgba(44, 62, 80, 0.95);
+  background: rgba(255, 255, 255, 0.6);
+}
+.td-pill[aria-pressed="true"] {
+  background: #ffffff;
+  color: var(--ui-accent, #10b981);
+  box-shadow: rgba(0, 0, 0, 0.08) 0px 1px 2px, rgba(16, 185, 129, 0.15) 0px 0px 0px 1px;
+}
+.td-pill[aria-pressed="true"] svg {
+  opacity: 1;
+}
+
+.td-gallery-wrap {
+  position: relative;
+}
+
+/* Inline strip — Slides Design "Themes" pattern: a scrollable row of
+   92×52 preview cards followed by a "More" card with a corner chevron. */
+.td-gallery-strip {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 2px 0;
+  max-width: 660px;
+}
+.td-gallery-strip::-webkit-scrollbar {
+  display: none;
+}
+
+/* One style preview card — a real mini <table> painted by EMTableStyles. */
+.td-style-thumb {
+  width: 92px;
+  height: 52px;
+  flex: 0 0 92px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #fff;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s;
+  font-family: var(--font-ui, inherit);
+}
+.td-style-thumb:hover {
+  border-color: var(--ui-accent-border, rgba(16, 185, 129, 0.4));
+  box-shadow: rgba(0, 0, 0, 0.08) 0px 2px 6px;
+}
+.td-style-thumb.current {
+  border-color: var(--ui-accent, #10b981);
+  box-shadow: 0 0 0 2px var(--ui-accent-soft, rgba(16, 185, 129, 0.15));
+}
+.td-style-thumb .td-mini {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 78px;
+  pointer-events: none;
+}
+.td-style-thumb .td-mini td {
+  padding: 0;
+  height: 9px;
+  line-height: 1;
+  font-size: 0;
+}
+
+/* "More" card — Slides .more-thumb: icon over label, ▼ in the corner that
+   flips + takes the accent while the gallery is open. */
+.td-more {
+  width: 60px;
+  height: 52px;
+  flex: 0 0 60px;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: rgba(0, 0, 0, 0.05) 0px 1px 3px;
+  color: rgba(44, 62, 80, 0.8);
+  cursor: pointer;
+  overflow: hidden;
+  position: relative;
+  transition: 0.2s;
+  font-family: var(--font-ui, inherit);
+  font-weight: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+/* Same chevron as every ribbon dropdown button (.ms-dropdown-btn::after):
+   10px "▼" from the symbol-font stack, vertically centred on the right
+   edge, flipping 180° while the gallery is open. */
+.td-more::after {
+  content: "▼";
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  font-size: 10px;
+  color: rgba(44, 62, 80, 0.6);
+  line-height: 1;
+  pointer-events: none;
+  transition: transform 0.2s;
+  font-family: "Segoe UI Symbol", "Arial Unicode MS", "DejaVu Sans", sans-serif;
+}
+.td-more[aria-expanded="true"]::after {
+  transform: translateY(-50%) rotate(180deg);
+  color: var(--ui-accent, #10b981);
+}
+.td-more:hover {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: var(--ui-accent-border, rgba(16, 185, 129, 0.4));
+  color: rgb(44, 62, 80);
+  box-shadow: rgba(0, 0, 0, 0.08) 0px 2px 6px;
+}
+.td-more[aria-expanded="true"] {
+  background: var(--ui-accent-soft, rgba(16, 185, 129, 0.12));
+  border-color: var(--ui-accent, #10b981);
+  color: var(--ui-accent, #10b981);
+  box-shadow: inset 0 0 0 1px var(--ui-accent-border, rgba(16, 185, 129, 0.3)),
+    rgba(16, 185, 129, 0.2) 0px 2px 8px;
+}
+.td-more-preview {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+}
+.td-more-preview svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+}
+.td-more-label {
+  font-size: 10px;
+  text-align: center;
+  color: inherit;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+/* Gallery popup — Slides .theme-gallery-menu: uppercase header + 3-col grid
+   of 16:9 preview cards with a name under each. */
+.td-style-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 900;
+  background: rgba(255, 255, 255, 0.99);
+  border: 1px solid var(--ui-accent-border, rgba(0, 0, 0, 0.12));
+  border-radius: 12px;
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.18);
+  padding: 14px 14px 16px;
+  width: 560px;
+  max-width: min(90vw, 620px);
+  max-height: 460px;
+  overflow-y: auto;
+}
+.td-gallery-header {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgb(133, 138, 147);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0 2px 10px;
+  border-bottom: 1px solid rgb(240, 240, 240);
+  margin-bottom: 12px;
+  font-family: var(--font-ui, inherit);
+}
+.td-style-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px 12px;
+  justify-items: stretch;
+}
+.td-style-cell {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-family: var(--font-ui, inherit);
+  transition: transform 0.18s;
+}
+.td-style-cell .td-style-thumb {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  flex: none;
+  padding: 10px;
+}
+.td-style-cell .td-style-thumb .td-mini {
+  width: 82%;
+}
+.td-style-cell .td-style-thumb .td-mini td {
+  height: 12px;
+}
+.td-style-cell .td-style-name {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: rgb(75, 85, 99);
+  margin-top: 1px;
+  text-align: center;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ===================== MS Dropdowns (ported from slides.css — 1:1) ===================== */

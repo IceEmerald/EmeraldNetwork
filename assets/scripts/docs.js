@@ -86,7 +86,36 @@
     return Array.prototype.slice.call(wrapper.querySelectorAll(".page"));
   }
   function getContent(page) { return page.querySelector(".page-content"); }
-  function isOverflow(content) { return content.scrollHeight > content.clientHeight + 1; }
+
+  /* Tables moved with TableKit become absolutely positioned "floating"
+     tables. They live outside the text flow, so pagination must not count
+     them as flow height nor shuffle them between pages. */
+  function isFloatingTable(el) {
+    return !!(el && el.nodeType === 1 && el.tagName === "TABLE" &&
+      el.style && el.style.position === "absolute");
+  }
+
+  function isOverflow(content) {
+    if (!content.querySelector || !content.querySelector("table")) {
+      return content.scrollHeight > content.clientHeight + 1;
+    }
+    var tables = content.querySelectorAll("table");
+    var hasFloating = false;
+    for (var ti = 0; ti < tables.length; ti++) {
+      if (isFloatingTable(tables[ti])) { hasFloating = true; break; }
+    }
+    if (!hasFloating) return content.scrollHeight > content.clientHeight + 1;
+
+    /* Measure only the in-flow blocks: a floating table can sit over the
+       margins without ever forcing the page to overflow. */
+    var maxBottom = 0;
+    for (var i = 0; i < content.children.length; i++) {
+      var k = content.children[i];
+      if (isFloatingTable(k)) continue;
+      maxBottom = Math.max(maxBottom, k.offsetTop + k.offsetHeight);
+    }
+    return maxBottom > content.clientHeight + 1;
+  }
 
   /* ---------------- Page management ---------------- */
   function createPage() {
@@ -241,6 +270,7 @@
       var nextPage = page ? page.nextElementSibling : null;
       if (nextPage && nextPage.classList.contains("page")) {
         var overflow = getContent(nextPage).firstElementChild;
+        while (overflow && isFloatingTable(overflow)) overflow = overflow.nextElementSibling;
         if (overflow) {
           targetBlock = overflow;
           targetOffset = offset - blockText.length;
@@ -389,7 +419,7 @@
       var sibling = brk.nextElementSibling;
       while (sibling) {
         var next = sibling.nextElementSibling;
-        toMove.push(sibling);
+        if (!isFloatingTable(sibling)) toMove.push(sibling);
         sibling = next;
       }
 
@@ -406,7 +436,7 @@
             var extras = [];
             while (next2) {
               var n2 = next2.nextElementSibling;
-              extras.push(next2);
+              if (!isFloatingTable(next2)) extras.push(next2);
               next2 = n2;
             }
             ensureNextPageAndPrepend(pages, i, extras, extra);
@@ -500,6 +530,8 @@
   function pushOverflowDown(page) {
     var content = getContent(page);
     var last = content.lastElementChild;
+    /* floating tables are out of flow: never push them to the next page */
+    while (last && isFloatingTable(last)) last = last.previousElementSibling;
     if (!last) return false;
 
     var next = page.nextElementSibling;
@@ -514,7 +546,7 @@
 
   function splitOverflowingBlock(content, page) {
     var block = content.firstElementChild;
-    if (!block) return false;
+    if (!block || isFloatingTable(block)) return false;
     if (content.children.length !== 1) return false;
 
     var children = Array.prototype.slice.call(block.childNodes);
@@ -584,6 +616,8 @@
     var currentContent = getContent(currentPage);
     var nextContent = getContent(nextPage);
     var first = nextContent.firstElementChild;
+    /* floating tables stay put on their page */
+    while (first && isFloatingTable(first)) first = first.nextElementSibling;
     if (!first) return false;
 
     // Never pull a page-break marker up — it must stay as a boundary.
@@ -596,9 +630,14 @@
       return false;
     }
 
+    var anchor = first.nextElementSibling;
     currentContent.appendChild(first);
     if (isOverflow(currentContent)) {
-      nextContent.insertBefore(first, nextContent.firstChild);
+      if (anchor && anchor.parentNode === nextContent) {
+        nextContent.insertBefore(first, anchor);
+      } else {
+        nextContent.appendChild(first);
+      }
       return false;
     }
     return true;
@@ -3555,7 +3594,7 @@ function startAutosaveSnapshots() {
 
   /* ---- styles.xml: defaults + named styles, with basedOn inheritance ---- */
   function docxReadStyles(root) {
-    var out = { para: {}, run: {}, link: {}, defPara: {}, defRun: {}, theme: {} };
+    var out = { para: {}, run: {}, link: {}, defPara: {}, defRun: {}, table: {}, theme: {} };
     root = xmlTop(root);
     if (!root) return out;
 
@@ -3566,6 +3605,56 @@ function startAutosaveSnapshots() {
       if (based) props.basedOn = based.attrs.val;
       if (pPr) Object.assign(props, docxParaProps(pPr));
       if (rPr) Object.assign(props, docxRunProps(rPr));
+      return props;
+    }
+
+    /* Word table styles carry their look in tblPr (base borders) plus
+       tblStylePr "conditional" blocks — firstRow / lastRow / firstCol /
+       lastCol / band1Horz / band2Horz / … Once resolved they drive both the
+       direct styling of imported cells and the Table Design preset the
+       imported table is tagged with. */
+    function collectTableStyle(node) {
+      var props = { id: node.attrs.styleId || null, conds: {} };
+      var based = firstChild(node, "basedOn");
+      if (based) props.basedOn = based.attrs.val;
+      var stPr = firstChild(node, "tblPr");
+      if (stPr) {
+        var sb = firstChild(stPr, "tblBorders");
+        props.borders = sb ? {
+          top: borderDescriptor(firstChild(sb, "top")),
+          left: borderDescriptor(firstChild(sb, "left")),
+          bottom: borderDescriptor(firstChild(sb, "bottom")),
+          right: borderDescriptor(firstChild(sb, "right")),
+          insideH: borderDescriptor(firstChild(sb, "insideH")),
+          insideV: borderDescriptor(firstChild(sb, "insideV"))
+        } : null;
+      }
+      var wSibs = allChildren(node, "tblStylePr");
+      for (var s = 0; s < wSibs.length; s++) {
+        var wNode = wSibs[s];
+        var cond = {};
+        var ctcPr = firstChild(wNode, "tcPr");
+        if (ctcPr) {
+          var cb = firstChild(ctcPr, "tcBorders");
+          if (cb) cond.borders = {
+            top: borderDescriptor(firstChild(cb, "top")),
+            left: borderDescriptor(firstChild(cb, "left")),
+            bottom: borderDescriptor(firstChild(cb, "bottom")),
+            right: borderDescriptor(firstChild(cb, "right"))
+          };
+          var cshd = firstChild(ctcPr, "shd");
+          if (cshd) {
+            var v = cshd.attrs.val;
+            if (v !== "nil" && cshd.attrs.fill && cshd.attrs.fill !== "auto") {
+              cond.fill = ooxmlColor(cshd.attrs.fill) || null;
+            }
+          }
+        }
+        var crPr = firstChild(wNode, "rPr");
+        var cprops = crPr ? docxRunProps(crPr) : {};
+        if (cprops.bold) cond.bold = true;
+        if (cond.borders || cond.fill || cond.bold) props.conds[wNode.attrs.type || ""] = cond;
+      }
       return props;
     }
 
@@ -3592,6 +3681,7 @@ function startAutosaveSnapshots() {
       if (type === "paragraph") out.para[id] = props;
       else if (type === "character") out.run[id] = props;
       else if (type === "numbering") out.link[id] = props;
+      else if (type === "table") out.table[id] = collectTableStyle(st);
     }
     return out;
   }
@@ -4165,7 +4255,67 @@ function startAutosaveSnapshots() {
   }
 
   /* ---- tables: Word's own column widths, borders and shading ---- */
+  function borderDescriptor(b) {
+    // A w:tcBorders / w:tblBorders side element → CSS border shorthand.
+    if (!b || !b.attrs) return null;
+    var style = b.attrs.val;
+    if (!style || style === "nil" || style === "none") return null;
+    if (style === "hidden") style = "none";
+    else if (style !== "solid" && style !== "double" && style !== "dotted" && style !== "dashed") style = "solid";
+    var sz = b.attrs.sz ? Math.max(1, Math.round(parseFloat(b.attrs.sz) / 8)) : 1;
+    var color = b.attrs.color && b.attrs.color !== "auto" && b.attrs.color !== "nil"
+      ? (ooxmlColor(b.attrs.color) || "#000") : "#000";
+    return style + " " + sz + "px " + color;
+  }
+
+  /* Resolve a Word table style (w:tblStyle) through its basedOn chain into
+     the base table borders + conditional formats (firstRow, banded rows…)
+     the style paints with. Returns null when the doc has no such style. */
+  function docxTableStyleChain(id, tableStyles) {
+    if (!id || !tableStyles || !tableStyles[id]) return null;
+    var chain = [], cur = id, seen = {};
+    while (cur && tableStyles[cur] && !seen[cur]) {
+      seen[cur] = true;
+      chain.unshift(tableStyles[cur]);
+      cur = tableStyles[cur].basedOn;
+    }
+    var borders = null, conds = {};
+    for (var i = 0; i < chain.length; i++) {
+      var sb = chain[i].borders;
+      if (sb) {
+        if (!borders) borders = {};
+        for (var k in sb) {
+          if (Object.prototype.hasOwnProperty.call(sb, k) && sb[k]) borders[k] = sb[k];
+        }
+      }
+      var sc = chain[i].conds;
+      for (var k2 in sc) {
+        if (Object.prototype.hasOwnProperty.call(sc, k2)) conds[k2] = sc[k2];
+      }
+    }
+    return { id: id, borders: borders, conds: conds };
+  }
+  function docxChainBorder(chain, side) {
+    return chain && chain.borders ? chain.borders[side] : null;
+  }
+
   function docxTableHtml(tbl, ctx) {
+    var tblPr = firstChild(tbl, "tblPr");
+
+    /* Word table styles: w:tblStyle + its resolved conditional formats. */
+    var styleRef = tblPr ? firstChild(tblPr, "tblStyle") : null;
+    var stChain = docxTableStyleChain(
+      styleRef ? styleRef.attrs.val : null,
+      ctx.styles && ctx.styles.table
+    );
+    var stConds = stChain ? stChain.conds : null;
+    var stFirstRow = stConds && stConds.firstRow;
+    var stLastRow = stConds && stConds.lastRow;
+    var stFirstCol = stConds && stConds.firstCol;
+    var stLastCol = stConds && stConds.lastCol;
+    var stBand = stConds && stConds.band2Horz;
+    var stAccent = (stFirstRow && stFirstRow.fill) || null;
+
     var grid = firstChild(tbl, "tblGrid");
     var cols = [];
     if (grid) {
@@ -4175,93 +4325,237 @@ function startAutosaveSnapshots() {
         if (px) cols.push(Math.max(8, Math.round(px)));
       }
     }
-    var tblPr = firstChild(tbl, "tblPr");
     var css = "border-collapse:collapse;";
-    if (cols.length) css += "width:" + cols.reduce(function (a, b) { return a + b; }, 0) + "px;";
     var tblW = tblPr ? firstChild(tblPr, "tblW") : null;
     if (tblW && tblW.attrs.type === "pct" && tblW.attrs.w) {
-      css = "border-collapse:collapse;width:" + Math.round(parseFloat(tblW.attrs.w) / 50) + "%;";
-    }
-    if (tblPr) {
-      var jc = firstChild(tblPr, "jc");
-      if (jc && jc.attrs.val === "center") css += "margin-left:auto;margin-right:auto;";
-      var look = firstChild(tblPr, "tblBorders");
-      if (!look) {
-        // Word's default is no borders unless the table asks for them.
-        css += "border:none;";
-      }
+      css += "width:" + Math.round(parseFloat(tblW.attrs.w) / 50) + "%;";
+    } else if (cols.length) {
+      css += "width:" + cols.reduce(function (a, b) { return a + b; }, 0) + "px;";
     }
 
-    var html = '<table style="' + css + '">';
-    if (cols.length) {
-      html += "<colgroup>";
-      for (var c = 0; c < cols.length; c++) html += '<col style="width:' + cols[c] + 'px" />';
-      html += "</colgroup>";
+    /* Floating tables (w:tblpPr) keep their "anywhere on the paper" position:
+       Word's page/margin-anchored offsets become an absolute offset inside
+       the text column. The page margin itself is still covered, which is
+       exactly what the editor's floating tables do. */
+    var tblp = tblPr ? firstChild(tblPr, "tblpPr") : null;
+    if (tblp && (tblp.attrs.tblpX != null || tblp.attrs.tblpY != null)) {
+      var mx = (ctx.margins && ctx.margins.left) || 0;
+      var my = (ctx.margins && ctx.margins.top) || 0;
+      var lp = tblp.attrs.tblpX != null ? docxTw(tblp.attrs.tblpX) : null;
+      var tp = tblp.attrs.tblpY != null ? docxTw(tblp.attrs.tblpY) : null;
+      if (lp != null) {
+        if (tblp.attrs.horzAnchor === "page") lp -= mx;
+        lp = Math.max(-mx, lp);          // never outside the paper's left edge
+        css += "position:absolute;left:" + lp + "px;margin:0;z-index:5;";
+      }
+      if (tp != null) {
+        if (tblp.attrs.vertAnchor === "page") tp -= my;
+        tp = Math.max(-my, tp);          // may sit over the margin, at the very top
+        css += "top:" + tp + "px;";
+      }
+    } else if (tblPr) {
+      var jc = firstChild(tblPr, "jc");
+      if (jc && jc.attrs.val === "center") css += "margin-left:auto;margin-right:auto;";
     }
+
+    /* Table-level borders back up per-cell TC borders (Word stores borders on
+       both). A table with NO tblBorders draws nothing by itself — unless its
+       Word table style supplies them. */
+    var tblBorders = tblPr ? firstChild(tblPr, "tblBorders") : null;
+    var tB = {};
+    if (tblBorders) {
+      var bSides = ["top", "left", "bottom", "right", "insideH", "insideV"];
+      for (var bi = 0; bi < bSides.length; bi++) {
+        tB[bSides[bi]] = borderDescriptor(firstChild(tblBorders, bSides[bi]));
+      }
+    } else if (stChain && stChain.borders) {
+      tB = {
+        top: docxChainBorder(stChain, "top"), left: docxChainBorder(stChain, "left"),
+        bottom: docxChainBorder(stChain, "bottom"), right: docxChainBorder(stChain, "right"),
+        insideH: docxChainBorder(stChain, "insideH"), insideV: docxChainBorder(stChain, "insideV")
+      };
+    } else {
+      // Word's default is no borders unless the table asks for them.
+      css += "border:none;";
+    }
+
+    /* Index every row by visual column: [ {tc, tcPr, colStart, span} ].
+       Vertical merges are tracked per GRID COLUMN, not per cell index, so
+       colspan shifts above a merged cell can never desync it. */
     var rows = allChildren(tbl, "tr");
-    for (var r = 0; r < rows.length; r++) {
-      var cells = allChildren(rows[r], "tc");
+    var gridRows = [];
+    var contAt = {};                      // "row:colStart" → continuation cell
+    var rowCount = rows.length;
+    var totalCols = 0;
+    for (var r = 0; r < rowCount; r++) {
+      var tcs = allChildren(rows[r], "tc");
+      var rowImm = [], cursor = 0;
+      for (var ci = 0; ci < tcs.length; ci++) {
+        var tcPr0 = firstChild(tcs[ci], "tcPr");
+        var span0 = 1;
+        var spanEl = tcPr0 ? firstChild(tcPr0, "gridSpan") : null;
+        if (spanEl && spanEl.attrs.val) span0 = parseInt(spanEl.attrs.val, 10) || 1;
+        rowImm.push({ tc: tcs[ci], tcPr: tcPr0, colStart: cursor, span: span0 });
+        var vm0 = tcPr0 ? firstChild(tcPr0, "vMerge") : null;
+        if (vm0 && vm0.attrs.val !== "restart") contAt[r + ":" + cursor] = true;
+        cursor += span0;
+      }
+      if (cursor > totalCols) totalCols = cursor;
+      gridRows.push(rowImm);
+    }
+
+    // The <colgroup> carries the visual grid for flow tables; floating
+    // tables keep it too (absolute positioning is independent of it).
+    var html = "";
+    var colgroup = "";
+    if (cols.length) {
+      colgroup += "<colgroup>";
+      for (var c = 0; c < cols.length; c++) colgroup += '<col style="width:' + cols[c] + 'px" />';
+      colgroup += "</colgroup>";
+    }
+
+    // Leading rows marked tblHeader repeat on every Word page — they were
+    // exported from <thead>, so put them back there.
+    var headerCount = 0;
+    for (var h = 0; h < rowCount; h++) {
+      var htrPr = firstChild(rows[h], "trPr");
+      if (htrPr && firstChild(htrPr, "tblHeader")) headerCount++;
+      else break;
+    }
+
+    /* Tag a styled table with the closest Table Design preset so the design
+       stays editable in the ribbon, while the cells keep Word's own colors
+       painted below. */
+    var designAttr = "";
+    var TS = window.EMTableStyles;
+    if (TS && stConds && (stFirstRow || stBand || stLastRow || stFirstCol || stLastCol)) {
+      var wPreset = TS.presetForWord(styleRef ? styleRef.attrs.val : null, stAccent);
+      if (wPreset) {
+        designAttr = " data-table-style=\"" + wPreset.id + "\" data-table-opts='" +
+          JSON.stringify({
+            header: !!(stFirstRow || headerCount > 0),
+            total: !!stLastRow,
+            bandedRows: !!stBand,
+            bandedCols: !!(stConds.band2Vert || stConds.band1Vert),
+            firstCol: !!stFirstCol,
+            lastCol: !!stLastCol
+          }) + "'";
+      }
+    }
+    var html = '<table style="' + css + '"' + designAttr + ">" + colgroup;
+    for (var r2 = 0; r2 < rowCount; r2++) {
+      var cells2 = gridRows[r2];
+      if (!cells2.length) continue;
+      if (r2 === 0 && headerCount > 0) html += "<thead>";
+      if (r2 === headerCount) {
+        if (headerCount > 0) html += "</thead>";
+        html += "<tbody>";
+      }
       var rowHtml = "";
-      var carry = [];                       // vertical merges waiting for more rows
-      var trPr = firstChild(rows[r], "trPr");
-      var headerRow = trPr && firstChild(trPr, "tblHeader");
-      for (var ci = 0; ci < cells.length; ci++) {
-        var tc = cells[ci];
-        var tcPr = firstChild(tc, "tcPr");
+      for (var k2 = 0; k2 < cells2.length; k2++) {
+        var it = cells2[k2];
+        if (contAt[r2 + ":" + it.colStart]) continue;   // merged continuation: skip
+        var tcPr = it.tcPr;
         var cellCss = "";
-        var colspan = 1, rowspan = 1;
-        var vMerge = tcPr ? firstChild(tcPr, "vMerge") : null;
-        if (vMerge && vMerge.attrs.val === "restart") {
-          // Count how many following rows continue this cell.
-          rowspan = 1;
-          for (var f = r + 1; f < rows.length; f++) {
-            var nextCells = allChildren(rows[f], "tc");
-            var nf = nextCells[ci];
-            if (!nf) break;
-            var np = firstChild(nf, "tcPr");
-            var nm = np ? firstChild(np, "vMerge") : null;
-            if (nm && nm.attrs.val !== "restart") rowspan++;
+        var colspan = it.span, rowspan = 1;
+        var vm = tcPr ? firstChild(tcPr, "vMerge") : null;
+        if (vm && vm.attrs.val === "restart") {
+          // Count how many following rows continue this cell (same colStart).
+          for (var f = r2 + 1; f < rowCount; f++) {
+            var cont = false;
+            for (var fk = 0; fk < gridRows[f].length; fk++) {
+              if (gridRows[f][fk].colStart === it.colStart &&
+                  gridRows[f][fk].tcPr && firstChild(gridRows[f][fk].tcPr, "vMerge")) {
+                cont = true;
+                break;
+              }
+            }
+            if (cont) rowspan++;
             else break;
           }
         }
-        if (tcPr) {
-          var gs = firstChild(tcPr, "gridSpan");
-          if (gs && gs.attrs.val) colspan = parseInt(gs.attrs.val, 10) || 1;
-          var tcW = firstChild(tcPr, "tcW");
-          if (tcW && tcW.attrs.type === "dxa" && tcW.attrs.w) {
-            var w = docxTw(tcW.attrs.w);
-            if (w) cellCss += "width:" + Math.round(w) + "px;";
-          }
-          var shd = firstChild(tcPr, "shd");
-          if (shd && shd.attrs.fill && shd.attrs.val !== "nil") {
-            var fill = ooxmlColor(shd.attrs.fill);
-            if (fill) cellCss += "background-color:" + fill + ";";
-          }
-          var valign = firstChild(tcPr, "vAlign");
-          if (valign && valign.attrs.val) cellCss += "vertical-align:" + valign.attrs.val + ";";
-          var borders = firstChild(tcPr, "tcBorders");
-          if (borders) {
-            ["top", "left", "bottom", "right"].forEach(function (side) {
-              var b = firstChild(borders, side);
-              if (!b) return;
-              var col = b.attrs.color && b.attrs.color !== "auto" ? ooxmlColor(b.attrs.color) : "#000";
-              var sz = b.attrs.sz ? Math.max(1, Math.round(parseFloat(b.attrs.sz) / 8)) : 1;
-              var style = b.attrs.val && b.attrs.val !== "nil" && b.attrs.val !== "none" ? "solid" : "none";
-              cellCss += "border-" + side + ":" + style + " " + sz + "px " + (col || "#000") + ";";
-            });
-          }
+        var tcW = tcPr ? firstChild(tcPr, "tcW") : null;
+        if (tcW && tcW.attrs.type === "dxa" && tcW.attrs.w) {
+          var w = docxTw(tcW.attrs.w);
+          if (w) cellCss += "width:" + Math.round(w) + "px;";
+        } else if (tcW && tcW.attrs.type === "pct" && tcW.attrs.w) {
+          cellCss += "width:" + Math.min(100, Math.round(parseFloat(tcW.attrs.w) / 50)) + "%;";
         }
+        var shd = tcPr ? firstChild(tcPr, "shd") : null;
+        var explicitFill = shd && shd.attrs.fill && shd.attrs.val !== "nil"
+          ? ooxmlColor(shd.attrs.fill) : null;
+        if (explicitFill) cellCss += "background-color:" + explicitFill + ";";
+
+        /* Word table-style conditional formatting (banding, header tint…) —
+           only where the cell has no direct shading of its own. */
+        if (stConds && !explicitFill) {
+          var isHdr = r2 < headerCount;
+          var bodyIdx = r2 - headerCount;
+          var condFill = null, condBold = false;
+          var isVisLastRow = r2 === rowCount - 1;
+          if (isHdr) {
+            if (stFirstRow) { condFill = stFirstRow.fill; if (stFirstRow.bold) condBold = true; }
+          } else if (isVisLastRow && stLastRow) {
+            condFill = stLastRow.fill; if (stLastRow.bold) condBold = true;
+          } else {
+            if (stBand && bodyIdx >= 0 && bodyIdx % 2 === 1) {
+              condFill = stBand.fill; if (stBand.bold) condBold = true;
+            }
+            if (stFirstCol && it.colStart === 0) { condFill = stFirstCol.fill; if (stFirstCol.bold) condBold = true; }
+            if (stLastCol && it.colStart + it.span === totalCols) { condFill = stLastCol.fill; if (stLastCol.bold) condBold = true; }
+          }
+          if (condFill) cellCss += "background-color:" + condFill + ";";
+          if (condBold) cellCss += "font-weight:700;";
+        }
+        var valign = tcPr ? firstChild(tcPr, "vAlign") : null;
+        if (valign && valign.attrs.val) cellCss += "vertical-align:" + valign.attrs.val + ";";
+
+        var tcBorders = tcPr ? firstChild(tcPr, "tcBorders") : null;
+        var sides = ["top", "left", "bottom", "right"];
+        var lastCol = cells2.length - 1;
+        for (var si = 0; si < sides.length; si++) {
+          var side = sides[si];
+          var d = tcBorders ? borderDescriptor(firstChild(tcBorders, side)) : null;
+          if (!d) {
+            // No word on this surface: 1) the Word table style's conditional
+            // borders for this cell's role, 2) the table's own rules (outer
+            // edges use top/left/bottom/right, inner seams insideH/V), then
+            // 3) the Word table style's base borders.
+            var isHdrRow = r2 < headerCount;
+            var roleBorders = null;
+            if (stConds) {
+              if (isHdrRow && stFirstRow && stFirstRow.borders) roleBorders = stFirstRow.borders;
+              else if (r2 === rowCount - 1 && stLastRow && stLastRow.borders) roleBorders = stLastRow.borders;
+              else if (it.colStart === 0 && stFirstCol && stFirstCol.borders) roleBorders = stFirstCol.borders;
+              else if (it.colStart + it.span === totalCols && stLastCol && stLastCol.borders) roleBorders = stLastCol.borders;
+            }
+            if (roleBorders && roleBorders[side]) d = roleBorders[side];
+            if (!d) {
+              if (side === "top") d = r2 === 0 ? tB.top : tB.insideH;
+              else if (side === "bottom") d = r2 === rowCount - 1 ? tB.bottom : tB.insideH;
+              else if (side === "left") d = k2 === 0 ? tB.left : tB.insideV;
+              else if (side === "right") d = k2 === lastCol ? tB.right : tB.insideV;
+            }
+          }
+          if (d) cellCss += "border-" + side + ":" + d + ";";
+        }
+
+        /* Cell content: paragraphs AND nested tables, in document order. */
         var inner = "";
-        var blocks = allChildren(tc, "p");
-        for (var b2 = 0; b2 < blocks.length; b2++) inner += docxParaHtml(blocks[b2], ctx);
+        for (var b2 = 0; b2 < it.tc.kids.length; b2++) {
+          var blk = it.tc.kids[b2];
+          if (blk.tag === "p") inner += docxParaHtml(blk, ctx);
+          else if (blk.tag === "tbl") inner += docxTableHtml(blk, ctx);
+          else if (blk.tag === "br") inner += "<br>";
+        }
         if (!inner) inner = "<p><br></p>";
         rowHtml += "<td" + (colspan > 1 ? ' colspan="' + colspan + '"' : "") +
           (rowspan > 1 ? ' rowspan="' + rowspan + '"' : "") +
           (cellCss ? ' style="' + cellCss + '"' : "") + ">" + inner + "</td>";
       }
-      if (!rowHtml) continue;
-      html += headerRow ? "<tr>" + rowHtml + "</tr>" : "<tr>" + rowHtml + "</tr>";
+      if (rowHtml) html += "<tr>" + rowHtml + "</tr>";
     }
+    if (headerCount > 0 && headerCount < rowCount) html += "</tbody>";
     return html + "</table>";
   }
 
@@ -4466,7 +4760,7 @@ function startAutosaveSnapshots() {
     }
     var docRoot = xmlParse(new TextDecoder("utf-8").decode(docEntry));
     var stylesEntry = await zipReadEntry(ab, "word/styles.xml");
-    var styles = stylesEntry ? docxReadStyles(xmlParse(new TextDecoder("utf-8").decode(stylesEntry))) : { para: {}, run: {}, defPara: {}, defRun: {} };
+    var styles = stylesEntry ? docxReadStyles(xmlParse(new TextDecoder("utf-8").decode(stylesEntry))) : { para: {}, run: {}, link: {}, defPara: {}, defRun: {}, table: {}, theme: {} };
     var themeEntry = await zipReadEntry(ab, "word/theme/theme1.xml");
     styles.theme = themeEntry ? docxThemeFonts(xmlParse(new TextDecoder("utf-8").decode(themeEntry))) : {};
 
@@ -4494,6 +4788,14 @@ function startAutosaveSnapshots() {
     };
     var sections = docxCollectSections(docRoot);
     var firstSection = sections[0] || { setup: docxSection(docRoot) };
+    // Page margins for floating-table (w:tblpPr) anchor math: "page"-anchored
+    // offsets are relative to the paper's edge, floating tables in the editor
+    // are relative to the text column start (= margin box).
+    var fs = firstSection.setup || {};
+    ctx.margins = {
+      left: fs.marginLeft || 0, top: fs.marginTop || 0,
+      right: fs.marginRight || 0, bottom: fs.marginBottom || 0
+    };
     var html = docxBodyHtmlWithSections(docRoot, ctx);
     if (!html.replace(/\s/g, "")) html = "<p><br></p>";
 
@@ -5360,8 +5662,49 @@ function startAutosaveSnapshots() {
       printDocument();
     } else if (format === "pdf") {
       printToPdf();
+    } else if (format === "docx") {
+      exportDocxDocument();
     } else if (format === "preview") {
       togglePrintPreview(true);
+    }
+  }
+
+  /* ---------------- Word (.docx) export ----------------
+     The live page DOM is handed to the shared EMDocx writer, which embeds
+     real table geometry (column widths, borders, shading, merged cells,
+     floating-table positions) plus paragraphs, lists, images and links. */
+  async function exportDocxDocument() {
+    var writer = window.EMDocx;
+    if (!writer) { toast("Word export library not loaded", "error"); return; }
+    var pages = getPages();
+    if (!pages.length) { toast("Nothing to export", "error"); return; }
+    toast("Preparing .docx…", 4000);
+    saveCaret();
+    var meta = {
+      title: currentTitle || "Document",
+      pageW: curPageW || PAGE_WIDTH,
+      pageH: curPageH || PAGE_HEIGHT,
+      margins: {
+        top: pageMargins.top, right: pageMargins.right,
+        bottom: pageMargins.bottom, left: pageMargins.left
+      },
+      bg: "#ffffff"
+    };
+    try {
+      var wrapper = $(PAGES_WRAPPER_ID);
+      var paperBg = wrapper && getComputedStyle(wrapper).getPropertyValue("--paper-bg");
+      if (paperBg && paperBg.trim()) meta.bg = paperBg.trim();
+    } catch (e) { /* default white */ }
+    try {
+      var blob = await writer.fromPages(pages, meta);
+      var name = (currentTitle || "document").replace(/[^\w\-]+/g, "_").toLowerCase() || "document";
+      downloadBlob(blob, name + ".docx");
+      toast("Exported as .docx", "success");
+    } catch (e) {
+      console.error("[docs] docx export failed:", e);
+      toast("DOCX export failed: " + (e && e.message || e), "error");
+    } finally {
+      restoreCaret();
     }
   }
 
@@ -5969,6 +6312,171 @@ function startAutosaveSnapshots() {
     toast("Table inserted (" + tableDims.rows + "×" + tableDims.cols + ")", "success");
   }
 
+  /* ---------------- Floating Table Toolbar (Notes-parity) ----------------
+     Row/column operations float above whatever table the caret is in.
+     Fixed chrome in #tableToolbar (docs.html) — it is NOT inside any
+     .page-content, so serialize()/pagination never see it. New columns
+     inherit the neighbour column's px width so fixed-layout tables
+     (resized by TableKit) don't collapse the fresh column to zero. */
+  function setupTableToolbar() {
+    var toolbar = $("tableToolbar");
+    if (!toolbar) return;
+    var activeCell = null;
+
+    toolbar.addEventListener("mousedown", function (e) { e.preventDefault(); });
+
+    function hide() {
+      toolbar.style.display = "none";
+      activeCell = null;
+    }
+    function show(cell) {
+      activeCell = cell;
+      toolbar.style.display = "flex";
+      var table = cell.closest("table");
+      if (!table) return;
+      var rect = table.getBoundingClientRect();
+      var tbHeight = 48;
+      var top = rect.top - tbHeight - 8;
+      if (top < 4) top = rect.bottom + 8;
+      toolbar.style.top = top + "px";
+      var toolbarW = toolbar.offsetWidth || 280;
+      var left = Math.max(4, rect.left);
+      if (left + toolbarW > window.innerWidth - 4) left = window.innerWidth - toolbarW - 4;
+      toolbar.style.left = left + "px";
+    }
+
+    document.addEventListener("click", function (e) {
+      if (!currentDocId) { if (toolbar.style.display !== "none") hide(); return; }
+      var cell = e.target && e.target.closest ? e.target.closest("td, th") : null;
+      if (cell && cell.closest(".page-content") && cell.closest("table")) {
+        show(cell);
+        return;
+      }
+      if (!toolbar.contains(e.target) && toolbar.style.display !== "none") hide();
+    }, true);
+    window.addEventListener("resize", hide);
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && toolbar.style.display !== "none") hide();
+    });
+
+    /* colSpan-aware: the cell covering a visual column */
+    function cellAtCols(r, target) {
+      var col = 0;
+      for (var i = 0; i < r.cells.length; i++) {
+        var span = Math.max(1, r.cells[i].colSpan || 1);
+        if (target >= col && target < col + span) {
+          return { cell: r.cells[i], kid: i, start: col, span: span };
+        }
+        col += span;
+      }
+      return null;
+    }
+
+    function makeRow(colCount, tag) {
+      var tr = document.createElement("tr");
+      for (var i = 0; i < colCount; i++) {
+        var td = document.createElement(tag);
+        td.innerHTML = "<br>";
+        tr.appendChild(td);
+      }
+      return tr;
+    }
+
+    toolbar.addEventListener("click", function (e) {
+      var btn = e.target.closest(".tbl-btn");
+      if (!btn || !activeCell || !currentDocId) return;
+      var row = activeCell.parentElement;
+      var table = row ? row.closest("table") : null;
+      if (!table || !table.rows.length) return;
+      /* visual column of the active cell (sum spans, colSpan-aware) */
+      var colIndex = 0;
+      for (var xi = 0; xi < row.cells.length; xi++) {
+        if (row.cells[xi] === activeCell) break;
+        colIndex += Math.max(1, row.cells[xi].colSpan || 1);
+      }
+      var headerRow = table.rows[0];
+      var action = btn.getAttribute("data-tbl");
+
+      if (action === "addRowAbove") {
+        /* match the anchor row's look (header row keeps th) */
+        var tagUp = row.cells[0] && row.cells[0].tagName === "TH" ? "th" : "td";
+        table.insertBefore(makeRow(row.cells.length, tagUp), row);
+      } else if (action === "addRowBelow") {
+        table.insertBefore(makeRow(row.cells.length, "td"), row.nextSibling);
+      } else if (action === "deleteRow") {
+        if (table.rows.length > 1) {
+          row.remove();
+        } else {
+          /* last row: Word removes the whole table and leaves a paragraph */
+          var p = document.createElement("p");
+          p.innerHTML = "<br>";
+          if (table.parentNode) table.parentNode.insertBefore(p, table);
+          table.remove();
+        }
+        hide();
+      } else if (action === "addColLeft" || action === "addColRight") {
+        Array.prototype.forEach.call(table.rows, function (r, ri) {
+          var at = cellAtCols(r, colIndex);
+          if (!at) return;
+          var c = document.createElement(ri === 0 && headerRow && headerRow.cells.length && headerRow.cells[0].tagName === "TH" ? "th" : "td");
+          c.innerHTML = "<br>";
+          if (action === "addColLeft") {
+            r.insertBefore(c, at.cell);
+          } else {
+            var next = at.cell.nextSibling;
+            if (next) r.insertBefore(c, next); else r.appendChild(c);
+          }
+          /* fixed-layout tables: inherit the neighbour's width so the new
+             column does not collapse to zero */
+          if (ri === 0 && at.cell.style.width) c.style.width = at.cell.style.width;
+        });
+      } else if (action === "deleteCol") {
+        var atRow = cellAtCols(row, colIndex);
+        if (!atRow || row.cells.length <= 1) return;
+        /* spanning cell: shrink it instead of removing more than one column */
+        Array.prototype.forEach.call(table.rows, function (r) {
+          var at = cellAtCols(r, colIndex);
+          if (!at) return;
+          if (at.span > 1) {
+            at.cell.colSpan = at.span - 1;
+          } else {
+            at.cell.remove();
+          }
+        });
+        hide();
+      }
+      /* No "design" action here: in Docs the Table Design lives in the
+         contextual ribbon tab (auto-shown when a table is engaged) instead.
+         Notes has no ribbon, so its floating toolbar keeps a Design button. */
+
+      ensureTableCellsEditable();
+      schedulePaginate();
+      scheduleAutosave();
+      if (activeCell && !document.contains(activeCell)) hide();
+    });
+
+    function repositionToolbar() {
+      if (!activeCell || toolbar.style.display === "none") return;
+      var table = activeCell.closest("table");
+      if (!table) { hide(); return; }
+      var rect = table.getBoundingClientRect();
+      var tbHeight = 48;
+      var top = rect.top - tbHeight - 8;
+      if (top < 4) top = rect.bottom + 8;
+      toolbar.style.top = top + "px";
+      var toolbarW = toolbar.offsetWidth || 280;
+      var left = Math.max(4, rect.left);
+      if (left + toolbarW > window.innerWidth - 4) left = window.innerWidth - toolbarW - 4;
+      toolbar.style.left = left + "px";
+    }
+
+    window._docsTableToolbar = {
+      reposition: repositionToolbar,
+      hide: hide,
+      get activeCell() { return activeCell; }
+    };
+  }
+
   /* ---------------- Insert HR ---------------- */
   function insertHr() {
     restoreEditorSelection();
@@ -6211,23 +6719,78 @@ function startAutosaveSnapshots() {
     });
   }
 
-  /* ---------------- Programmatic tab switch (used by the File modal) ---------------- */
+  /* ---------------- Programmatic tab switch (used by the File modal and
+     the contextual tabs) ----------------
+     Mirrors Slides' ribbon flow (slides.js _switchTab): a SEQUENTIAL
+     blur-out → blur-in. The outgoing panel gets .blur-out FIRST (it keeps
+     position:relative and stays centered while fading), THEN loses
+     .active — so it can never paint through the position flip at
+     absolute;left:0 that caused the left-edge flash. Only after its fade
+     completes does the incoming panel gain .active and blur in. Only one
+     panel animates at a time, nothing overlaps, and nothing is glitchy.
+     Rapid switches (fast engagement flips) cancel the pending switch. */
+  var ribbonSwitchPending = null;
   function switchRibbonTab(name) {
     var tab = document.querySelector('.ribbon-tab[data-tab="' + name + '"]');
     if (!tab) return;
+    var leavingTableDesign = (activeRibbonTab === "table-design" && name !== "table-design");
     if (name !== "file") activeRibbonTab = name;
-    var active = document.querySelector(".ribbon-tab.active");
-    if (active === tab) return;
+
+    /* Cancel a still-pending animated switch so a stale closure can never
+       re-assert an old panel over this one (idempotent if none pending). */
+    if (ribbonSwitchPending) {
+      clearTimeout(ribbonSwitchPending.timer);
+      ribbonSwitchPending.panel.removeEventListener("transitionend", ribbonSwitchPending.listener);
+      ribbonSwitchPending = null;
+    }
+
+    /* Tabs + indicator move immediately (Slides moves the underline before
+       the blur-out starts, exactly like a manual tab click). */
+    var tabsAll = document.querySelectorAll(".ribbon-tab");
+    for (var t = 0; t < tabsAll.length; t++) {
+      tabsAll[t].classList.toggle("active", tabsAll[t] === tab);
+    }
+    moveRibbonIndicatorTo(tab);
+
     var panels = document.querySelectorAll(".ribbon-panel");
     var targetPanel = document.querySelector('.ribbon-panel[data-panel="' + name + '"]');
-    for (var j = 0; j < panels.length; j++) {
-      panels[j].classList.remove("active");
-      panels[j].classList.remove("blur-out");
+    var currentPanel = document.querySelector(".ribbon-panel.active");
+
+    function doSwitch() {
+      ribbonSwitchPending = null;
+      for (var j = 0; j < panels.length; j++) {
+        panels[j].classList.remove("active");
+        panels[j].classList.remove("blur-out");
+      }
+      if (targetPanel) targetPanel.classList.add("active");   // blur-in unblur
     }
-    var tabsAll = document.querySelectorAll(".ribbon-tab");
-    for (var t = 0; t < tabsAll.length; t++) tabsAll[t].classList.toggle("active", tabsAll[t] === tab);
-    if (targetPanel) targetPanel.classList.add("active");
-    moveRibbonIndicatorTo(tab);
+
+    if (currentPanel && currentPanel !== targetPanel) {
+      currentPanel.classList.add("blur-out");      // fade OUT in place (relative)
+      currentPanel.classList.remove("active");     // THEN leave the flow
+      var done = false;
+      var onBlurred = function (e) {
+        if (e.propertyName !== "opacity") return;   // skip filter/visibility ends
+        finishSwitch();
+      };
+      var timer = setTimeout(finishSwitch, 220);   // past the 0.18s fade + buffer
+      function finishSwitch() {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        currentPanel.removeEventListener("transitionend", onBlurred);
+        if (currentPanel.classList.contains("blur-out")) {
+          currentPanel.classList.remove("blur-out");  // leave the flow while hidden
+        }
+        doSwitch();
+      }
+      ribbonSwitchPending = { panel: currentPanel, listener: onBlurred, timer: timer };
+    } else {
+      /* No outgoing panel or re-asserting the same tab: switch now. */
+      doSwitch();
+    }
+
+    if (leavingTableDesign) closeTdGallery();
   }
 
   /* ---------------- Image Format contextual tab (Slides parity) ----------------
@@ -6376,14 +6939,13 @@ function startAutosaveSnapshots() {
       tab.removeAttribute("hidden");
       if (wasHidden && activeRibbonTab !== "image-format") {
         docsImagePreviousTab = activeRibbonTab;
-        tab.click();
+        switchRibbonTab("image-format");   // instant, no crossfade flash
       }
       syncImageFormatControls(img);
     } else {
       if (activeRibbonTab === "image-format") {
         var restoreName = (docsImagePreviousTab && docsImagePreviousTab !== "image-format") ? docsImagePreviousTab : "home";
-        var restoreBtn = document.querySelector('.ribbon-tab[data-tab="' + restoreName + '"]');
-        if (restoreBtn) restoreBtn.click();
+        switchRibbonTab(restoreName);      // instant restore
       }
       tab.setAttribute("hidden", "");
     }
@@ -6481,6 +7043,380 @@ function startAutosaveSnapshots() {
         onImageOpacityChange(v);
       });
     }
+  }
+
+  /* ---------------- Table Design contextual tab (Word parity) ----------------
+     The shared EMTableStyles engine (tablestyles.js) stores a table's design
+     in data-table-style / data-table-opts / data-table-shade and repaints all
+     borders + fills as inline styles, which is exactly what the DOCX exporter
+     measures and the importer writes back — so a designed table round-trips
+     through Word. Engagement is driven by TableKit's onEngaged hook. */
+  var emTableKitInstance = null;
+  var docsTablePreviousTab = null;
+
+  function currentDesignTable() {
+    return emTableKitInstance ? emTableKitInstance.engagedTable() : null;
+  }
+
+  function syncTableDesignTab(table) {
+    var tab = $("tableDesignTab");
+    if (!tab) return;
+    if (table) {
+      var wasHidden = tab.hasAttribute("hidden");
+      tab.removeAttribute("hidden");
+      if (wasHidden && activeRibbonTab !== "table-design") {
+        docsTablePreviousTab = activeRibbonTab;
+        switchRibbonTab("table-design");   // instant, no crossfade flash
+      }
+      syncTableDesignControls(table);
+      /* Keep an open gallery open across engagement changes (e.g. touching a
+         different table) so it doesn't flicker show→hide on every sync. It
+         still closes on disengage or an explicit outside click. */
+    } else {
+      closeTdGallery();
+      if (activeRibbonTab === "table-design") {
+        var rn = (docsTablePreviousTab && docsTablePreviousTab !== "table-design") ? docsTablePreviousTab : "home";
+        switchRibbonTab(rn);               // instant restore
+      }
+      tab.setAttribute("hidden", "");
+    }
+  }
+
+  /* Mirror the engaged table's design onto the panel controls. */
+  function syncTableDesignControls(table) {
+    var TS = window.EMTableStyles;
+    if (!TS || !table) return;
+    var d = TS.readDesign(table);
+    /* Options are Slides-style Start pills: aria-pressed mirrors the state. */
+    document.querySelectorAll(".td-pill").forEach(function (pill) {
+      var key = pill.getAttribute("data-td-opt");
+      pill.setAttribute("aria-pressed", d.opts[key] ? "true" : "false");
+    });
+    document.querySelectorAll(".td-style-thumb.current").forEach(function (el) {
+      el.classList.remove("current");
+    });
+    document.querySelectorAll('.td-style-thumb[data-preset="' + d.style + '"]').forEach(function (el) {
+      el.classList.add("current");
+    });
+    /* manual shade of the primary selected cell drives the shading swatch */
+    var prim = tdPrimaryCell(table);
+    var sw = $("tdShadingSwatch"), lbl = $("tdShadingLabel");
+    if (sw && lbl) {
+      var hex = prim ? (d.shade && d.shade[cellKeyFor(table, prim)]) : null;
+      var rgb = prim ? (prim.style.backgroundColor || "") : "";
+      var shown = hex || (rgb && rgb !== "transparent" ? rgb : "");
+      if (shown) {
+        sw.style.background = shown;
+        sw.style.border = "1px solid rgba(0,0,0,0.2)";
+        lbl.textContent = "Fill";
+      } else {
+        sw.style.background = "transparent";
+        sw.style.border = "2px dashed #999";
+        lbl.textContent = "No Fill";
+      }
+    }
+  }
+
+  function cellKeyFor(table, cell) {
+    var TS = window.EMTableStyles;
+    if (!TS) return null;
+    for (var r = 0; r < table.rows.length; r++) {
+      var rowCells = table.rows[r].cells;
+      for (var c = 0; c < rowCells.length; c++) {
+        if (rowCells[c] === cell) return TS.shadeKeyOf(cell, r, c);
+      }
+    }
+    return null;
+  }
+
+  /* Every cell the current text selection touches; whole table when the
+     selection is unrelated (Word also fills the full table in that case). */
+  function tdRangeTouches(table, range) {
+    if (!range || !range.intersectsNode) return false;
+    for (var r = 0; r < table.rows.length; r++) {
+      var rowCells = table.rows[r].cells;
+      for (var c = 0; c < rowCells.length; c++) {
+        if (range.intersectsNode(rowCells[c])) return true;
+      }
+    }
+    return false;
+  }
+
+  function tdCellsIntersecting(table, range) {
+    var out = [];
+    for (var r = 0; r < table.rows.length; r++) {
+      var rowCells = table.rows[r].cells;
+      for (var c = 0; c < rowCells.length; c++) {
+        if (range.intersectsNode(rowCells[c])) out.push(rowCells[c]);
+      }
+    }
+    return out;
+  }
+
+  function tdSelectedCells(table) {
+    if (!table) return [];
+    var sel = window.getSelection();
+    var live = sel && sel.rangeCount ? sel.getRangeAt(0) : null;
+    if (tdRangeTouches(table, live)) return tdCellsIntersecting(table, live);
+    /* Opening a portal dropdown / clicking the ribbon can clear the live
+       selection before this handler runs — fall back to the editor's last
+       saved range when it came from THIS table. */
+    if (tdRangeTouches(table, lastEditorRange)) {
+      return tdCellsIntersecting(table, lastEditorRange);
+    }
+    var out = [];
+    for (var all = 0; all < table.rows.length; all++) {
+      for (var ac = 0; ac < table.rows[all].cells.length; ac++) {
+        out.push(table.rows[all].cells[ac]);
+      }
+    }
+    return out;
+  }
+
+  /* The cell the caret actually sits in (for the swatch read-out). */
+  function tdCellOfRange(table, range) {
+    if (!range || !range.startContainer) return null;
+    var node = range.startContainer;
+    var el = node && (node.nodeType === 1 ? node : node.parentElement);
+    var cell = el && el.closest ? el.closest("td, th") : null;
+    return (cell && table.contains(cell)) ? cell : null;
+  }
+
+  function tdPrimaryCell(table) {
+    if (!table) return null;
+    var sel = window.getSelection();
+    var live = sel && sel.rangeCount ? sel.getRangeAt(0) : null;
+    var cell = tdCellOfRange(table, live);
+    if (cell) return cell;
+    return tdCellOfRange(table, lastEditorRange);
+  }
+
+  function designMutated() {
+    schedulePaginate();
+    scheduleAutosave();
+  }
+
+  function tdApplyPreset(presetId) {
+    var TS = window.EMTableStyles;
+    var table = currentDesignTable();
+    if (!TS || !table) return;
+    var d = TS.readDesign(table);
+    d.style = presetId;
+    TS.writeDesign(table, d);
+    TS.applyDesign(table);
+    syncTableDesignControls(table);
+    designMutated();
+  }
+
+  function tdApplyOpts() {
+    var TS = window.EMTableStyles;
+    var table = currentDesignTable();
+    if (!TS || !table) return;
+    var d = TS.readDesign(table);
+    document.querySelectorAll(".td-pill").forEach(function (pill) {
+      d.opts[pill.getAttribute("data-td-opt")] = pill.getAttribute("aria-pressed") === "true";
+    });
+    TS.writeDesign(table, d);
+    TS.applyDesign(table);
+    designMutated();
+  }
+
+  /* ---------------- gallery strip + popup ---------------- */
+  /* Thumbnails are REAL mini tables painted by the same applyDesign() the
+     document tables use, so the gallery always previews truthfully. Thumbs
+     are built once and live in the ribbon (never inside a page). */
+  /* One preview card: a Slides-style tile containing a real mini table
+     painted by the same applyDesign() the document tables use. The card is
+     a <button> in the ribbon strip; inside the gallery grid it's a plain
+     <div> (a button can't nest inside the gallery's card button). */
+  function tdBuildThumb(presetId, asDiv) {
+    var card = document.createElement(asDiv ? "div" : "button");
+    if (!asDiv) card.type = "button";
+    card.className = "td-style-thumb";
+    card.setAttribute("data-preset", presetId);
+
+    var t = document.createElement("table");
+    t.className = "td-mini";
+    t.setAttribute("contenteditable", "false");
+    for (var r = 0; r < 4; r++) {
+      var tr = document.createElement("tr");
+      for (var c = 0; c < 3; c++) {
+        var td = document.createElement("td");
+        td.textContent = "\u00a0";
+        tr.appendChild(td);
+      }
+      if (r === 0) {
+        var th = document.createElement("thead");
+        th.appendChild(tr);
+        t.appendChild(th);
+      } else {
+        var tb = document.createElement("tbody");
+        tb.appendChild(tr);
+        t.appendChild(tb);
+      }
+    }
+    window.EMTableStyles.applyDesign(t, {
+      style: presetId,
+      opts: { header: true, total: false, bandedRows: true, bandedCols: false, firstCol: false, lastCol: false },
+      shade: {}
+    });
+    card.appendChild(t);
+    return card;
+  }
+
+  function buildTdGallery() {
+    var TS = window.EMTableStyles;
+    if (!TS) return;
+    var strip = $("tdGalleryStrip");
+    var popup = $("tdGalleryPopup");
+    if (!strip || strip.__built) return;
+    strip.__built = true;
+
+    /* Inline strip mirrors Slides' Themes row: a handful of previews + More */
+    var gridPresets = TS.PRESETS.filter(function (p) { return p.id !== "none"; });
+    for (var i = 0; i < 6 && i < gridPresets.length; i++) {
+      strip.appendChild(tdBuildThumb(gridPresets[i].id));
+    }
+    var more = document.createElement("button");
+    more.className = "td-more";
+    more.type = "button";
+    more.title = "Browse all table styles";
+    more.setAttribute("aria-haspopup", "true");
+    more.setAttribute("aria-expanded", "false");
+    more.innerHTML =
+      '<span class="td-more-preview">' +
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+          '<rect x="3" y="3" width="7" height="7" rx="1"/>' +
+          '<rect x="14" y="3" width="7" height="7" rx="1"/>' +
+          '<rect x="3" y="14" width="7" height="7" rx="1"/>' +
+          '<rect x="14" y="14" width="7" height="7" rx="1"/>' +
+        '</svg>' +
+      '</span>' +
+      '<span class="td-more-label">More</span>';
+    more.addEventListener("click", function (e) { e.stopPropagation(); tdToggleGallery(); });
+    strip.appendChild(more);
+
+    /* Gallery popup mirrors Slides' theme gallery: header + 3-col cards */
+    popup.innerHTML = "";
+    var header = document.createElement("div");
+    header.className = "td-gallery-header";
+    header.textContent = "All Table Styles";
+    popup.appendChild(header);
+
+    var grid = document.createElement("div");
+    grid.className = "td-style-grid";
+    TS.PRESETS.forEach(function (p) {
+      var cellW = document.createElement("button");
+      cellW.type = "button";
+      cellW.className = "td-style-cell";
+      cellW.appendChild(tdBuildThumb(p.id, true));
+      var name = document.createElement("div");
+      name.className = "td-style-name";
+      name.textContent = p.name;
+      cellW.appendChild(name);
+      cellW.addEventListener("click", function () {
+        tdToggleGallery(false);
+        tdApplyPreset(p.id);
+      });
+      grid.appendChild(cellW);
+    });
+    popup.appendChild(grid);
+
+    /* The popup portals to <body> while open, so the panel's mousedown
+       guard never sees it — keep the caret in the table here too. */
+    popup.addEventListener("mousedown", function (e) {
+      if (e.target.closest && e.target.closest("button")) e.preventDefault();
+    });
+
+    /* close on outside click */
+    document.addEventListener("mousedown", function (e) {
+      if (!tdGalleryOpen) return;
+      var wrap = $("tdGalleryWrap");
+      if (popup.contains(e.target) || (wrap && wrap.contains(e.target))) return;
+      tdToggleGallery(false);
+    });
+  }
+
+  var tdGalleryOpen = false;
+
+  /* The gallery popup portals to <body> (fixed, under the strip) so the
+     ribbon's clipping can never cut it off — the same idea as ms-dropdown. */
+  function tdToggleGallery(force) {
+    var popup = $("tdGalleryPopup");
+    var stripWrap = $("tdGalleryWrap");
+    if (!popup || !stripWrap) return;
+    var want = force !== undefined ? !!force : !tdGalleryOpen;
+    if (want === tdGalleryOpen) return;
+    tdGalleryOpen = want;
+    var moreBtn = stripWrap.querySelector(".td-more");
+    if (moreBtn) moreBtn.setAttribute("aria-expanded", want ? "true" : "false");
+    if (want) {
+      closePortalDropdown(false);
+      /* Anchor to the More card, not the whole strip: the gallery's right
+         edge lines up with the More button's right edge (Word/Slides
+         behaviour), clamped to the viewport. */
+      var anchor = moreBtn || $("tdGalleryStrip");
+      var r = anchor.getBoundingClientRect();
+      document.body.appendChild(popup);
+      var w = popup.offsetWidth;
+      var left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8));
+      popup.style.cssText = "position:fixed;display:block;z-index:900;left:" + left + "px;top:" +
+        (r.bottom + 6) + "px;animation:dropdownFadeIn 0.18s ease;";
+      syncTableDesignControls(currentDesignTable());
+    } else {
+      popup.style.cssText = "";
+      stripWrap.appendChild(popup);
+    }
+  }
+
+  function closeTdGallery() {
+    if (tdGalleryOpen) tdToggleGallery(false);
+  }
+
+  /* ---------------- panel wiring ---------------- */
+  function setupTableDesignTab() {
+    var panel = document.querySelector('.ribbon-panel[data-panel="table-design"]');
+    if (!panel || panel.__tdBound) return;
+    panel.__tdBound = true;
+    buildTdGallery();
+
+    /* Keep the caret/selection in the document while using the ribbon — the
+       same mousedown guard every other ribbon button uses. Without it the
+       button steals focus, Chrome drops the table selection, and TableKit
+       would see the caret "leave" the table (closing this tab). */
+    panel.addEventListener("mousedown", function (e) {
+      if (e.target.closest && e.target.closest("button")) e.preventDefault();
+    });
+
+    /* Options are Slides-style Start pills: click = toggle right there. */
+    panel.querySelectorAll(".td-pill").forEach(function (pill) {
+      pill.addEventListener("click", function () {
+        var on = pill.getAttribute("aria-pressed") !== "true";
+        pill.setAttribute("aria-pressed", on ? "true" : "false");
+        tdApplyOpts();
+      });
+    });
+
+    if ($("tdGalleryStrip")) {
+      $("tdGalleryStrip").addEventListener("click", function (e) {
+        var thumb = e.target.closest ? e.target.closest(".td-style-thumb") : null;
+        if (!thumb) return;
+        tdApplyPreset(thumb.getAttribute("data-preset") || "none");
+      });
+    }
+
+    /* Shading — fills the selection (or whole table), recorded in the design */
+    panel.querySelectorAll("#tdShadingDropdown .ms-dropdown-item").forEach(function (item) {
+      item.addEventListener("click", function () {
+        closePortalDropdown(false);
+        var table = currentDesignTable();
+        var TS = window.EMTableStyles;
+        if (!table || !TS) return;
+        TS.shadeCells(table, tdSelectedCells(table), item.getAttribute("data-value") || null);
+        syncTableDesignControls(table);
+        designMutated();
+      });
+    });
   }
 
   /* ---------------- Page margins (drag to resize via ruler) ---------------- */
@@ -8572,6 +9508,37 @@ function startAutosaveSnapshots() {
     ensureFirstPage();
     paginate();
 
+    // Word-like table interactions (border resize, row resize, move, select,
+    // proportional scale). The kit paints its own handles in a body-level
+    // overlay, so saved document HTML only ever gains the user's real
+    // column/row size styles.
+    setupTableToolbar();
+    if (window.EMTableKit && $(PAGES_WRAPPER_ID)) {
+      emTableKitInstance = window.EMTableKit.attach({
+        root: $(PAGES_WRAPPER_ID),
+        minColWidth: 44,                 // matches .page-content td min-width
+        isEditable: function () {
+          // only while an actual document is open (welcome screen has none)
+          return !!currentDocId;
+        },
+        onChange: function (payload) {
+          scheduleAutosave();
+          // Inserts, deletes, growth and block moves can all change the
+          // page flow — repaginate (rAF-coalesced inside docs).
+          schedulePaginate();
+        },
+        onEngaged: function (table) {
+          syncTableDesignTab(table);
+        },
+        onSync: function (table) {
+          var ctl = window._docsTableToolbar;
+          if (!ctl) return;
+          if (!table) ctl.hide();
+          else if (ctl.activeCell && document.contains(ctl.activeCell)) ctl.reposition();
+        }
+      });
+    }
+
     // Load footnote/endnote arrays BEFORE any document open — the deep-link
     // ?owned= path below opens a document immediately, and openDocument
     // renders the per-page footnote areas + end-of-doc endnotes section.
@@ -8871,6 +9838,7 @@ function startAutosaveSnapshots() {
     // Ribbon tabs — switching with sliding indicator + blur/fade panel transition
     initRibbonTabs();
     setupImageFormatTab();
+    setupTableDesignTab();
 
     // Export dropdown (guarded — may not exist if moved)
     var exportToggle = $("btnExportToggle");
@@ -9050,6 +10018,7 @@ function startAutosaveSnapshots() {
     if ($("fileExportHtmlBtn")) $("fileExportHtmlBtn").addEventListener("click", function () { closeFileModal(); exportDocument("html"); });
     if ($("fileExportPdfBtn")) $("fileExportPdfBtn").addEventListener("click", function () { closeFileModal(); exportDocument("pdf"); });
     if ($("fileExportPrintBtn")) $("fileExportPrintBtn").addEventListener("click", function () { closeFileModal(); exportDocument("print"); });
+    if ($("fileExportDocxBtn")) $("fileExportDocxBtn").addEventListener("click", function () { closeFileModal(); exportDocument("docx"); });
     // Tools (Docs-specific)
     if ($("fileStatsBtn")) $("fileStatsBtn").addEventListener("click", showWordCount);
     if ($("fileVersionsBtn")) $("fileVersionsBtn").addEventListener("click", showVersions);

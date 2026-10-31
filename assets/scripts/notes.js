@@ -68,7 +68,7 @@ class NotesApp {
         this.setupTextEditor();
         this.setupDrawing();
         this.setupImageDragDrop();
-        this.setupTableResize();
+        this.initTableKit(); // Word/Docs-like table interactions (assets/scripts/tablekit.js)
         this.setupImageInteractions();
         this.setupCanvasDragHandle();
         this.setupStatusBar();
@@ -1607,6 +1607,8 @@ class NotesApp {
         this.setupCustomContextMenu();
         this.setupEditorPlaceholder();
         this.setupSidebarToggle();
+        this.setupViewMode();
+        this.setupTitleAutogrow();
         this.setupTableToolbar();
     }
     setupMobileUI() {
@@ -3002,57 +3004,28 @@ class NotesApp {
             });
         });
     }
-    setupTableResize() {
+    initTableKit() {
+        // Word/Docs-like table interactions, shared across EmeraldSuite
+        // (assets/scripts/tablekit.js + tablekit.css). Column borders drag-
+        // resize, rows resize, the grab handle moves/selects the table, and
+        // the corner handle scales it. Handles live in a body-level overlay,
+        // so saved note HTML only ever gains real cell size styles.
         const editor = document.getElementById('textEditor');
-        if (!editor) return;
-        let resizing = false;
-        let startX = 0;
-        let startW = 0;
-        let targetCell = null;
-        let nextCell = null;
-        editor.addEventListener('mousemove', (e) => {
-            if (resizing) return;
-            const th = e.target.closest('th, td');
-            if (!th) { editor.style.cursor = ''; return; }
-            const rect = th.getBoundingClientRect();
-            const nearRight = e.clientX > rect.right - 6 && e.clientX < rect.right + 4;
-            if (nearRight) {
-                editor.style.cursor = 'col-resize';
-            } else {
-                editor.style.cursor = '';
+        if (!editor || !window.EMTableKit) return;
+        window.EMTableKit.attach({
+            root: editor,
+            minColWidth: 32,
+            onChange: () => this.updateNoteContent(),
+            onSync: (table) => {
+                const ctl = this._tableToolbarCtl;
+                if (!ctl) return;
+                if (!table) ctl.hide();
+                else if (ctl.activeCell && document.contains(ctl.activeCell)) ctl.reposition();
+            },
+            isEditable: () => {
+                // honor view-only (collab) mode and drawing mode
+                return !this.isViewOnly && !this.isDrawMode && editor.contentEditable === 'true';
             }
-        });
-        editor.addEventListener('mousedown', (e) => {
-            const th = e.target.closest('th, td');
-            if (!th) return;
-            const rect = th.getBoundingClientRect();
-            const nearRight = e.clientX > rect.right - 6 && e.clientX < rect.right + 4;
-            if (!nearRight) return;
-            e.preventDefault();
-            resizing = true;
-            startX = e.clientX;
-            targetCell = th;
-            startW = th.offsetWidth;
-            const row = th.parentElement;
-            const idx = Array.from(row.cells).indexOf(th);
-            nextCell = row.cells[idx + 1] || null;
-            document.body.style.cursor = 'col-resize';
-            document.body.style.userSelect = 'none';
-        });
-        document.addEventListener('mousemove', (e) => {
-            if (!resizing || !targetCell) return;
-            const diff = e.clientX - startX;
-            const newW = Math.max(40, startW + diff);
-            targetCell.style.width = newW + 'px';
-            if (nextCell) nextCell.style.width = '';
-        });
-        document.addEventListener('mouseup', () => {
-            if (!resizing) return;
-            resizing = false;
-            targetCell = null;
-            document.body.style.cursor = '';
-            document.body.style.userSelect = '';
-            this.updateNoteContent();
         });
     }
     setupStatusBar() {
@@ -4156,19 +4129,38 @@ class NotesApp {
                 Array.from(table.rows).forEach((r, ri) => {
                     const cell = document.createElement(ri === 0 ? 'th' : 'td');
                     cell.textContent = ri === 0 ? 'Header' : '';
-                    r.insertBefore(cell, r.cells[colIndex]);
+                    // fixed-layout tables need an explicit width or the new
+                    // column collapses to zero — inherit the neighbour's
+                    const ref = r.cells[colIndex];
+                    if (ref && ref.style.width) cell.style.width = ref.style.width;
+                    r.insertBefore(cell, ref);
                 });
             } else if (action === 'addColRight') {
                 Array.from(table.rows).forEach((r, ri) => {
                     const cell = document.createElement(ri === 0 ? 'th' : 'td');
                     cell.textContent = ri === 0 ? 'Header' : '';
-                    const ref = r.cells[colIndex + 1];
-                    if (ref) r.insertBefore(cell, ref); else r.appendChild(cell);
+                    const ref = r.cells[colIndex + 1] || r.cells[colIndex];
+                    // same fixed-layout width inheritance
+                    if (ref && ref.style.width) cell.style.width = ref.style.width;
+                    const next = r.cells[colIndex + 1];
+                    if (next) r.insertBefore(cell, next); else r.appendChild(cell);
                 });
             } else if (action === 'deleteCol') {
                 if (row.cells.length > 1) {
                     Array.from(table.rows).forEach(r => { if (r.cells[colIndex]) r.cells[colIndex].remove(); });
                 }
+            } else if (action === 'design') {
+                // Word-style Table Design picker (shared EMTableStyles popover)
+                const TS = window.EMTableStyles;
+                if (TS) {
+                    TS.openDesignPopover({
+                        anchor: btn,
+                        table,
+                        shadeTargets: [activeCell],
+                        onDone: () => this.updateNoteContent()
+                    });
+                }
+                return;
             }
             this.updateNoteContent();
         });
@@ -4177,6 +4169,27 @@ class NotesApp {
                 toolbar.style.display = 'none'; activeCell = null;
             }
         });
+        // Expose a reposition hook so TableKit can keep the toolbar glued to
+        // the table on zoom / scroll / resize (it is fixed-positioned once
+        // on click and never moved otherwise).
+        this._tableToolbarCtl = {
+            reposition: () => {
+                if (!activeCell || toolbar.style.display === 'none') return;
+                const table = activeCell.closest('table');
+                if (!table) { toolbar.style.display = 'none'; activeCell = null; return; }
+                const tableRect = table.getBoundingClientRect();
+                const tbH = 48;
+                let top = tableRect.top - tbH - 8;
+                if (top < 4) top = tableRect.bottom + 8;
+                toolbar.style.top = top + 'px';
+                const toolbarW = toolbar.offsetWidth;
+                let left = Math.max(4, tableRect.left);
+                if (left + toolbarW > window.innerWidth - 4) left = window.innerWidth - toolbarW - 4;
+                toolbar.style.left = left + 'px';
+            },
+            hide: () => { toolbar.style.display = 'none'; activeCell = null; },
+            get activeCell() { return activeCell; }
+        };
     }
     _makeTableRow(colCount, cellTag = 'td') {
         const row = document.createElement('tr');
@@ -4250,6 +4263,131 @@ class NotesApp {
         }
         toggleBtn.style.opacity = '1';
         toggleBtn.style.pointerEvents = 'auto';
+    }
+    /* Editor / Zen view mode (Notion-style focus view).
+       Two pills at the very bottom of the sidebar switch between the normal
+       Editor layout and Zen: sidebar, +Notes, hamburger, ribbon, top navbar
+       and statusbar hide; the title becomes a big heading at the top of the
+       content and the color/share/export/delete bar floats bottom-right.
+       A floating copy of the switch (bottom-left) lets you leave Zen, since
+       the sidebar's copy is hidden with it. Escape also exits Zen. */
+    setupViewMode() {
+        const groups = Array.from(document.querySelectorAll('.notes-mode-switch'));
+        if (!groups.length) return;
+        const STORAGE_KEY = 'emeraldcore.storage.suite.notes.viewmode';
+        const ribbonToggle = document.getElementById('zenRibbonToggleBtn');
+        groups.forEach((g) => {
+            g.querySelectorAll('.mode-pill').forEach((p) => {
+                p.addEventListener('mousedown', (e) => e.preventDefault());
+            });
+        });
+        const apply = (mode) => {
+            const zen = mode === 'zen';
+            document.body.classList.toggle('notes-zen', zen);
+            if (this._resizeTitle) requestAnimationFrame(this._resizeTitle);
+            groups.forEach((g) => {
+                g.querySelectorAll('.mode-pill').forEach((p) => {
+                    p.setAttribute('aria-pressed', (p.dataset.notesMode === 'zen') === zen ? 'true' : 'false');
+                });
+            });
+            clearTimeout(this._zenUiTimer);
+            if (zen) {
+                // Restore the saved "show ribbon" preference for Zen.
+                const showRibbon = this.getStoredValue('emeraldcore.storage.suite.notes.zenribbon') === true;
+                document.body.classList.toggle('show-ribbon', showRibbon);
+                if (ribbonToggle) {
+                    ribbonToggle.setAttribute('aria-pressed', showRibbon ? 'true' : 'false');
+                    ribbonToggle.title = showRibbon ? 'Hide Ribbon' : 'Show Ribbon';
+                }
+                // Staged entrance: chrome collapses first, then the floating
+                // Title/actions bar + exit switch spring in from below.
+                document.body.classList.remove('zen-ui-in');
+                this._zenUiTimer = setTimeout(() => document.body.classList.add('zen-ui-in'), 320);
+            } else {
+                document.body.classList.remove('zen-ui-in');
+                document.body.classList.remove('show-ribbon');
+                if (ribbonToggle) ribbonToggle.setAttribute('aria-pressed', 'false');
+            }
+        };
+        const setMode = (mode) => {
+            apply(mode);
+            this.setStoredValue(STORAGE_KEY, mode);
+        };
+        groups.forEach((g) => {
+            g.querySelectorAll('.mode-pill').forEach((p) => {
+                p.addEventListener('click', (e) => {
+                    e.preventDefault(); e.stopPropagation();
+                    setMode(p.dataset.notesMode === 'zen' ? 'zen' : 'editor');
+                });
+            });
+        });
+        if (ribbonToggle) {
+            ribbonToggle.addEventListener('mousedown', (e) => e.preventDefault());
+            ribbonToggle.addEventListener('click', (e) => {
+                e.preventDefault(); e.stopPropagation();
+                const show = !document.body.classList.contains('show-ribbon');
+                document.body.classList.toggle('show-ribbon', show);
+                ribbonToggle.setAttribute('aria-pressed', show ? 'true' : 'false');
+                ribbonToggle.title = show ? 'Hide Ribbon' : 'Show Ribbon';
+                this.setStoredValue('emeraldcore.storage.suite.notes.zenribbon', show);
+            });
+        }
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && document.body.classList.contains('notes-zen')) setMode('editor');
+        });
+        const saved = this.getStoredValue(STORAGE_KEY);
+        apply(saved === 'zen' ? 'zen' : 'editor');
+    }
+    /* The title element is a textarea so long titles wrap onto new lines up
+       to the 70-char cap (an <input> can only show an ellipsis). The title
+       stays a single logical line: Enter is a no-op and any newlines from
+       pasted text collapse to spaces, so wrapping is pure word-wrap. The
+       height autogrows as lines are added — including when the value is set
+       programmatically (note load, import, collab sync), which is why the
+       value setter is wrapped below. */
+    setupTitleAutogrow() {
+        const el = document.getElementById('noteTitle');
+        if (!el || el.dataset.autogrowReady) return;
+        el.dataset.autogrowReady = '1';
+        const resize = () => {
+            /* Only Zen mode grows the title; the base Editor layout keeps a
+               strict single line (style.height cleared, fixed CSS height). */
+            if (!document.body.classList.contains('notes-zen')) {
+                el.style.height = '';
+                return;
+            }
+            el.style.height = 'auto';
+            // Force a reflow so scrollHeight reflects the wrapped content.
+            void el.offsetHeight;
+            el.style.height = Math.max(el.scrollHeight, 48) + 'px';
+        };
+        this._resizeTitle = resize;
+        el.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') e.preventDefault();
+        });
+        const onInput = () => {
+            if (/\n/.test(el.value)) {
+                el.value = el.value.replace(/\s*\n+\s*/g, ' ').replace(/ {2,}/g, ' ');
+            }
+            resize();
+        };
+        el.addEventListener('input', onInput);
+        el.addEventListener('keyup', resize);
+        el.addEventListener('paste', () => requestAnimationFrame(resize));
+        el.addEventListener('cut', () => requestAnimationFrame(resize));
+        window.addEventListener('resize', resize);
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(resize);
+        const desc = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
+        if (desc && desc.get && desc.set) {
+            try {
+                Object.defineProperty(el, 'value', {
+                    configurable: true,
+                    get() { return desc.get.call(this); },
+                    set(v) { desc.set.call(this, v); requestAnimationFrame(resize); }
+                });
+            } catch (e) {}
+        }
+        resize();
     }
     updateToggleIcon(toggleBtn, isCollapsed) {
         const svg = toggleBtn.querySelector('svg');

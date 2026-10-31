@@ -383,11 +383,19 @@
         transition: opacity 0.2s ease;
     }
     .sidebar.collapsed .sidebar-header h3,
-    .sidebar.collapsed .notes-list {
+    .sidebar.collapsed .notes-list,
+    .sidebar.collapsed .notes-mode-switch {
         opacity: 0;
         pointer-events: none;
     }
     .sidebar.collapsed .new-note-btn {
+        opacity: 0;
+        pointer-events: none;
+    }
+    .sidebar.collapsed .notes-mode-switch {
+        height: 0;
+        margin: 0;
+        overflow: hidden;
         opacity: 0;
         pointer-events: none;
     }
@@ -590,6 +598,9 @@
             transform: translateY(0);
         }
     }
+    /* The title element is a textarea (so Zen mode can wrap it), but in the
+       base Editor layout it stays a strict single line: no wrapping, long
+       text is clipped at the available width until Zen wraps it. */
     .note-title {
         border: none;
         font-size: 24px;
@@ -600,10 +611,13 @@
         outline: none;
         padding: 8px 0;
         font-family: 'DM Sans', sans-serif;
-        max-width: 80%;
+        max-width: 92%;
+        height: 46px;
+        box-sizing: border-box;
+        resize: none;
         overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        white-space: pre;
+        line-height: 1.25;
     }
     .note-title::placeholder {
         color: rgba(44, 62, 80, 0.4);
@@ -1798,15 +1812,18 @@
         transform: translateY(-50%);
         font-size: 10px;
         color: rgba(44, 62, 80, 0.6);
-        transition: transform 0.2s ease;
+        transition: transform 0.2s;
+        font-family: "Segoe UI Symbol", "Arial Unicode MS", "DejaVu Sans", sans-serif;
     }
     .ms-dropdown-btn:hover {
         background: rgba(255, 255, 255, 0.95);
         border-color: var(--ui-accent-border);
         box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
     }
+    .ms-dropdown-btn[aria-expanded="true"]::after,
     .ms-dropdown.active .ms-dropdown-btn:after {
         transform: translateY(-50%) rotate(180deg);
+        color: var(--ui-accent, #a21caf);
     }
     .ms-dropdown-menu {
         position: absolute;
@@ -3053,11 +3070,287 @@
             justify-content: center;
         }
     }
-    .ribbon-btn:disabled,
-    .ms-dropdown-btn:disabled,
-    #undoBtn:disabled,
-    #redoBtn:disabled {
-        opacity: 0.35;
-        cursor: not-allowed;
+    /* In Zen, the note-color swatch is replaced by a "show ribbon" toggle
+       in the floating bottom bar. */
+    body.notes-zen #noteColorDropdown,
+    body.notes-zen #shareNoteBtn,
+    body.notes-zen #exportNoteBtn,
+    body.notes-zen #deleteNoteBtn {
+        display: none;
+    }
+    body:not(.notes-zen) .zen-ribbon-toggle {
+        display: none;
+    }
+    body.notes-zen .editor-actions .zen-ribbon-toggle {
+        /* neutral toggle, not the red delete affordance */
+    }
+    body.notes-zen .editor-actions .zen-ribbon-toggle:hover {
+        background: var(--ui-accent-soft, rgba(16, 185, 129, 0.12));
+        border-color: var(--ui-accent-border, rgba(16, 185, 129, 0.35));
+        color: var(--ui-accent, #a21caf);
+    }
+    body.notes-zen .editor-actions .zen-ribbon-toggle[aria-pressed="true"] {
+        background: var(--ui-accent-soft, rgba(16, 185, 129, 0.18));
+        color: var(--ui-accent, #a21caf);
+    }
+
+    /* ===================== View mode switch (Editor / Zen) ===================== */
+    /* Segmented pill toggle styled after Slides' Animations > TIMING > START
+       pills (.tr-trigger-toggle/.tr-trigger-pill in slides.css). Lives at the
+       very bottom of the sidebar; a floating copy appears bottom-left while
+       Zen is active (the sidebar — and this switch — are hidden in Zen). */
+    .notes-mode-switch {
+        display: inline-flex;
+        background: rgba(0, 0, 0, 0.04);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        border-radius: 9px;
+        padding: 3px;
+        gap: 3px;
+        box-shadow: rgba(0, 0, 0, 0.04) 0px 1px 2px inset;
+        align-self: flex-start;
+        margin: 8px 12px 12px;
+        flex-shrink: 0;
+    }
+    .mode-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        border: none;
+        background: transparent;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        color: rgba(44, 62, 80, 0.7);
+        transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+        font-family: "DM Sans", sans-serif;
+        white-space: nowrap;
+    }
+    .mode-pill svg {
+        flex-shrink: 0;
+        width: 15px;
+        height: 15px;
+        opacity: 0.75;
+    }
+    .mode-pill:hover {
+        color: rgba(44, 62, 80, 0.95);
+        background: rgba(255, 255, 255, 0.6);
+    }
+    .mode-pill[aria-pressed="true"] {
+        background: rgb(255, 255, 255);
+        color: var(--ui-accent, #a21caf);
+        box-shadow: rgba(0, 0, 0, 0.08) 0px 1px 2px, rgba(0, 0, 0, 0.12) 0px 0px 0px 1px;
+    }
+    .mode-pill[aria-pressed="true"] svg {
+        opacity: 1;
+    }
+    .notes-mode-switch-float {
+        position: fixed;
+        left: 14px;
+        bottom: 14px;
+        z-index: 96;
+        margin: 0;
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(3px);
+        -webkit-backdrop-filter: blur(3px);
+        opacity: 0;
+        transform: translateY(8px);
+        pointer-events: none;
+        transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+    body.notes-zen .notes-mode-switch-float {
+        opacity: 0;
+        transform: translateY(10px);
         pointer-events: none;
     }
+
+    /* ===================== Zen mode (Notion-style focus view) ===================== */
+    /* Sidebar + its header buttons collapse away (same mechanics as the
+       welcome screen's hidden sidebar), the ribbon hides, the statusbar
+       goes quiet, the title becomes a big Notion-style heading at the top
+       of the content, and the title/actions bar floats bottom-right as a
+       pill bar. The top navbar (EmeraldSuite logo, collab avatars and the
+       "All changes saved" indicator) stays visible in both modes. */
+
+    body.notes-zen:not(.show-ribbon) .ribbon {
+        opacity: 0;
+        transform: translateY(-110%);
+        pointer-events: none;
+        margin: 0;
+        height: 0;
+        min-height: 0;
+        flex-basis: 0;
+        flex-shrink: 1;
+        overflow: hidden;
+        padding: 0;
+    }
+    body.notes-zen .sidebar {
+        opacity: 0;
+        pointer-events: none;
+        width: 0;
+        min-width: 0;
+    }
+    body.notes-zen .editor-area {
+        margin: 0;
+        border-radius: 0;
+        background: transparent;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+        /* Whole page (title + note) scrolls as one, Notion style. */
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+    body.notes-zen .editor-statusbar {
+        display: none;
+    }
+    body.notes-zen .editor-content {
+        flex: 0 0 auto;
+        min-height: 0;
+        overflow: visible;
+    }
+    body.notes-zen .editor-content > div {
+        flex: none !important;
+        min-height: 0;
+    }
+    body.notes-zen .editor-header {
+        background: transparent;
+        border-bottom: none;
+        box-shadow: none;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+        display: flex;
+        flex: 0 0 auto;
+        flex-direction: column;
+        align-items: stretch;
+        padding: 44px 0 8px;
+        animation: none;
+        z-index: auto;
+        border-radius: 0;
+    }
+    body.notes-zen .note-title {
+        max-width: 900px;
+        width: 100%;
+        margin: 0 auto;
+        padding: 8px 32px 6px;
+        box-sizing: border-box;
+        font-size: 34px;
+        font-weight: 800;
+        height: auto;
+        white-space: pre-wrap;
+        overflow: hidden;
+        /* Long unbreakable titles (70 chars, no spaces) must still wrap. */
+        overflow-wrap: anywhere;
+        word-break: break-all;
+        /* Modern browsers auto-size the textarea to its content natively. */
+        field-sizing: content;
+    }
+    body.notes-zen .text-editor {
+        /* Grows with its content so the whole page (title + note) scrolls as
+           one on .editor-area; the scrollbar stays flush with the screen's
+           right edge. The text column is centered via symmetric padding. */
+        flex: none;
+        min-height: 60vh;
+        max-width: none;
+        width: 100%;
+        margin: 0;
+        height: auto;
+        overflow: visible;
+        padding: 12px max(32px, calc(50% - 418px)) 140px;
+        background: transparent !important;
+    }
+    body.notes-zen .text-editor:empty:before,
+    body.notes-zen .text-editor[data-empty="true"]:before {
+        left: max(32px, calc(50% - 418px));
+        top: 16px;
+    }
+    body.notes-zen .editor-actions {
+        position: fixed;
+        right: 14px;
+        bottom: 14px;
+        z-index: 97;
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(3px);
+        -webkit-backdrop-filter: blur(3px);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        /* Same footprint as the Editor/Zen mode switch. */
+        border-radius: 9px;
+        padding: 3px;
+        gap: 3px;
+        box-shadow: rgba(0, 0, 0, 0.04) 0px 1px 2px inset;
+        /* Slides in from below once Zen engages (.zen-ui-in added by JS). */
+        transform: translateY(10px);
+        opacity: 0;
+        transition: transform 0.25s ease, opacity 0.25s ease;
+    }
+    body.notes-zen .notes-mode-switch-float {
+        transform: translateY(10px);
+        opacity: 0;
+    }
+    body.notes-zen.zen-ui-in .editor-actions,
+    body.notes-zen.zen-ui-in .notes-mode-switch-float {
+        transform: translateY(0);
+        opacity: 1;
+        pointer-events: auto;
+    }
+    body.notes-zen .editor-actions .action-btn,
+    body.notes-zen .editor-actions .action-btntwo,
+    body.notes-zen .editor-actions .action-btnthree {
+        /* Match the mode pill's proportions: 8px vertical padding + 16px
+           icon ÷ 13px text ≈ 32px tall, 6px inner radius. */
+        height: auto;
+        padding: 8px;
+        border-radius: 6px;
+        box-sizing: content-box;
+        box-shadow: none;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+        border-color: transparent;
+        background: transparent;
+    }
+    body.notes-zen .editor-actions .action-btn:hover {
+        background: rgba(220, 53, 69, 0.1);
+        border-color: rgba(220, 53, 69, 0.35);
+    }
+    body.notes-zen .editor-actions .action-btntwo:hover {
+        background: rgba(56, 88, 220, 0.1);
+        border-color: rgba(56, 88, 220, 0.35);
+    }
+    body.notes-zen .editor-actions .action-btnthree:hover {
+        background: rgba(195, 220, 56, 0.15);
+        border-color: rgba(195, 220, 56, 0.45);
+    }
+    body.notes-zen .editor-actions .ms-dropdown-btn {
+        min-width: 0;
+        height: auto;
+        align-self: stretch;
+    }
+    /* The floating bar hugs the bottom edge, so the note-color menu must
+       open upward, and its trigger needs the compact height too. */
+    body.notes-zen #noteColorDropdown .ms-dropdown-btn {
+        height: auto;
+        padding: 8px 24px 8px 12px;
+        min-width: 0;
+        align-self: stretch;
+        border-color: transparent;
+        background: transparent;
+        box-shadow: none;
+    }
+    body.notes-zen #noteColorDropdown .ms-dropdown-menu {
+        top: auto;
+        bottom: calc(100% + 4px);
+        margin-top: 0;
+    }
+    /* Belt-and-braces: every layer of the main area must be see-through in
+       Zen — the rounded panel, the header, the content shell, and the note
+       body itself (its base rgba(255,255,255,.5) wash otherwise still reads
+       as white above the page background). */
+    body.notes-zen .editor-area,
+    body.notes-zen .editor-header,
+    body.notes-zen .editor-content,
+    body.notes-zen .text-editor {
+        background: transparent !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+

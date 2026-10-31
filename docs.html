@@ -13,6 +13,7 @@
   />
   <link rel="stylesheet" href="/assets/styles/style.css" />
   <link rel="stylesheet" href="/assets/styles/docs.css" />
+  <link rel="stylesheet" href="/assets/styles/tablekit.css" />
   <link rel="stylesheet" href="/assets/styles/suite-rail.css" />
   <link rel="icon" type="image/x-icon" href="/assets/images/docsicon.webp">
 </head>
@@ -70,6 +71,7 @@
         <button class="ribbon-tab" data-tab="review">Review</button>
         <button class="ribbon-tab" data-tab="view">View</button>
         <button class="ribbon-tab ribbon-tab-contextual" data-tab="image-format" id="imageFormatTab" hidden>Image Format</button>
+        <button class="ribbon-tab ribbon-tab-contextual" data-tab="table-design" id="tableDesignTab" hidden>Table Design</button>
         <span class="ribbon-tab-indicator visible" id="ribbonTabIndicator" aria-hidden="true"></span>
       </div>
       <div class="ribbon-tabs-right">
@@ -795,6 +797,86 @@
           </div>
 
         </div><!-- end IMAGE-FORMAT panel -->
+
+        <!-- ============ TABLE DESIGN PANEL (contextual — shown when a table is engaged) ============ -->
+        <div class="ribbon-panel" data-panel="table-design">
+
+          <!-- TABLE STYLE OPTIONS — Slides "Timing › Start" pill toggles -->
+          <div class="ribbon-group">
+            <div class="group-label">Table Style Options</div>
+            <div class="ribbon-controls">
+              <div class="td-pill-toggle" role="group" aria-label="Table style options">
+                <button type="button" class="td-pill" id="tdOptHeader" data-td-opt="header" aria-pressed="false" title="Header Row">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3.2" y="4.5" width="17.6" height="15" rx="1.8"/><path d="M3.2 9.2h17.6"/></svg>
+                  <span>Header Row</span>
+                </button>
+                <button type="button" class="td-pill" id="tdOptTotal" data-td-opt="total" aria-pressed="false" title="Total Row">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3.2" y="4.5" width="17.6" height="15" rx="1.8"/><path d="M3.2 14.8h17.6"/></svg>
+                  <span>Total Row</span>
+                </button>
+                <button type="button" class="td-pill" id="tdOptBanded" data-td-opt="bandedRows" aria-pressed="false" title="Banded Rows">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3.2" y="4.5" width="17.6" height="15" rx="1.8"/><path d="M3.2 9.2h17.6"/><path d="M3.2 14.8h17.6"/></svg>
+                  <span>Banded Rows</span>
+                </button>
+                <button type="button" class="td-pill" id="tdOptBandedCols" data-td-opt="bandedCols" aria-pressed="false" title="Banded Columns">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3.2" y="4.5" width="17.6" height="15" rx="1.8"/><path d="M9.1 4.5v15"/><path d="M14.9 4.5v15"/></svg>
+                  <span>Banded Columns</span>
+                </button>
+                <button type="button" class="td-pill" id="tdOptFirstCol" data-td-opt="firstCol" aria-pressed="false" title="First Column">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3.2" y="4.5" width="17.6" height="15" rx="1.8"/><path d="M8.6 4.5v15"/></svg>
+                  <span>First Column</span>
+                </button>
+                <button type="button" class="td-pill" id="tdOptLastCol" data-td-opt="lastCol" aria-pressed="false" title="Last Column">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3.2" y="4.5" width="17.6" height="15" rx="1.8"/><path d="M15.4 4.5v15"/></svg>
+                  <span>Last Column</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- TABLE STYLES — gallery strip + zoomed gallery popup -->
+          <div class="ribbon-group td-styles-group">
+            <div class="group-label">Table Styles</div>
+            <div class="ribbon-controls">
+              <div class="td-gallery-wrap" id="tdGalleryWrap">
+                <div class="td-gallery-strip" id="tdGalleryStrip" title="Table styles"></div>
+                <div class="td-gallery-popup td-style-menu" id="tdGalleryPopup"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SHADING — fill for the selection (or whole table) -->
+          <div class="ribbon-group">
+            <div class="group-label">Shading</div>
+            <div class="ribbon-controls">
+              <div class="ms-dropdown" id="tdShadingDropdown">
+                <button class="ms-dropdown-btn" type="button" style="min-width:80px;">
+                  <span id="tdShadingSwatch" class="color-preview" style="background:transparent;border:2px dashed #999;"></span>
+                  <span class="dropdown-value" id="tdShadingLabel">No Fill</span>
+                </button>
+                <div class="ms-dropdown-menu color-list-menu">
+                  <div class="ms-dropdown-item" data-value="" data-label="No Fill"><span class="color-preview" style="background:linear-gradient(to bottom right,#fff 45%,#f00 45%,#f00 55%,#fff 55%);border:1px solid #ccc;"></span>No Fill</div>
+                  <div class="ms-dropdown-item" data-value="#ffe3e3" data-label="Soft Red"><span class="color-preview" style="background:#ffe3e3;"></span>Soft Red</div>
+                  <div class="ms-dropdown-item" data-value="#ffe9c9" data-label="Soft Orange"><span class="color-preview" style="background:#ffe9c9;"></span>Soft Orange</div>
+                  <div class="ms-dropdown-item" data-value="#fff4c2" data-label="Soft Yellow"><span class="color-preview" style="background:#fff4c2;"></span>Soft Yellow</div>
+                  <div class="ms-dropdown-item" data-value="#e2f6e3" data-label="Soft Green"><span class="color-preview" style="background:#e2f6e3;"></span>Soft Green</div>
+                  <div class="ms-dropdown-item" data-value="#dcf3f5" data-label="Soft Cyan"><span class="color-preview" style="background:#dcf3f5;"></span>Soft Cyan</div>
+                  <div class="ms-dropdown-item" data-value="#e3ecff" data-label="Soft Blue"><span class="color-preview" style="background:#e3ecff;"></span>Soft Blue</div>
+                  <div class="ms-dropdown-item" data-value="#ece4fb" data-label="Soft Violet"><span class="color-preview" style="background:#ece4fb;"></span>Soft Violet</div>
+                  <div class="ms-dropdown-item" data-value="#eceef1" data-label="Soft Gray"><span class="color-preview" style="background:#eceef1;"></span>Soft Gray</div>
+                  <div class="ms-dropdown-item" data-value="#333a44" data-label="Carbon"><span class="color-preview" style="background:#333a44;"></span>Carbon</div>
+                  <div class="ms-dropdown-item" data-value="#4472c4" data-label="Azure"><span class="color-preview" style="background:#4472c4;"></span>Azure</div>
+                  <div class="ms-dropdown-item" data-value="#199a8e" data-label="Teal"><span class="color-preview" style="background:#199a8e;"></span>Teal</div>
+                  <div class="ms-dropdown-item" data-value="#d9576a" data-label="Rose"><span class="color-preview" style="background:#d9576a;"></span>Rose</div>
+                  <div class="ms-dropdown-item" data-value="#d9962b" data-label="Amber"><span class="color-preview" style="background:#d9962b;"></span>Amber</div>
+                  <div class="ms-dropdown-item" data-value="#4e9f50" data-label="Green"><span class="color-preview" style="background:#4e9f50;"></span>Green</div>
+                  <div class="ms-dropdown-item" data-value="#7c5cd6" data-label="Violet"><span class="color-preview" style="background:#7c5cd6;"></span>Violet</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- end TABLE-DESIGN panel -->
 
       </div>
     </div>
@@ -1883,7 +1965,73 @@
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
   <!-- PDF import: rebuilds a .pdf as editable text, tables and artwork. Same build Slides uses. -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" integrity="sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e" crossorigin="anonymous"></script>
+  <!-- Floating table toolbar (shown while the caret is inside a table) -->
+  <div id="tableToolbar">
+    <div class="tbl-groups">
+      <div class="tbl-group">
+        <span class="tbl-group-label">Row</span>
+        <button class="tbl-btn" data-tbl="addRowAbove" title="Add Row Above" aria-label="Add Row Above">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="6" width="16" height="11" rx="1.5" />
+            <path d="M4 11h16" /><path d="M4 16h16" />
+            <path d="M12 1.5V4" /><path d="M10.5 2.75h3" />
+          </svg>
+        </button>
+        <button class="tbl-btn" data-tbl="addRowBelow" title="Add Row Below" aria-label="Add Row Below">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="6" width="16" height="11" rx="1.5" />
+            <path d="M4 11h16" /><path d="M4 16h16" />
+            <path d="M12 21.5V19" /><path d="M10.5 20.25h3" />
+          </svg>
+        </button>
+        <button class="tbl-btn tbl-btn-danger" data-tbl="deleteRow" title="Delete Row" aria-label="Delete Row">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="6" width="12" height="12" rx="1.5" />
+            <path d="M4 11h12" /><path d="M4 16h12" />
+            <path d="M19.5 12.5h4" />
+          </svg>
+        </button>
+      </div>
+      <div class="tbl-divider"></div>
+      <div class="tbl-group">
+        <span class="tbl-group-label">Column</span>
+        <button class="tbl-btn" data-tbl="addColLeft" title="Add Column Left" aria-label="Add Column Left">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <rect x="7" y="4" width="12" height="16" rx="1.5" />
+            <path d="M11 4v16" /><path d="M15 4v16" />
+            <path d="M2.5 8v8" /><path d="M0.5 12h4" />
+          </svg>
+        </button>
+        <button class="tbl-btn" data-tbl="addColRight" title="Add Column Right" aria-label="Add Column Right">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <rect x="5" y="4" width="12" height="16" rx="1.5" />
+            <path d="M9 4v16" /><path d="M13 4v16" />
+            <path d="M21.5 8v8" /><path d="M19.5 12h4" />
+          </svg>
+        </button>
+        <button class="tbl-btn tbl-btn-danger" data-tbl="deleteCol" title="Delete Column" aria-label="Delete Column">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <rect x="6" y="3" width="12" height="13" rx="1.5" />
+            <path d="M10 3v13" /><path d="M14 3v13" />
+            <path d="M9.5 21h5" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script src="/assets/scripts/idb-storage.js"></script>
+  <script src="/assets/scripts/tablekit.js"></script>
+  <!-- Shared Word-style table design engine (ribbon + toolbar + importer). -->
+  <script src="/assets/scripts/tablestyles.js"></script>
+  <!-- DOCX export: packs the live pages into a real Word file (OOXML + ZIP). -->
+  <script src="/assets/scripts/docxexport.js"></script>
   <script src="/assets/scripts/docs.js"></script>
   <script src="/assets/scripts/rightclick.js"></script>
 </body>
