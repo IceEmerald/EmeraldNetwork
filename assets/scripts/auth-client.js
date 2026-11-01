@@ -6,6 +6,37 @@
         returnUrl: 'emerald.auth.return_url'
     };
 
+    var autoSyncTimer = null;
+    var autoSyncIntervalMs = 10000;
+
+    function startAutoSync() {
+        if (autoSyncTimer) return;
+
+        autoSyncTimer = window.setInterval(async function () {
+            try {
+                var session = await getSession();
+                if (!session || !session.token) {
+                    stopAutoSync();
+                    return;
+                }
+                await syncCurrentData();
+            } catch (_) {}
+        }, autoSyncIntervalMs);
+
+        document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'visible') {
+                syncCurrentData().catch(function () {});
+            }
+        });
+    }
+
+    function stopAutoSync() {
+        if (autoSyncTimer) {
+            clearInterval(autoSyncTimer);
+            autoSyncTimer = null;
+        }
+    }
+
     function getApiBase() {
         if (window.EMERALD_AUTH_API_BASE) return window.EMERALD_AUTH_API_BASE.replace(/\/+$/, '');
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
@@ -52,6 +83,7 @@
     }
 
     async function clearSession() {
+        stopAutoSync();
         await waitForStorage();
         if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.delete === 'function') {
             try { await window.EmeraldIDBStorage.delete(STORAGE_KEYS.session); } catch (_) {}
@@ -159,6 +191,7 @@
         if (!auth) return false;
 
         await setSession(auth);
+        startAutoSync();
         try {
             await syncCurrentData();
         } catch (_) {}
@@ -189,6 +222,7 @@
 
         if (result && result.session) {
             await setSession(result.session);
+            startAutoSync();
             try {
                 await syncCurrentData();
             } catch (_) {}
@@ -205,6 +239,7 @@
 
         if (result && result.session) {
             await setSession(result.session);
+            startAutoSync();
             try {
                 await syncCurrentData();
             } catch (_) {}
@@ -311,11 +346,23 @@
         syncCurrentData: syncCurrentData,
         exportAccountData: exportAccountData,
         importAccountData: importAccountData,
+        startAutoSync: startAutoSync,
+        stopAutoSync: stopAutoSync,
         isLoggedIn: async function () {
             var session = await getSession();
             return !!(session && session.user && session.token);
         }
     };
+
+    (async function () {
+        try {
+            var session = await getSession();
+            if (session && session.user && session.token) {
+                startAutoSync();
+                await syncCurrentData();
+            }
+        } catch (_) {}
+    })();
 
     consumeAuthCallbackFromUrl();
 }());
