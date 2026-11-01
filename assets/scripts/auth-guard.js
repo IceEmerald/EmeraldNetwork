@@ -42,7 +42,8 @@
             current.searchParams.delete('auth_provider');
             var finalCurrent = current.origin + current.pathname + current.search;
             try { sessionStorage.setItem('emerald.auth.return_url', finalCurrent); } catch (_) {}
-            window.location.href = '/account.html?redirect=' + encodeURIComponent(finalCurrent);
+            var accountUrl = '/account.html?redirect=' + encodeURIComponent(finalCurrent);
+            window.location.replace(accountUrl);
             return;
         }
 

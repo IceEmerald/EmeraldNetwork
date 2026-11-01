@@ -131,12 +131,21 @@
     async function clearSession() {
         stopAutoSync();
         await waitForStorage();
+
         if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.delete === 'function') {
             try { await window.EmeraldIDBStorage.delete(STORAGE_KEYS.session); } catch (_) {}
         }
+
         try { localStorage.removeItem(STORAGE_KEYS.session); } catch (_) {}
         try { sessionStorage.removeItem(STORAGE_KEYS.session); } catch (_) {}
+        try { localStorage.removeItem(STORAGE_KEYS.returnUrl); } catch (_) {}
         try { sessionStorage.removeItem(STORAGE_KEYS.returnUrl); } catch (_) {}
+
+        try {
+            if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.getJSONSync === 'function') {
+                window.EmeraldIDBStorage.setJSONSync(STORAGE_KEYS.session, null);
+            }
+        } catch (_) {}
     }
 
     async function fetchJson(path, options) {

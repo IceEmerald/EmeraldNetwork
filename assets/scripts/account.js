@@ -87,6 +87,23 @@
         }
     }
 
+    function renderLoggedOutSwitchNote(mode) {
+        if (!switchNote) return;
+        switchNote.textContent = '';
+
+        var prefix = document.createElement('span');
+        prefix.className = 'switch-prefix';
+        prefix.textContent = mode === 'login' ? 'New to EmeraldNetwork? ' : 'Already have an account? ';
+
+        var link = document.createElement('a');
+        link.id = 'modeSwitch';
+        link.href = '#';
+        link.textContent = mode === 'login' ? 'Create an account' : 'Sign in';
+
+        switchNote.appendChild(prefix);
+        switchNote.appendChild(link);
+    }
+
     function applyMode(name) {
         currentMode = name;
         Object.keys(forms).forEach(function (key) {
@@ -97,9 +114,14 @@
             /* clear leftover errors when leaving a form */
             if (!isActive) clearFormErrors(form);
         });
+
+        if (loggedInState && loggedInState.hidden === false) {
+            return;
+        }
+
         title.textContent = COPY[name].title;
         subtitle.textContent = COPY[name].subtitle;
-        switchNote.innerHTML = COPY[name].note;
+        renderLoggedOutSwitchNote(name);
     }
 
     function getStoredSessionDirect() {
@@ -152,18 +174,26 @@
             forms.register.style.display = 'none';
             forms.register.classList.remove('active');
         }
+        var divider = document.querySelector('.divider');
+        var socialButtons = document.querySelector('.social-buttons');
+        if (divider) divider.hidden = true;
+        if (socialButtons) socialButtons.hidden = true;
         if (loggedInState) {
             loggedInState.hidden = false;
             loggedInState.style.display = 'block';
         }
         if (loggedInEmail) loggedInEmail.textContent = email;
-        if (switchNote) switchNote.innerHTML = '<span class="switch-prefix">Signed in as </span>' + email;
+        if (switchNote) switchNote.textContent = 'Signed in as ' + email;
         title.textContent = 'Logged in!';
         subtitle.textContent = 'Account: ' + email;
     }
 
     function showLoggedOutState() {
         var currentModeName = currentMode || 'login';
+        var divider = document.querySelector('.divider');
+        var socialButtons = document.querySelector('.social-buttons');
+        if (divider) divider.hidden = false;
+        if (socialButtons) socialButtons.hidden = false;
         if (loggedInState) {
             loggedInState.hidden = true;
             loggedInState.style.display = 'none';
@@ -176,7 +206,9 @@
             forms.login.classList.toggle('active', currentModeName === 'login');
             forms.register.classList.toggle('active', currentModeName === 'register');
         }
-        if (switchNote) switchNote.innerHTML = COPY[currentModeName].note;
+        if (switchNote) {
+            renderLoggedOutSwitchNote(currentModeName);
+        }
         title.textContent = COPY[currentModeName].title;
         subtitle.textContent = COPY[currentModeName].subtitle;
     }
@@ -206,6 +238,9 @@
 
     /* Delegated, so clicks survive the note text being rewritten */
     switchNote.addEventListener('click', function (e) {
+        if (loggedInState && loggedInState.hidden === false) {
+            return;
+        }
         var link = e.target.closest ? e.target.closest('#modeSwitch') : null;
         if (!link) return;
         e.preventDefault();
@@ -505,6 +540,12 @@
                     await window.EmeraldAuth.clearSession();
                 }
             } catch (_) {}
+
+            try {
+                window.location.replace('/account.html');
+                return;
+            } catch (_) {}
+
             showLoggedOutState();
         });
     }
