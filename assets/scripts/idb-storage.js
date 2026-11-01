@@ -189,11 +189,53 @@
         return getJSON(key);
     }
 
+    async function exportAll() {
+        await readyPromise;
+        const snapshot = {};
+
+        if (db) {
+            const tx = db.transaction(STORE_NAME, 'readonly');
+            const entries = await requestToPromise(tx.objectStore(STORE_NAME).getAll());
+            entries.forEach((entry) => {
+                if (!entry || typeof entry.key !== 'string') return;
+                try {
+                    snapshot[entry.key] = JSON.parse(entry.value);
+                } catch (_) {
+                    snapshot[entry.key] = entry.value;
+                }
+            });
+            return snapshot;
+        }
+
+        Object.keys(localStorage).forEach((key) => {
+            const raw = readLocalRaw(key);
+            if (raw == null) return;
+            try {
+                snapshot[key] = JSON.parse(raw);
+            } catch (_) {
+                snapshot[key] = raw;
+            }
+        });
+
+        return snapshot;
+    }
+
+    async function importAll(snapshot) {
+        if (!snapshot || typeof snapshot !== 'object') return;
+        const entries = Object.entries(snapshot);
+        for (const [key, value] of entries) {
+            if (!key) continue;
+            await setJSON(key, value);
+        }
+    }
+
     function createJSONStore(options = {}) {
         return {
             get: getJSONSync,
             set(key, value) { setJSONSync(key, value); },
-            del(key) { deleteRaw(key).catch(() => {}); }
+            del(key) { deleteRaw(key).catch(() => {}); },
+            exportAll,
+            importAll
         };
     }
 
@@ -217,6 +259,8 @@
         setJSONSync,
         delete: deleteRaw,
         migrateLocalJSON,
+        exportAll,
+        importAll,
         createJSONStore,
         subscribe(callback) {
             subscribers.add(callback);

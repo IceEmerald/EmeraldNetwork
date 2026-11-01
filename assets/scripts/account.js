@@ -159,11 +159,40 @@
         return ok;
     }
 
+    async function submitAuthRequest(mode) {
+        var email = mode === 'login'
+            ? document.getElementById('login-email').value.trim()
+            : document.getElementById('register-email').value.trim();
+        var password = mode === 'login'
+            ? document.getElementById('login-password').value
+            : document.getElementById('register-password').value;
+
+        var apiBase = window.EmeraldAuth && window.EmeraldAuth.getApiBase
+            ? window.EmeraldAuth.getApiBase()
+            : 'https://emeraldnetwork-auth.iceemerald.workers.dev';
+
+        try {
+            showToast(mode === 'login' ? 'Signing in…' : 'Creating your account…');
+            var result = mode === 'login'
+                ? await window.EmeraldAuth.login(email, password)
+                : await window.EmeraldAuth.register(email, password);
+
+            if (result && result.redirectUrl) {
+                window.location.href = result.redirectUrl;
+                return;
+            }
+
+            window.location.href = window.EmeraldAuth.getReturnUrl();
+        } catch (error) {
+            var message = error && error.message ? error.message : 'Authentication failed.';
+            showToast(message);
+        }
+    }
+
     forms.login.addEventListener('submit', function (e) {
         e.preventDefault();
         if (!validateLoginForm()) return;
-        /* TODO (backend): replace with a fetch() to the auth API. */
-        showToast('Demo validation passed — the account backend hookup is next.');
+        submitAuthRequest('login');
     });
 
     /* ---------------- Register form ---------------- */
@@ -215,8 +244,7 @@
     forms.register.addEventListener('submit', function (e) {
         e.preventDefault();
         if (!validateRegisterForm()) return;
-        /* TODO (backend): replace with a fetch() to the auth API. */
-        showToast('Demo validation passed — the account backend hookup is next.');
+        submitAuthRequest('register');
     });
 
     /* Silent match-state update while typing (no error shown yet) */
@@ -296,18 +324,15 @@
     /* ---------------- Social buttons (OAuth stubs) ---------------- */
 
     function oauthStub(provider) {
-        /* TODO: point these at the real OAuth endpoints. Classic pattern:
-           window.location.href = '/auth/' + provider.toLowerCase();
-           or open a popup and listen for the postMessage callback. */
-        showToast('Continue with ' + provider + ' isn\u2019t wired to a backend yet.');
+        if (!window.EmeraldAuth || !window.EmeraldAuth.beginOAuth) {
+            showToast('OAuth is not available yet. Set up the Cloudflare auth worker first.');
+            return;
+        }
+        window.EmeraldAuth.beginOAuth(provider);
     }
 
     document.getElementById('googleBtn').addEventListener('click', function () {
         oauthStub('Google');
-    });
-
-    document.getElementById('microsoftBtn').addEventListener('click', function () {
-        oauthStub('Microsoft');
     });
 
     /* ---------------- Forgot password ---------------- */
