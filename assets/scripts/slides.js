@@ -445,6 +445,7 @@ class SlidesApp {
     }
 
     async init() {
+        if (window.EmeraldAuth?.ready) await window.EmeraldAuth.ready();
         await this.loadIconLibrary();
         await this.loadIndex();
         this.setupRibbon();

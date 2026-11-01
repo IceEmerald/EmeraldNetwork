@@ -9495,6 +9495,7 @@ function startAutosaveSnapshots() {
 
   /* ---------------- Init ---------------- */
   async function init() {
+    if (window.EmeraldAuth && window.EmeraldAuth.ready) await window.EmeraldAuth.ready();
     // Initialize IDB storage
     idb = window.EmeraldIDBStorage || null;
     if (idb) {

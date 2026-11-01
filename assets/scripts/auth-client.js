@@ -7,7 +7,8 @@
     };
 
     var autoSyncTimer = null;
-    var autoSyncIntervalMs = 30000;
+    // Fallback polling detects edits made on another device; local edits sync from storage events below.
+    var autoSyncIntervalMs = 10000;
     var storageSyncTimer = null;
     var syncInFlight = null;
     var syncRequestedAgain = false;
@@ -25,7 +26,7 @@
                 if (!session || !session.token) return;
                 await syncCurrentData();
             } catch (_) {}
-        }, 500);
+        }, 250);
     }
 
     function startAutoSync() {
@@ -50,7 +51,14 @@
 
             if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.subscribe === 'function') {
                 window.EmeraldIDBStorage.subscribe(function (change) {
-                    if (change && change.key === STORAGE_KEYS.session) return;
+                    if (change && (change.key === STORAGE_KEYS.session || change.type === 'import')) return;
+                    requestSyncFromLocalChange();
+                });
+            }
+
+            if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.subscribeLocal === 'function') {
+                window.EmeraldIDBStorage.subscribeLocal(function (change) {
+                    if (change && (change.key === STORAGE_KEYS.session || change.type === 'import')) return;
                     requestSyncFromLocalChange();
                 });
             }
@@ -58,6 +66,10 @@
             window.addEventListener('storage', function (event) {
                 if (!event.key || event.key === STORAGE_KEYS.session) return;
                 requestSyncFromLocalChange();
+            });
+
+            window.addEventListener('online', function () {
+                syncCurrentData().catch(function () {});
             });
         }
     }
@@ -529,7 +541,13 @@
             var session = await getSession();
             if (session && session.user && session.token) {
                 startAutoSync();
-                syncCurrentData().catch(function () {});
+                await new Promise(function (resolve) {
+                    var timeout = setTimeout(resolve, 5000);
+                    syncCurrentData().catch(function () {}).finally(function () {
+                        clearTimeout(timeout);
+                        resolve();
+                    });
+                });
             }
         } catch (_) {}
     })();

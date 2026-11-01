@@ -12086,6 +12086,7 @@ let booted = false;
 async function boot() {
   if (booted) return;
   booted = true;
+  if (window.EmeraldAuth && window.EmeraldAuth.ready) await window.EmeraldAuth.ready();
   setupChrome();
   await loadLastOrNew();
   showWelcomeScreen(true);

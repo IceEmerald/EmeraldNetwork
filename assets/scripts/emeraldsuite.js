@@ -858,7 +858,8 @@
         }
     }
 
-    function init() {
+    async function init() {
+        if (window.EmeraldAuth && window.EmeraldAuth.ready) await window.EmeraldAuth.ready();
         setGreeting();
         bindUI();
 

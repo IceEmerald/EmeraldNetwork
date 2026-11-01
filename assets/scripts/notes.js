@@ -59,6 +59,7 @@ class NotesApp {
         this.ready = this.init();
     }
     async init() {
+        if (window.EmeraldAuth && window.EmeraldAuth.ready) await window.EmeraldAuth.ready();
         await this.loadNotesFromStorage();
         this.initializeCollaboration();
         this.setupEventListeners();

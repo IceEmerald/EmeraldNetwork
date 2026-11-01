@@ -8,6 +8,7 @@
     ]);
     const cache = new Map();
     const subscribers = new Set();
+    const localSubscribers = new Set();
     const tabId = Math.random().toString(36).slice(2) + Date.now().toString(36);
     const channel = typeof BroadcastChannel !== 'undefined'
         ? new BroadcastChannel('emeraldcore.storage.suite')
@@ -112,8 +113,22 @@
     }
 
     function notify(change) {
+        var publicChange = Object.assign({}, change);
+        if (typeof publicChange.key === 'string') {
+            var scopedKey = publicChange.key.match(/^acct:[^:]+:(.*)$/);
+            if (scopedKey) {
+                publicChange.storageKey = publicChange.key;
+                publicChange.key = scopedKey[1];
+            }
+        }
         subscribers.forEach(function (callback) {
-            try { callback(change); } catch (error) { console.warn('Storage subscriber failed:', error); }
+            try { callback(publicChange); } catch (error) { console.warn('Storage subscriber failed:', error); }
+        });
+    }
+
+    function notifyLocal(change) {
+        localSubscribers.forEach(function (callback) {
+            try { callback(change); } catch (error) { console.warn('Local storage subscriber failed:', error); }
         });
     }
 
@@ -146,12 +161,17 @@
         var qualifiedKey = qualifyKey(key, explicitScope);
         cache.delete(qualifiedKey);
         removeLocalRaw(qualifiedKey);
-        if (!db) return Promise.resolve();
+        if (!db) {
+            notifyLocal({ key: qualifiedKey, type: 'delete' });
+            return Promise.resolve();
+        }
         var tx = db.transaction(STORE_NAME, 'readwrite');
         tx.objectStore(STORE_NAME).delete(qualifiedKey);
         return new Promise(function (resolve, reject) {
             tx.oncomplete = function () {
-                broadcast({ key: qualifiedKey, type: 'delete' });
+                var change = { key: qualifiedKey, type: 'delete' };
+                broadcast(change);
+                notifyLocal(change);
                 resolve();
             };
             tx.onerror = function () { reject(tx.error); };
@@ -224,7 +244,9 @@
         if (shouldScopeKey(key)) {
             try { localStorage.removeItem(key); } catch (_) {}
         }
-        broadcast({ key: qualifiedKey, type: 'set' });
+        var change = { key: qualifiedKey, type: options.type || 'set' };
+        broadcast(change);
+        notifyLocal(change);
     }
 
     function setJSONSync(key, value, options = {}) {
@@ -233,6 +255,7 @@
         var raw = JSON.stringify(value);
         cache.set(qualifiedKey, raw);
         try { localStorage.setItem(qualifiedKey, raw); } catch (_) {}
+        notifyLocal({ key: qualifiedKey, type: 'set' });
 
         readyPromise.then(function () {
             if (!db) return;
@@ -306,7 +329,10 @@
             var key = entries[i][0];
             var value = entries[i][1];
             if (!key) continue;
-            await setJSON(key, value, { scope: scope });
+            var current = await getJSON(key, scope);
+            if (JSON.stringify(current) === JSON.stringify(value)) continue;
+            await setJSON(key, value, { scope: scope, type: 'import' });
+            notify({ key: qualifyKey(key, scope), type: 'import', source: tabId, local: true });
         }
     }
 
@@ -347,6 +373,10 @@
         subscribe: function (callback) {
             subscribers.add(callback);
             return function () { subscribers.delete(callback); };
+        },
+        subscribeLocal: function (callback) {
+            localSubscribers.add(callback);
+            return function () { localSubscribers.delete(callback); };
         }
     };
 }());

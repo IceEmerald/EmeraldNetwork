@@ -6288,6 +6288,7 @@ function _obFinish() {
   }
 }
 async function init() {
+  if (window.EmeraldAuth && window.EmeraldAuth.ready) await window.EmeraldAuth.ready();
   try {
     refreshModelSelectorUI();
     refreshThinkingToggleUI();

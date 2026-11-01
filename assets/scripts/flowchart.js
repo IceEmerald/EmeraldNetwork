@@ -2982,6 +2982,7 @@ function showAbout() {
 // a saved flowchart with the empty initial state.
 // ============================================================
 async function init() {
+  if (window.EmeraldAuth?.ready) await window.EmeraldAuth.ready();
   ensureArrowhead($('#connections'));
   let loaded = false;
   try {
