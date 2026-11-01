@@ -186,6 +186,9 @@
 
         if (result && result.session) {
             await setSession(result.session);
+            try {
+                await syncCurrentData();
+            } catch (_) {}
         }
 
         return result;
@@ -199,6 +202,9 @@
 
         if (result && result.session) {
             await setSession(result.session);
+            try {
+                await syncCurrentData();
+            } catch (_) {}
         }
 
         return result;
@@ -224,13 +230,26 @@
             } catch (_) {}
         }
 
-        return fetchJson('/api/auth/sync', {
+        await fetchJson('/api/auth/sync', {
             method: 'POST',
             headers: {
                 Authorization: 'Bearer ' + session.token
             },
             body: JSON.stringify({ snapshot: snapshot })
         });
+
+        var remote = await fetchJson('/api/auth/sync', {
+            method: 'GET',
+            headers: {
+                Authorization: 'Bearer ' + session.token
+            }
+        });
+
+        if (remote && remote.snapshot && typeof remote.snapshot === 'object') {
+            await importAccountData(remote.snapshot);
+        }
+
+        return remote;
     }
 
     async function exportAccountData() {

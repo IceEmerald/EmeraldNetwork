@@ -421,6 +421,8 @@
         var message = 'Authentication failed.';
         if (authError === 'no_account') {
             message = 'No account found. Please create an account first.';
+        } else if (authError === 'already_account') {
+            message = 'You already have an account. Please sign in instead.';
         } else if (authError === 'oauth_failed') {
             message = 'Google sign-in failed. Please try again.';
         } else if (authError === 'email_missing') {
