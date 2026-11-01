@@ -265,12 +265,14 @@
         return true;
     }
 
-    function beginOAuth(provider) {
+    function beginOAuth(provider, intent) {
         var name = String(provider || 'Google').toLowerCase();
         var returnUrl = getReturnUrl();
         rememberReturnUrl(returnUrl);
         var redirect = encodeURIComponent(returnUrl);
-        window.location.href = getApiBase() + '/api/auth/' + name + '?redirect=' + redirect;
+        var mode = String(intent || 'login').toLowerCase();
+        var query = '?redirect=' + redirect + '&intent=' + encodeURIComponent(mode);
+        window.location.href = getApiBase() + '/api/auth/' + name + query;
     }
 
     window.EmeraldAuth = {

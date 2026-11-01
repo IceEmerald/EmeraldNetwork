@@ -340,16 +340,16 @@
 
     /* ---------------- Social buttons (OAuth stubs) ---------------- */
 
-    function oauthStub(provider) {
+    function oauthStub(provider, intent) {
         if (!window.EmeraldAuth || !window.EmeraldAuth.beginOAuth) {
             showToast('OAuth is not available yet. Set up the Cloudflare auth worker first.');
             return;
         }
-        window.EmeraldAuth.beginOAuth(provider);
+        window.EmeraldAuth.beginOAuth(provider, intent);
     }
 
     document.getElementById('googleBtn').addEventListener('click', function () {
-        oauthStub('Google');
+        oauthStub('Google', currentMode === 'register' ? 'register' : 'login');
     });
 
     /* ---------------- Forgot password ---------------- */
