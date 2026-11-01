@@ -451,6 +451,17 @@
         });
     }
 
+    function snapshotsMatch(first, second) {
+        var firstKeys = Object.keys(first || {}).sort();
+        var secondKeys = Object.keys(second || {}).sort();
+        if (firstKeys.length !== secondKeys.length) return false;
+        for (var index = 0; index < firstKeys.length; index++) {
+            var key = firstKeys[index];
+            if (key !== secondKeys[index] || JSON.stringify(first[key]) !== JSON.stringify(second[key])) return false;
+        }
+        return true;
+    }
+
     async function performSync() {
         var session = await getSession();
         if (!session || !session.token) return null;
@@ -487,7 +498,7 @@
         var baseSnapshot = remote && remote.snapshot && typeof remote.snapshot === 'object' ? remote.snapshot : {};
         var mergedSnapshot = mergeSnapshots(snapshot, baseSnapshot);
 
-        await fetchJson('/api/auth/sync', {
+        var syncResult = await fetchJson('/api/auth/sync', {
             method: 'POST',
             headers: {
                 Authorization: 'Bearer ' + session.token
@@ -495,11 +506,22 @@
             body: JSON.stringify({ snapshot: mergedSnapshot })
         });
 
-        if (remote.snapshot && typeof remote.snapshot === 'object') {
-            await importAccountData(mergedSnapshot);
+        // Do not import the response captured before a local edit. Doing so
+        // would visibly roll an in-progress edit back to its old position.
+        var latestSnapshot = await exportAccountData();
+        if (!snapshotsMatch(snapshot, latestSnapshot)) {
+            syncRequestedAgain = true;
+            return { ok: true, pendingLocalChanges: true };
         }
 
-        return { ok: true, snapshot: mergedSnapshot };
+        var serverSnapshot = syncResult && syncResult.snapshot && typeof syncResult.snapshot === 'object'
+            ? syncResult.snapshot
+            : mergedSnapshot;
+        if (serverSnapshot) {
+            await importAccountData(serverSnapshot);
+        }
+
+        return { ok: true, snapshot: serverSnapshot };
     }
 
     async function exportAccountData() {

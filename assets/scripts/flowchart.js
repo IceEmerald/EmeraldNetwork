@@ -53,6 +53,7 @@ const VALID_TYPES = ['Integer', 'Real', 'String', 'Boolean'];
 const STORAGE_KEY = 'flowcode:current-program';
 let _persistenceReady = false;     // false until init() has loaded (or confirmed absent) saved state
 let _persistDebounceTimer = null;  // shared timer for drag/pan/speed debounced saves
+let _remoteRefreshPending = false;
 
 function serializeState() {
   return {
@@ -118,6 +119,15 @@ function persistState() {
 function persistStateDebounced(delay = 350) {
   if (_persistDebounceTimer) clearTimeout(_persistDebounceTimer);
   _persistDebounceTimer = setTimeout(persistState, delay);
+}
+
+async function applyPendingRemoteState() {
+  if (!_remoteRefreshPending || dragInfo || panInfo || State.connecting) return;
+  _remoteRefreshPending = false;
+  const latest = await EmeraldIDBStorage.getJSON(STORAGE_KEY, null, { allowLegacy: false });
+  if (!latest) return;
+  deserializeState(latest);
+  renderAll();
 }
 
 async function loadPersistedState() {
@@ -787,6 +797,7 @@ document.addEventListener('mouseup', (e) => {
   if (panInfo) {
     panInfo = null;
     $('#canvas-wrap').classList.remove('panning');
+    applyPendingRemoteState().catch(() => {});
     return;
   }
   if (State.connecting) {
@@ -811,6 +822,7 @@ document.addEventListener('mouseup', (e) => {
   }
   if (dragInfo && dragInfo.moved) persistState();   // shape was dragged to a new position — persist it
   dragInfo = null;
+  applyPendingRemoteState().catch(() => {});
 });
 
 // Double-click opens the Edit Properties dialog — exactly the same
@@ -3005,12 +3017,8 @@ async function init() {
   if (window.EmeraldIDBStorage?.subscribe) {
     window.EmeraldIDBStorage.subscribe(async function (change) {
       if (!change || change.key !== STORAGE_KEY || change.type !== 'import') return;
-      if (_persistDebounceTimer) clearTimeout(_persistDebounceTimer);
-      _persistDebounceTimer = null;
-      const latest = await EmeraldIDBStorage.getJSON(STORAGE_KEY, null, { allowLegacy: false });
-      if (!latest) return;
-      deserializeState(latest);
-      renderAll();
+      _remoteRefreshPending = true;
+      await applyPendingRemoteState();
     });
   }
   // Flush any pending debounced write when the user leaves — gives

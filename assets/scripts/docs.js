@@ -55,6 +55,7 @@
   var paginateScheduled = false;
   var autosaveScheduled = false;
   var autosaveTimer = null;
+  var pendingExternalReload = false;
   var lastEditorRange = null;
   var toastTimer = null;
   var theme = "light";
@@ -154,6 +155,11 @@
       if (paginateScheduled) {
         paginateScheduled = false;
         paginate();
+      }
+      if (pendingExternalReload) {
+        // Let the document's own debounced save finish before considering a
+        // remote update, so a change made in this editor cannot jump back.
+        setTimeout(function () { reloadFromStorageQuietly(); }, 900);
       }
     });
   }
@@ -10335,6 +10341,12 @@ function startAutosaveSnapshots() {
   async function reloadFromStorageQuietly() {
     try {
       if (!currentDocId) return;
+      var activeEditor = document.activeElement && document.activeElement.closest && document.activeElement.closest(".page-content");
+      if (activeEditor) {
+        pendingExternalReload = true;
+        return;
+      }
+      pendingExternalReload = false;
       var data = null;
       if (window.EmeraldIDBStorage) data = await window.EmeraldIDBStorage.getJSON(docDataKey(currentDocId));
       if (!data) return;
