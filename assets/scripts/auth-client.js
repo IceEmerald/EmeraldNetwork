@@ -113,6 +113,14 @@
         }
     }
 
+    function emitSessionChanged() {
+        try {
+            window.dispatchEvent(new CustomEvent('emerald-auth-changed', {
+                detail: { type: 'session-change' }
+            }));
+        } catch (_) {}
+    }
+
     async function setSession(session) {
         await waitForStorage();
 
@@ -126,6 +134,8 @@
             try { localStorage.removeItem(STORAGE_KEYS.session); } catch (_) {}
             try { sessionStorage.removeItem(STORAGE_KEYS.session); } catch (_) {}
         }
+
+        emitSessionChanged();
     }
 
     async function clearSession() {
@@ -146,6 +156,8 @@
                 window.EmeraldIDBStorage.setJSONSync(STORAGE_KEYS.session, null);
             }
         } catch (_) {}
+
+        emitSessionChanged();
     }
 
     async function fetchJson(path, options) {

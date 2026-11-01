@@ -58,5 +58,17 @@
         } catch (_) {}
     }
 
+    function wireAuthListener() {
+        window.addEventListener('emerald-auth-changed', function () {
+            runGuard().catch(function () {});
+        });
+        window.addEventListener('storage', function (event) {
+            if (!event.key || event.key.indexOf('emerald.auth') !== -1) {
+                runGuard().catch(function () {});
+            }
+        });
+    }
+
     runGuard();
+    wireAuthListener();
 }());
