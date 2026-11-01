@@ -218,20 +218,30 @@
         }
     }
 
-    function getReturnUrl() {
+    function isAccountUrl(value) {
+        if (!value) return false;
         try {
-            var saved = sessionStorage.getItem(STORAGE_KEYS.returnUrl);
-            var safeSaved = sanitizeRedirectTarget(saved, null);
-            if (safeSaved && safeSaved !== '/account.html') return safeSaved;
-        } catch (_) {}
+            var parsed = new URL(value, window.location.origin);
+            return parsed.origin === window.location.origin && /(?:^|\/)account\.html\/?$/i.test(parsed.pathname);
+        } catch (_) {
+            return false;
+        }
+    }
 
+    function getReturnUrl() {
         var params = new URLSearchParams(window.location.search);
         var redirect = params.get('redirect');
         if (redirect) {
             var safeRedirect = sanitizeRedirectTarget(redirect, window.location.origin + '/');
-            if (safeRedirect && safeRedirect !== window.location.origin + '/account.html') return safeRedirect;
+            if (safeRedirect && !isAccountUrl(safeRedirect)) return safeRedirect;
             return window.location.origin + '/';
         }
+
+        try {
+            var saved = sessionStorage.getItem(STORAGE_KEYS.returnUrl);
+            var safeSaved = sanitizeRedirectTarget(saved, null);
+            if (safeSaved && !isAccountUrl(safeSaved)) return safeSaved;
+        } catch (_) {}
 
         if (window.location.pathname === '/account.html' || window.location.pathname.endsWith('/account.html')) {
             return window.location.origin + '/';
@@ -246,7 +256,7 @@
 
     function rememberReturnUrl(url) {
         var safeUrl = sanitizeRedirectTarget(url, null);
-        if (!safeUrl || safeUrl === '/account.html') return;
+        if (!safeUrl || isAccountUrl(safeUrl)) return;
         try {
             sessionStorage.setItem(STORAGE_KEYS.returnUrl, safeUrl);
         } catch (_) {}
@@ -287,7 +297,7 @@
         } catch (_) {}
 
         var redirectTarget = savedReturnUrl || getReturnUrl();
-        if (!redirectTarget || redirectTarget === '/account.html' || redirectTarget === (window.location.origin + '/account.html')) {
+        if (!redirectTarget || isAccountUrl(redirectTarget)) {
             redirectTarget = window.location.origin + '/';
         }
 
