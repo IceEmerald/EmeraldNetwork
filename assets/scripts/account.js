@@ -102,11 +102,60 @@
         switchNote.innerHTML = COPY[name].note;
     }
 
+    function getStoredSessionDirect() {
+        var candidates = [
+            function () { try { return JSON.parse(localStorage.getItem('emerald.auth.session') || 'null'); } catch (_) { return null; } },
+            function () { try { return JSON.parse(sessionStorage.getItem('emerald.auth.session') || 'null'); } catch (_) { return null; } }
+        ];
+
+        for (var i = 0; i < candidates.length; i++) {
+            var value = candidates[i]();
+            if (value && value.user && value.token) {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    function resolveSessionEmail(session) {
+        if (!session) return 'your account';
+
+        var user = session.user || {};
+        var possible = [
+            user.email,
+            session.email,
+            user.account && user.account.email,
+            session.account && session.account.email,
+            user.name && user.name.includes('@') ? user.name : null
+        ];
+
+        for (var i = 0; i < possible.length; i++) {
+            var value = possible[i];
+            if (typeof value === 'string' && value.trim()) {
+                return value.trim();
+            }
+        }
+
+        return 'your account';
+    }
+
     function showLoggedInState(session) {
-        var email = session && session.user && session.user.email ? session.user.email : 'your account';
-        forms.login.hidden = true;
-        forms.register.hidden = true;
-        if (loggedInState) loggedInState.hidden = false;
+        var email = resolveSessionEmail(session);
+        if (forms.login) {
+            forms.login.hidden = true;
+            forms.login.style.display = 'none';
+            forms.login.classList.remove('active');
+        }
+        if (forms.register) {
+            forms.register.hidden = true;
+            forms.register.style.display = 'none';
+            forms.register.classList.remove('active');
+        }
+        if (loggedInState) {
+            loggedInState.hidden = false;
+            loggedInState.style.display = 'block';
+        }
         if (loggedInEmail) loggedInEmail.textContent = email;
         if (switchNote) switchNote.innerHTML = '<span class="switch-prefix">Signed in as </span>' + email;
         title.textContent = 'Logged in!';
@@ -114,11 +163,18 @@
     }
 
     function showLoggedOutState() {
-        if (loggedInState) loggedInState.hidden = true;
         var currentModeName = currentMode || 'login';
+        if (loggedInState) {
+            loggedInState.hidden = true;
+            loggedInState.style.display = 'none';
+        }
         if (forms.login && forms.register) {
             forms.login.hidden = currentModeName !== 'login';
+            forms.login.style.display = currentModeName === 'login' ? '' : 'none';
             forms.register.hidden = currentModeName !== 'register';
+            forms.register.style.display = currentModeName === 'register' ? '' : 'none';
+            forms.login.classList.toggle('active', currentModeName === 'login');
+            forms.register.classList.toggle('active', currentModeName === 'register');
         }
         if (switchNote) switchNote.innerHTML = COPY[currentModeName].note;
         title.textContent = COPY[currentModeName].title;
@@ -126,19 +182,23 @@
     }
 
     async function refreshSessionView() {
-        if (!window.EmeraldAuth || !window.EmeraldAuth.getSession) {
-            showLoggedOutState();
+        var directSession = getStoredSessionDirect();
+        if (directSession) {
+            showLoggedInState(directSession);
+            startSessionMonitor();
             return;
         }
 
-        try {
-            var session = await window.EmeraldAuth.getSession();
-            if (session && session.user && session.token) {
-                showLoggedInState(session.user);
-                startSessionMonitor();
-                return;
-            }
-        } catch (_) {}
+        if (window.EmeraldAuth && window.EmeraldAuth.getSession) {
+            try {
+                var session = await window.EmeraldAuth.getSession();
+                if (session && session.user && session.token) {
+                    showLoggedInState(session);
+                    startSessionMonitor();
+                    return;
+                }
+            } catch (_) {}
+        }
 
         showLoggedOutState();
         startSessionMonitor();

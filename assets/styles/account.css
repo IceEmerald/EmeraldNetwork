@@ -412,6 +412,45 @@ body {
     color: var(--text-muted);
 }
 
+.logged-in-state {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px 16px 14px;
+    margin: 0 0 18px;
+    border: 1px solid var(--ui-accent-border);
+    background: linear-gradient(180deg, rgba(46, 204, 113, 0.09), rgba(255, 255, 255, 0.9));
+    border-radius: 14px;
+    box-shadow: 0 8px 18px rgba(21, 36, 54, 0.08);
+}
+
+.logged-in-pill {
+    display: inline-flex;
+    align-self: flex-start;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: rgba(47, 157, 89, 0.12);
+    color: #0f7a42;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.logged-in-account {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.96rem;
+    line-height: 1.5;
+}
+
+.logged-in-account strong {
+    color: var(--text-strong);
+    font-weight: 700;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+
 /* ============================================================
    Social buttons
    ============================================================ */
