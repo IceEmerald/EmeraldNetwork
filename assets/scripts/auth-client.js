@@ -93,22 +93,42 @@
         return data;
     }
 
+    function sanitizeRedirectTarget(value, fallback) {
+        if (!value || typeof value !== 'string') return fallback;
+
+        var trimmed = value.trim();
+        if (!trimmed || trimmed === '#' || trimmed.startsWith('//')) return fallback;
+        if (/^javascript:/i.test(trimmed) || /^data:/i.test(trimmed)) return fallback;
+
+        try {
+            var parsed = new URL(trimmed, window.location.origin);
+            if (parsed.origin !== window.location.origin) return fallback;
+            var safePath = parsed.pathname + parsed.search + parsed.hash;
+            return safePath || fallback;
+        } catch (_) {
+            if (trimmed.startsWith('/')) return trimmed;
+            return fallback;
+        }
+    }
+
     function getReturnUrl() {
         try {
             var saved = sessionStorage.getItem(STORAGE_KEYS.returnUrl);
-            if (saved && saved !== '/account.html') return saved;
+            var safeSaved = sanitizeRedirectTarget(saved, '/');
+            if (safeSaved && safeSaved !== '/account.html') return safeSaved;
         } catch (_) {}
 
         var params = new URLSearchParams(window.location.search);
         var redirect = params.get('redirect');
-        if (redirect) return decodeURIComponent(redirect);
+        if (redirect) return sanitizeRedirectTarget(decodeURIComponent(redirect), '/');
         return '/';
     }
 
     function rememberReturnUrl(url) {
-        if (!url || url === '/account.html') return;
+        var safeUrl = sanitizeRedirectTarget(url, null);
+        if (!safeUrl || safeUrl === '/account.html') return;
         try {
-            sessionStorage.setItem(STORAGE_KEYS.returnUrl, url);
+            sessionStorage.setItem(STORAGE_KEYS.returnUrl, safeUrl);
         } catch (_) {}
     }
 

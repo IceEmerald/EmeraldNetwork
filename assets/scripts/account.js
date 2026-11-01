@@ -159,6 +159,24 @@
         return ok;
     }
 
+    function sanitizeRedirectTarget(value, fallback) {
+        if (!value || typeof value !== 'string') return fallback;
+
+        var trimmed = value.trim();
+        if (!trimmed || trimmed === '#' || trimmed.startsWith('//')) return fallback;
+        if (/^javascript:/i.test(trimmed) || /^data:/i.test(trimmed)) return fallback;
+
+        try {
+            var parsed = new URL(trimmed, window.location.origin);
+            if (parsed.origin !== window.location.origin) return fallback;
+            var safePath = parsed.pathname + parsed.search + parsed.hash;
+            return safePath || fallback;
+        } catch (_) {
+            if (trimmed.startsWith('/')) return trimmed;
+            return fallback;
+        }
+    }
+
     async function submitAuthRequest(mode) {
         var email = mode === 'login'
             ? document.getElementById('login-email').value.trim()
@@ -177,12 +195,12 @@
                 ? await window.EmeraldAuth.login(email, password)
                 : await window.EmeraldAuth.register(email, password);
 
-            if (result && result.redirectUrl) {
-                window.location.href = result.redirectUrl;
-                return;
-            }
+            var safeRedirect = sanitizeRedirectTarget(
+                result && result.redirectUrl ? result.redirectUrl : window.EmeraldAuth.getReturnUrl(),
+                '/'
+            );
 
-            window.location.href = window.EmeraldAuth.getReturnUrl();
+            window.location.assign(safeRedirect);
         } catch (error) {
             var message = error && error.message ? error.message : 'Authentication failed.';
             showToast(message);

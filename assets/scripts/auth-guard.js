@@ -2,20 +2,25 @@
     'use strict';
 
     var protectedPages = [
-        '/docs.html',
-        '/notes.html',
-        '/sheets.html',
-        '/slides.html',
-        '/aichat.html',
-        '/flowchart.html',
-        '/emeraldsuite.html'
+        '/docs',
+        '/notes',
+        '/sheets',
+        '/slides',
+        '/aichat',
+        '/flowchart',
+        '/emeraldsuite',
+        '/search',
+        '/services'
     ];
 
     function isProtectedPage(pathname) {
         if (!pathname) return false;
-        var normalized = pathname.replace(/\\/g, '/');
+        var normalized = (pathname || '').replace(/\\/g, '/').split('?')[0].replace(/\/+$/, '');
+        if (!normalized) return false;
+
         return protectedPages.some(function (page) {
-            return normalized === page || normalized.endsWith(page);
+            var base = page.replace(/\/+$/, '');
+            return normalized === base || normalized === base + '.html';
         });
     }
 
