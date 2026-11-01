@@ -36,7 +36,7 @@
 
         var session = await window.EmeraldAuth.getSession();
         if (!session || !session.user || !session.token) {
-            var current = window.location.pathname + window.location.search;
+            var current = window.location.origin + window.location.pathname + window.location.search;
             try { sessionStorage.setItem('emerald.auth.return_url', current); } catch (_) {}
             window.location.href = '/account.html?redirect=' + encodeURIComponent(current);
         }

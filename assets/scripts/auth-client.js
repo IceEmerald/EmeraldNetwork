@@ -114,13 +114,18 @@
     function getReturnUrl() {
         try {
             var saved = sessionStorage.getItem(STORAGE_KEYS.returnUrl);
-            var safeSaved = sanitizeRedirectTarget(saved, '/');
+            var safeSaved = sanitizeRedirectTarget(saved, null);
             if (safeSaved && safeSaved !== '/account.html') return safeSaved;
         } catch (_) {}
 
         var params = new URLSearchParams(window.location.search);
         var redirect = params.get('redirect');
-        if (redirect) return sanitizeRedirectTarget(decodeURIComponent(redirect), '/');
+        if (redirect) return sanitizeRedirectTarget(decodeURIComponent(redirect), window.location.origin + '/');
+
+        if (window.location.origin) {
+            return window.location.origin + window.location.pathname + window.location.search;
+        }
+
         return '/';
     }
 
