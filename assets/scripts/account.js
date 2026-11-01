@@ -669,6 +669,8 @@
             message = 'Google sign-in failed. Please try again.';
         } else if (authError === 'email_missing') {
             message = 'Google did not return an email. Please try a different account.';
+        } else if (authError === 'email_unverified') {
+            message = 'Google did not verify this email address. Please use a verified Google account.';
         }
         showToast(message);
     }
