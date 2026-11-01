@@ -9,7 +9,7 @@
 
     var autoSyncTimer = null;
     // Fallback polling detects edits made on another device; local edits sync from storage events below.
-    var autoSyncIntervalMs = 10000;
+    var autoSyncIntervalMs = 3000;
     var storageSyncTimer = null;
     var syncInFlight = null;
     var syncRequestedAgain = false;

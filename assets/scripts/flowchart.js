@@ -123,7 +123,9 @@ function persistStateDebounced(delay = 350) {
 async function loadPersistedState() {
   if (!window.EmeraldIDBStorage) return false;
   await EmeraldIDBStorage.ready();
-  const data = await EmeraldIDBStorage.getJSON(STORAGE_KEY);
+  // Do not migrate an old unscoped browser save into the signed-in account.
+  // Flowcharts are now stored and restored only within the current account.
+  const data = await EmeraldIDBStorage.getJSON(STORAGE_KEY, null, { allowLegacy: false });
   if (!data) return false;
   return deserializeState(data);
 }
@@ -3000,8 +3002,16 @@ async function init() {
   // Only recenter for a brand-new canvas — a restored session keeps
   // whatever pan position the user last scrolled to.
   if (isFreshStart) centerViewOnShapes();
-  if (loaded && State.shapes.size > 0) {
-    toast('check', ' Flowchart restored from previous session', 'success');
+  if (window.EmeraldIDBStorage?.subscribe) {
+    window.EmeraldIDBStorage.subscribe(async function (change) {
+      if (!change || change.key !== STORAGE_KEY || change.type !== 'import') return;
+      if (_persistDebounceTimer) clearTimeout(_persistDebounceTimer);
+      _persistDebounceTimer = null;
+      const latest = await EmeraldIDBStorage.getJSON(STORAGE_KEY, null, { allowLegacy: false });
+      if (!latest) return;
+      deserializeState(latest);
+      renderAll();
+    });
   }
   // Flush any pending debounced write when the user leaves — gives
   // the IDB transaction the best chance to complete before unload.

@@ -297,16 +297,17 @@
         if (shouldScopeKey(key)) removeLocalRaw(key);
     }
 
-    async function getJSON(key, explicitScope) {
+    async function getJSON(key, explicitScope, options = {}) {
         await readyPromise;
         var qualifiedKey = qualifyKey(key, explicitScope);
+        var allowLegacy = options.allowLegacy !== false;
         if (readLocalRaw(qualifiedKey) != null || readCache(qualifiedKey) != null) {
             await hydrateKey(key, explicitScope);
-        } else if (shouldScopeKey(key) && (readLocalRaw(key) != null || readCache(key) != null)) {
+        } else if (allowLegacy && shouldScopeKey(key) && (readLocalRaw(key) != null || readCache(key) != null)) {
             await hydrateKey(key, explicitScope);
         }
         var raw = readCache(qualifiedKey) || readLocalRaw(qualifiedKey);
-        if (!raw && shouldScopeKey(key)) {
+        if (!raw && allowLegacy && shouldScopeKey(key)) {
             raw = readCache(key) || readLocalRaw(key);
         }
         if (!raw) return null;
