@@ -415,5 +415,19 @@
 
     var params = new URLSearchParams(window.location.search);
     activateMode(params.get('tab') === 'register' ? 'register' : 'login', false);
+
+    var authError = params.get('error');
+    if (authError) {
+        var message = 'Authentication failed.';
+        if (authError === 'no_account') {
+            message = 'No account found. Please create an account first.';
+        } else if (authError === 'oauth_failed') {
+            message = 'Google sign-in failed. Please try again.';
+        } else if (authError === 'email_missing') {
+            message = 'Google did not return an email. Please try a different account.';
+        }
+        showToast(message);
+    }
+
     ready = true;
 })();
