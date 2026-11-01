@@ -25,6 +25,9 @@
     var title = document.getElementById('formCardTitle');
     var subtitle = document.getElementById('formCardSubtitle');
     var switchNote = document.getElementById('switchNote');
+    var loggedInState = document.getElementById('loggedInState');
+    var loggedInEmail = document.getElementById('loggedInEmail');
+    var logoutBtn = document.getElementById('logoutBtn');
 
     /* deconstruct-and-rebuild arrow so the ↗ tracker matches the mockup */
     var ARROW = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>';
@@ -79,6 +82,46 @@
         title.textContent = COPY[name].title;
         subtitle.textContent = COPY[name].subtitle;
         switchNote.innerHTML = COPY[name].note;
+    }
+
+    function showLoggedInState(session) {
+        var email = session && session.user && session.user.email ? session.user.email : 'your account';
+        forms.login.hidden = true;
+        forms.register.hidden = true;
+        if (loggedInState) loggedInState.hidden = false;
+        if (loggedInEmail) loggedInEmail.textContent = email;
+        if (switchNote) switchNote.innerHTML = '<span class="switch-prefix">Signed in as </span>' + email;
+        title.textContent = 'Logged in!';
+        subtitle.textContent = 'Account: ' + email;
+    }
+
+    function showLoggedOutState() {
+        if (loggedInState) loggedInState.hidden = true;
+        var currentModeName = currentMode || 'login';
+        if (forms.login && forms.register) {
+            forms.login.hidden = currentModeName !== 'login';
+            forms.register.hidden = currentModeName !== 'register';
+        }
+        if (switchNote) switchNote.innerHTML = COPY[currentModeName].note;
+        title.textContent = COPY[currentModeName].title;
+        subtitle.textContent = COPY[currentModeName].subtitle;
+    }
+
+    async function refreshSessionView() {
+        if (!window.EmeraldAuth || !window.EmeraldAuth.getSession) {
+            showLoggedOutState();
+            return;
+        }
+
+        try {
+            var session = await window.EmeraldAuth.getSession();
+            if (session && session.user && session.token) {
+                showLoggedInState(session.user);
+                return;
+            }
+        } catch (_) {}
+
+        showLoggedOutState();
     }
 
     /* Delegated, so clicks survive the note text being rewritten */
@@ -375,6 +418,17 @@
             });
         });
 
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async function () {
+            try {
+                if (window.EmeraldAuth && window.EmeraldAuth.clearSession) {
+                    await window.EmeraldAuth.clearSession();
+                }
+            } catch (_) {}
+            showLoggedOutState();
+        });
+    }
+
     /* ---------------- Footer year ---------------- */
 
     var yearEl = document.getElementById('footerYear');
@@ -415,6 +469,8 @@
 
     var params = new URLSearchParams(window.location.search);
     activateMode(params.get('tab') === 'register' ? 'register' : 'login', false);
+
+    refreshSessionView();
 
     var authError = params.get('error');
     if (authError) {

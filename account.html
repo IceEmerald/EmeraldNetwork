@@ -62,6 +62,14 @@
                         Sign in to your EmeraldNetwork account.
                     </p>
 
+                    <div id="loggedInState" class="logged-in-state" hidden>
+                        <div class="logged-in-pill">Logged in!</div>
+                        <p class="logged-in-account">Account: <strong id="loggedInEmail">user@example.com</strong></p>
+                        <button type="button" class="btn primary" id="logoutBtn">
+                            Log out
+                        </button>
+                    </div>
+
                     <!-- ============ LOGIN ============ -->
                     <form class="auth-form active" id="login-form" aria-labelledby="formCardTitle"
                         novalidate data-mode="login">
