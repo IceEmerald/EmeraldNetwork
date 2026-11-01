@@ -43,7 +43,12 @@
             var finalCurrent = current.origin + current.pathname + current.search;
             try { sessionStorage.setItem('emerald.auth.return_url', finalCurrent); } catch (_) {}
             window.location.href = '/account.html?redirect=' + encodeURIComponent(finalCurrent);
+            return;
         }
+
+        try {
+            await window.EmeraldAuth.syncCurrentData();
+        } catch (_) {}
     }
 
     runGuard();

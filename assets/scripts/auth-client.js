@@ -159,6 +159,9 @@
         if (!auth) return false;
 
         await setSession(auth);
+        try {
+            await syncCurrentData();
+        } catch (_) {}
 
         var redirectTarget = getReturnUrl();
         if (!redirectTarget || redirectTarget === '/account.html') {
