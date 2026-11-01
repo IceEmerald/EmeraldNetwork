@@ -6316,15 +6316,9 @@ async function init() {
     if (conv) loadConversation(ownedParam);
     else history.replaceState({}, document.title, location.pathname);
   } else {
-    // No ?chat= parameter: try to restore the most recent conversation
-    // from persistent storage so the user doesn't lose their place after a reload.
-    const storedConvs = loadConvs();
-    const recentConv = storedConvs.find((c) => !c.isTemp && c.messages && c.messages.length > 0);
-    if (recentConv) {
-      loadConversation(recentConv.id);
-    } else {
-      showWelcome();
-    }
+    // Keep the initial page load on the welcome screen instead of auto-opening
+    // the newest conversation. Users can choose a chat manually when ready.
+    showWelcome();
   }
   /* Deep-link: #import=<payload> carries a shared chat in the fragment.
      Runs after the ?chat= deep-link so a freshly imported chat wins. */
