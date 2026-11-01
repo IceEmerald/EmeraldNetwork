@@ -6321,7 +6321,6 @@ async function init() {
     const storedConvs = loadConvs();
     const recentConv = storedConvs.find((c) => !c.isTemp && c.messages && c.messages.length > 0);
     if (recentConv) {
-      state.convId = recentConv.id;
       loadConversation(recentConv.id);
     } else {
       showWelcome();

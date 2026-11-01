@@ -295,12 +295,36 @@
 
     /* Site-wide toast icon (matches rightclick.js / index.html pattern:
        glyph, vertical-aligned, muted, no colour of its own) */
-    var TOAST_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px;opacity:0.7"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>';
+    function createToastIcon() {
+        var ns = 'http://www.w3.org/2000/svg';
+        var icon = document.createElementNS(ns, 'svg');
+        var circle = document.createElementNS(ns, 'circle');
+        var line = document.createElementNS(ns, 'path');
+        var dot = document.createElementNS(ns, 'path');
+        icon.setAttribute('width', '16');
+        icon.setAttribute('height', '16');
+        icon.setAttribute('viewBox', '0 0 24 24');
+        icon.setAttribute('fill', 'none');
+        icon.setAttribute('stroke', 'currentColor');
+        icon.setAttribute('stroke-width', '2');
+        icon.setAttribute('stroke-linecap', 'round');
+        icon.setAttribute('stroke-linejoin', 'round');
+        icon.style.verticalAlign = '-3px';
+        icon.style.marginRight = '6px';
+        icon.style.opacity = '0.7';
+        circle.setAttribute('cx', '12');
+        circle.setAttribute('cy', '12');
+        circle.setAttribute('r', '10');
+        line.setAttribute('d', 'M12 8v4');
+        dot.setAttribute('d', 'M12 16h.01');
+        icon.append(circle, line, dot);
+        return icon;
+    }
 
     function showToast(message) {
         var toast = document.getElementById('custom-toast');
         if (!toast) return;
-        toast.innerHTML = TOAST_ICON + message;
+        toast.replaceChildren(createToastIcon(), document.createTextNode(String(message || '')));
         toast.classList.add('show');
         clearTimeout(toastTimer);
         toastTimer = setTimeout(function () {
