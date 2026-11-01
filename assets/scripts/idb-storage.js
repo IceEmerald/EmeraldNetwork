@@ -2,6 +2,7 @@
     const DB_NAME = 'emeraldcore.storage.suite';
     const DB_VERSION = 2;
     const STORE_NAME = 'kv';
+    const SYNC_META_KEY = '__emerald_sync_meta_v1__';
     const GLOBAL_KEYS = new Set([
         'emerald.auth.session',
         'emerald.auth.return_url'
@@ -157,19 +158,101 @@
         });
     }
 
-    function deleteRaw(key, explicitScope) {
+    function readSyncMeta(scope) {
+        var metaKey = qualifyKey(SYNC_META_KEY, scope);
+        var raw = readCache(metaKey) || readLocalRaw(metaKey);
+        if (!raw) return { updated: {}, deleted: {} };
+        try {
+            var meta = JSON.parse(raw);
+            return {
+                updated: meta && meta.updated && typeof meta.updated === 'object' ? meta.updated : {},
+                deleted: meta && meta.deleted && typeof meta.deleted === 'object' ? meta.deleted : {}
+            };
+        } catch (_) {
+            return { updated: {}, deleted: {} };
+        }
+    }
+
+    function serializeSyncMeta(meta) {
+        function sortMap(value) {
+            var result = {};
+            Object.keys(value || {}).sort().forEach(function (key) { result[key] = value[key]; });
+            return result;
+        }
+        return JSON.stringify({ updated: sortMap(meta.updated), deleted: sortMap(meta.deleted) });
+    }
+
+    async function writeSyncMeta(meta, scope) {
+        var metaKey = qualifyKey(SYNC_META_KEY, scope);
+        var raw = serializeSyncMeta(meta);
+        var currentRaw = readCache(metaKey) || readLocalRaw(metaKey);
+        if (currentRaw) {
+            try {
+                var current = JSON.parse(currentRaw);
+                if (serializeSyncMeta(current) === raw) return;
+            } catch (_) {}
+        }
+        cache.set(metaKey, raw);
+        try { localStorage.setItem(metaKey, raw); } catch (_) {}
+        await readyPromise;
+        if (db) await putRaw(metaKey, raw);
+    }
+
+    async function markSyncMeta(key, scope, deleted, timestamp) {
+        if (!shouldScopeKey(key) || key === SYNC_META_KEY) return;
+        var meta = readSyncMeta(scope);
+        timestamp = Math.max(Number(timestamp) || Date.now(),
+            Math.max(Number(meta.updated[key]) || 0, Number(meta.deleted[key]) || 0) + 1);
+        if (deleted) {
+            delete meta.updated[key];
+            meta.deleted[key] = timestamp;
+        } else {
+            delete meta.deleted[key];
+            meta.updated[key] = timestamp;
+        }
+        await writeSyncMeta(meta, scope);
+    }
+
+    function markSyncMetaSync(key, scope, deleted, timestamp) {
+        if (!shouldScopeKey(key) || key === SYNC_META_KEY) return;
+        var meta = readSyncMeta(scope);
+        timestamp = Math.max(Number(timestamp) || Date.now(),
+            Math.max(Number(meta.updated[key]) || 0, Number(meta.deleted[key]) || 0) + 1);
+        if (deleted) {
+            delete meta.updated[key];
+            meta.deleted[key] = timestamp;
+        } else {
+            delete meta.deleted[key];
+            meta.updated[key] = timestamp;
+        }
+        var metaKey = qualifyKey(SYNC_META_KEY, scope);
+        var raw = serializeSyncMeta(meta);
+        cache.set(metaKey, raw);
+        try { localStorage.setItem(metaKey, raw); } catch (_) {}
+        readyPromise.then(function () {
+            if (db) return putRaw(metaKey, raw);
+        }).catch(function (error) {
+            console.warn('Failed to save sync metadata:', error);
+        });
+    }
+
+    function deleteRaw(key, explicitScope, options = {}) {
+        var scope = explicitScope || getAccountScope();
         var qualifiedKey = qualifyKey(key, explicitScope);
         cache.delete(qualifiedKey);
         removeLocalRaw(qualifiedKey);
+        if (!options.preserveSyncMeta) markSyncMetaSync(String(key), scope, true, Date.now());
         if (!db) {
-            notifyLocal({ key: qualifiedKey, type: 'delete' });
+            var localChange = { key: qualifiedKey, type: options.type || 'delete' };
+            broadcast(localChange);
+            notifyLocal(localChange);
             return Promise.resolve();
         }
         var tx = db.transaction(STORE_NAME, 'readwrite');
         tx.objectStore(STORE_NAME).delete(qualifiedKey);
         return new Promise(function (resolve, reject) {
             tx.oncomplete = function () {
-                var change = { key: qualifiedKey, type: 'delete' };
+                var change = { key: qualifiedKey, type: options.type || 'delete' };
                 broadcast(change);
                 notifyLocal(change);
                 resolve();
@@ -239,10 +322,13 @@
         try { localStorage.setItem(qualifiedKey, raw); } catch (_) {}
         if (db) {
             try { await putRaw(qualifiedKey, raw); }
-            catch (error) { console.warn('IndexedDB write failed, keeping localStorage copy:', qualifiedKey, error); return; }
+            catch (error) { console.warn('IndexedDB write failed, keeping localStorage copy:', qualifiedKey, error); }
         }
         if (shouldScopeKey(key)) {
             try { localStorage.removeItem(key); } catch (_) {}
+        }
+        if (options.type !== 'import' && options.type !== 'meta') {
+            await markSyncMeta(String(key), scope, false, Date.now());
         }
         var change = { key: qualifiedKey, type: options.type || 'set' };
         broadcast(change);
@@ -255,11 +341,14 @@
         var raw = JSON.stringify(value);
         cache.set(qualifiedKey, raw);
         try { localStorage.setItem(qualifiedKey, raw); } catch (_) {}
+        if (options.type !== 'import' && options.type !== 'meta') {
+            markSyncMetaSync(String(key), scope, false, Date.now());
+        }
         notifyLocal({ key: qualifiedKey, type: 'set' });
 
         readyPromise.then(function () {
-            if (!db) return;
-            return putRaw(qualifiedKey, raw).then(function () {
+            var write = db ? putRaw(qualifiedKey, raw) : Promise.resolve();
+            return write.then(function () {
                 if (shouldScopeKey(key)) {
                     try { localStorage.removeItem(key); } catch (_) {}
                 }
@@ -303,6 +392,14 @@
                     snapshot[actualKey] = entry.value;
                 }
             });
+            Object.keys(localStorage).forEach(function (key) {
+                if (!key.startsWith(prefix)) return;
+                var raw = readLocalRaw(key);
+                if (raw == null) return;
+                var actualKey = key.slice(prefix.length);
+                try { snapshot[actualKey] = JSON.parse(raw); }
+                catch (_) { snapshot[actualKey] = raw; }
+            });
             return snapshot;
         }
 
@@ -324,16 +421,32 @@
     async function importAll(snapshot, explicitScope) {
         if (!snapshot || typeof snapshot !== 'object') return;
         var scope = getAccountScope(explicitScope);
+        var meta = snapshot[SYNC_META_KEY] && typeof snapshot[SYNC_META_KEY] === 'object'
+            ? snapshot[SYNC_META_KEY]
+            : { updated: {}, deleted: {} };
         var entries = Object.entries(snapshot);
         for (var i = 0; i < entries.length; i++) {
             var key = entries[i][0];
             var value = entries[i][1];
-            if (!key) continue;
+            if (!key || key === SYNC_META_KEY) continue;
+            if (Number(meta.deleted && meta.deleted[key]) >= Number(meta.updated && meta.updated[key] || 0)) continue;
             var current = await getJSON(key, scope);
             if (JSON.stringify(current) === JSON.stringify(value)) continue;
             await setJSON(key, value, { scope: scope, type: 'import' });
             notify({ key: qualifyKey(key, scope), type: 'import', source: tabId, local: true });
         }
+        for (const key of Object.keys(meta.deleted || {})) {
+            var deletedAt = Number(meta.deleted[key]) || 0;
+            var updatedAt = Number(meta.updated && meta.updated[key]) || 0;
+            if (deletedAt >= updatedAt) {
+                var currentValue = await getJSON(key, scope);
+                if (currentValue !== null) {
+                    await deleteRaw(key, scope, { preserveSyncMeta: true, type: 'import' });
+                    notify({ key: qualifyKey(key, scope), type: 'import', source: tabId, local: true });
+                }
+            }
+        }
+        await writeSyncMeta(meta, scope);
     }
 
     function createJSONStore(options = {}) {

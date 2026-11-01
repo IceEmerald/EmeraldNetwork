@@ -3,7 +3,8 @@
 
     var STORAGE_KEYS = {
         session: 'emerald.auth.session',
-        returnUrl: 'emerald.auth.return_url'
+        returnUrl: 'emerald.auth.return_url',
+        syncMeta: '__emerald_sync_meta_v1__'
     };
 
     var autoSyncTimer = null;
@@ -51,14 +52,14 @@
 
             if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.subscribe === 'function') {
                 window.EmeraldIDBStorage.subscribe(function (change) {
-                    if (change && (change.key === STORAGE_KEYS.session || change.type === 'import')) return;
+                    if (change && (change.key === STORAGE_KEYS.session || change.type === 'import' || change.type === 'meta')) return;
                     requestSyncFromLocalChange();
                 });
             }
 
             if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.subscribeLocal === 'function') {
                 window.EmeraldIDBStorage.subscribeLocal(function (change) {
-                    if (change && (change.key === STORAGE_KEYS.session || change.type === 'import')) return;
+                    if (change && (change.key === STORAGE_KEYS.session || change.type === 'import' || change.type === 'meta')) return;
                     requestSyncFromLocalChange();
                 });
             }
@@ -381,22 +382,53 @@
 
     function mergeSnapshots(localSnapshot, remoteSnapshot) {
         var merged = {};
-        var keys = new Set(Object.keys(localSnapshot || {}));
-        Object.keys(remoteSnapshot || {}).forEach(function (key) { keys.add(key); });
+        var localMeta = localSnapshot && localSnapshot[STORAGE_KEYS.syncMeta] || {};
+        var remoteMeta = remoteSnapshot && remoteSnapshot[STORAGE_KEYS.syncMeta] || {};
+        var mergedMeta = { updated: {}, deleted: {} };
+        var keys = new Set(Object.keys(localSnapshot || {}).filter(function (key) { return key !== STORAGE_KEYS.syncMeta; }));
+        Object.keys(remoteSnapshot || {}).forEach(function (key) {
+            if (key !== STORAGE_KEYS.syncMeta) keys.add(key);
+        });
+
+        function updatedAt(value) {
+            return Date.parse(value && value.updatedAt) || Number(value && value.updatedAt) || 0;
+        }
 
         keys.forEach(function (key) {
             var localValue = localSnapshot && Object.prototype.hasOwnProperty.call(localSnapshot, key) ? localSnapshot[key] : null;
             var remoteValue = remoteSnapshot && Object.prototype.hasOwnProperty.call(remoteSnapshot, key) ? remoteSnapshot[key] : null;
+            var localUpdated = Math.max(Number(localMeta.updated && localMeta.updated[key]) || 0, updatedAt(localValue));
+            var remoteUpdated = Math.max(Number(remoteMeta.updated && remoteMeta.updated[key]) || 0, updatedAt(remoteValue));
+            var localDeleted = Number(localMeta.deleted && localMeta.deleted[key]) || 0;
+            var remoteDeleted = Number(remoteMeta.deleted && remoteMeta.deleted[key]) || 0;
+            var newestUpdate = Math.max(localValue == null ? 0 : localUpdated, remoteValue == null ? 0 : remoteUpdated);
+            var newestDelete = Math.max(localDeleted, remoteDeleted);
 
-            if (!localValue && !remoteValue) return;
-            if (!localValue) { merged[key] = remoteValue; return; }
-            if (!remoteValue) { merged[key] = localValue; return; }
+            if (newestDelete >= newestUpdate && newestDelete > 0) {
+                merged[key] = null;
+                mergedMeta.deleted[key] = newestDelete;
+                continue;
+            }
 
-            var localUpdated = Date.parse(localValue && localValue.updatedAt) || Number(localValue && localValue.updatedAt) || 0;
-            var remoteUpdated = Date.parse(remoteValue && remoteValue.updatedAt) || Number(remoteValue && remoteValue.updatedAt) || 0;
-            merged[key] = localUpdated >= remoteUpdated ? localValue : remoteValue;
+            if (localValue == null && remoteValue == null) continue;
+            var useLocal = remoteValue == null || (localValue != null && localUpdated >= remoteUpdated);
+            merged[key] = useLocal ? localValue : remoteValue;
+            var winnerUpdated = useLocal ? localUpdated : remoteUpdated;
+            if (winnerUpdated > 0) mergedMeta.updated[key] = winnerUpdated;
         });
 
+        Object.keys(localMeta.deleted || {}).forEach(function (key) {
+            if (mergedMeta.updated[key] == null && mergedMeta.deleted[key] == null) {
+                mergedMeta.deleted[key] = Number(localMeta.deleted[key]) || 0;
+            }
+        });
+        Object.keys(remoteMeta.deleted || {}).forEach(function (key) {
+            if (mergedMeta.updated[key] == null && mergedMeta.deleted[key] == null) {
+                mergedMeta.deleted[key] = Number(remoteMeta.deleted[key]) || 0;
+            }
+        });
+
+        merged[STORAGE_KEYS.syncMeta] = mergedMeta;
         return merged;
     }
 
