@@ -169,10 +169,9 @@
         try {
             var parsed = new URL(trimmed, window.location.origin);
             if (parsed.origin !== window.location.origin) return fallback;
-            var safePath = parsed.pathname + parsed.search + parsed.hash;
-            return safePath || fallback;
+            return parsed.href || fallback;
         } catch (_) {
-            if (trimmed.startsWith('/')) return trimmed;
+            if (trimmed.startsWith('/')) return window.location.origin + trimmed;
             return fallback;
         }
     }
