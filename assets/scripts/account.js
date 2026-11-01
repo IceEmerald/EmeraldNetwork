@@ -49,6 +49,24 @@
     };
 
     var ready = false;
+    var sessionMonitor = null;
+
+    function startSessionMonitor() {
+        if (sessionMonitor) return;
+        sessionMonitor = setInterval(function () {
+            refreshSessionView().catch(function () {});
+        }, 1000);
+
+        window.addEventListener('storage', function () {
+            refreshSessionView().catch(function () {});
+        });
+
+        document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'visible') {
+                refreshSessionView().catch(function () {});
+            }
+        });
+    }
 
     function activateMode(name, animate) {
         if (animate && ready) {
@@ -117,11 +135,13 @@
             var session = await window.EmeraldAuth.getSession();
             if (session && session.user && session.token) {
                 showLoggedInState(session.user);
+                startSessionMonitor();
                 return;
             }
         } catch (_) {}
 
         showLoggedOutState();
+        startSessionMonitor();
     }
 
     /* Delegated, so clicks survive the note text being rewritten */
@@ -470,7 +490,8 @@
     var params = new URLSearchParams(window.location.search);
     activateMode(params.get('tab') === 'register' ? 'register' : 'login', false);
 
-    refreshSessionView();
+    refreshSessionView().catch(function () {});
+    startSessionMonitor();
 
     var authError = params.get('error');
     if (authError) {
