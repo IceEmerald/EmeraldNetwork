@@ -8,6 +8,21 @@
 
     var autoSyncTimer = null;
     var autoSyncIntervalMs = 10000;
+    var storageSyncTimer = null;
+
+    function requestSyncFromLocalChange() {
+        if (storageSyncTimer) {
+            clearTimeout(storageSyncTimer);
+        }
+
+        storageSyncTimer = setTimeout(async function () {
+            try {
+                var session = await getSession();
+                if (!session || !session.token) return;
+                await syncCurrentData();
+            } catch (_) {}
+        }, 500);
+    }
 
     function startAutoSync() {
         if (autoSyncTimer) return;
@@ -28,12 +43,26 @@
                 syncCurrentData().catch(function () {});
             }
         });
+
+        if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.subscribe === 'function') {
+            window.EmeraldIDBStorage.subscribe(function () {
+                requestSyncFromLocalChange();
+            });
+        }
+
+        window.addEventListener('storage', function () {
+            requestSyncFromLocalChange();
+        });
     }
 
     function stopAutoSync() {
         if (autoSyncTimer) {
             clearInterval(autoSyncTimer);
             autoSyncTimer = null;
+        }
+        if (storageSyncTimer) {
+            clearTimeout(storageSyncTimer);
+            storageSyncTimer = null;
         }
     }
 
@@ -151,7 +180,15 @@
 
         var params = new URLSearchParams(window.location.search);
         var redirect = params.get('redirect');
-        if (redirect) return sanitizeRedirectTarget(decodeURIComponent(redirect), window.location.origin + '/');
+        if (redirect) {
+            var safeRedirect = sanitizeRedirectTarget(decodeURIComponent(redirect), window.location.origin + '/');
+            if (safeRedirect && safeRedirect !== window.location.origin + '/account.html') return safeRedirect;
+            return window.location.origin + '/';
+        }
+
+        if (window.location.pathname === '/account.html' || window.location.pathname.endsWith('/account.html')) {
+            return window.location.origin + '/';
+        }
 
         if (window.location.origin) {
             return window.location.origin + window.location.pathname + window.location.search;
@@ -196,8 +233,14 @@
             await syncCurrentData();
         } catch (_) {}
 
-        var redirectTarget = getReturnUrl();
-        if (!redirectTarget || redirectTarget === '/account.html') {
+        var savedReturnUrl = null;
+        try {
+            var saved = sessionStorage.getItem(STORAGE_KEYS.returnUrl);
+            savedReturnUrl = sanitizeRedirectTarget(saved, null);
+        } catch (_) {}
+
+        var redirectTarget = savedReturnUrl || getReturnUrl();
+        if (!redirectTarget || redirectTarget === '/account.html' || redirectTarget === (window.location.origin + '/account.html')) {
             redirectTarget = window.location.origin + '/';
         }
 
