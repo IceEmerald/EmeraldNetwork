@@ -136,6 +136,48 @@
         } catch (_) {}
     }
 
+    function getAuthCallbackFromUrl() {
+        var params = new URLSearchParams(window.location.search);
+        var token = params.get('auth_session');
+        var email = params.get('auth_email');
+        var provider = params.get('auth_provider');
+
+        if (!token || !email) return null;
+
+        return {
+            user: {
+                email: String(email).trim().toLowerCase(),
+                provider: provider || 'google'
+            },
+            token: token,
+            updatedAt: Date.now()
+        };
+    }
+
+    async function consumeAuthCallbackFromUrl() {
+        var auth = getAuthCallbackFromUrl();
+        if (!auth) return false;
+
+        await setSession(auth);
+
+        var redirectTarget = getReturnUrl();
+        if (!redirectTarget || redirectTarget === '/account.html') {
+            redirectTarget = window.location.origin + '/';
+        }
+
+        var cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete('auth_session');
+        cleanUrl.searchParams.delete('auth_email');
+        cleanUrl.searchParams.delete('auth_provider');
+
+        if (window.history && window.history.replaceState) {
+            window.history.replaceState({}, '', cleanUrl.toString());
+        }
+
+        window.location.assign(sanitizeRedirectTarget(redirectTarget, window.location.origin + '/'));
+        return true;
+    }
+
     async function login(email, password) {
         var result = await fetchJson('/api/auth/login', {
             method: 'POST',
@@ -238,6 +280,7 @@
         getSession: getSession,
         setSession: setSession,
         clearSession: clearSession,
+        consumeAuthCallbackFromUrl: consumeAuthCallbackFromUrl,
         login: login,
         register: register,
         beginOAuth: beginOAuth,
@@ -249,4 +292,6 @@
             return !!(session && session.user && session.token);
         }
     };
+
+    consumeAuthCallbackFromUrl();
 }());

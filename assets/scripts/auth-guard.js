@@ -36,9 +36,13 @@
 
         var session = await window.EmeraldAuth.getSession();
         if (!session || !session.user || !session.token) {
-            var current = window.location.origin + window.location.pathname + window.location.search;
-            try { sessionStorage.setItem('emerald.auth.return_url', current); } catch (_) {}
-            window.location.href = '/account.html?redirect=' + encodeURIComponent(current);
+            var current = new URL(window.location.href);
+            current.searchParams.delete('auth_session');
+            current.searchParams.delete('auth_email');
+            current.searchParams.delete('auth_provider');
+            var finalCurrent = current.origin + current.pathname + current.search;
+            try { sessionStorage.setItem('emerald.auth.return_url', finalCurrent); } catch (_) {}
+            window.location.href = '/account.html?redirect=' + encodeURIComponent(finalCurrent);
         }
     }
 
