@@ -416,7 +416,7 @@
 
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, w, h);
-        cx = w / 2; cy = h / 2; r = Math.min(cx, cy) * 0.78;
+        cx = w / 2; cy = h / 2; r = Math.min(cx, cy) * 0.97;
 
         /* Drop shadow */
         var sGrd = ctx.createRadialGradient(cx + 2, cy + 4, r * 0.7, cx + 2, cy + 4, r * 1.25);

@@ -1,0 +1,1054 @@
+/* ============================================================
+   EmeraldNetwork — Authentication page (account.html)
+   True 50/50 split on a white page:
+   • Left: rounded card — deep emerald galaxy with a
+     twinkling star field, a soft galaxy band and nebula,
+     wordmark top-left, campaign headline, and a giant
+     realistic planet rising from the bottom (only a quarter
+     of the disc on screen)
+   • Right: login/register — social buttons, icon-free
+     inputs, remember-me row, gradient CTA, page footer
+   Accent tokens shared with assets/styles/emeraldsuite.css
+   ============================================================ */
+
+:root {
+    --ui-accent: #239a4d;
+    --ui-accent-hover: #1f8a44;
+    --ui-accent-soft: rgba(35, 154, 77, 0.10);
+    --ui-accent-border: rgba(35, 154, 77, 0.30);
+    --ui-accent-ring: rgba(43, 208, 89, 0.35);
+
+    --brand-cta-a: #22c39a;
+    --brand-cta-b: #35b558;
+    --brand-cta-c: #47a83c;
+
+    --text-strong: #17251c;
+    --text-body: #34495e;
+    --text-muted: #6b7a8f;
+
+    --border-subtle: rgba(0, 0, 0, 0.10);
+    --border-input: #e3e8e4;
+    --danger: #d93025;
+    --danger-soft: rgba(217, 48, 37, 0.06);
+
+    --radius-md: 10px;
+    --radius-card: 24px;
+    --shadow-card: 0 1px 2px rgba(16, 36, 24, 0.05),
+        0 12px 32px -12px rgba(16, 36, 24, 0.18);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+}
+
+body {
+    font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+    color: var(--text-body);
+    background: #ffffff;
+    min-height: 100vh;
+}
+
+::selection {
+    background: rgba(42, 180, 207, 0.3);
+}
+
+:focus-visible {
+    outline: 2px solid var(--ui-accent);
+    outline-offset: 2px;
+}
+
+/* ============================================================
+   Shell: exactly one half each
+   ============================================================ */
+
+.auth-shell {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+}
+
+/* ============================================================
+   Sky half — rounded daylight card
+   ============================================================ */
+
+.auth-visual {
+    position: relative;
+    overflow: hidden;
+    margin: 20px 0 20px 20px;
+    border-radius: var(--radius-card);
+    box-shadow: inset 0 0 0 1px rgba(28, 40, 51, 0.04);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+        radial-gradient(120% 80% at 15% 10%, rgba(255, 255, 255, 0.85), transparent 55%),
+        radial-gradient(100% 70% at 85% 95%, rgba(40, 130, 90, 0.30), transparent 60%),
+        radial-gradient(90% 60% at 50% 50%, rgba(60, 160, 120, 0.22), transparent 70%),
+        linear-gradient(155deg, #d6f1ff 0%, #b3e4f0 20%, #8fd6c8 42%, #6fc9a8 62%, #5ab888 80%, #4aa872 100%);
+}
+
+/* soft light sweep + bokeh — no hard X streaks */
+.auth-visual::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(95% 70% at 12% -8%, rgba(255, 255, 255, 0.90), transparent 58%),
+        radial-gradient(ellipse 40% 30% at 22% 60%, rgba(255, 255, 255, 0.40), transparent 70%),
+        radial-gradient(ellipse 35% 25% at 78% 30%, rgba(255, 255, 255, 0.35), transparent 70%),
+        radial-gradient(ellipse 50% 35% at 60% 80%, rgba(80, 180, 140, 0.22), transparent 70%);
+    pointer-events: none;
+}
+
+/* gentle vignette to keep the planet grounded */
+.auth-visual::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(ellipse 140% 100% at 50% 0%, rgba(255, 255, 255, 0.0), transparent 55%),
+        radial-gradient(ellipse 100% 80% at 50% 100%, rgba(20, 80, 40, 0.22), transparent 70%);
+    pointer-events: none;
+}
+
+/* ----- Subtle sparkle field (light-mode friendly) ----- */
+.visual-stars {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.visual-stars span {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.85);
+    animation: starTwinkle 4s ease-in-out infinite;
+}
+
+@keyframes starTwinkle {
+    0%, 100% { opacity: 0.25; transform: scale(0.85); }
+    50%       { opacity: 0.85; transform: scale(1.15); }
+}
+
+/* EmeraldNetwork wordmark — same as index.html's .logo:
+   flex, 0.75rem gap, 1.75rem icon with the 0.2rem nudge,
+   1.125rem / 800 / #383838 text */
+.auth-visual .logo {
+    position: absolute;
+    top: 30px;
+    left: 34px;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+}
+
+.auth-visual .logo .icon-primary {
+    width: 1.75rem;
+    height: 1.75rem;
+    margin-bottom: 0.2rem;
+}
+
+.auth-visual .logo-text {
+    font-size: 1.125rem;
+    font-weight: 800;
+    color: #383838;
+    /* mirror the icon's 0.2rem nudge so both parts of the
+       wordmark sit at exactly the same height */
+    margin-bottom: 0.2rem;
+}
+
+/* ----- Campaign headline -----
+   Horizontally centered, sitting about a third of the way
+   down the card — directly above the rising planet — and
+   kept away from the wordmark at the top. */
+
+.brand-headline {
+    position: absolute;
+    top: 27%;
+    left: 6%;
+    right: auto;
+    z-index: 2;
+    margin: 0;
+    padding: 0 0 0 34px;
+    text-align: left;
+    font-size: clamp(2.3rem, 3.5vw, 3.2rem);
+    line-height: 1.45;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #000000;
+}
+
+.brand-headline em {
+    font-style: normal;
+    color: #1f9a3e;
+}
+
+.from-you {
+    display: block;
+    text-align: right;
+    max-width: 88%;
+    margin-left: auto;
+    /* a single gradient that slides across the glyphs — the resting
+       look is the gradient itself, and the sweep is just that same
+       gradient moving, so there is never a two-layer cutoff */
+    background: linear-gradient(90deg,
+            #7c3aed 0%, #a855f7 20%, #f472b6 40%,
+            #a855f7 60%, #7c3aed 80%, #7c3aed 100%);
+    background-size: 200% 100%;
+    background-repeat: repeat-x;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    animation: panel-label-sweep 5000ms linear infinite;
+}
+
+@keyframes panel-label-sweep {
+    0% {
+        background-position: 0% 0px;
+    }
+
+    100% {
+        background-position: -200% 0px;
+    }
+}
+
+/* ============================================================
+   The planet — giant, quarter visible, lit by the bright sky
+   ============================================================ */
+
+.globe {
+    position: absolute;
+    /* centre just past the bottom-right corner of the card, so
+       only the top arc of the sphere is ever on screen */
+    width: 130vmin;
+    aspect-ratio: 1;
+    right: -35vmin;
+    bottom: -78vmin;
+    border-radius: 50%;
+    overflow: hidden;
+    pointer-events: auto;
+    transform: none;
+    z-index: 2;
+
+    /* the canvas (aboutgl real-earth renderer) fills this box */
+    background: transparent;
+
+    /* atmosphere halo blending into the bright sky */
+    box-shadow:
+        0 0 90px 12px rgba(150, 235, 170, 0.42),
+        0 0 210px 60px rgba(110, 210, 140, 0.20);
+}
+
+.globe canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    pointer-events: auto;
+    /* native resolution — no upscaling, keeps the earth sharp */
+    transform: none;
+    filter: saturate(1.15) hue-rotate(-6deg) brightness(0.96);
+}
+
+/* tint the real-earth canvas toward the page's blue-green so the
+   planet's ocean doesn't read as a separate colour from the sky */
+.globe::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: linear-gradient(155deg, #d6f1ff 0%, #4aa872 100%);
+    mix-blend-mode: color;
+    opacity: 0.55;
+    pointer-events: none;
+    z-index: 3;
+}
+
+/* Compact wordmark shown only on phone (when the sky half is hidden) */
+.mobile-logo {
+    display: none;
+}
+
+.auth-panel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 26px 48px 22px;
+    margin-right: 34px;
+}
+
+.auth-inner {
+    width: 100%;
+    max-width: 400px;
+    margin: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 26px 0;
+    animation: cardIn 0.45s cubic-bezier(0.22, 0.9, 0.35, 1) both;
+    transition: filter 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.auth-inner.is-switching {
+    filter: blur(6px);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.auth-inner.is-entering {
+    filter: blur(6px);
+    opacity: 1;
+    pointer-events: none;
+}
+
+@keyframes cardIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+/* "New to EmeraldNetwork? Create an account" — pinned top-right
+   of the login half */
+.panel-top {
+    position: absolute;
+    top: 55px;
+    right: 48px;
+    z-index: 2;
+    align-self: flex-end;
+}
+
+.switch-note {
+    margin: 0;
+    font-size: 0.87rem;
+    color: var(--text-muted);
+    text-align: right;
+}
+
+.switch-prefix {
+    color: var(--text-muted);
+}
+
+.switch-note a,
+.trouble a {
+    color: var(--ui-accent);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.switch-note a:hover,
+.trouble a:hover {
+    color: var(--ui-accent-hover);
+    text-decoration: underline;
+}
+
+.switch-note a svg {
+    margin-left: 3px;
+    vertical-align: -2px;
+}
+
+.form-card {
+    width: 100%;
+    max-width: 400px;
+    animation: cardIn 0.45s cubic-bezier(0.22, 0.9, 0.35, 1) both;
+    transition: filter 0.18s ease, opacity 0.18s ease;
+}
+
+.form-card.is-switching {
+    filter: blur(6px);
+    opacity: 0.35;
+    pointer-events: none;
+}
+
+/* EmeraldNetwork badge pill */
+.brand-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 18px;
+    padding: 6px 11px;
+    border-radius: 8px;
+    background: var(--ui-accent-soft);
+    border: 1px solid var(--ui-accent-border);
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: #1a7f43;
+}
+
+.brand-badge img {
+    border-radius: 4px;
+}
+
+.form-card-title {
+    margin: 0 0 6px;
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--text-strong);
+    letter-spacing: -0.02em;
+}
+
+.form-card-subtitle {
+    margin: 0 0 24px;
+    font-size: 0.94rem;
+    line-height: 1.5;
+    color: var(--text-muted);
+}
+
+/* ============================================================
+   Social buttons
+   ============================================================ */
+
+.social-buttons {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.btn.social-btn {
+    background: #ffffff;
+    border-color: var(--border-input);
+    color: var(--text-strong);
+}
+
+.btn.social-btn:hover {
+    background: #f5f9f6;
+    border-color: var(--ui-accent-border);
+}
+
+.social-logo {
+    flex: 0 0 auto;
+}
+
+/* ---------------- Divider ---------------- */
+
+.divider {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 18px 0 20px;
+}
+
+.divider::before,
+.divider::after {
+    content: "";
+    height: 1px;
+    flex: 1;
+    background: var(--border-subtle);
+}
+
+.divider span {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+/* ============================================================
+   Forms
+   ============================================================ */
+
+.auth-form {
+    display: none;
+}
+
+.auth-form.active {
+    display: block;
+    animation: formFade 0.24s ease;
+}
+
+@keyframes formFade {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.input-group {
+    margin-bottom: 15px;
+}
+
+.input-group label {
+    display: block;
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: var(--text-strong);
+    margin-bottom: 6px;
+}
+
+.input-wrap {
+    position: relative;
+}
+
+.input-group input,
+.input-wrap input {
+    width: 100%;
+    font: inherit;
+    font-size: 0.94rem;
+    color: var(--text-strong);
+    background: #ffffff;
+    border: 1px solid var(--border-input);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+    box-shadow: 0 0 0 0 transparent;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease,
+        background 0.18s ease;
+}
+
+.input-group input::placeholder,
+.input-wrap input::placeholder {
+    color: #aab4c0;
+}
+
+.input-group input:hover,
+.input-wrap input:hover {
+    border-color: #c6cfc9;
+}
+
+.input-group input:focus,
+.input-wrap input:focus {
+    outline: none;
+    border-color: var(--ui-accent);
+    box-shadow: 0 0 0 4px var(--ui-accent-ring);
+}
+
+.input-group input.invalid,
+.input-wrap input.invalid {
+    border-color: var(--danger);
+    background: var(--danger-soft);
+}
+
+.input-group input.invalid:focus,
+.input-wrap input.invalid:focus {
+    box-shadow: 0 0 0 4px rgba(217, 48, 37, 0.20);
+}
+
+/* Confirm-password field turns green once it matches exactly
+   (comparison is case-sensitive, so capitalization must match) */
+.input-wrap input.match {
+    border-color: var(--ui-accent);
+    background: var(--ui-accent-soft);
+}
+
+.input-wrap input.match:focus {
+    box-shadow: 0 0 0 4px var(--ui-accent-ring);
+}
+
+/* Hide the browser's built-in password-reveal / clear buttons so
+   only our custom .pw-toggle is shown */
+input::-ms-reveal,
+input::-ms-clear {
+    display: none;
+}
+
+input::-webkit-credentials-auto-fill-button,
+input::-webkit-textfield-decoration-container {
+    visibility: hidden;
+    pointer-events: none;
+    position: absolute;
+    right: 0;
+}
+
+/* ----- Show / hide password ----- */
+
+.pw-toggle {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: #9aa7b5;
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease;
+}
+
+.pw-toggle:hover {
+    color: var(--text-strong);
+    background: rgba(0, 0, 0, 0.045);
+}
+
+.pw-toggle .pw-eye-off {
+    display: none;
+}
+
+.pw-toggle[aria-pressed="true"] .pw-eye {
+    display: none;
+}
+
+.pw-toggle[aria-pressed="true"] .pw-eye-off {
+    display: block;
+}
+
+/* ----- Errors ----- */
+
+.error-message {
+    margin: 6px 0 0;
+    font-size: 0.82rem;
+    line-height: 1.35;
+    font-weight: 500;
+    color: var(--danger);
+    display: none;
+}
+
+.error-message.show {
+    display: block;
+    animation: errorIn 0.18s ease;
+}
+
+@keyframes errorIn {
+    from {
+        opacity: 0;
+        transform: translateY(-3px);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+/* Remember me + Forgot password row */
+.row-between {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 2px 0 20px;
+}
+
+.remember {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: var(--text-body);
+    cursor: pointer;
+    user-select: none;
+}
+
+/* visually hidden native control */
+.remember-input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    margin: 0;
+    pointer-events: none;
+}
+
+/* custom box */
+.remember-box {
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid #c6cfc9;
+    border-radius: 4px;
+    background: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    transition: background 0.16s ease, border-color 0.16s ease,
+        box-shadow 0.16s ease;
+}
+
+.remember-box svg {
+    color: #ffffff;
+    opacity: 0;
+    transform: scale(0.6);
+    transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.remember-input:checked + .remember-box {
+    background: var(--ui-accent);
+    border-color: var(--ui-accent);
+}
+
+.remember-input:checked + .remember-box svg {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.remember-input:focus-visible + .remember-box {
+    box-shadow: 0 0 0 3px var(--ui-accent-ring);
+}
+
+.remember:hover .remember-box {
+    border-color: var(--ui-accent);
+}
+
+.forgot-link {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--ui-accent);
+    text-decoration: none;
+}
+
+.forgot-link:hover {
+    color: var(--ui-accent-hover);
+    text-decoration: underline;
+}
+
+/* ============================================================
+   Buttons
+   ============================================================ */
+
+.btn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    font: inherit;
+    font-size: 0.95rem;
+    font-weight: 600;
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+    padding: 13px 16px;
+    cursor: pointer;
+    transition: background 0.18s ease, border-color 0.18s ease,
+        box-shadow 0.18s ease, filter 0.18s ease, transform 0.08s ease;
+}
+
+.btn:active {
+    transform: translateY(1px);
+}
+
+.btn.primary {
+    background: linear-gradient(100deg, var(--brand-cta-a) 0%, var(--brand-cta-b) 55%, var(--brand-cta-c) 100%);
+    color: #ffffff;
+    box-shadow: 0 8px 20px -6px rgba(35, 150, 90, 0);
+}
+
+.btn.primary:hover {
+    box-shadow: 0 10px 26px -6px rgba(35, 150, 90, 0.65);
+    filter: saturate(1.1);
+}
+
+.btn.primary .btn-arrow {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    transition: transform 0.18s ease;
+}
+
+.btn.primary:hover .btn-arrow {
+    transform: translateY(-50%);
+}
+
+/* ---------------- Trouble link ---------------- */
+
+.trouble {
+    margin: 26px 0 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+/* ---------------- Footer (agree line) ---------------- */
+
+.auth-footer {
+    margin-top: 24px;
+    text-align: center;
+}
+
+.auth-footer p {
+    margin: 0;
+    font-size: 0.78rem;
+    line-height: 1.55;
+    color: var(--text-muted);
+}
+
+.auth-footer a {
+    color: var(--text-body);
+    font-weight: 500;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.auth-footer a:hover {
+    color: var(--text-strong);
+}
+    max-width: 400px;
+    width: 100%;
+    margin: 18px auto 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.footer-links {
+    display: inline-flex;
+    gap: 18px;
+}
+
+.auth-footer-row a {
+    color: var(--text-muted);
+    text-decoration: none;
+}
+
+.auth-footer-row a:hover {
+    color: var(--text-strong);
+    text-decoration: underline;
+}
+
+/* Register form has no "Remember me" row, so nudge its submit
+   button down to match the login form's vertical rhythm */
+#register-form .btn.primary {
+    margin-top: 24px;
+}
+
+.custom-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.95);
+    color: #111;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    padding: 14px 24px;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    z-index: 99999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    white-space: normal;
+    word-break: break-word;
+    max-width: 80vw;
+    text-align: left;
+}
+
+.custom-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-10px);
+}
+
+.custom-toast svg {
+    color: inherit;
+    flex: 0 0 auto;
+    vertical-align: middle;
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+
+@media (max-width: 960px) {
+    .auth-shell {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto;
+        max-width: 560px;
+        margin: 0 auto;
+    }
+
+    /* On phone, drop the sky half entirely */
+    .auth-visual {
+        display: none;
+    }
+
+    /* Show a compact wordmark in its place, top-left */
+    .mobile-logo {
+        display: inline-flex;
+        position: absolute;
+        top: 18px;
+        left: 24px;
+        z-index: 2;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0;
+        color: #383838;
+        font-size: 1.125rem;
+        font-weight: 800;
+        text-decoration: none;
+    }
+
+    .mobile-logo .icon-primary {
+        width: 1.75rem;
+        height: 1.75rem;
+        margin-bottom: 0.2rem;
+    }
+
+    .mobile-logo .logo-text {
+        display: none;
+    }
+
+    .auth-panel {
+        padding: 24px 24px 18px;
+        margin-right: 0;
+    }
+
+    .panel-top {
+        top: 23px;
+        right: 24px;
+    }
+
+    .switch-prefix {
+        display: none;
+    }
+
+    .auth-inner {
+        padding: 14px 0 6px;
+    }
+}
+
+@media (max-width: 480px) {
+    .auth-shell {
+        max-width: none;
+    }
+
+    /* index.html hides the wordmark text and enlarges the icon */
+    .auth-visual .logo-text {
+        display: none;
+    }
+
+    .auth-visual .logo .icon-primary {
+        width: 2rem;
+        height: 2rem;
+    }
+
+    .auth-panel {
+        padding: 22px 18px 16px;
+    }
+
+    .form-card-title {
+        font-size: 1.4rem;
+    }
+}
+
+/* ============================================================
+   Right-click context menu (shared with index.html / rightclick.js)
+   ============================================================ */
+
+.rightclick-menu {
+    position: fixed;
+    display: none;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    min-width: 240px;
+    z-index: 10000;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(3px);
+    padding: 8px 0;
+    animation: ctxFadeIn 0.2s ease-out;
+    font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+}
+
+.context-section {
+    padding: 4px 0;
+}
+
+.context-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #444;
+    padding: 6px 16px 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    pointer-events: none;
+}
+
+.context-text {
+    padding: 0 16px 8px;
+    font-size: 0.85rem;
+    color: #333;
+    line-height: 1.4;
+    white-space: pre-wrap;
+}
+
+.rightclick-menu a {
+    display: block;
+    padding: 10px 16px;
+    color: #000;
+    text-decoration: none;
+    transition: background 0.2s ease;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.rightclick-menu a:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: #000;
+}
+
+.rightclick-menu a svg {
+    color: #333;
+}
+
+.rightclick-menu a.ctx-danger,
+.rightclick-menu a.ctx-danger svg {
+    color: #d93025;
+}
+
+.rightclick-menu a.ctx-danger:hover {
+    background: rgba(217, 48, 37, 0.06);
+}
+
+.ctx-divider {
+    height: 1px;
+    background: rgba(0, 0, 0, 0.08);
+    margin: 4px 0;
+}
+
+@keyframes ctxFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .from-you,
+    .auth-form.active,
+    .auth-inner,
+    .auth-inner.is-switching,
+    .auth-inner.is-entering,
+    .error-message.show {
+        animation: none;
+        transition: none;
+    }
+}
