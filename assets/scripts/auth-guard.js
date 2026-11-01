@@ -26,6 +26,9 @@
 
     async function runGuard() {
         if (!window.EmeraldAuth || !window.EmeraldAuth.getSession) return;
+        if (typeof window.EmeraldAuth.ready === 'function') {
+            await window.EmeraldAuth.ready();
+        }
         if (window.location.pathname === '/account.html' || window.location.pathname.endsWith('/account.html')) {
             return;
         }

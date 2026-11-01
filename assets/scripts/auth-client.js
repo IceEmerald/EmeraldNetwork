@@ -12,6 +12,7 @@
     var syncInFlight = null;
     var syncRequestedAgain = false;
     var syncListenersInstalled = false;
+    var initializationPromise = null;
 
     function requestSyncFromLocalChange() {
         if (storageSyncTimer) {
@@ -85,17 +86,26 @@
         return window.EmeraldIDBStorage.ready();
     }
 
-    function readSessionRaw() {
-        var sources = [
-            function () { try { return localStorage.getItem(STORAGE_KEYS.session); } catch (_) { return null; } },
-            function () { try { return sessionStorage.getItem(STORAGE_KEYS.session); } catch (_) { return null; } }
-        ];
+    function readStoredSession() {
+        var candidates = [];
+        try { candidates.push(localStorage.getItem(STORAGE_KEYS.session)); } catch (_) {}
+        try { candidates.push(sessionStorage.getItem(STORAGE_KEYS.session)); } catch (_) {}
 
-        for (var i = 0; i < sources.length; i++) {
-            var raw = sources[i]();
-            if (raw) return raw;
-        }
-        return null;
+        var best = null;
+        var bestUpdatedAt = -1;
+        candidates.forEach(function (raw) {
+            if (!raw) return;
+            try {
+                var candidate = JSON.parse(raw);
+                if (!candidate || !candidate.user || !candidate.token) return;
+                var updatedAt = Number(candidate.updatedAt) || 0;
+                if (!best || updatedAt >= bestUpdatedAt) {
+                    best = candidate;
+                    bestUpdatedAt = updatedAt;
+                }
+            } catch (_) {}
+        });
+        return best;
     }
 
     function writeSessionRaw(value) {
@@ -106,17 +116,26 @@
     async function getSession() {
         await waitForStorage();
 
+        var storedSession = readStoredSession();
         if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.getJSONSync === 'function') {
             var idbSession = window.EmeraldIDBStorage.getJSONSync(STORAGE_KEYS.session) || null;
-            if (idbSession) return idbSession;
+            if (idbSession && idbSession.user && idbSession.token) {
+                var idbUpdatedAt = Number(idbSession.updatedAt) || 0;
+                var storedUpdatedAt = Number(storedSession && storedSession.updatedAt) || 0;
+                if (!storedSession || idbUpdatedAt > storedUpdatedAt) {
+                    if (!storedSession || idbSession.user.email !== storedSession.user.email || idbSession.token !== storedSession.token) {
+                        writeSessionRaw(idbSession);
+                    }
+                    return idbSession;
+                }
+                if (idbSession.user.email !== storedSession.user.email || idbSession.token !== storedSession.token) {
+                    await window.EmeraldIDBStorage.setJSON(STORAGE_KEYS.session, storedSession);
+                }
+                return storedSession;
+            }
         }
 
-        try {
-            var raw = readSessionRaw();
-            return raw ? JSON.parse(raw) : null;
-        } catch (_) {
-            return null;
-        }
+        return storedSession;
     }
 
     function emitSessionChanged() {
@@ -494,22 +513,24 @@
         importAccountData: importAccountData,
         startAutoSync: startAutoSync,
         stopAutoSync: stopAutoSync,
+        ready: function () { return initializationPromise || Promise.resolve(); },
         isLoggedIn: async function () {
             var session = await getSession();
             return !!(session && session.user && session.token);
         }
     };
 
-    (async function () {
+    initializationPromise = (async function () {
         try {
-            if (getAuthCallbackFromUrl()) return;
+            if (getAuthCallbackFromUrl()) {
+                await consumeAuthCallbackFromUrl();
+                return;
+            }
             var session = await getSession();
             if (session && session.user && session.token) {
                 startAutoSync();
-                await syncCurrentData();
+                syncCurrentData().catch(function () {});
             }
         } catch (_) {}
     })();
-
-    consumeAuthCallbackFromUrl().catch(function () {});
 }());
