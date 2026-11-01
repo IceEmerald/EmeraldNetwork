@@ -48,10 +48,6 @@
         }
 
         try {
-            await window.EmeraldAuth.syncCurrentData();
-        } catch (_) {}
-
-        try {
             if (window.EmeraldAuth && typeof window.EmeraldAuth.startAutoSync === 'function') {
                 window.EmeraldAuth.startAutoSync();
             }

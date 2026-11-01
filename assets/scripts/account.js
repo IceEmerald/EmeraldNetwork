@@ -376,17 +376,19 @@
         }
     }
 
+    var authRequestPending = false;
+
     async function submitAuthRequest(mode) {
+        if (authRequestPending) return;
+        authRequestPending = true;
+        var submitButtons = Array.prototype.slice.call(document.querySelectorAll('#login-form button[type="submit"], #register-form button[type="submit"]'));
+        submitButtons.forEach(function (button) { button.disabled = true; });
         var email = mode === 'login'
             ? document.getElementById('login-email').value.trim()
             : document.getElementById('register-email').value.trim();
         var password = mode === 'login'
             ? document.getElementById('login-password').value
             : document.getElementById('register-password').value;
-
-        var apiBase = window.EmeraldAuth && window.EmeraldAuth.getApiBase
-            ? window.EmeraldAuth.getApiBase()
-            : 'https://emeraldnetwork-auth.iceemerald.workers.dev';
 
         try {
             showToast(mode === 'login' ? 'Signing in…' : 'Creating your account…');
@@ -403,6 +405,9 @@
         } catch (error) {
             var message = error && error.message ? error.message : 'Authentication failed.';
             showToast(message);
+        } finally {
+            authRequestPending = false;
+            submitButtons.forEach(function (button) { button.disabled = false; });
         }
     }
 

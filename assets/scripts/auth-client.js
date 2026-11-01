@@ -7,8 +7,11 @@
     };
 
     var autoSyncTimer = null;
-    var autoSyncIntervalMs = 5000;
+    var autoSyncIntervalMs = 30000;
     var storageSyncTimer = null;
+    var syncInFlight = null;
+    var syncRequestedAgain = false;
+    var syncListenersInstalled = false;
 
     function requestSyncFromLocalChange() {
         if (storageSyncTimer) {
@@ -38,21 +41,24 @@
             } catch (_) {}
         }, autoSyncIntervalMs);
 
-        document.addEventListener('visibilitychange', function () {
-            if (document.visibilityState === 'visible') {
-                syncCurrentData().catch(function () {});
-            }
-        });
+        if (!syncListenersInstalled) {
+            syncListenersInstalled = true;
+            document.addEventListener('visibilitychange', function () {
+                if (document.visibilityState === 'visible') requestSyncFromLocalChange();
+            });
 
-        if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.subscribe === 'function') {
-            window.EmeraldIDBStorage.subscribe(function () {
+            if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.subscribe === 'function') {
+                window.EmeraldIDBStorage.subscribe(function (change) {
+                    if (change && change.key === STORAGE_KEYS.session) return;
+                    requestSyncFromLocalChange();
+                });
+            }
+
+            window.addEventListener('storage', function (event) {
+                if (!event.key || event.key === STORAGE_KEYS.session) return;
                 requestSyncFromLocalChange();
             });
         }
-
-        window.addEventListener('storage', function () {
-            requestSyncFromLocalChange();
-        });
     }
 
     function stopAutoSync() {
@@ -187,7 +193,9 @@
 
         if (!response.ok) {
             var reason = data && data.error ? data.error : (data && data.message ? data.message : 'Request failed.');
-            throw new Error(reason);
+            var requestError = new Error(reason);
+            requestError.status = response.status;
+            throw requestError;
         }
 
         return data;
@@ -220,7 +228,7 @@
         var params = new URLSearchParams(window.location.search);
         var redirect = params.get('redirect');
         if (redirect) {
-            var safeRedirect = sanitizeRedirectTarget(decodeURIComponent(redirect), window.location.origin + '/');
+            var safeRedirect = sanitizeRedirectTarget(redirect, window.location.origin + '/');
             if (safeRedirect && safeRedirect !== window.location.origin + '/account.html') return safeRedirect;
             return window.location.origin + '/';
         }
@@ -343,15 +351,31 @@
             if (!localValue) { merged[key] = remoteValue; return; }
             if (!remoteValue) { merged[key] = localValue; return; }
 
-            var localUpdated = Number(localValue && localValue.updatedAt ? localValue.updatedAt : 0) || 0;
-            var remoteUpdated = Number(remoteValue && remoteValue.updatedAt ? remoteValue.updatedAt : 0) || 0;
+            var localUpdated = Date.parse(localValue && localValue.updatedAt) || Number(localValue && localValue.updatedAt) || 0;
+            var remoteUpdated = Date.parse(remoteValue && remoteValue.updatedAt) || Number(remoteValue && remoteValue.updatedAt) || 0;
             merged[key] = localUpdated >= remoteUpdated ? localValue : remoteValue;
         });
 
         return merged;
     }
 
-    async function syncCurrentData() {
+    function syncCurrentData() {
+        if (syncInFlight) {
+            syncRequestedAgain = true;
+            return syncInFlight;
+        }
+
+        syncInFlight = performSync();
+        return syncInFlight.finally(function () {
+            syncInFlight = null;
+            if (syncRequestedAgain) {
+                syncRequestedAgain = false;
+                requestSyncFromLocalChange();
+            }
+        });
+    }
+
+    async function performSync() {
         var session = await getSession();
         if (!session || !session.token) return null;
 
@@ -371,7 +395,7 @@
             } catch (_) {}
         }
 
-        var remote = null;
+        var remote;
         try {
             remote = await fetchJson('/api/auth/sync', {
                 method: 'GET',
@@ -379,8 +403,9 @@
                     Authorization: 'Bearer ' + session.token
                 }
             });
-        } catch (_) {
-            remote = null;
+        } catch (error) {
+            if (error && (error.status === 401 || error.status === 404)) await clearSession();
+            throw error;
         }
 
         var baseSnapshot = remote && remote.snapshot && typeof remote.snapshot === 'object' ? remote.snapshot : {};
@@ -394,7 +419,7 @@
             body: JSON.stringify({ snapshot: mergedSnapshot })
         });
 
-        if (remote && remote.snapshot && typeof remote.snapshot === 'object') {
+        if (remote.snapshot && typeof remote.snapshot === 'object') {
             await importAccountData(mergedSnapshot);
         }
 
@@ -467,6 +492,7 @@
 
     (async function () {
         try {
+            if (getAuthCallbackFromUrl()) return;
             var session = await getSession();
             if (session && session.user && session.token) {
                 startAutoSync();
@@ -475,5 +501,5 @@
         } catch (_) {}
     })();
 
-    consumeAuthCallbackFromUrl();
+    consumeAuthCallbackFromUrl().catch(function () {});
 }());
