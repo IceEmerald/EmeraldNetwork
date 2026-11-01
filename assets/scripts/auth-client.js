@@ -407,11 +407,14 @@
             if (newestDelete >= newestUpdate && newestDelete > 0) {
                 merged[key] = null;
                 mergedMeta.deleted[key] = newestDelete;
-                continue;
+                return;
             }
 
-            if (localValue == null && remoteValue == null) continue;
-            var useLocal = remoteValue == null || (localValue != null && localUpdated >= remoteUpdated);
+            if (localValue == null && remoteValue == null) return;
+            // A tie means this device has no newer revision than the server.
+            // Prefer the server in that case, otherwise an older value cached
+            // on a reloaded device would overwrite a newer edit from another PC.
+            var useLocal = remoteValue == null || (localValue != null && localUpdated > remoteUpdated);
             merged[key] = useLocal ? localValue : remoteValue;
             var winnerUpdated = useLocal ? localUpdated : remoteUpdated;
             if (winnerUpdated > 0) mergedMeta.updated[key] = winnerUpdated;
