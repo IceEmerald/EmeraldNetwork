@@ -79,15 +79,34 @@
         return window.EmeraldIDBStorage.ready();
     }
 
+    function readSessionRaw() {
+        var sources = [
+            function () { try { return localStorage.getItem(STORAGE_KEYS.session); } catch (_) { return null; } },
+            function () { try { return sessionStorage.getItem(STORAGE_KEYS.session); } catch (_) { return null; } }
+        ];
+
+        for (var i = 0; i < sources.length; i++) {
+            var raw = sources[i]();
+            if (raw) return raw;
+        }
+        return null;
+    }
+
+    function writeSessionRaw(value) {
+        try { localStorage.setItem(STORAGE_KEYS.session, JSON.stringify(value)); } catch (_) {}
+        try { sessionStorage.setItem(STORAGE_KEYS.session, JSON.stringify(value)); } catch (_) {}
+    }
+
     async function getSession() {
         await waitForStorage();
 
         if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.getJSONSync === 'function') {
-            return window.EmeraldIDBStorage.getJSONSync(STORAGE_KEYS.session) || null;
+            var idbSession = window.EmeraldIDBStorage.getJSONSync(STORAGE_KEYS.session) || null;
+            if (idbSession) return idbSession;
         }
 
         try {
-            var raw = localStorage.getItem(STORAGE_KEYS.session);
+            var raw = readSessionRaw();
             return raw ? JSON.parse(raw) : null;
         } catch (_) {
             return null;
@@ -99,16 +118,14 @@
 
         if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.setJSON === 'function') {
             await window.EmeraldIDBStorage.setJSON(STORAGE_KEYS.session, session || null);
-            return;
         }
 
-        try {
-            if (session) {
-                localStorage.setItem(STORAGE_KEYS.session, JSON.stringify(session));
-            } else {
-                localStorage.removeItem(STORAGE_KEYS.session);
-            }
-        } catch (_) {}
+        if (session) {
+            writeSessionRaw(session);
+        } else {
+            try { localStorage.removeItem(STORAGE_KEYS.session); } catch (_) {}
+            try { sessionStorage.removeItem(STORAGE_KEYS.session); } catch (_) {}
+        }
     }
 
     async function clearSession() {
@@ -118,6 +135,7 @@
             try { await window.EmeraldIDBStorage.delete(STORAGE_KEYS.session); } catch (_) {}
         }
         try { localStorage.removeItem(STORAGE_KEYS.session); } catch (_) {}
+        try { sessionStorage.removeItem(STORAGE_KEYS.session); } catch (_) {}
         try { sessionStorage.removeItem(STORAGE_KEYS.returnUrl); } catch (_) {}
     }
 
@@ -291,6 +309,27 @@
         return result;
     }
 
+    function mergeSnapshots(localSnapshot, remoteSnapshot) {
+        var merged = {};
+        var keys = new Set(Object.keys(localSnapshot || {}));
+        Object.keys(remoteSnapshot || {}).forEach(function (key) { keys.add(key); });
+
+        keys.forEach(function (key) {
+            var localValue = localSnapshot && Object.prototype.hasOwnProperty.call(localSnapshot, key) ? localSnapshot[key] : null;
+            var remoteValue = remoteSnapshot && Object.prototype.hasOwnProperty.call(remoteSnapshot, key) ? remoteSnapshot[key] : null;
+
+            if (!localValue && !remoteValue) return;
+            if (!localValue) { merged[key] = remoteValue; return; }
+            if (!remoteValue) { merged[key] = localValue; return; }
+
+            var localUpdated = Number(localValue && localValue.updatedAt ? localValue.updatedAt : 0) || 0;
+            var remoteUpdated = Number(remoteValue && remoteValue.updatedAt ? remoteValue.updatedAt : 0) || 0;
+            merged[key] = localUpdated >= remoteUpdated ? localValue : remoteValue;
+        });
+
+        return merged;
+    }
+
     async function syncCurrentData() {
         var session = await getSession();
         if (!session || !session.token) return null;
@@ -311,26 +350,34 @@
             } catch (_) {}
         }
 
+        var remote = null;
+        try {
+            remote = await fetchJson('/api/auth/sync', {
+                method: 'GET',
+                headers: {
+                    Authorization: 'Bearer ' + session.token
+                }
+            });
+        } catch (_) {
+            remote = null;
+        }
+
+        var baseSnapshot = remote && remote.snapshot && typeof remote.snapshot === 'object' ? remote.snapshot : {};
+        var mergedSnapshot = mergeSnapshots(snapshot, baseSnapshot);
+
         await fetchJson('/api/auth/sync', {
             method: 'POST',
             headers: {
                 Authorization: 'Bearer ' + session.token
             },
-            body: JSON.stringify({ snapshot: snapshot })
-        });
-
-        var remote = await fetchJson('/api/auth/sync', {
-            method: 'GET',
-            headers: {
-                Authorization: 'Bearer ' + session.token
-            }
+            body: JSON.stringify({ snapshot: mergedSnapshot })
         });
 
         if (remote && remote.snapshot && typeof remote.snapshot === 'object') {
-            await importAccountData(remote.snapshot);
+            await importAccountData(mergedSnapshot);
         }
 
-        return remote;
+        return { ok: true, snapshot: mergedSnapshot };
     }
 
     async function exportAccountData() {
