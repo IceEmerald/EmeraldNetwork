@@ -51,6 +51,17 @@
     var ready = false;
     var sessionMonitor = null;
 
+    function hasValidSession(session) {
+        return !!(session && (session.user || session.email) && session.token);
+    }
+
+    function stopSessionMonitor() {
+        if (sessionMonitor) {
+            clearInterval(sessionMonitor);
+            sessionMonitor = null;
+        }
+    }
+
     function startSessionMonitor() {
         if (sessionMonitor) return;
         sessionMonitor = setInterval(function () {
@@ -127,12 +138,16 @@
     function getStoredSessionDirect() {
         var candidates = [
             function () { try { return JSON.parse(localStorage.getItem('emerald.auth.session') || 'null'); } catch (_) { return null; } },
-            function () { try { return JSON.parse(sessionStorage.getItem('emerald.auth.session') || 'null'); } catch (_) { return null; } }
+            function () { try { return JSON.parse(sessionStorage.getItem('emerald.auth.session') || 'null'); } catch (_) { return null; } },
+            function () {
+                if (!window.EmeraldIDBStorage || typeof window.EmeraldIDBStorage.getJSONSync !== 'function') return null;
+                try { return window.EmeraldIDBStorage.getJSONSync('emerald.auth.session') || null; } catch (_) { return null; }
+            }
         ];
 
         for (var i = 0; i < candidates.length; i++) {
             var value = candidates[i]();
-            if (value && value.user && value.token) {
+            if (hasValidSession(value)) {
                 return value;
             }
         }
@@ -174,20 +189,32 @@
             forms.register.style.display = 'none';
             forms.register.classList.remove('active');
         }
+
         var divider = document.querySelector('.divider');
         var socialButtons = document.querySelector('.social-buttons');
         var authFooter = document.getElementById('authFooter');
-        if (divider) divider.hidden = true;
-        if (socialButtons) socialButtons.hidden = true;
-        if (authFooter) authFooter.hidden = true;
+        if (divider) {
+            divider.hidden = true;
+            divider.style.display = 'none';
+        }
+        if (socialButtons) {
+            socialButtons.hidden = true;
+            socialButtons.style.display = 'none';
+        }
+        if (authFooter) {
+            authFooter.hidden = true;
+            authFooter.style.display = 'none';
+        }
+
         if (loggedInState) {
             loggedInState.hidden = false;
             loggedInState.style.display = 'flex';
         }
         if (loggedInEmail) loggedInEmail.textContent = email;
-        if (switchNote) switchNote.textContent = 'Signed in as ' + email;
+        if (switchNote) switchNote.textContent = '';
         title.textContent = 'Logged in!';
         subtitle.textContent = 'Account: ' + email;
+        window.__emerald_auth_logged_out = false;
     }
 
     function showLoggedOutState() {
@@ -195,9 +222,18 @@
         var divider = document.querySelector('.divider');
         var socialButtons = document.querySelector('.social-buttons');
         var authFooter = document.getElementById('authFooter');
-        if (divider) divider.hidden = false;
-        if (socialButtons) socialButtons.hidden = false;
-        if (authFooter) authFooter.hidden = false;
+        if (divider) {
+            divider.hidden = false;
+            divider.style.display = 'flex';
+        }
+        if (socialButtons) {
+            socialButtons.hidden = false;
+            socialButtons.style.display = 'grid';
+        }
+        if (authFooter) {
+            authFooter.hidden = false;
+            authFooter.style.display = 'block';
+        }
         if (loggedInState) {
             loggedInState.hidden = true;
             loggedInState.style.display = 'none';
@@ -215,41 +251,43 @@
         }
         title.textContent = COPY[currentModeName].title;
         subtitle.textContent = COPY[currentModeName].subtitle;
+        window.__emerald_auth_logged_out = true;
     }
 
     async function refreshSessionView() {
         var directSession = getStoredSessionDirect();
-        if (directSession) {
-            showLoggedInState(directSession);
+        var session = directSession;
+
+        if (!session && window.EmeraldAuth && window.EmeraldAuth.getSession) {
+            try {
+                session = await window.EmeraldAuth.getSession();
+            } catch (_) {}
+        }
+
+        if (hasValidSession(session)) {
+            showLoggedInState(session);
             startSessionMonitor();
             return;
         }
 
-        if (window.EmeraldAuth && window.EmeraldAuth.getSession) {
-            try {
-                var session = await window.EmeraldAuth.getSession();
-                if (session && session.user && session.token) {
-                    showLoggedInState(session);
-                    startSessionMonitor();
-                    return;
-                }
-            } catch (_) {}
+        if (window.__emerald_auth_logged_out !== false) {
+            showLoggedOutState();
         }
-
-        showLoggedOutState();
         startSessionMonitor();
     }
 
     /* Delegated, so clicks survive the note text being rewritten */
-    switchNote.addEventListener('click', function (e) {
-        if (loggedInState && loggedInState.hidden === false) {
-            return;
-        }
-        var link = e.target.closest ? e.target.closest('#modeSwitch') : null;
-        if (!link) return;
-        e.preventDefault();
-        activateMode(currentMode === 'login' ? 'register' : 'login', true);
-    });
+    if (switchNote) {
+        switchNote.addEventListener('click', function (e) {
+            if (loggedInState && loggedInState.hidden === false) {
+                return;
+            }
+            var link = e.target && e.target.closest ? e.target.closest('#modeSwitch') : null;
+            if (!link) return;
+            e.preventDefault();
+            activateMode(currentMode === 'login' ? 'register' : 'login', true);
+        });
+    }
 
     /* ---------------- Toast (site-wide pattern) ---------------- */
 
@@ -539,6 +577,9 @@
 
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async function () {
+            stopSessionMonitor();
+            window.__emerald_auth_logged_out = true;
+
             try {
                 if (window.EmeraldAuth && window.EmeraldAuth.clearSession) {
                     await window.EmeraldAuth.clearSession();
@@ -546,11 +587,25 @@
             } catch (_) {}
 
             try {
-                window.location.replace('/account.html');
-                return;
+                localStorage.removeItem('emerald.auth.session');
+                sessionStorage.removeItem('emerald.auth.session');
+                localStorage.removeItem('emerald.auth.return_url');
+                sessionStorage.removeItem('emerald.auth.return_url');
+                if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.delete === 'function') {
+                    await window.EmeraldIDBStorage.delete('emerald.auth.session');
+                    await window.EmeraldIDBStorage.delete('emerald.auth.return_url');
+                }
             } catch (_) {}
 
             showLoggedOutState();
+            activateMode('login', false);
+            startSessionMonitor();
+            if (window.location.pathname !== '/account.html') {
+                try {
+                    window.location.replace('/account.html');
+                    return;
+                } catch (_) {}
+            }
         });
     }
 
