@@ -265,21 +265,6 @@
         }
 
         if (hasValidSession(session)) {
-            var redirectParam = new URLSearchParams(window.location.search).get('redirect');
-            var savedReturnUrl = null;
-            try {
-                savedReturnUrl = sessionStorage.getItem('emerald.auth.return_url');
-            } catch (_) {}
-
-            var returnUrl = redirectParam || savedReturnUrl || null;
-            if (returnUrl) {
-                var safeReturn = sanitizeRedirectTarget(returnUrl, null);
-                if (safeReturn && safeReturn !== window.location.origin + '/account.html') {
-                    window.location.replace(safeReturn);
-                    return;
-                }
-            }
-
             showLoggedInState(session);
             startSessionMonitor();
             return;
@@ -403,14 +388,6 @@
             ? window.EmeraldAuth.getApiBase()
             : 'https://emeraldnetwork-auth.iceemerald.workers.dev';
 
-        var redirectTarget = window.EmeraldAuth && window.EmeraldAuth.getReturnUrl
-            ? window.EmeraldAuth.getReturnUrl()
-            : (new URLSearchParams(window.location.search).get('redirect') || '/');
-
-        if (window.EmeraldAuth && window.EmeraldAuth.rememberReturnUrl) {
-            window.EmeraldAuth.rememberReturnUrl(redirectTarget);
-        }
-
         try {
             showToast(mode === 'login' ? 'Signing in…' : 'Creating your account…');
             var result = mode === 'login'
@@ -418,7 +395,7 @@
                 : await window.EmeraldAuth.register(email, password);
 
             var safeRedirect = sanitizeRedirectTarget(
-                result && result.redirectUrl ? result.redirectUrl : redirectTarget,
+                result && result.redirectUrl ? result.redirectUrl : window.EmeraldAuth.getReturnUrl(),
                 '/'
             );
 
