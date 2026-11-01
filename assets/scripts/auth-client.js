@@ -7,7 +7,7 @@
     };
 
     var autoSyncTimer = null;
-    var autoSyncIntervalMs = 10000;
+    var autoSyncIntervalMs = 5000;
     var storageSyncTimer = null;
 
     function requestSyncFromLocalChange() {
