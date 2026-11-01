@@ -176,11 +176,13 @@
         }
         var divider = document.querySelector('.divider');
         var socialButtons = document.querySelector('.social-buttons');
+        var authFooter = document.getElementById('authFooter');
         if (divider) divider.hidden = true;
         if (socialButtons) socialButtons.hidden = true;
+        if (authFooter) authFooter.hidden = true;
         if (loggedInState) {
             loggedInState.hidden = false;
-            loggedInState.style.display = 'block';
+            loggedInState.style.display = 'flex';
         }
         if (loggedInEmail) loggedInEmail.textContent = email;
         if (switchNote) switchNote.textContent = 'Signed in as ' + email;
@@ -192,8 +194,10 @@
         var currentModeName = currentMode || 'login';
         var divider = document.querySelector('.divider');
         var socialButtons = document.querySelector('.social-buttons');
+        var authFooter = document.getElementById('authFooter');
         if (divider) divider.hidden = false;
         if (socialButtons) socialButtons.hidden = false;
+        if (authFooter) authFooter.hidden = false;
         if (loggedInState) {
             loggedInState.hidden = true;
             loggedInState.style.display = 'none';
