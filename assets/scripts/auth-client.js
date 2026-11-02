@@ -9,7 +9,7 @@
 
     var autoSyncTimer = null;
     // Fallback polling detects edits made on another device; local edits sync from storage events below.
-    var autoSyncIntervalMs = 8000;
+    var autoSyncIntervalMs = 3000;
     var storageSyncTimer = null;
     var syncInFlight = null;
     var syncRequestedAgain = false;
@@ -74,21 +74,9 @@
             });
 
             window.addEventListener('emerald-device-removed', function () {
-                syncCurrentData().then(function () {
-                    refreshDeviceListAfterRemoval();
-                }).catch(function () {});
+                syncCurrentData().catch(function () {});
             });
         }
-    }
-
-    function refreshDeviceListAfterRemoval() {
-        return ensureDevice().then(function (devices) {
-            renderDevices(devices);
-            setText('overviewDevices', devices.length === 1
-                ? '1 device signed in'
-                : devices.length + ' devices signed in');
-            renderDeviceRows(devices);
-        });
     }
 
     function stopAutoSync() {
@@ -113,6 +101,27 @@
     function waitForStorage() {
         if (!window.EmeraldIDBStorage || !window.EmeraldIDBStorage.ready) return Promise.resolve();
         return window.EmeraldIDBStorage.ready();
+    }
+
+    function getDeviceId() {
+        var id = null;
+        try { id = localStorage.getItem('emerald.device.id'); } catch (_) {}
+        if (!id) {
+            id = 'dev-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+            try { localStorage.setItem('emerald.device.id', id); } catch (_) {}
+        }
+        return id;
+    }
+
+    function getCurrentDeviceInfo() {
+        return {
+            id: getDeviceId(),
+            name: navigator.platform || 'This device',
+            userAgent: (navigator.userAgent || '').slice(0, 120),
+            language: navigator.language || '',
+            addedAt: Date.now(),
+            current: false
+        };
     }
 
     function readStoredSession() {
@@ -190,6 +199,36 @@
         }
 
         emitSessionChanged();
+    }
+
+    async function revokeDevice(deviceId, options) {
+        await waitForStorage();
+        var revokedKey = 'emerald.account.revoked_devices';
+        var revoked = [];
+        if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.getJSON === 'function') {
+            try { revoked = await window.EmeraldIDBStorage.getJSON(revokedKey) || []; } catch (_) {}
+        }
+        if (!Array.isArray(revoked)) revoked = [];
+        var id = deviceId || getDeviceId();
+        if (!revoked.includes(id)) revoked.push(id);
+        if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.setJSON === 'function') {
+            await window.EmeraldIDBStorage.setJSON(revokedKey, revoked);
+        }
+        try { localStorage.setItem(revokedKey, JSON.stringify(revoked)); } catch (_) {}
+
+        if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.getJSON === 'function') {
+            try {
+                var devices = await window.EmeraldIDBStorage.getJSON('emerald.account.devices');
+                if (Array.isArray(devices)) {
+                    await window.EmeraldIDBStorage.setJSON('emerald.account.devices', devices.filter(function (device) {
+                        return !device || device.id !== id;
+                    }));
+                }
+            } catch (_) {}
+        }
+        await syncCurrentData().catch(function () {});
+        if (!options || options.clearSession !== false) await clearSession();
+        return true;
     }
 
     async function clearSession() {
@@ -317,10 +356,12 @@
         var token = params.get('auth_session');
         var email = params.get('auth_email');
         var provider = params.get('auth_provider');
+        var deviceId = params.get('auth_device') || getDeviceId();
 
         if (!token || !email) return null;
 
         return {
+            deviceId: deviceId,
             user: {
                 email: String(email).trim().toLowerCase(),
                 provider: provider || 'google'
@@ -367,7 +408,13 @@
     async function login(email, password) {
         var result = await fetchJson('/api/auth/login', {
             method: 'POST',
-            body: JSON.stringify({ email: email, password: password, redirect: getReturnUrl() })
+            body: JSON.stringify({
+                email: email,
+                password: password,
+                redirect: getReturnUrl(),
+                deviceId: getDeviceId(),
+                device: getCurrentDeviceInfo()
+            })
         });
 
         if (result && result.session) {
@@ -382,7 +429,13 @@
     async function register(email, password) {
         var result = await fetchJson('/api/auth/register', {
             method: 'POST',
-            body: JSON.stringify({ email: email, password: password, redirect: getReturnUrl() })
+            body: JSON.stringify({
+                email: email,
+                password: password,
+                redirect: getReturnUrl(),
+                deviceId: getDeviceId(),
+                device: getCurrentDeviceInfo()
+            })
         });
 
         if (result && result.session) {
@@ -394,11 +447,12 @@
         return result;
     }
 
-    function mergeDeviceLists(localList, remoteList) {
+    function mergeDeviceLists(localList, remoteList, revokedIds) {
         var merged = [];
+        var revoked = Array.isArray(revokedIds) ? revokedIds : [];
         var byId = {};
         (localList || []).concat(remoteList || []).forEach(function (device) {
-            if (!device || !device.id) return;
+            if (!device || !device.id || revoked.includes(device.id)) return;
             var existing = byId[device.id];
             var candidate = existing && Number(existing.addedAt || 0) >= Number(device.addedAt || 0)
                 ? existing
@@ -439,7 +493,16 @@
             var localValue = localSnapshot && Object.prototype.hasOwnProperty.call(localSnapshot, key) ? localSnapshot[key] : null;
             var remoteValue = remoteSnapshot && Object.prototype.hasOwnProperty.call(remoteSnapshot, key) ? remoteSnapshot[key] : null;
             if (key === 'emerald.account.devices' && (Array.isArray(localValue) || Array.isArray(remoteValue))) {
-                merged[key] = mergeDeviceLists(Array.isArray(localValue) ? localValue : [], Array.isArray(remoteValue) ? remoteValue : []);
+                var revokedIds = [];
+                var revokedSources = [localSnapshot, remoteSnapshot];
+                revokedSources.forEach(function (snapshot) {
+                    var ids = snapshot && snapshot['emerald.account.revoked_devices'];
+                    if (Array.isArray(ids)) ids.forEach(function (id) {
+                        if (id && !revokedIds.includes(id)) revokedIds.push(id);
+                    });
+                });
+                merged[key] = mergeDeviceLists(Array.isArray(localValue) ? localValue : [], Array.isArray(remoteValue) ? remoteValue : [], revokedIds);
+                merged['emerald.account.revoked_devices'] = revokedIds;
                 return;
             }
             var localUpdated = Math.max(Number(localMeta.updated && localMeta.updated[key]) || 0, updatedAt(localValue));
@@ -536,7 +599,7 @@
                 }
             });
         } catch (error) {
-            if (error && (error.status === 401 || error.status === 404)) await clearSession();
+            if (error && (error.status === 401 || error.status === 404 || error.status === 403)) await clearSession();
             throw error;
         }
 
@@ -629,7 +692,10 @@
         rememberReturnUrl(returnUrl);
         var redirect = encodeURIComponent(returnUrl);
         var mode = String(intent || 'login').toLowerCase();
-        var query = '?redirect=' + redirect + '&intent=' + encodeURIComponent(mode);
+        var device = getCurrentDeviceInfo();
+        var query = '?redirect=' + redirect + '&intent=' + encodeURIComponent(mode) +
+            '&deviceId=' + encodeURIComponent(device.id) +
+            '&device=' + encodeURIComponent(JSON.stringify(device));
         window.location.href = getApiBase() + '/api/auth/' + name + query;
     }
 
@@ -640,6 +706,7 @@
         getSession: getSession,
         setSession: setSession,
         clearSession: clearSession,
+        revokeDevice: revokeDevice,
         consumeAuthCallbackFromUrl: consumeAuthCallbackFromUrl,
         login: login,
         register: register,

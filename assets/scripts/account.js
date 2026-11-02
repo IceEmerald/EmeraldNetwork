@@ -585,7 +585,9 @@
             window.__emerald_auth_logged_out = true;
 
             try {
-                if (window.EmeraldAuth && window.EmeraldAuth.clearSession) {
+                if (window.EmeraldAuth && window.EmeraldAuth.revokeDevice) {
+                    await window.EmeraldAuth.revokeDevice(null, { clearSession: true });
+                } else if (window.EmeraldAuth && window.EmeraldAuth.clearSession) {
                     await window.EmeraldAuth.clearSession();
                 }
             } catch (_) {}
@@ -1244,32 +1246,27 @@
                     var current = await loadDevices();
                     var next = current.filter(function (x) { return x.id !== d.id; });
                     await saveDevices(next);
+                    var revokedKey = 'emerald.account.revoked_devices';
+                    var revoked = [];
+                    try {
+                        revoked = await window.EmeraldIDBStorage.getJSON(revokedKey) || [];
+                    } catch (_) {}
+                    if (!Array.isArray(revoked)) revoked = [];
+                    if (!revoked.includes(d.id)) revoked.push(d.id);
+                    await waitForStorageReady();
+                    if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.setJSON === 'function') {
+                        await window.EmeraldIDBStorage.setJSON(revokedKey, revoked);
+                    }
+                    try { localStorage.setItem(revokedKey, JSON.stringify(revoked)); } catch (_) {}
                     await renderDevices(next);
-                    showToast('Device removed.');
+                    showToast('Device removed and signed out.');
+                    if (window.EmeraldAuth && typeof window.EmeraldAuth.syncCurrentData === 'function') {
+                        window.EmeraldAuth.syncCurrentData().catch(function () {});
+                    }
                     try {
                         window.dispatchEvent(new CustomEvent('emerald-device-removed', {
                             detail: { deviceId: d.id }
                         }));
-                    } catch (_) {}
-                    // Sign out from this device by clearing the local session
-                    try {
-                        if (window.EmeraldAuth && window.EmeraldAuth.clearSession) {
-                            await window.EmeraldAuth.clearSession();
-                        }
-                        localStorage.removeItem('emerald.auth.session');
-                        sessionStorage.removeItem('emerald.auth.session');
-                        localStorage.removeItem('emerald.auth.return_url');
-                        sessionStorage.removeItem('emerald.auth.return_url');
-                        if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.delete === 'function') {
-                            await window.EmeraldIDBStorage.delete('emerald.auth.session');
-                            await window.EmeraldIDBStorage.delete('emerald.auth.return_url');
-                        }
-                        showLoggedOutState();
-                        activateMode('login', false);
-                        startSessionMonitor();
-                        if (window.location.pathname !== '/account.html') {
-                            try { window.location.replace('/account.html'); } catch (_) {}
-                        }
                     } catch (_) {}
                 });
             }
@@ -1874,21 +1871,23 @@
     });
 
     window.addEventListener('emerald-device-removed', function () {
-        syncCurrentData().then(function () {
-            refreshDeviceListAfterRemoval();
-        }).catch(function () {});
+        if (window.EmeraldAuth && typeof window.EmeraldAuth.syncCurrentData === 'function') {
+            window.EmeraldAuth.syncCurrentData().catch(function () {});
+        }
     });
-        window.EmeraldAuth.getSession().then(function (session) {
-            if (!hasValidSession(session)) return;
-            return ensureDevice().then(function (devices) {
-                return renderDevices(devices).then(function () {
-                    setText('overviewDevices', devices.length === 1
-                        ? '1 device signed in'
-                        : devices.length + ' devices signed in');
-                    renderDeviceRows(devices);
-                });
-            });
-        }).catch(function () {});
+
+    window.addEventListener('focus', function () {
+        if (window.EmeraldAuth && typeof window.EmeraldAuth.syncCurrentData === 'function') {
+            window.EmeraldAuth.syncCurrentData().catch(function () {});
+        }
+    });
+
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible' && window.EmeraldAuth && typeof window.EmeraldAuth.syncCurrentData === 'function') {
+            window.EmeraldAuth.syncCurrentData().catch(function () {});
+        }
+    });
+
     var authError = params.get('error');
     if (authError) {
         var message = 'Authentication failed.';
