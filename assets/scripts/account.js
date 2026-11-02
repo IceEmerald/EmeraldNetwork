@@ -1251,32 +1251,6 @@
                             detail: { deviceId: d.id }
                         }));
                     } catch (_) {}
-                    // Sign out from this device by clearing the session
-                    try {
-                        if (window.EmeraldAuth && window.EmeraldAuth.clearSession) {
-                            await window.EmeraldAuth.clearSession();
-                        }
-                        localStorage.removeItem('emerald.auth.session');
-                        sessionStorage.removeItem('emerald.auth.session');
-                        localStorage.removeItem('emerald.auth.return_url');
-                        sessionStorage.removeItem('emerald.auth.return_url');
-                        if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.delete === 'function') {
-                            await window.EmeraldIDBStorage.delete('emerald.auth.session');
-                            await window.EmeraldIDBStorage.delete('emerald.auth.return_url');
-                        }
-                        // Notify other tabs that a device was removed so they refresh their device list
-                        try {
-                            window.dispatchEvent(new CustomEvent('emerald-device-removed', {
-                                detail: { deviceId: d.id }
-                            }));
-                        } catch (_) {}
-                        showLoggedOutState();
-                        activateMode('login', false);
-                        startSessionMonitor();
-                        if (window.location.pathname !== '/account.html') {
-                            try { window.location.replace('/account.html'); } catch (_) {}
-                        }
-                    } catch (_) {}
                 });
             }
             li.appendChild(btn);
