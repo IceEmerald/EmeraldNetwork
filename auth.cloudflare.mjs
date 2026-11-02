@@ -229,12 +229,17 @@ function buildAuthSession(email, provider, token, deviceId) {
 function mergeDeviceInfo(userData, device) {
   const data = userData && typeof userData === 'object' ? { ...userData } : {};
   if (!device || !device.id) return data;
+  const revokedKey = 'emerald.account.revoked_devices';
+  if (Array.isArray(data[revokedKey])) {
+    data[revokedKey] = data[revokedKey].filter((id) => id !== device.id);
+  }
   const list = Array.isArray(data['emerald.account.devices']) ? data['emerald.account.devices'] : [];
   const existingIndex = list.findIndex((item) => item && item.id === device.id);
   const saved = { ...device, current: false, addedAt: device.addedAt || Date.now(), updatedAt: Date.now() };
   if (existingIndex >= 0) list[existingIndex] = { ...list[existingIndex], ...saved };
   else list.unshift(saved);
   data['emerald.account.devices'] = list;
+  data[revokedKey] = Array.isArray(data[revokedKey]) ? data[revokedKey] : [];
   return data;
 }
 

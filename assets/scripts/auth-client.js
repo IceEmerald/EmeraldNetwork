@@ -9,7 +9,7 @@
 
     var autoSyncTimer = null;
     // Fallback polling detects edits made on another device; local edits sync from storage events below.
-    var autoSyncIntervalMs = 3000;
+    var autoSyncIntervalMs = 1500;
     var storageSyncTimer = null;
     var syncInFlight = null;
     var syncRequestedAgain = false;
@@ -614,6 +614,14 @@
             body: JSON.stringify({ snapshot: mergedSnapshot })
         });
 
+        var serverSnapshot = syncResult && syncResult.snapshot && typeof syncResult.snapshot === 'object'
+            ? syncResult.snapshot
+            : mergedSnapshot;
+
+        // Device registry changes are always safe to import separately. The
+        // broader pending-edit guard below must not hide a new/removed device.
+        await importDeviceRegistry(serverSnapshot);
+
         // Do not import the response captured before a local edit. Doing so
         // would visibly roll an in-progress edit back to its old position.
         var latestSnapshot = await exportAccountData();
@@ -622,9 +630,6 @@
             return { ok: true, pendingLocalChanges: true };
         }
 
-        var serverSnapshot = syncResult && syncResult.snapshot && typeof syncResult.snapshot === 'object'
-            ? syncResult.snapshot
-            : mergedSnapshot;
         if (serverSnapshot) {
             await importAccountData(serverSnapshot);
         }
@@ -636,6 +641,27 @@
         } catch (_) {}
 
         return { ok: true, snapshot: serverSnapshot };
+    }
+
+    async function importDeviceRegistry(snapshot) {
+        if (!snapshot || typeof snapshot !== 'object') return;
+        var keys = ['emerald.account.devices', 'emerald.account.revoked_devices'];
+        for (var index = 0; index < keys.length; index++) {
+            var key = keys[index];
+            var value = snapshot[key];
+            if (value == null) continue;
+            try {
+                if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.setJSON === 'function') {
+                    await window.EmeraldIDBStorage.setJSON(key, value, { type: 'import' });
+                }
+                localStorage.setItem(key, JSON.stringify(value));
+            } catch (_) {}
+        }
+        try {
+            window.dispatchEvent(new CustomEvent('emerald-sync-complete', {
+                detail: { snapshot: snapshot }
+            }));
+        } catch (_) {}
     }
 
     function shouldExcludeFromSync(key) {

@@ -1856,18 +1856,37 @@
     refreshSessionView().catch(function () {});
     startSessionMonitor();
 
-    window.addEventListener('emerald-sync-complete', function () {
-        window.EmeraldAuth.getSession().then(function (session) {
-            if (!hasValidSession(session)) return;
-            return ensureDevice().then(function (devices) {
-                return renderDevices(devices).then(function () {
-                    setText('overviewDevices', devices.length === 1
-                        ? '1 device signed in'
-                        : devices.length + ' devices signed in');
-                    renderDeviceRows(devices);
-                });
-            });
-        }).catch(function () {});
+    async function refreshSyncedDevices(snapshot) {
+        var list = snapshot && snapshot['emerald.account.devices'];
+        if (!Array.isArray(list)) {
+            list = await loadDevices();
+        }
+        var revoked = snapshot && snapshot['emerald.account.revoked_devices'];
+        if (!Array.isArray(revoked)) revoked = [];
+
+        var currentId = getDeviceId();
+        var unique = [];
+        var seen = {};
+        (Array.isArray(list) ? list : []).forEach(function (device) {
+            if (!device || !device.id || revoked.includes(device.id) || seen[device.id]) return;
+            seen[device.id] = true;
+            unique.push(Object.assign({}, device, { current: device.id === currentId }));
+        });
+        if (!seen[currentId]) {
+            unique.unshift(Object.assign({}, currentDeviceInfo(), { current: true }));
+        }
+
+        await saveDevices(unique);
+        await renderDevices(unique);
+        setText('overviewDevices', unique.length === 1
+            ? '1 device signed in'
+            : unique.length + ' devices signed in');
+        renderDeviceRows(unique);
+    }
+
+    window.addEventListener('emerald-sync-complete', function (event) {
+        var snapshot = event && event.detail && event.detail.snapshot;
+        refreshSyncedDevices(snapshot).catch(function () {});
     });
 
     window.addEventListener('emerald-device-removed', function () {
