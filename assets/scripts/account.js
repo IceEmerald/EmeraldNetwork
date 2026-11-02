@@ -650,13 +650,13 @@
         wrap.innerHTML = '';
         var labels = { phone: 'Phone', laptop: 'Laptop', pc: 'PC' };
         var currentId = getDeviceId();
-        var rows = (devices || []).filter(function (d) {
-            return d && d.id === currentId;
-        });
+        var rows = devices || [];
         rows.forEach(function (d) {
+            if (!d || !d.id) return;
             var kind = deviceKindOf(d);
             var os = deviceOsOf(d);
             var browser = deviceBrowserOf(d && d.userAgent);
+            var isCurrent = d.id === currentId;
             var row = document.createElement('div');
             row.className = 'ms-device-row';
 
@@ -674,7 +674,7 @@
             head.textContent = labels[kind];
             var chip = document.createElement('span');
             chip.className = 'ms-chip';
-            chip.textContent = 'This device';
+            chip.textContent = isCurrent ? 'This device' : '';
             head.appendChild(chip);
             info.appendChild(head);
 
@@ -687,7 +687,7 @@
             row.appendChild(info);
             wrap.appendChild(row);
         });
-        if (!rows.length) {
+        if (rows.length === 0) {
             wrap.appendChild(Object.assign(document.createElement('div'), {
                 className: 'ms-device-empty',
                 textContent: 'No devices signed in on this browser yet.'
