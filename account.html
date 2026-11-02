@@ -4,94 +4,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EmeraldNetwork | Sign in</title>
-    <meta name="description" content="Sign in to EmeraldNetwork or create an account to access your notes, documents, presentations and spreadsheets — synced in one place.">
+    <title>EmeraldNetwork | Account</title>
+    <meta name="description" content="Manage your EmeraldNetwork account — personal info, devices, security, data and storage.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/assets/styles/account.css" />
+    <link rel="stylesheet" href="/assets/styles/account.css?v=39" />
     <link rel="icon" type="image/x-icon" href="/assets/images/favicon.webp">
 </head>
 
 <body>
-    <main class="auth-shell">
-
-        <!-- ================= Sky half ================= -->
-        <!-- Half the screen wrapped in a rounded daylight card:
-             bright emerald sky with a soft light sweep, the
-             EmeraldNetwork wordmark top-left, the campaign
-             headline centered, and a giant realistic planet
-             rising from the bottom (only a quarter of the disc
-             is ever on screen). -->
+    <main class="auth-shell" id="authShell">
         <aside class="auth-visual">
             <a href="/" class="logo" aria-label="EmeraldNetwork home">
                 <img src="/assets/images/favicon.webp" class="icon-primary" width="30" height="30" alt="EmeraldNetwork logo">
                 <span class="logo-text">EmeraldNetwork</span>
             </a>
-
             <div class="visual-stars" id="visualStars" aria-hidden="true"></div>
-
             <h2 class="brand-headline" aria-hidden="true">
                 Shape the <em>future</em>&hellip;<br>
                 <span class="from-you">From you.</span>
             </h2>
-
             <div class="globe" aria-hidden="true">
                 <canvas id="globe-canvas"></canvas>
             </div>
         </aside>
 
-        <!-- ================= Login half ================= -->
         <section class="auth-panel">
-            <!-- Compact wordmark shown on phone (sky half is hidden) -->
             <a href="/" class="mobile-logo" aria-label="EmeraldNetwork home">
                 <img src="/assets/images/favicon.webp" class="icon-primary" width="30" height="30" alt="EmeraldNetwork logo">
                 <span class="logo-text">EmeraldNetwork</span>
             </a>
-
-            <!-- Switches between login and register — pinned top-right -->
             <header class="panel-top">
                 <p class="switch-note" id="switchNote"></p>
             </header>
-
             <div class="auth-inner">
-
                 <div class="form-card">
                     <h1 class="form-card-title" id="formCardTitle">Welcome back!</h1>
                     <p class="form-card-subtitle" id="formCardSubtitle">
                         Sign in to your EmeraldNetwork account.
                     </p>
-
                     <div id="loggedInState" class="logged-in-state" hidden>
-                        <button type="button" class="btn secondary" id="logoutBtn">
-                            Log out
-                        </button>
+                        <button type="button" class="btn secondary" id="logoutBtn">Log out</button>
                     </div>
-
-                    <!-- ============ LOGIN ============ -->
-                    <form class="auth-form active" id="login-form" aria-labelledby="formCardTitle"
-                        novalidate data-mode="login">
+                    <form class="auth-form active" id="login-form" aria-labelledby="formCardTitle" novalidate data-mode="login">
                         <div class="input-group">
                             <label for="login-email">Email address</label>
-                            <input type="email" id="login-email" name="email" autocomplete="email"
-                                placeholder="hello@emeraldnetwork.groups.id" spellcheck="false">
+                            <input type="email" id="login-email" name="email" autocomplete="email" placeholder="hello@emeraldnetwork.groups.id" spellcheck="false">
                             <p class="error-message" id="login-email-error" aria-live="polite"></p>
                         </div>
-
                         <div class="input-group">
                             <label for="login-password">Password</label>
                             <div class="input-wrap">
-                                <input type="password" id="login-password" name="password"
-                                    autocomplete="current-password" placeholder="Enter your password">
-                                <button type="button" class="pw-toggle" aria-label="Show password"
-                                    aria-pressed="false" data-target="login-password">
+                                <input type="password" id="login-password" name="password" autocomplete="current-password" placeholder="Enter your password">
+                                <button type="button" class="pw-toggle" aria-label="Show password" aria-pressed="false" data-target="login-password">
                                     <svg class="pw-eye" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                                     <svg class="pw-eye-off" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                                 </button>
                             </div>
                             <p class="error-message" id="login-password-error" aria-live="polite"></p>
                         </div>
-
                         <div class="row-between">
                             <label class="remember">
                                 <input type="checkbox" id="rememberMe" name="remember" class="remember-input">
@@ -102,51 +74,40 @@
                             </label>
                             <a href="#" class="forgot-link" id="forgotLink">Forgot password?</a>
                         </div>
-
                         <button type="submit" class="btn primary">
                             Sign in
                             <svg class="btn-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                         </button>
                     </form>
 
-                    <!-- ============ REGISTER ============ -->
-                    <form class="auth-form" id="register-form" hidden
-                        novalidate data-mode="register">
+                    <form class="auth-form" id="register-form" hidden novalidate data-mode="register">
                         <div class="input-group">
                             <label for="register-email">Email address</label>
-                            <input type="email" id="register-email" name="email" autocomplete="email"
-                                placeholder="hello@emeraldnetwork.groups.id" spellcheck="false">
+                            <input type="email" id="register-email" name="email" autocomplete="email" placeholder="hello@emeraldnetwork.groups.id" spellcheck="false">
                             <p class="error-message" id="register-email-error" aria-live="polite"></p>
                         </div>
-
                         <div class="input-group">
                             <label for="register-password">Password</label>
                             <div class="input-wrap">
-                                <input type="password" id="register-password" name="password"
-                                    autocomplete="new-password" placeholder="Create a password (8+ characters)">
-                                <button type="button" class="pw-toggle" aria-label="Show password"
-                                    aria-pressed="false" data-target="register-password">
+                                <input type="password" id="register-password" name="password" autocomplete="new-password" placeholder="Create a password (8+ characters)">
+                                <button type="button" class="pw-toggle" aria-label="Show password" aria-pressed="false" data-target="register-password">
                                     <svg class="pw-eye" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                                     <svg class="pw-eye-off" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                                 </button>
                             </div>
                             <p class="error-message" id="register-password-error" aria-live="polite"></p>
                         </div>
-
                         <div class="input-group">
                             <label for="register-confirm">Confirm Password</label>
                             <div class="input-wrap">
-                                <input type="password" id="register-confirm" name="confirm"
-                                    autocomplete="new-password" placeholder="Re-enter your password">
-                                <button type="button" class="pw-toggle" aria-label="Show password"
-                                    aria-pressed="false" data-target="register-confirm">
+                                <input type="password" id="register-confirm" name="confirm" autocomplete="new-password" placeholder="Re-enter your password">
+                                <button type="button" class="pw-toggle" aria-label="Show password" aria-pressed="false" data-target="register-confirm">
                                     <svg class="pw-eye" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                                     <svg class="pw-eye-off" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                                 </button>
                             </div>
                             <p class="error-message" id="register-confirm-error" aria-live="polite"></p>
                         </div>
-
                         <button type="submit" class="btn primary">
                             Create account
                             <svg class="btn-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
@@ -156,49 +117,296 @@
                     <div class="divider" role="separator" aria-label="Or continue with">
                         <span>or continue with</span>
                     </div>
-
                     <div class="social-buttons">
                         <button type="button" class="btn social-btn" id="googleBtn">
                             <svg class="social-logo" width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-                                <path fill="#4285F4"
-                                    d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92a8.78 8.78 0 0 0 2.68-6.62z" />
-                                <path fill="#34A853"
-                                    d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.71H.96v2.34A9 9 0 0 0 9 18z" />
-                                <path fill="#FBBC05"
-                                    d="M3.97 10.71A5.41 5.41 0 0 1 3.68 9c0-.59.1-1.16.28-1.71V4.96H.96A8.98 8.98 0 0 0 0 9c0 1.45.35 2.83.96 4.04l3.01-2.33z" />
-                                <path fill="#EA4335"
-                                    d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58A8.99 8.99 0 0 0 9 0 9 9 0 0 0 .96 4.96l3 2.33C4.68 5.16 6.66 3.58 9 3.58z" />
+                                <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92a8.78 8.78 0 0 0 2.68-6.62z" />
+                                <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.71H.96v2.34A9 9 0 0 0 9 18z" />
+                                <path fill="#FBBC05" d="M3.97 10.71A5.41 5.41 0 0 1 3.68 9c0-.59.1-1.16.28-1.71V4.96H.96A8.98 8.98 0 0 0 0 9c0 1.45.35 2.83.96 4.04l3.01-2.33z" />
+                                <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58A8.99 8.99 0 0 0 9 0 9 9 0 0 0 .96 4.96l3 2.33C4.68 5.16 6.66 3.58 9 3.58z" />
                             </svg>
                             Continue with Google
                         </button>
                     </div>
                 </div>
-
+            </div>
             <footer class="auth-footer" id="authFooter">
-                <p>
-                    By continuing, you agree to EmeraldNetwork's
-                    <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>.
-                </p>
+                <p>By continuing, you agree to EmeraldNetwork's <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>.</p>
             </footer>
         </section>
     </main>
 
-    <!-- Right-click context menu (shared with index.html) -->
+    <section id="accountDashboard" class="account-dashboard" hidden>
+        <header class="dash-header">
+            <a href="/" class="dash-logo" aria-label="EmeraldNetwork home">
+                <img src="/assets/images/favicon.webp" width="28" height="28" alt="">
+            </a>
+
+            <div class="dash-search">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                <input type="search" id="dashSearchInput" placeholder="Search account…" autocomplete="off" spellcheck="false" aria-label="Search account">
+                <button class="dash-search-clear" aria-label="Clear search">&times;</button>
+                <div class="dash-search-results" id="dashSearchResults" role="listbox" aria-label="Search results"></div>
+            </div>
+
+            <div class="dash-top-right">
+                <button type="button" class="dash-avatar-btn" id="dashUserBtn" title="Personal info" aria-label="Personal info">
+                    <span class="dash-avatar-initials" id="dashInitials" hidden>E</span>
+                    <img class="dash-avatar" id="dashAvatar" src="" alt="Profile photo" hidden>
+                </button>
+                <button type="button" class="dash-signout" id="dashSignOutBtn" title="Sign out" aria-label="Sign out">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
+                </button>
+            </div>
+        </header>
+
+        <div class="dash-layout">
+            <aside class="dash-sidebar">
+                <nav class="dash-nav" id="dashNav">
+                    <span class="dash-nav-pill" aria-hidden="true"></span>
+                    <button class="dash-nav-item active" data-section="overview">Overview</button>
+                    <button class="dash-nav-item" data-section="personal">Personal info</button>
+                    <button class="dash-nav-item" data-section="devices">Devices</button>
+                    <button class="dash-nav-item" data-section="security">Security</button>
+                    <button class="dash-nav-item" data-section="data">Data &amp; privacy</button>
+                    <button class="dash-nav-item" data-section="storage">Storage</button>
+                </nav>
+            </aside>
+
+            <main class="dash-main">
+                <div class="dash-section active" id="section-overview">
+                    <h1 class="dash-title" id="overviewGreeting">Your account</h1>
+                    <p class="dash-sub">Manage your info, devices, security and data.</p>
+                    <div class="dash-card profile-card">
+                        <img class="profile-photo" id="overviewAvatar" src="" alt="">
+                        <div class="profile-meta">
+                            <h2 id="overviewName"></h2>
+                            <p id="overviewEmail"></p>
+                            <span class="provider-chip" id="overviewProvider"></span>
+                        </div>
+                        <button class="btn secondary" data-jump="personal">Edit personal info</button>
+                    </div>
+                    <div class="dash-card setup-card">
+                        <button type="button" class="setup-head" id="setupToggle" aria-expanded="true" aria-controls="setupList">
+                            <div>
+                                <h2>Set up your account</h2>
+                                <p class="muted small">To get the most out of EmeraldNetwork, complete these steps.</p>
+                            </div>
+                            <span class="setup-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+                        </button>
+                        <div class="setup-list" id="setupList"></div>
+                    </div>
+                    <div class="dash-grid stat-grid">
+                        <div class="dash-card stat-card">
+                            <div class="stat-head">
+                                <span class="stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
+                                <h3>Your devices</h3>
+                            </div>
+                            <p id="overviewDevices" class="stat-value"></p>
+                            <div class="ms-device-list" id="overviewDeviceList"></div>
+                            <button class="btn secondary small" data-jump="devices">Manage devices</button>
+                        </div>
+                        <div class="dash-card stat-card">
+                            <div class="stat-head">
+                                <span class="stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.2 7.9-8 9-4.8-1.1-8-4.5-8-9V6l8-3z"/></svg></span>
+                                <h3>Data &amp; privacy</h3>
+                            </div>
+                            <p class="stat-value">Your data, your control</p>
+                            <p class="stat-hint">Export everything or clear your account data at any time.</p>
+                            <button class="btn secondary small" data-jump="data">Manage data</button>
+                        </div>
+                    </div>
+                    <div class="dash-card storage-overview">
+                        <div class="storage-pie-side">
+                            <div class="pie-wrap">
+                                <div class="storage-pie" id="overviewPie" aria-hidden="true"></div>
+                                <div class="storage-pie-center">
+                                    <strong class="pie-pct">0%</strong>
+                                    <span>used</span>
+                                </div>
+                            </div>
+                            <div class="storage-facts">
+                                <p id="overviewStorage" class="stat-value"></p>
+                                <p class="stat-hint pie-free">Free space: <strong id="overviewStorageFree"></strong></p>
+                                <p class="stat-hint">Shared by AI Chat, Docs, Slides, Sheets, Notes and your account.</p>
+                                <button class="btn secondary small" data-jump="storage">Manage storage</button>
+                            </div>
+                        </div>
+                        <div class="storage-legend" id="overviewLegend"></div>
+                    </div>
+                    <div class="reco-block">
+                        <h2>Recommended for you</h2>
+                        <div class="reco-grid">
+                            <button class="reco-card" data-jump="security">
+                                <span class="reco-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+                                <h4>Review your password settings</h4>
+                                <p>Sign in easier and keep your account safer.</p>
+                                <span class="reco-arrow" aria-hidden="true">&rarr;</span>
+                            </button>
+                            <button class="reco-card" data-jump="devices">
+                                <span class="reco-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
+                                <h4>Check signed-in devices</h4>
+                                <p>Spot anything unfamiliar and sign it out.</p>
+                                <span class="reco-arrow" aria-hidden="true">&rarr;</span>
+                            </button>
+                            <button class="reco-card" data-jump="data">
+                                <span class="reco-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></span>
+                                <h4>Download a copy of your data</h4>
+                                <p>Export your profile and account details.</p>
+                                <span class="reco-arrow" aria-hidden="true">&rarr;</span>
+                            </button>
+                            <button class="reco-card" data-jump="storage">
+                                <span class="reco-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg></span>
+                                <h4>Keep your storage tidy</h4>
+                                <p>See what the suite is using and free up space.</p>
+                                <span class="reco-arrow" aria-hidden="true">&rarr;</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dash-section" id="section-personal">
+                    <h1 class="dash-title">Personal info</h1>
+                    <div class="dash-card">
+                        <h2>Profile photo</h2>
+                        <div class="photo-row">
+                            <img class="profile-photo" id="profilePhoto" src="" alt="">
+                            <div>
+                                <input type="file" id="photoInput" accept="image/*" hidden>
+                                <button type="button" class="btn secondary" id="changePhotoBtn">Change photo</button>
+                                <button type="button" class="btn secondary" id="removePhotoBtn">Remove</button>
+                                <p class="muted small">JPG or PNG, up to 2 MB.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dash-card">
+                        <h2>Your info</h2>
+                        <form id="profileForm" class="profile-form">
+                            <div class="field">
+                                <label for="profileName">Name</label>
+                                <input id="profileName" type="text" placeholder="Your name">
+                            </div>
+                            <div class="field">
+                                <label for="profileBirthDay">Birthday</label>
+                                <div class="birth-row">
+                                    <input id="profileBirthDay" type="text" inputmode="numeric" maxlength="2" placeholder="DD" aria-label="Day of birth">
+                                    <div class="month-select" id="profileBirthMonthBox">
+                                        <button type="button" class="month-select-btn" id="profileBirthMonthBtn" aria-haspopup="listbox" aria-expanded="false">
+                                            <span class="month-btn-label b-empty" id="profileBirthMonthLabel">Month</span>
+                                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                                        </button>
+                                        <div class="month-select-menu" id="profileBirthMonthMenu" role="listbox" aria-label="Month of birth"></div>
+                                    </div>
+                                    <input id="profileBirthYear" type="text" inputmode="numeric" maxlength="4" placeholder="YYYY" aria-label="Year of birth">
+                                </div>
+                                <input type="hidden" id="profileBirth">
+                            </div>
+                            <div class="field">
+                                <label for="profileCity">City</label>
+                                <input id="profileCity" type="text" placeholder="City">
+                            </div>
+                            <div class="field">
+                                <label for="profileRegion">Region</label>
+                                <input id="profileRegion" type="text" placeholder="Region">
+                            </div>
+                            <div class="field">
+                                <label for="profileCountry">Country</label>
+                                <input id="profileCountry" type="text" placeholder="Country">
+                            </div>
+                            <button type="submit" class="btn primary" disabled>Save changes</button>
+                            <span class="muted small" id="profileSavedMsg"></span>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="dash-section" id="section-devices">
+                    <h1 class="dash-title">Devices</h1>
+                    <div class="dash-card">
+                        <p class="muted">Devices signed in to your account.</p>
+                        <ul class="device-list" id="deviceList"></ul>
+                    </div>
+                </div>
+
+                <div class="dash-section" id="section-security">
+                    <h1 class="dash-title">Security</h1>
+                    <div class="dash-card">
+                        <h2>Email address</h2>
+                        <p id="securityEmail"></p>
+                    </div>
+                    <div class="dash-card" id="passwordCard">
+                        <h2>Password</h2>
+                        <p class="muted small">Change your password. Available for email accounts only.</p>
+                        <form id="passwordForm" class="profile-form">
+                            <div class="field">
+                                <label for="currentPassword">Current password</label>
+                                <input id="currentPassword" type="password" autocomplete="current-password">
+                            </div>
+                            <div class="field">
+                                <label for="newPassword">New password</label>
+                                <input id="newPassword" type="password" autocomplete="new-password">
+                            </div>
+                            <div class="field">
+                                <label for="confirmNewPassword">Confirm new password</label>
+                                <input id="confirmNewPassword" type="password" autocomplete="new-password">
+                            </div>
+                            <button type="submit" class="btn primary">Change password</button>
+                            <span class="muted small" id="passwordMsg"></span>
+                        </form>
+                    </div>
+                    <div class="dash-card" id="googleProviderCard" hidden>
+                        <h2>Google account</h2>
+                        <p>You signed in with Google. Your password is managed by Google.</p>
+                    </div>
+                </div>
+
+                <div class="dash-section" id="section-data">
+                    <h1 class="dash-title">Data &amp; privacy</h1>
+                    <div class="dash-card">
+                        <h2>Download your data</h2>
+                        <p>Export your EmeraldNetwork account data as a JSON file.</p>
+                        <button type="button" class="btn secondary" id="exportDataBtn">Download data</button>
+                    </div>
+                    <div class="dash-card danger">
+                        <h2>Delete data</h2>
+                        <p>Permanently delete all synced account data on this device.</p>
+                        <button type="button" class="btn danger" id="deleteDataBtn">Delete all data</button>
+                    </div>
+                </div>
+
+                <div class="dash-section" id="section-storage">
+                    <h1 class="dash-title">Storage</h1>
+                    <div class="dash-card storage-section-card">
+                        <div class="donut-row">
+                            <div class="pie-wrap">
+                                <div class="storage-pie" id="storagePie" aria-hidden="true"></div>
+                                <div class="storage-pie-center">
+                                    <strong class="pie-pct">0%</strong>
+                                    <span>used</span>
+                                </div>
+                            </div>
+                            <div class="storage-legend" id="storageLegend"></div>
+                        </div>
+                        <p class="pie-free">Free space: <strong id="storageFree"></strong></p>
+                        <p id="storageText"></p>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </section>
+
     <div id="custom-context-menu" class="rightclick-menu">
         <div class="context-section">
-            <span class="context-title"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;display:inline-block"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> Tools</span>
+            <span class="context-title">Tools</span>
             <a onclick="copyTextContent()">Copy Text</a>
             <a onclick="copyPageLink()">Copy Page Link</a>
             <a onclick="showElementInfo()">Show Element Info</a>
         </div>
     </div>
-
-    <!-- Site-wide toast (same pattern as index.html, notes.html, …) -->
     <div id="custom-toast" class="custom-toast" aria-live="polite"></div>
 
     <script src="/assets/scripts/idb-storage.js"></script>
     <script src="/assets/scripts/auth-client.js"></script>
-    <script src="/assets/scripts/account.js"></script>
+    <script src="/assets/scripts/account.js?v=37"></script>
     <script src="/assets/scripts/aboutgl.js"></script>
     <script src="/assets/scripts/rightclick.js"></script>
 </body>
