@@ -840,10 +840,11 @@
             list.unshift(currentDeviceInfo());
             await saveDevices(list);
         } else {
-            /* mark current */
+            /* Only this browser is current; synced records from other devices
+               must not be displayed with a This device badge. */
             list = list.map(function (d) {
-                if (d && d.id === id) d.current = true;
-                return d;
+                if (!d || !d.id) return d;
+                return Object.assign({}, d, { current: d.id === id });
             });
             await saveDevices(list);
         }
@@ -1491,6 +1492,9 @@
 
     async function renderAccount(session) {
         await waitForStorageReady();
+        if (window.EmeraldAuth && typeof window.EmeraldAuth.ready === 'function') {
+            try { await window.EmeraldAuth.ready(); } catch (_) {}
+        }
         var email = resolveSessionEmail(session);
         var provider = (session && session.user && session.user.provider) || 'email';
 

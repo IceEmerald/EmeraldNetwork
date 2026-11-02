@@ -384,6 +384,31 @@
         return result;
     }
 
+    function mergeDeviceLists(localList, remoteList) {
+        var merged = [];
+        var byId = {};
+        (localList || []).concat(remoteList || []).forEach(function (device) {
+            if (!device || !device.id) return;
+            var existing = byId[device.id];
+            var candidate = existing && Number(existing.addedAt || 0) >= Number(device.addedAt || 0)
+                ? existing
+                : device;
+            if (!existing) {
+                merged.push(candidate);
+                byId[device.id] = candidate;
+            } else {
+                var index = merged.indexOf(existing);
+                merged[index] = candidate;
+                byId[device.id] = candidate;
+            }
+        });
+        return merged.map(function (device) {
+            return Object.assign({}, device, { current: false });
+        }).sort(function (first, second) {
+            return Number(second.addedAt || 0) - Number(first.addedAt || 0);
+        });
+    }
+
     function mergeSnapshots(localSnapshot, remoteSnapshot) {
         var merged = {};
         var localMeta = localSnapshot && localSnapshot[STORAGE_KEYS.syncMeta] || {};
@@ -401,6 +426,10 @@
         keys.forEach(function (key) {
             var localValue = localSnapshot && Object.prototype.hasOwnProperty.call(localSnapshot, key) ? localSnapshot[key] : null;
             var remoteValue = remoteSnapshot && Object.prototype.hasOwnProperty.call(remoteSnapshot, key) ? remoteSnapshot[key] : null;
+            if (key === 'emerald.account.devices' && (Array.isArray(localValue) || Array.isArray(remoteValue))) {
+                merged[key] = mergeDeviceLists(Array.isArray(localValue) ? localValue : [], Array.isArray(remoteValue) ? remoteValue : []);
+                return;
+            }
             var localUpdated = Math.max(Number(localMeta.updated && localMeta.updated[key]) || 0, updatedAt(localValue));
             var remoteUpdated = Math.max(Number(remoteMeta.updated && remoteMeta.updated[key]) || 0, updatedAt(remoteValue));
             var localDeleted = Number(localMeta.deleted && localMeta.deleted[key]) || 0;
