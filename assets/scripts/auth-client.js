@@ -72,7 +72,23 @@
             window.addEventListener('online', function () {
                 syncCurrentData().catch(function () {});
             });
+
+            window.addEventListener('emerald-device-removed', function () {
+                syncCurrentData().then(function () {
+                    refreshDeviceListAfterRemoval();
+                }).catch(function () {});
+            });
         }
+    }
+
+    function refreshDeviceListAfterRemoval() {
+        return ensureDevice().then(function (devices) {
+            renderDevices(devices);
+            setText('overviewDevices', devices.length === 1
+                ? '1 device signed in'
+                : devices.length + ' devices signed in');
+            renderDeviceRows(devices);
+        });
     }
 
     function stopAutoSync() {

@@ -1246,6 +1246,11 @@
                     await saveDevices(next);
                     await renderDevices(next);
                     showToast('Device removed.');
+                    try {
+                        window.dispatchEvent(new CustomEvent('emerald-device-removed', {
+                            detail: { deviceId: d.id }
+                        }));
+                    } catch (_) {}
                 });
             }
             li.appendChild(btn);
@@ -1848,6 +1853,22 @@
         }).catch(function () {});
     });
 
+    window.addEventListener('emerald-device-removed', function () {
+        syncCurrentData().then(function () {
+            refreshDeviceListAfterRemoval();
+        }).catch(function () {});
+    });
+        window.EmeraldAuth.getSession().then(function (session) {
+            if (!hasValidSession(session)) return;
+            return ensureDevice().then(function (devices) {
+                return renderDevices(devices).then(function () {
+                    setText('overviewDevices', devices.length === 1
+                        ? '1 device signed in'
+                        : devices.length + ' devices signed in');
+                    renderDeviceRows(devices);
+                });
+            });
+        }).catch(function () {});
     var authError = params.get('error');
     if (authError) {
         var message = 'Authentication failed.';
