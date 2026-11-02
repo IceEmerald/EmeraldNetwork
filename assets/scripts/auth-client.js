@@ -276,7 +276,9 @@
         } catch (_) {}
 
         if (window.location.pathname === '/account.html' || window.location.pathname.endsWith('/account.html')) {
-            return window.location.origin + '/';
+            /* opened account.html directly (no ?redirect=, no saved return
+               URL): after login, stay on the account dashboard itself. */
+            return window.location.origin + '/account.html';
         }
 
         if (window.location.origin) {
@@ -329,8 +331,10 @@
         } catch (_) {}
 
         var redirectTarget = savedReturnUrl || getReturnUrl();
-        if (!redirectTarget || isAccountUrl(redirectTarget)) {
-            redirectTarget = window.location.origin + '/';
+        if (!redirectTarget) {
+            /* nothing remembered and no ?redirect=: the OAuth callback came
+               straight back to the account page — stay on the dashboard. */
+            redirectTarget = window.location.origin + '/account.html';
         }
 
         var cleanUrl = new URL(window.location.href);

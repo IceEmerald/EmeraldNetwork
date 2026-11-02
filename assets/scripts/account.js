@@ -348,7 +348,7 @@
         if (!email) {
             setError('login-email', 'Please enter your email.');
             ok = false;
-        } else if (email !== 'test@local' && !EMAIL_RE.test(email)) {
+        } else if (!EMAIL_RE.test(email)) {
             setError('login-email', 'That doesn\u2019t look like a valid email address.');
             ok = false;
         } else {
@@ -395,19 +395,6 @@
             : document.getElementById('register-password').value;
 
         try {
-            /* Testing shortcut: allow test@local / 123 without backend */
-            if (mode === 'login' && email === 'test@local' && password === '123') {
-                showToast('Signing in…');
-                var testSession = {
-                    user: { email: 'test@local', provider: 'email', name: 'Test User' },
-                    token: 'test-token-' + Date.now(),
-                    updatedAt: Date.now()
-                };
-                await window.EmeraldAuth.setSession(testSession);
-                await refreshSessionView();
-                return;
-            }
-
             showToast(mode === 'login' ? 'Signing in…' : 'Creating your account…');
             var result = mode === 'login'
                 ? await window.EmeraldAuth.login(email, password)
@@ -535,11 +522,6 @@
             input.classList.remove('invalid');
             return;
         }
-        if (inputId === 'login-email' && email === 'test@local') {
-            setError(inputId, '');
-            input.classList.remove('invalid');
-            return;
-        }
         if (!EMAIL_RE.test(email)) {
             setError(inputId, 'That doesn\u2019t look like a valid email address.');
             input.classList.add('invalid');
@@ -629,18 +611,6 @@
     }
 
     /* ---------------- Account dashboard logic ---------------- */
-
-    function getPasswordStore() {
-        try { return JSON.parse(localStorage.getItem('emerald.test.passwords') || '{}'); } catch (_) { return {}; }
-    }
-    function setPasswordStore(store) {
-        try { localStorage.setItem('emerald.test.passwords', JSON.stringify(store || {})); } catch (_) {}
-    }
-    /* seed test account password */
-    (function () {
-        var store = getPasswordStore();
-        if (!store['test@local']) { store['test@local'] = '123'; setPasswordStore(store); }
-    })();
 
     function getDeviceId() {
         var id = null;
@@ -1753,25 +1723,7 @@
                 return;
             }
 
-            /* Testing: only test@local password store */
-            if (email === 'test@local') {
-                var store = getPasswordStore();
-                var expected = store[email] || '123';
-                if (expected !== current) {
-                    if (msg) msg.textContent = 'Current password is incorrect.';
-                    return;
-                }
-                store[email] = newp;
-                setPasswordStore(store);
-                document.getElementById('currentPassword').value = '';
-                document.getElementById('newPassword').value = '';
-                document.getElementById('confirmNewPassword').value = '';
-                if (msg) { msg.textContent = 'Password changed.'; setTimeout(function () { msg.textContent = ''; }, 2000); }
-                showToast('Password changed.');
-                return;
-            }
-
-            if (msg) msg.textContent = 'Password change not available for this account in testing mode.';
+            if (msg) msg.textContent = 'Password changing isn\u2019t available yet.';
         });
     }
 
