@@ -649,7 +649,10 @@
         if (!wrap) return;
         wrap.innerHTML = '';
         var labels = { phone: 'Phone', laptop: 'Laptop', pc: 'PC' };
-        var rows = (devices || []).filter(function (d) { return d && d.current; });
+        var currentId = getDeviceId();
+        var rows = (devices || []).filter(function (d) {
+            return d && d.id === currentId;
+        });
         rows.forEach(function (d) {
             var kind = deviceKindOf(d);
             var os = deviceOsOf(d);
@@ -836,19 +839,25 @@
     async function ensureDevice() {
         var list = await loadDevices();
         var id = getDeviceId();
-        if (!list.some(function (d) { return d && d.id === id; })) {
-            list.unshift(currentDeviceInfo());
-            await saveDevices(list);
+        var unique = [];
+        var seen = {};
+        (Array.isArray(list) ? list : []).forEach(function (device) {
+            if (!device || !device.id || seen[device.id]) return;
+            seen[device.id] = true;
+            unique.push(Object.assign({}, device, { current: false }));
+        });
+
+        var localIndex = unique.findIndex(function (device) { return device.id === id; });
+        if (localIndex === -1) {
+            unique.unshift(Object.assign({}, currentDeviceInfo(), { current: false }));
         } else {
-            /* Only this browser is current; synced records from other devices
-               must not be displayed with a This device badge. */
-            list = list.map(function (d) {
-                if (!d || !d.id) return d;
-                return Object.assign({}, d, { current: d.id === id });
-            });
-            await saveDevices(list);
+            unique[localIndex] = Object.assign({}, unique[localIndex], currentDeviceInfo(), { current: false });
         }
-        return list;
+
+        if (JSON.stringify(list || []) !== JSON.stringify(unique)) {
+            await saveDevices(unique);
+        }
+        return unique;
     }
 
     function defaultAvatarDataUrl() {
@@ -1492,9 +1501,6 @@
 
     async function renderAccount(session) {
         await waitForStorageReady();
-        if (window.EmeraldAuth && typeof window.EmeraldAuth.ready === 'function') {
-            try { await window.EmeraldAuth.ready(); } catch (_) {}
-        }
         var email = resolveSessionEmail(session);
         var provider = (session && session.user && session.user.provider) || 'email';
 
@@ -1827,6 +1833,20 @@
 
     refreshSessionView().catch(function () {});
     startSessionMonitor();
+
+    window.addEventListener('emerald-sync-complete', function () {
+        window.EmeraldAuth.getSession().then(function (session) {
+            if (!hasValidSession(session)) return;
+            return ensureDevice().then(function (devices) {
+                return renderDevices(devices).then(function () {
+                    setText('overviewDevices', devices.length === 1
+                        ? '1 device signed in'
+                        : devices.length + ' devices signed in');
+                    renderDeviceRows(devices);
+                });
+            });
+        }).catch(function () {});
+    });
 
     var authError = params.get('error');
     if (authError) {

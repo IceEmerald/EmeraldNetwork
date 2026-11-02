@@ -9,7 +9,7 @@
 
     var autoSyncTimer = null;
     // Fallback polling detects edits made on another device; local edits sync from storage events below.
-    var autoSyncIntervalMs = 3000;
+    var autoSyncIntervalMs = 8000;
     var storageSyncTimer = null;
     var syncInFlight = null;
     var syncRequestedAgain = false;
@@ -320,9 +320,7 @@
 
         await setSession(auth);
         startAutoSync();
-        try {
-            await syncCurrentData();
-        } catch (_) {}
+        syncCurrentData().catch(function () {});
 
         var savedReturnUrl = null;
         try {
@@ -359,9 +357,7 @@
         if (result && result.session) {
             await setSession(result.session);
             startAutoSync();
-            try {
-                await syncCurrentData();
-            } catch (_) {}
+            syncCurrentData().catch(function () {});
         }
 
         return result;
@@ -376,9 +372,7 @@
         if (result && result.session) {
             await setSession(result.session);
             startAutoSync();
-            try {
-                await syncCurrentData();
-            } catch (_) {}
+            syncCurrentData().catch(function () {});
         }
 
         return result;
@@ -414,9 +408,11 @@
         var localMeta = localSnapshot && localSnapshot[STORAGE_KEYS.syncMeta] || {};
         var remoteMeta = remoteSnapshot && remoteSnapshot[STORAGE_KEYS.syncMeta] || {};
         var mergedMeta = { updated: {}, deleted: {} };
-        var keys = new Set(Object.keys(localSnapshot || {}).filter(function (key) { return key !== STORAGE_KEYS.syncMeta; }));
+        var keys = new Set(Object.keys(localSnapshot || {}).filter(function (key) {
+            return key !== STORAGE_KEYS.syncMeta && !shouldExcludeFromSync(key);
+        }));
         Object.keys(remoteSnapshot || {}).forEach(function (key) {
-            if (key !== STORAGE_KEYS.syncMeta) keys.add(key);
+            if (key !== STORAGE_KEYS.syncMeta && !shouldExcludeFromSync(key)) keys.add(key);
         });
 
         function updatedAt(value) {
@@ -554,17 +550,35 @@
             await importAccountData(serverSnapshot);
         }
 
+        try {
+            window.dispatchEvent(new CustomEvent('emerald-sync-complete', {
+                detail: { snapshot: serverSnapshot || mergedSnapshot }
+            }));
+        } catch (_) {}
+
         return { ok: true, snapshot: serverSnapshot };
+    }
+
+    function shouldExcludeFromSync(key) {
+        return key === 'emerald.auth.session' ||
+            key === 'emerald.auth.return_url' ||
+            key === 'emerald.device.id';
     }
 
     async function exportAccountData() {
         if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.exportAll === 'function') {
-            return window.EmeraldIDBStorage.exportAll();
+            var idbSnapshot = await window.EmeraldIDBStorage.exportAll();
+            var filteredSnapshot = {};
+            Object.keys(idbSnapshot || {}).forEach(function (key) {
+                if (!shouldExcludeFromSync(key)) filteredSnapshot[key] = idbSnapshot[key];
+            });
+            return filteredSnapshot;
         }
 
         var snapshot = {};
         try {
             Object.keys(localStorage).forEach(function (key) {
+                if (shouldExcludeFromSync(key)) return;
                 var raw = localStorage.getItem(key);
                 try {
                     snapshot[key] = raw ? JSON.parse(raw) : raw;
@@ -578,13 +592,17 @@
 
     async function importAccountData(snapshot) {
         if (!snapshot || typeof snapshot !== 'object') return false;
+        var filteredSnapshot = {};
+        Object.keys(snapshot).forEach(function (key) {
+            if (!shouldExcludeFromSync(key)) filteredSnapshot[key] = snapshot[key];
+        });
         if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.importAll === 'function') {
-            await window.EmeraldIDBStorage.importAll(snapshot);
+            await window.EmeraldIDBStorage.importAll(filteredSnapshot);
             return true;
         }
 
-        Object.keys(snapshot).forEach(function (key) {
-            try { localStorage.setItem(key, JSON.stringify(snapshot[key])); } catch (_) {}
+        Object.keys(filteredSnapshot).forEach(function (key) {
+            try { localStorage.setItem(key, JSON.stringify(filteredSnapshot[key])); } catch (_) {}
         });
         return true;
     }
