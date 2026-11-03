@@ -316,6 +316,97 @@
         }, 5000);
     }
 
+    /* ---------------- Global confirm modal (suite-style) ---------------- */
+
+    var MODAL_ICONS = {
+        devices: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>',
+        trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>'
+    };
+
+    function showConfirmModal(options) {
+        return new Promise(function (resolve) {
+            var opts = options || {};
+            var overlay = document.createElement('div');
+            overlay.className = 'emerald-modal-overlay';
+
+            var dialog = document.createElement('div');
+            dialog.className = 'emerald-modal' + (opts.danger ? ' danger' : '');
+            dialog.setAttribute('role', 'dialog');
+            dialog.setAttribute('aria-modal', 'true');
+            dialog.setAttribute('aria-label', opts.title || 'Confirm action');
+
+            var head = document.createElement('div');
+            head.className = 'emerald-modal-head';
+
+            var icon = document.createElement('div');
+            icon.className = 'emerald-modal-icon';
+            icon.innerHTML = MODAL_ICONS[opts.icon] || MODAL_ICONS.devices;
+            head.appendChild(icon);
+
+            var copy = document.createElement('div');
+            copy.className = 'emerald-modal-copy';
+            var title = document.createElement('h3');
+            title.className = 'emerald-modal-title';
+            title.textContent = opts.title || 'Are you sure?';
+            copy.appendChild(title);
+            if (opts.subtitle) {
+                var sub = document.createElement('p');
+                sub.className = 'emerald-modal-sub';
+                sub.textContent = opts.subtitle;
+                copy.appendChild(sub);
+            }
+            head.appendChild(copy);
+            dialog.appendChild(head);
+
+            if (opts.message) {
+                var body = document.createElement('div');
+                body.className = 'emerald-modal-body';
+                var msg = document.createElement('p');
+                msg.textContent = opts.message;
+                body.appendChild(msg);
+                dialog.appendChild(body);
+            }
+
+            var foot = document.createElement('div');
+            foot.className = 'emerald-modal-foot';
+
+            var cancelBtn = document.createElement('button');
+            cancelBtn.type = 'button';
+            cancelBtn.className = 'emerald-modal-btn cancel';
+            cancelBtn.textContent = opts.cancelLabel || 'Cancel';
+
+            var confirmBtn = document.createElement('button');
+            confirmBtn.type = 'button';
+            confirmBtn.className = 'emerald-modal-btn ' + (opts.danger ? 'danger' : 'primary');
+            confirmBtn.textContent = opts.confirmLabel || 'Confirm';
+
+            foot.appendChild(cancelBtn);
+            foot.appendChild(confirmBtn);
+            dialog.appendChild(foot);
+            overlay.appendChild(dialog);
+            document.body.appendChild(overlay);
+
+            var done = false;
+            function close(result) {
+                if (done) return;
+                done = true;
+                document.removeEventListener('keydown', escHandler);
+                overlay.remove();
+                resolve(result === true);
+            }
+            function escHandler(e) {
+                if (e.key === 'Escape') close(false);
+            }
+
+            cancelBtn.addEventListener('click', function () { close(false); });
+            confirmBtn.addEventListener('click', function () { close(true); });
+            overlay.addEventListener('mousedown', function (e) { if (e.target === overlay) close(false); });
+            document.addEventListener('keydown', escHandler);
+
+            (opts.focusCancel ? cancelBtn : confirmBtn).focus();
+        });
+    }
+
     /* ---------------- Validation helpers ---------------- */
 
     var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -1648,7 +1739,17 @@
     var signOutAllBtn = document.getElementById('signOutAllDevicesBtn');
     if (signOutAllBtn) {
         signOutAllBtn.addEventListener('click', async function () {
-            if (!confirm('Sign out of all other devices?')) return;
+            var confirmed = await showConfirmModal({
+                title: 'Sign out all other devices?',
+                subtitle: 'You will stay signed in here',
+                message: 'Every other device signed in to this account will be signed out and will need to log in again. This device will stay signed in.',
+                confirmLabel: 'Sign out others',
+                cancelLabel: 'Cancel',
+                danger: true,
+                icon: 'devices',
+                focusCancel: true
+            });
+            if (!confirmed) return;
             signOutAllBtn.disabled = true;
             signOutAllBtn.textContent = 'Signing out…';
             try {
@@ -1841,7 +1942,17 @@
     var deleteBtn = document.getElementById('deleteDataBtn');
     if (deleteBtn) {
         deleteBtn.addEventListener('click', async function () {
-            if (!confirm('Delete all account data on this device?')) return;
+            var confirmed = await showConfirmModal({
+                title: 'Delete data on this device?',
+                subtitle: 'Only affects this device',
+                message: 'This clears all locally stored account data on this browser, including your synced profile and device list. Data on other devices is not affected.',
+                confirmLabel: 'Delete data',
+                cancelLabel: 'Cancel',
+                danger: true,
+                icon: 'trash',
+                focusCancel: true
+            });
+            if (!confirmed) return;
             try {
                 await waitForStorageReady();
                 var data = {};

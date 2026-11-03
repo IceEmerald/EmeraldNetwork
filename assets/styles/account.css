@@ -2368,6 +2368,111 @@ body {
 }
 .device-section-head .muted { margin: 0; }
 
+/* custom confirm modal (EmeraldSuite/AI Chat-style dialog) */
+.emerald-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(16, 36, 24, 0.40);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 1300;
+    animation: em-overlay-in 0.16s ease-out;
+}
+.emerald-modal {
+    width: 100%;
+    max-width: 420px;
+    background: #ffffff;
+    border-radius: 20px;
+    box-shadow: var(--shadow-card), 0 28px 72px -28px rgba(16, 36, 24, 0.38);
+    overflow: hidden;
+    animation: em-modal-in 0.18s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+.emerald-modal-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 18px 20px 10px;
+}
+.emerald-modal-icon {
+    flex: 0 0 34px;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    background: var(--ui-accent-soft);
+    color: var(--ui-accent);
+}
+.emerald-modal-icon svg { width: 18px; height: 18px; }
+.emerald-modal.danger .emerald-modal-icon { background: var(--danger-soft); color: var(--danger); }
+.emerald-modal-copy { min-width: 0; }
+.emerald-modal-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-strong);
+    line-height: 1.25;
+}
+.emerald-modal-sub {
+    margin: 2px 0 0;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+.emerald-modal-body {
+    padding: 0 22px 6px;
+    color: var(--text-body);
+    font-size: 0.88rem;
+    line-height: 1.55;
+}
+.emerald-modal-body p { margin: 0 0 6px; }
+.emerald-modal-body p:last-child { margin-bottom: 0; }
+.emerald-modal-foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 18px 18px;
+}
+.emerald-modal-btn {
+    appearance: none;
+    border: 1px solid var(--border-input);
+    background: #ffffff;
+    color: var(--text-body);
+    font-weight: 600;
+    font-size: 0.82rem;
+    padding: 9px 18px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.18s ease, border-color 0.18s ease, transform 0.12s ease;
+}
+.emerald-modal-btn:hover { background: #f4f7f5; }
+.emerald-modal-btn:active { transform: translateY(1px); }
+.emerald-modal-btn.primary,
+.emerald-modal-btn.danger {
+    color: #ffffff;
+    border-color: transparent;
+    box-shadow: 0 8px 20px -10px rgba(16, 36, 24, 0.35);
+}
+.emerald-modal-btn.primary { background: var(--ui-accent); }
+.emerald-modal-btn.primary:hover { background: var(--ui-accent-hover); }
+.emerald-modal-btn.danger { background: var(--danger); }
+.emerald-modal-btn.danger:hover { filter: saturate(1.12); }
+.emerald-modal-btn:focus-visible { outline: 2px solid var(--ui-accent-ring); outline-offset: 2px; }
+
+@keyframes em-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes em-modal-in {
+    from { opacity: 0; transform: translateY(10px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .emerald-modal-overlay,
+    .emerald-modal { animation: none; }
+}
+
 .device-list {
     list-style: none;
     padding: 0;
