@@ -419,11 +419,7 @@ async function handleDevices(request, env) {
   }
 
   const normalizedDevices = Array.isArray(user.data['emerald.account.devices'])
-    ? user.data['emerald.account.devices'].filter((device) => {
-        if (!device || !device.id) return false;
-        const requestedAt = Number(signOutRequests[device.id]) || 0;
-        return requestedAt <= 0;
-      })
+    ? user.data['emerald.account.devices'].filter((device) => device && device.id)
     : [];
 
   return jsonResponse({
@@ -472,18 +468,13 @@ async function handleSync(request, env) {
   const incoming = body.snapshot && typeof body.snapshot === 'object' ? body.snapshot : {};
   let merged = { ...(user.data || {}), ...incoming };
   delete merged['emerald.account.revoked_devices'];
-  merged['emerald.account.devices'] = mergeServerDeviceLists(
-    user.data && user.data['emerald.account.devices'],
-    incoming && incoming['emerald.account.devices']
-  );
-  const mergedSignOutRequests = {
-    ...(user.data && typeof user.data['emerald.account.signout_requests'] === 'object' ? user.data['emerald.account.signout_requests'] : {}),
-    ...(incoming && typeof incoming['emerald.account.signout_requests'] === 'object' ? incoming['emerald.account.signout_requests'] : {})
-  };
-  merged['emerald.account.signout_requests'] = mergedSignOutRequests;
-  merged['emerald.account.devices'] = merged['emerald.account.devices'].filter((device) => {
-    return !device || !device.id || !mergedSignOutRequests[device.id];
-  });
+  // Browser snapshots must not own device registry state. The login and
+  // device-action endpoints are authoritative for additions/removals.
+  merged['emerald.account.devices'] = Array.isArray(user.data && user.data['emerald.account.devices'])
+    ? user.data['emerald.account.devices'].filter((device) => device && device.id)
+    : [];
+  merged['emerald.account.signout_requests'] = user.data && typeof user.data['emerald.account.signout_requests'] === 'object'
+    ? { ...user.data['emerald.account.signout_requests'] } : {};
   merged = normalizeDeviceRegistry(merged);
 
   await upsertUser(env, {
