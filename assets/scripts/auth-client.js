@@ -659,6 +659,38 @@
         return true;
     }
 
+    // A value-equality match between the local and merged snapshot does NOT
+    // mean the server is up to date: when this device has edited something
+    // (e.g. profile photo, personal info), the merge correctly keeps the
+    // local values, which makes both snapshots identical. Local changes are
+    // visible in the sync metadata instead: any local updated/deleted stamp
+    // newer than the server's record means we still owe the server a push.
+    function hasPendingLocalWrites(localSnapshot, remoteSnapshot) {
+        var localMeta = {};
+        var remoteMeta = {};
+        try {
+            localMeta = (localSnapshot && localSnapshot[STORAGE_KEYS.syncMeta]) || {};
+            remoteMeta = (remoteSnapshot && remoteSnapshot[STORAGE_KEYS.syncMeta]) || {};
+        } catch (_) {}
+
+        function stamp(source, field, key) {
+            var map = source && source[field] && typeof source[field] === 'object' ? source[field] : {};
+            return Number(map[key]) || 0;
+        }
+
+        function pending(field) {
+            var localStamps = localMeta[field] && typeof localMeta[field] === 'object' ? localMeta[field] : {};
+            return Object.keys(localStamps).some(function (key) {
+                var localTs = Number(localStamps[key]) || 0;
+                if (localTs <= 0) return false;
+                var remoteTs = Math.max(stamp(remoteMeta, 'updated', key), stamp(remoteMeta, 'deleted', key));
+                return localTs > remoteTs;
+            });
+        }
+
+        return pending('updated') || pending('deleted');
+    }
+
     async function performSync() {
         var session = await getSession();
         if (!session || !session.token) return null;
@@ -697,7 +729,11 @@
         var baseSnapshot = remote && remote.snapshot && typeof remote.snapshot === 'object' ? remote.snapshot : {};
         var mergedSnapshot = mergeSnapshots(snapshot, baseSnapshot);
 
-        if (snapshotsMatch(snapshot, mergedSnapshot)) {
+        // Only skip the push when the merge produced nothing new AND this
+        // device has no local writes newer than the server's. Value equality
+        // alone is not enough — a local edit makes the merge keep the local
+        // values, so both snapshots look identical while the server is stale.
+        if (snapshotsMatch(snapshot, mergedSnapshot) && !hasPendingLocalWrites(snapshot, baseSnapshot)) {
             try {
                 window.dispatchEvent(new CustomEvent('emerald-sync-complete', {
                     detail: { snapshot: mergedSnapshot }
