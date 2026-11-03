@@ -344,6 +344,32 @@ async function handleLogin(request, env) {
   return jsonResponse({ ok: true, redirectUrl: redirect, session: buildAuthSession(existing.email, existing.provider || 'email', token, payload.deviceId || payload.device && payload.device.id || null) }, 200, {}, request, env);
 }
 
+async function handleDevices(request, env) {
+  const authHeader = request.headers.get('Authorization') || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '');
+  if (!token) return jsonResponse({ error: 'Missing token.' }, 401, {}, request, env);
+
+  const jwtPayload = await verifyJwt(env.JWT_SECRET, token);
+  if (!jwtPayload) return jsonResponse({ error: 'Invalid token.' }, 401, {}, request, env);
+
+  const user = await readUserByEmail(env, jwtPayload.email);
+  if (!user) return jsonResponse({ error: 'User not found.' }, 404, {}, request, env);
+
+  const signOutRequests = user.data && typeof user.data['emerald.account.signout_requests'] === 'object'
+    ? user.data['emerald.account.signout_requests'] : {};
+  const requestedAt = jwtPayload.deviceId ? Number(signOutRequests[jwtPayload.deviceId]) || 0 : 0;
+  if (requestedAt > 0 && requestedAt >= (Number(jwtPayload.iat) || 0)) {
+    return jsonResponse({ error: 'Device signed out.', code: 'DEVICE_SIGNED_OUT' }, 403, {}, request, env);
+  }
+
+  return jsonResponse({
+    ok: true,
+    devices: Array.isArray(user.data['emerald.account.devices']) ? user.data['emerald.account.devices'] : [],
+    signOutRequests,
+    syncedAt: Date.now()
+  }, 200, {}, request, env);
+}
+
 async function handleSync(request, env) {
   const authHeader = request.headers.get('Authorization') || '';
   const token = authHeader.replace(/^Bearer\s+/i, '');
@@ -580,6 +606,10 @@ export default {
 
     if (pathname === '/api/auth/sync' && (request.method === 'GET' || request.method === 'POST')) {
       return handleSync(request, env);
+    }
+
+    if (pathname === '/api/auth/devices' && request.method === 'GET') {
+      return handleDevices(request, env);
     }
 
     if (pathname === '/api/auth/google' && request.method === 'GET') {

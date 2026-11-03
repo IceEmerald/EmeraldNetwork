@@ -9,7 +9,7 @@
 
     var autoSyncTimer = null;
     // Fallback polling detects edits made on another device; local edits sync from storage events below.
-    var autoSyncIntervalMs = 1500;
+    var autoSyncIntervalMs = 15000;
     var storageSyncTimer = null;
     var syncInFlight = null;
     var syncRequestedAgain = false;
@@ -91,12 +91,15 @@
             if (!session || !session.token) return null;
 
             try {
-                var result = await fetchJson('/api/auth/sync', {
+                var result = await fetchJson('/api/auth/devices', {
                     method: 'GET',
                     headers: { Authorization: 'Bearer ' + session.token }
                 });
-                var snapshot = result && result.snapshot && typeof result.snapshot === 'object'
-                    ? result.snapshot : {};
+                var snapshot = {
+                    'emerald.account.devices': Array.isArray(result.devices) ? result.devices : [],
+                    'emerald.account.signout_requests': result.signOutRequests && typeof result.signOutRequests === 'object'
+                        ? result.signOutRequests : {}
+                };
                 var registry = {
                     devices: Array.isArray(snapshot['emerald.account.devices']) ? snapshot['emerald.account.devices'] : [],
                     signOutRequests: snapshot['emerald.account.signout_requests'] && typeof snapshot['emerald.account.signout_requests'] === 'object'
@@ -135,7 +138,7 @@
             if (document.visibilityState === 'visible' && navigator.onLine !== false) {
                 pollDeviceRegistry().catch(function () {});
             }
-        }, 750);
+        }, 5000);
         document.addEventListener('visibilitychange', function () {
             if (document.visibilityState === 'visible') pollDeviceRegistry().catch(function () {});
         });
@@ -665,6 +668,15 @@
 
         var baseSnapshot = remote && remote.snapshot && typeof remote.snapshot === 'object' ? remote.snapshot : {};
         var mergedSnapshot = mergeSnapshots(snapshot, baseSnapshot);
+
+        if (snapshotsMatch(snapshot, mergedSnapshot)) {
+            try {
+                window.dispatchEvent(new CustomEvent('emerald-sync-complete', {
+                    detail: { snapshot: mergedSnapshot }
+                }));
+            } catch (_) {}
+            return { ok: true, snapshot: mergedSnapshot };
+        }
 
         var syncResult = await fetchJson('/api/auth/sync', {
             method: 'POST',
