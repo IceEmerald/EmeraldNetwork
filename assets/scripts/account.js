@@ -1927,15 +1927,6 @@
         if (!Array.isArray(list)) {
             try { list = await loadDevices(); } catch (_) { list = []; }
         }
-        var signOutRequests = snapshot && snapshot['emerald.account.signout_requests'];
-        if (!signOutRequests || typeof signOutRequests !== 'object') signOutRequests = {};
-
-        // Drop devices that have been signed out.
-        list = (Array.isArray(list) ? list : []).filter(function (device) {
-            if (!device || !device.id) return false;
-            return !signOutRequests[device.id];
-        });
-
         var currentId = getDeviceId();
         var unique = [];
         var seen = {};
