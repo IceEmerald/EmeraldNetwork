@@ -483,12 +483,28 @@ async function handleSync(request, env) {
 
   const body = await parseJsonBody(request);
   const incoming = body.snapshot && typeof body.snapshot === 'object' ? body.snapshot : {};
-  let merged = { ...(user.data || {}), ...incoming };
+  let userData = user.data && typeof user.data === 'object' ? { ...user.data } : {};
+
+  // A signed-in device is authoritative about itself. Re-register it when
+  // its record is missing from the D1 registry (e.g. after a cleanup) so
+  // the device list never silently shrinks behind the user's back.
+  const selfDeviceId = String(jwtPayload.deviceId || body.deviceId || '').trim();
+  const selfDevice = body.device && typeof body.device === 'object' ? { ...body.device } : null;
+  if (selfDeviceId && selfDevice) {
+    selfDevice.id = selfDeviceId;
+    const known = Array.isArray(userData['emerald.account.devices'])
+      ? userData['emerald.account.devices'] : [];
+    if (!known.some((device) => device && device.id === selfDeviceId)) {
+      userData = mergeDeviceInfo(userData, selfDevice);
+    }
+  }
+
+  let merged = { ...userData, ...incoming };
   delete merged['emerald.account.revoked_devices'];
   // Browser snapshots must not own device registry state. The login and
   // device-action endpoints are authoritative for additions/removals.
-  merged['emerald.account.devices'] = Array.isArray(user.data && user.data['emerald.account.devices'])
-    ? user.data['emerald.account.devices'].filter((device) => device && device.id)
+  merged['emerald.account.devices'] = Array.isArray(userData['emerald.account.devices'])
+    ? userData['emerald.account.devices'].filter((device) => device && device.id)
     : [];
   merged['emerald.account.signout_requests'] = user.data && typeof user.data['emerald.account.signout_requests'] === 'object'
     ? { ...user.data['emerald.account.signout_requests'] } : {};

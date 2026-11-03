@@ -711,7 +711,11 @@
             headers: {
                 Authorization: 'Bearer ' + session.token
             },
-            body: JSON.stringify({ snapshot: mergedSnapshot })
+            body: JSON.stringify({
+                snapshot: mergedSnapshot,
+                device: getCurrentDeviceInfo(),
+                deviceId: getDeviceId()
+            })
         });
 
         var serverSnapshot = syncResult && syncResult.snapshot && typeof syncResult.snapshot === 'object'
