@@ -585,8 +585,8 @@
             window.__emerald_auth_logged_out = true;
 
             try {
-                if (window.EmeraldAuth && window.EmeraldAuth.revokeDevice) {
-                    await window.EmeraldAuth.revokeDevice(null, { clearSession: true });
+                if (window.EmeraldAuth && window.EmeraldAuth.logoutCurrentDevice) {
+                    await window.EmeraldAuth.logoutCurrentDevice();
                 } else if (window.EmeraldAuth && window.EmeraldAuth.clearSession) {
                     await window.EmeraldAuth.clearSession();
                 }
@@ -1246,23 +1246,13 @@
                     var current = await loadDevices();
                     var next = current.filter(function (x) { return x.id !== d.id; });
                     await saveDevices(next);
-                    var signOutKey = 'emerald.account.signout_requests';
-                    var signOutRequests = {};
-                    try {
-                        signOutRequests = await window.EmeraldIDBStorage.getJSON(signOutKey) || {};
-                    } catch (_) {}
-                    if (!signOutRequests || typeof signOutRequests !== 'object' || Array.isArray(signOutRequests)) signOutRequests = {};
-                    signOutRequests[d.id] = Math.floor(Date.now() / 1000);
-                    await waitForStorageReady();
-                    if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.setJSON === 'function') {
-                        await window.EmeraldIDBStorage.setJSON(signOutKey, signOutRequests);
+                    if (window.EmeraldAuth && typeof window.EmeraldAuth.signOutDevice === 'function') {
+                        await window.EmeraldAuth.signOutDevice(d.id);
+                    } else {
+                        await saveDevices(next);
                     }
-                    try { localStorage.setItem(signOutKey, JSON.stringify(signOutRequests)); } catch (_) {}
                     await renderDevices(next);
                     showToast('Device removed and signed out.');
-                    if (window.EmeraldAuth && typeof window.EmeraldAuth.syncCurrentData === 'function') {
-                        window.EmeraldAuth.syncCurrentData().catch(function () {});
-                    }
                     try {
                         window.dispatchEvent(new CustomEvent('emerald-device-removed', {
                             detail: { deviceId: d.id }

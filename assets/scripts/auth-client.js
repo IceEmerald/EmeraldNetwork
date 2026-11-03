@@ -299,6 +299,34 @@
         return true;
     }
 
+    async function signOutDevice(deviceId) {
+        var session = await getSession();
+        if (!session || !session.token || !deviceId) return false;
+        await fetchJson('/api/auth/device-action', {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + session.token },
+            body: JSON.stringify({ action: 'remove', deviceId: deviceId })
+        });
+        await pollDeviceRegistry().catch(function () {});
+        return true;
+    }
+
+    async function logoutCurrentDevice() {
+        var session = await getSession();
+        var currentId = getDeviceId();
+        if (session && session.token && currentId) {
+            try {
+                await fetchJson('/api/auth/device-action', {
+                    method: 'POST',
+                    headers: { Authorization: 'Bearer ' + session.token },
+                    body: JSON.stringify({ action: 'logout', deviceId: currentId })
+                });
+            } catch (_) {}
+        }
+        await clearSession();
+        return true;
+    }
+
     async function clearSession() {
         stopAutoSync();
         await waitForStorage();
@@ -809,6 +837,8 @@
         setSession: setSession,
         clearSession: clearSession,
         revokeDevice: revokeDevice,
+        signOutDevice: signOutDevice,
+        logoutCurrentDevice: logoutCurrentDevice,
         consumeAuthCallbackFromUrl: consumeAuthCallbackFromUrl,
         login: login,
         register: register,

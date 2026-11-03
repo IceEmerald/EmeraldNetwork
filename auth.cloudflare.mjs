@@ -359,6 +359,47 @@ async function handleLogin(request, env) {
   return jsonResponse({ ok: true, redirectUrl: redirect, session: buildAuthSession(existing.email, existing.provider || 'email', token, payload.deviceId || payload.device && payload.device.id || null) }, 200, {}, request, env);
 }
 
+async function handleDeviceAction(request, env) {
+  const authHeader = request.headers.get('Authorization') || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '');
+  if (!token) return jsonResponse({ error: 'Missing token.' }, 401, {}, request, env);
+
+  const jwtPayload = await verifyJwt(env.JWT_SECRET, token);
+  if (!jwtPayload) return jsonResponse({ error: 'Invalid token.' }, 401, {}, request, env);
+
+  const user = await readUserByEmail(env, jwtPayload.email);
+  if (!user) return jsonResponse({ error: 'User not found.' }, 404, {}, request, env);
+
+  const payload = await parseJsonBody(request);
+  const action = String(payload.action || '').toLowerCase();
+  const targetDeviceId = String(payload.deviceId || jwtPayload.deviceId || '').trim();
+  if (!targetDeviceId || !['logout', 'remove'].includes(action)) {
+    return jsonResponse({ error: 'Invalid device action.' }, 400, {}, request, env);
+  }
+
+  const data = user.data && typeof user.data === 'object' ? { ...user.data } : {};
+  const devices = Array.isArray(data['emerald.account.devices']) ? data['emerald.account.devices'] : [];
+  data['emerald.account.devices'] = devices.filter((device) => !device || device.id !== targetDeviceId);
+  const signOutRequests = data['emerald.account.signout_requests'] && typeof data['emerald.account.signout_requests'] === 'object'
+    ? { ...data['emerald.account.signout_requests'] } : {};
+  signOutRequests[targetDeviceId] = Math.floor(Date.now() / 1000);
+  data['emerald.account.signout_requests'] = signOutRequests;
+
+  await upsertUser(env, {
+    ...user,
+    data: normalizeDeviceRegistry(data),
+    updatedAt: new Date().toISOString(),
+    lastLoginAt: new Date().toISOString()
+  });
+
+  return jsonResponse({
+    ok: true,
+    action,
+    deviceId: targetDeviceId,
+    signedOutAt: signOutRequests[targetDeviceId]
+  }, 200, {}, request, env);
+}
+
 async function handleDevices(request, env) {
   const authHeader = request.headers.get('Authorization') || '';
   const token = authHeader.replace(/^Bearer\s+/i, '');
@@ -646,6 +687,10 @@ export default {
 
     if (pathname === '/api/auth/devices' && request.method === 'GET') {
       return handleDevices(request, env);
+    }
+
+    if (pathname === '/api/auth/device-action' && request.method === 'POST') {
+      return handleDeviceAction(request, env);
     }
 
     if (pathname === '/api/auth/google' && request.method === 'GET') {
