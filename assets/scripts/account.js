@@ -1846,11 +1846,15 @@
     refreshSessionView().catch(function () {});
     startSessionMonitor();
 
+    // Immediately sync devices on page load so other devices appear right away
+    if (window.EmeraldAuth && typeof window.EmeraldAuth.pollDeviceRegistry === 'function') {
+        window.EmeraldAuth.pollDeviceRegistry().catch(function () {});
+    }
+
     async function refreshSyncedDevices(snapshot) {
-        var list = snapshot && snapshot['emerald.account.devices'];
-        if (!Array.isArray(list)) {
-            list = await loadDevices();
-        }
+        var list = snapshot && Array.isArray(snapshot['emerald.account.devices'])
+            ? snapshot['emerald.account.devices']
+            : [];
         var signOutRequests = snapshot && snapshot['emerald.account.signout_requests'];
         if (!signOutRequests || typeof signOutRequests !== 'object') signOutRequests = {};
 
