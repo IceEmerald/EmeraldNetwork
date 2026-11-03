@@ -14,6 +14,9 @@
     var syncInFlight = null;
     var syncRequestedAgain = false;
     var syncListenersInstalled = false;
+    var realtimeDeviceTimer = null;
+    var realtimeDeviceInFlight = null;
+    var lastDeviceRegistryHash = '';
     var initializationPromise = null;
 
     function requestSyncFromLocalChange() {
@@ -32,6 +35,8 @@
 
     function startAutoSync() {
         if (autoSyncTimer) return;
+
+        startRealtimeDeviceSync();
 
         autoSyncTimer = window.setInterval(async function () {
             try {
@@ -79,7 +84,78 @@
         }
     }
 
+    async function pollDeviceRegistry() {
+        if (realtimeDeviceInFlight) return realtimeDeviceInFlight;
+        realtimeDeviceInFlight = (async function () {
+            var session = await getSession();
+            if (!session || !session.token) return null;
+
+            try {
+                var result = await fetchJson('/api/auth/sync', {
+                    method: 'GET',
+                    headers: { Authorization: 'Bearer ' + session.token }
+                });
+                var snapshot = result && result.snapshot && typeof result.snapshot === 'object'
+                    ? result.snapshot : {};
+                var registry = {
+                    devices: Array.isArray(snapshot['emerald.account.devices']) ? snapshot['emerald.account.devices'] : [],
+                    revoked: Array.isArray(snapshot['emerald.account.revoked_devices']) ? snapshot['emerald.account.revoked_devices'] : []
+                };
+                var hash = JSON.stringify(registry);
+                if (hash === lastDeviceRegistryHash) return snapshot;
+                lastDeviceRegistryHash = hash;
+
+                await importDeviceRegistry(snapshot);
+                try {
+                    window.dispatchEvent(new CustomEvent('emerald-sync-complete', {
+                        detail: { snapshot: snapshot }
+                    }));
+                } catch (_) {}
+                return snapshot;
+            } catch (error) {
+                if (error && error.status === 403) {
+                    await clearSession();
+                }
+                return null;
+            }
+        })();
+
+        try {
+            return await realtimeDeviceInFlight;
+        } finally {
+            realtimeDeviceInFlight = null;
+        }
+    }
+
+    function startRealtimeDeviceSync() {
+        if (realtimeDeviceTimer) return;
+        pollDeviceRegistry().catch(function () {});
+        realtimeDeviceTimer = window.setInterval(function () {
+            if (document.visibilityState === 'visible' && navigator.onLine !== false) {
+                pollDeviceRegistry().catch(function () {});
+            }
+        }, 750);
+        document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'visible') pollDeviceRegistry().catch(function () {});
+        });
+        window.addEventListener('focus', function () {
+            pollDeviceRegistry().catch(function () {});
+        });
+        window.addEventListener('online', function () {
+            pollDeviceRegistry().catch(function () {});
+        });
+    }
+
+    function stopRealtimeDeviceSync() {
+        if (realtimeDeviceTimer) {
+            clearInterval(realtimeDeviceTimer);
+            realtimeDeviceTimer = null;
+        }
+        lastDeviceRegistryHash = '';
+    }
+
     function stopAutoSync() {
+        stopRealtimeDeviceSync();
         if (autoSyncTimer) {
             clearInterval(autoSyncTimer);
             autoSyncTimer = null;
@@ -738,6 +814,7 @@
         register: register,
         beginOAuth: beginOAuth,
         syncCurrentData: syncCurrentData,
+        pollDeviceRegistry: pollDeviceRegistry,
         exportAccountData: exportAccountData,
         importAccountData: importAccountData,
         startAutoSync: startAutoSync,
