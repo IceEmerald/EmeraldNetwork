@@ -1222,9 +1222,23 @@
         if (!ul) return;
         ul.innerHTML = '';
         var id = getDeviceId();
-        (list || []).forEach(function (d) {
+        var devices = Array.isArray(list) ? list.slice() : [];
+        // Keep the current device at the top and de-duplicate by id.
+        var seen = {};
+        devices = devices.filter(function (d) {
+            if (!d || !d.id || seen[d.id]) return false;
+            seen[d.id] = true;
+            return true;
+        }).sort(function (a, b) {
+            if (a.id === id) return -1;
+            if (b.id === id) return 1;
+            return Number(b.updatedAt || b.addedAt || 0) - Number(a.updatedAt || a.addedAt || 0);
+        });
+
+        devices.forEach(function (d) {
             var li = document.createElement('li');
             li.className = 'device-item';
+            if (d.id === id) li.classList.add('current');
             var info = document.createElement('div');
             info.className = 'device-info';
             var name = document.createElement('div');
@@ -1232,41 +1246,59 @@
             name.textContent = (d.name || 'Device') + (d.id === id ? ' (this device)' : '');
             var meta = document.createElement('div');
             meta.className = 'device-meta';
-            meta.textContent = (d.language || '') + (d.addedAt ? ' · added ' + new Date(d.addedAt).toLocaleDateString() : '');
+            var os = deviceOsOf(d);
+            var browser = deviceBrowserOf(d && d.userAgent);
+            var bits = [os, browser, d.language].filter(Boolean);
+            var when = d.updatedAt || d.addedAt;
+            if (when) bits.push((d.id === id ? 'last active ' : 'added ') + new Date(when).toLocaleString());
+            meta.textContent = bits.join(' · ') || 'Details unavailable';
             info.appendChild(name);
             info.appendChild(meta);
             li.appendChild(info);
+
             var btn = document.createElement('button');
             btn.className = 'btn secondary';
             btn.textContent = d.id === id ? 'Current' : 'Sign out';
             if (d.id === id) {
                 btn.disabled = true;
+                btn.title = 'You are using this device';
             } else {
                 btn.addEventListener('click', async function () {
-                    var current = await loadDevices();
-                    var next = current.filter(function (x) { return x.id !== d.id; });
-                    await saveDevices(next);
-                    if (window.EmeraldAuth && typeof window.EmeraldAuth.signOutDevice === 'function') {
-                        await window.EmeraldAuth.signOutDevice(d.id);
-                    } else {
-                        await saveDevices(next);
-                    }
-                    await renderDevices(next);
-                    showToast('Device removed and signed out.');
+                    btn.disabled = true;
+                    btn.textContent = 'Signing out…';
                     try {
-                        window.dispatchEvent(new CustomEvent('emerald-device-removed', {
-                            detail: { deviceId: d.id }
-                        }));
-                    } catch (_) {}
+                        if (window.EmeraldAuth && typeof window.EmeraldAuth.signOutDevice === 'function') {
+                            await window.EmeraldAuth.signOutDevice(d.id);
+                        }
+                        var current = await loadDevices();
+                        var next = current.filter(function (x) { return x && x.id !== d.id; });
+                        await saveDevices(next);
+                        await renderDevices(next);
+                        showToast('Device signed out.');
+                        try {
+                            window.dispatchEvent(new CustomEvent('emerald-device-removed', {
+                                detail: { deviceId: d.id }
+                            }));
+                        } catch (_) {}
+                    } catch (error) {
+                        btn.disabled = false;
+                        btn.textContent = 'Sign out';
+                        showToast((error && error.message) ? error.message : 'Could not sign out device.');
+                        try {
+                            var refreshed = await loadDevices();
+                            await renderDevices(refreshed);
+                        } catch (_) {}
+                    }
                 });
             }
             li.appendChild(btn);
             ul.appendChild(li);
         });
-        if (!list || !list.length) {
+
+        if (!devices.length) {
             var empty = document.createElement('li');
             empty.className = 'device-item';
-            empty.textContent = 'No devices yet.';
+            empty.textContent = 'No devices signed in yet.';
             ul.appendChild(empty);
         }
     }
@@ -1599,7 +1631,10 @@
             });
         }
 
-        /* devices */
+        /* devices: pull the latest registry from D1 first */
+        if (window.EmeraldAuth && typeof window.EmeraldAuth.pollDeviceRegistry === 'function') {
+            try { await window.EmeraldAuth.pollDeviceRegistry(); } catch (_) {}
+        }
         var devices = await ensureDevice();
         await renderDevices(devices);
         setText('overviewDevices', (devices.length || 0) === 1
@@ -1609,6 +1644,40 @@
 
         await renderStorage();
         requestAnimationFrame(function () { moveNavPill(true); });
+    }
+
+    /* Sign out of all other devices */
+    var signOutAllBtn = document.getElementById('signOutAllDevicesBtn');
+    if (signOutAllBtn) {
+        signOutAllBtn.addEventListener('click', async function () {
+            if (!confirm('Sign out of all other devices?')) return;
+            signOutAllBtn.disabled = true;
+            signOutAllBtn.textContent = 'Signing out…';
+            try {
+                var devices = await loadDevices();
+                var currentId = getDeviceId();
+                var others = (devices || []).filter(function (d) { return d && d.id && d.id !== currentId; });
+                for (var i = 0; i < others.length; i++) {
+                    try {
+                        await window.EmeraldAuth.signOutDevice(others[i].id);
+                    } catch (_) {}
+                }
+                var next = (devices || []).filter(function (d) { return d && d.id === currentId; });
+                await saveDevices(next);
+                await renderDevices(next);
+                setText('overviewDevices', '1 device signed in');
+                renderDeviceRows(next);
+                showToast('All other devices signed out.');
+                try {
+                    window.dispatchEvent(new CustomEvent('emerald-device-removed', { detail: { all: true } }));
+                } catch (_) {}
+            } catch (e) {
+                showToast('Could not sign out all devices.');
+            } finally {
+                signOutAllBtn.disabled = false;
+                signOutAllBtn.textContent = 'Sign out of all other devices';
+            }
+        });
     }
 
     /* Navigation */
@@ -1854,14 +1923,23 @@
     async function refreshSyncedDevices(snapshot) {
         var list = snapshot && Array.isArray(snapshot['emerald.account.devices'])
             ? snapshot['emerald.account.devices']
-            : [];
+            : null;
+        if (!Array.isArray(list)) {
+            try { list = await loadDevices(); } catch (_) { list = []; }
+        }
         var signOutRequests = snapshot && snapshot['emerald.account.signout_requests'];
         if (!signOutRequests || typeof signOutRequests !== 'object') signOutRequests = {};
+
+        // Drop devices that have been signed out.
+        list = (Array.isArray(list) ? list : []).filter(function (device) {
+            if (!device || !device.id) return false;
+            return !signOutRequests[device.id];
+        });
 
         var currentId = getDeviceId();
         var unique = [];
         var seen = {};
-        (Array.isArray(list) ? list : []).forEach(function (device) {
+        list.forEach(function (device) {
             if (!device || !device.id || seen[device.id]) return;
             seen[device.id] = true;
             unique.push(Object.assign({}, device, { current: device.id === currentId }));

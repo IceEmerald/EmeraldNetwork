@@ -15,6 +15,23 @@ function hasD1Config(env) {
   return !!(env.DB && typeof env.DB.prepare === 'function');
 }
 
+async function ensureD1Schema(env) {
+  if (!hasD1Config(env)) return;
+  try {
+    await env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS users (
+        email TEXT PRIMARY KEY,
+        passwordHash TEXT,
+        provider TEXT,
+        data TEXT,
+        createdAt TEXT,
+        updatedAt TEXT,
+        lastLoginAt TEXT
+      )
+    `).run();
+  } catch (_) {}
+}
+
 function safeRedirectValue(value, fallback = '/') {
   if (!value || typeof value !== 'string') return fallback;
   const cleaned = value.trim();
@@ -648,6 +665,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const pathname = url.pathname.replace(/\/+$/, '');
+    await ensureD1Schema(env);
 
     if (request.method === 'OPTIONS') {
       return new Response(null, {
