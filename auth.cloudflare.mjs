@@ -15,8 +15,10 @@ function hasD1Config(env) {
   return !!(env.DB && typeof env.DB.prepare === 'function');
 }
 
+let d1SchemaReady = false;
+
 async function ensureD1Schema(env) {
-  if (!hasD1Config(env)) return;
+  if (!hasD1Config(env) || d1SchemaReady) return;
   try {
     await env.DB.prepare(`
       CREATE TABLE IF NOT EXISTS users (
@@ -29,7 +31,10 @@ async function ensureD1Schema(env) {
         lastLoginAt TEXT
       )
     `).run();
-  } catch (_) {}
+    d1SchemaReady = true;
+  } catch (_) {
+    d1SchemaReady = true; // don't retry on every request
+  }
 }
 
 function safeRedirectValue(value, fallback = '/') {
@@ -171,6 +176,8 @@ function parseJsonBody(request) {
   return request.json().catch(() => ({}));
 }
 
+const userDataCache = new Map();
+
 async function readUserByEmail(env, email) {
   if (!hasD1Config(env)) {
     return null;
@@ -182,9 +189,21 @@ async function readUserByEmail(env, email) {
 
   if (!row) return null;
 
+  const rawData = typeof row.data === 'string' ? row.data : JSON.stringify(row.data || {});
+  // Keep a small parsed-object cache keyed by row version: repeated device
+  // polling / sync reads on the same row no longer pay for a huge JSON.parse.
+  const cacheKey = `${row.email}:${row.updatedAt || ''}:${rawData.length}`;
+  let parsed = userDataCache.get(cacheKey);
+  if (!parsed) {
+    if (userDataCache.size > 24) userDataCache.clear();
+    parsed = { data: row.data ? JSON.parse(rawData) : {} };
+    userDataCache.set(cacheKey, parsed);
+  }
+
   return {
     ...row,
-    data: row.data ? JSON.parse(row.data) : {},
+    rawData,
+    data: parsed.data,
     email: String(row.email || '').trim().toLowerCase()
   };
 }
@@ -196,6 +215,8 @@ async function upsertUser(env, userDoc) {
 
   const email = String(userDoc.email || '').trim().toLowerCase();
   const existing = await readUserByEmail(env, email);
+  const dataJson = userDoc.dataJson ||
+    (userDoc.data !== undefined ? JSON.stringify(userDoc.data ?? {}) : (existing && existing.rawData) || '{}');
 
   if (existing) {
     await env.DB.prepare(`
@@ -209,7 +230,7 @@ async function upsertUser(env, userDoc) {
     `).bind(
       userDoc.passwordHash ?? existing.passwordHash ?? null,
       userDoc.provider ?? existing.provider ?? 'email',
-      JSON.stringify(userDoc.data ?? existing.data ?? {}),
+      dataJson,
       new Date().toISOString(),
       new Date().toISOString(),
       email
@@ -225,7 +246,7 @@ async function upsertUser(env, userDoc) {
     email,
     userDoc.passwordHash ?? null,
     userDoc.provider || 'email',
-    JSON.stringify(userDoc.data || {}),
+    dataJson,
     new Date().toISOString(),
     new Date().toISOString(),
     new Date().toISOString()
@@ -476,7 +497,7 @@ async function handleSync(request, env) {
     return jsonResponse({
       ok: true,
       user: { email: user.email },
-      snapshot: user.data || {},
+      snapshot: user.data && typeof user.data === 'object' ? user.data : {},
       syncedAt: Date.now()
     }, 200, {}, request, env);
   }
@@ -510,9 +531,23 @@ async function handleSync(request, env) {
     ? { ...user.data['emerald.account.signout_requests'] } : {};
   merged = normalizeDeviceRegistry(merged);
 
+  const mergedDataJson = JSON.stringify(merged);
+  if (user.rawData === mergedDataJson) {
+    // Nothing actually changed; skip a costly D1 write and the full
+    // response payload. The client already holds this snapshot.
+    return jsonResponse({
+      ok: true,
+      user: { email: user.email },
+      syncedAt: Date.now(),
+      count: Object.keys(merged).length,
+      snapshot: null
+    }, 200, {}, request, env);
+  }
+
   await upsertUser(env, {
     ...user,
     data: merged,
+    dataJson: mergedDataJson,
     updatedAt: new Date().toISOString(),
     lastLoginAt: new Date().toISOString()
   });
@@ -681,7 +716,6 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const pathname = url.pathname.replace(/\/+$/, '');
-    await ensureD1Schema(env);
 
     if (request.method === 'OPTIONS') {
       return new Response(null, {
@@ -693,6 +727,8 @@ export default {
     if (pathname === '/health') {
       return jsonResponse({ ...DEFAULT_RESPONSE, ok: true }, 200, {}, request, env);
     }
+
+    await ensureD1Schema(env);
 
     if (pathname.startsWith('/api/auth/') && !env.JWT_SECRET) {
       return jsonResponse({ error: 'Authentication is not configured: JWT_SECRET must be set.' }, 503, {}, request, env);

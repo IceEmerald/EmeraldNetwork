@@ -852,8 +852,6 @@
         var localIndex = unique.findIndex(function (device) { return device.id === id; });
         if (localIndex === -1) {
             unique.unshift(Object.assign({}, currentDeviceInfo(), { current: false }));
-        } else {
-            unique[localIndex] = Object.assign({}, unique[localIndex], currentDeviceInfo(), { current: false });
         }
 
         if (JSON.stringify(list || []) !== JSON.stringify(unique)) {
@@ -1927,19 +1925,19 @@
         if (!Array.isArray(list)) {
             try { list = await loadDevices(); } catch (_) { list = []; }
         }
-        var currentId = getDeviceId();
         var unique = [];
         var seen = {};
         list.forEach(function (device) {
             if (!device || !device.id || seen[device.id]) return;
             seen[device.id] = true;
-            unique.push(Object.assign({}, device, { current: device.id === currentId }));
+            unique.push(Object.assign({}, device));
         });
-        if (!seen[currentId]) {
-            unique.unshift(Object.assign({}, currentDeviceInfo(), { current: true }));
-        }
 
-        await saveDevices(unique);
+        var currentList = [];
+        try { currentList = await loadDevices() || []; } catch (_) {}
+        if (JSON.stringify(currentList) !== JSON.stringify(unique)) {
+            await saveDevices(unique);
+        }
         await renderDevices(unique);
         setText('overviewDevices', unique.length === 1
             ? '1 device signed in'
