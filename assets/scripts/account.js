@@ -907,6 +907,55 @@
         try { localStorage.setItem('emerald.account.profile.' + email, JSON.stringify(profile)); } catch (_) {}
     }
 
+    /* ---------- Compact profile photos ---------- */
+
+    // The profile object travels inside the whole account snapshot that the
+    // auth worker serves on every sync poll. A raw multi-megabyte data URL
+    // photo balloons every GET and POST into megabytes and blew through the
+    // Cloudflare worker's resource limits (Error 1102), so photos are
+    // resampled to a small JPEG before they are stored or synced.
+    function shrinkPhotoDataUrl(dataUrl, maxSize) {
+        var limit = maxSize || 256;
+        return new Promise(function (resolve) {
+            try {
+                var img = new Image();
+                img.onload = function () {
+                    try {
+                        var scale = Math.min(1, limit / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));
+                        var w = Math.max(1, Math.round((img.naturalWidth || limit) * scale));
+                        var h = Math.max(1, Math.round((img.naturalHeight || limit) * scale));
+                        var canvas = document.createElement('canvas');
+                        canvas.width = w;
+                        canvas.height = h;
+                        var ctx = canvas.getContext('2d');
+                        if (!ctx) { resolve(null); return; }
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(0, 0, w, h);
+                        ctx.drawImage(img, 0, 0, w, h);
+                        resolve(canvas.toDataURL('image/jpeg', 0.85));
+                    } catch (_) { resolve(null); }
+                };
+                img.onerror = function () { resolve(null); };
+                img.src = dataUrl;
+            } catch (_) { resolve(null); }
+        });
+    }
+
+    // Re-encodes an oversized stored photo once and persists the compact
+    // version (also repairs profiles saved before this rule existed).
+    async function compactProfilePhoto(email, profile) {
+        try {
+            if (profile && typeof profile.photo === 'string' && profile.photo.length > 150 * 1024) {
+                var small = await shrinkPhotoDataUrl(profile.photo, 256);
+                if (small && small.length && small.length < profile.photo.length) {
+                    profile.photo = small;
+                    await saveProfile(email, profile);
+                }
+            }
+        } catch (_) {}
+        return profile;
+    }
+
     async function loadDevices() {
         await waitForStorageReady();
         if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.getJSON === 'function') {
@@ -1639,6 +1688,7 @@
 
         var profile = await loadProfile(email);
         if (!profile) profile = {};
+        await compactProfilePhoto(email, profile);
 
         var name = profile.name || deriveDefaultName(email);
         var photo = profile.photo || '';
@@ -1846,14 +1896,27 @@
         photoInput.addEventListener('change', async function () {
             var file = photoInput.files && photoInput.files[0];
             if (!file) return;
-            if (file.size > 2 * 1024 * 1024) {
-                showToast('Image must be under 2 MB.');
+            /* Decoding canvas handles big files; the cap only guards against
+               absurd inputs. */
+            if (file.size > 10 * 1024 * 1024) {
+                showToast('Image must be under 10 MB.');
                 photoInput.value = '';
                 return;
             }
             var reader = new FileReader();
+            reader.onerror = function () {
+                showToast('Could not read that image.');
+            };
             reader.onload = async function () {
                 var dataUrl = reader.result;
+                // Keep the synced payload small: anything larger than a
+                // thumbnail is resampled instead of stored raw.
+                if (typeof dataUrl === 'string' && dataUrl.length > 150 * 1024) {
+                    try {
+                        var small = await shrinkPhotoDataUrl(dataUrl, 256);
+                        if (small && small.length && small.length < dataUrl.length) dataUrl = small;
+                    } catch (_) {}
+                }
                 var session = null;
                 try { session = await window.EmeraldAuth.getSession(); } catch (_) {}
                 var email = resolveSessionEmail(session);

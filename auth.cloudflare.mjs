@@ -192,12 +192,17 @@ async function readUserByEmail(env, email) {
   const rawData = typeof row.data === 'string' ? row.data : JSON.stringify(row.data || {});
   // Keep a small parsed-object cache keyed by row version: repeated device
   // polling / sync reads on the same row no longer pay for a huge JSON.parse.
+  // Entries stay small (<= 512KB) and the map stays tiny so rows carrying
+  // multi-megabyte payloads never pile up in isolate memory.
   const cacheKey = `${row.email}:${row.updatedAt || ''}:${rawData.length}`;
-  let parsed = userDataCache.get(cacheKey);
+  const cacheable = rawData.length <= 512 * 1024;
+  let parsed = cacheable ? userDataCache.get(cacheKey) : null;
   if (!parsed) {
-    if (userDataCache.size > 24) userDataCache.clear();
     parsed = { data: row.data ? JSON.parse(rawData) : {} };
-    userDataCache.set(cacheKey, parsed);
+    if (cacheable) {
+      if (userDataCache.size >= 4) userDataCache.clear();
+      userDataCache.set(cacheKey, parsed);
+    }
   }
 
   return {
@@ -494,12 +499,19 @@ async function handleSync(request, env) {
   }
 
   if (request.method === 'GET') {
-    return jsonResponse({
-      ok: true,
-      user: { email: user.email },
-      snapshot: user.data && typeof user.data === 'object' ? user.data : {},
-      syncedAt: Date.now()
-    }, 200, {}, request, env);
+    // Serve the stored JSON verbatim inside the envelope instead of
+    // re-stringifying megabytes of parsed data on every poll — that single
+    // stringify per request was what blew the worker CPU budget (Error 1102).
+    const raw = typeof user.rawData === 'string' && user.rawData ? user.rawData : '{}';
+    const envelope = `{"ok":true,"user":{"email":${JSON.stringify(user.email)}},"syncedAt":${Date.now()},"snapshot":${raw}}`;
+    return new Response(envelope, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store',
+        ...corsHeaders(request, env)
+      }
+    });
   }
 
   const body = await parseJsonBody(request);
