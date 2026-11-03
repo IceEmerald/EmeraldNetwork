@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/assets/styles/account.css?v=41" />
+    <link rel="stylesheet" href="/assets/styles/account.css?v=43" />
     <link rel="icon" type="image/x-icon" href="/assets/images/favicon.webp">
 </head>
 
@@ -266,94 +266,136 @@
                 </div>
 
                 <div class="dash-section" id="section-personal">
-                    <h1 class="dash-title">Personal info</h1>
-                    <div class="dash-card">
-                        <h2>Profile photo</h2>
-                        <div class="photo-row">
-                            <img class="profile-photo" id="profilePhoto" src="" alt="">
-                            <div>
-                                <input type="file" id="photoInput" accept="image/*" hidden>
-                                <button type="button" class="btn secondary" id="changePhotoBtn">Change photo</button>
-                                <button type="button" class="btn secondary" id="removePhotoBtn">Remove</button>
-                                <p class="muted small">JPG or PNG, up to 2 MB.</p>
-                            </div>
+                    <div class="personal-head">
+                        <div>
+                            <h1 class="dash-title">Personal info</h1>
+                            <p class="dash-sub">Manage the details connected to your EmeraldNetwork account.</p>
                         </div>
                     </div>
-                    <div class="dash-card">
-                        <h2>Your info</h2>
-                        <form id="profileForm" class="profile-form">
-                            <div class="field">
-                                <label for="profileName">Name</label>
-                                <input id="profileName" type="text" placeholder="Your name">
-                            </div>
-                            <div class="field">
-                                <label for="profileBirthDay">Birthday</label>
-                                <div class="birth-row">
-                                    <input id="profileBirthDay" type="text" inputmode="numeric" maxlength="2" placeholder="DD" aria-label="Day of birth">
-                                    <div class="month-select" id="profileBirthMonthBox">
-                                        <button type="button" class="month-select-btn" id="profileBirthMonthBtn" aria-haspopup="listbox" aria-expanded="false">
-                                            <span class="month-btn-label b-empty" id="profileBirthMonthLabel">Month</span>
-                                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-                                        </button>
-                                        <div class="month-select-menu" id="profileBirthMonthMenu" role="listbox" aria-label="Month of birth"></div>
-                                    </div>
-                                    <input id="profileBirthYear" type="text" inputmode="numeric" maxlength="4" placeholder="YYYY" aria-label="Year of birth">
+                    <div class="personal-layout">
+                        <div class="dash-card personal-photo-card">
+                            <div class="card-heading">
+                                <span class="card-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c.8-4 3.5-6 8-6s7.2 2 8 6"/></svg></span>
+                                <div>
+                                    <h2>Profile photo</h2>
                                 </div>
-                                <input type="hidden" id="profileBirth">
                             </div>
-                            <div class="field">
-                                <label for="profileCity">City</label>
-                                <input id="profileCity" type="text" placeholder="City">
+                            <div class="photo-row">
+                                <img class="profile-photo" id="profilePhoto" src="" alt="Profile photo">
+                                <div class="photo-actions">
+                                    <input type="file" id="photoInput" accept="image/jpeg,image/png,.jpg,.jpeg,.png" hidden>
+                                    <button type="button" class="btn secondary" id="changePhotoBtn">Change photo</button>
+                                    <button type="button" class="btn secondary remove-photo-btn" id="removePhotoBtn" disabled>Remove</button>
+                                    <p class="muted small">JPG or PNG, up to 2 MB.</p>
+                                </div>
                             </div>
-                            <div class="field">
-                                <label for="profileRegion">Region</label>
-                                <input id="profileRegion" type="text" placeholder="Region">
+                        </div>
+                        <div class="dash-card personal-info-card">
+                            <div class="card-heading">
+                                <span class="card-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></span>
+                                <div>
+                                    <h2>Your info</h2>
+                                </div>
                             </div>
-                            <div class="field">
-                                <label for="profileCountry">Country</label>
-                                <input id="profileCountry" type="text" placeholder="Country">
-                            </div>
-                            <button type="submit" class="btn primary" disabled>Save changes</button>
-                            <span class="muted small" id="profileSavedMsg"></span>
-                        </form>
+                            <form id="profileForm" class="profile-form">
+                                <div class="profile-info-grid">
+                                    <div class="field field-full">
+                                        <label for="profileName">Name</label>
+                                        <input id="profileName" type="text" autocomplete="name" placeholder="Your name">
+                                    </div>
+                                    <div class="field field-full">
+                                        <label for="profileBirthDay">Birthday</label>
+                                        <div class="birth-row">
+                                            <input id="profileBirthDay" type="text" inputmode="numeric" maxlength="2" placeholder="DD" aria-label="Day of birth">
+                                            <div class="month-select" id="profileBirthMonthBox">
+                                                <button type="button" class="month-select-btn" id="profileBirthMonthBtn" aria-haspopup="listbox" aria-expanded="false">
+                                                    <span class="month-btn-label b-empty" id="profileBirthMonthLabel">Month</span>
+                                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                                                </button>
+                                                <div class="month-select-menu" id="profileBirthMonthMenu" role="listbox" aria-label="Month of birth"></div>
+                                            </div>
+                                            <input id="profileBirthYear" type="text" inputmode="numeric" maxlength="4" placeholder="YYYY" aria-label="Year of birth">
+                                        </div>
+                                        <input type="hidden" id="profileBirth">
+                                    </div>
+                                    <div class="field">
+                                        <label for="profileGender">Gender</label>
+                                        <div class="month-select" id="profileGenderBox">
+                                            <button type="button" class="month-select-btn" id="profileGenderBtn" aria-haspopup="listbox" aria-expanded="false">
+                                                <span class="month-btn-label" id="profileGenderLabel">Prefer not to say</span>
+                                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                                            </button>
+                                            <div class="month-select-menu" id="profileGenderMenu" role="listbox" aria-label="Gender"></div>
+                                        </div>
+                                    </div>
+                                    <div class="field">
+                                        <label for="profilePhone">Phone number</label>
+                                        <input id="profilePhone" type="tel" autocomplete="tel" inputmode="tel" placeholder="Phone number">
+                                    </div>
+                                </div>
+                                <div class="location-grid">
+                                    <div class="field">
+                                        <label for="profileCity">City</label>
+                                        <input id="profileCity" type="text" autocomplete="address-level2" placeholder="City">
+                                    </div>
+                                    <div class="field">
+                                        <label for="profileRegion">Region</label>
+                                        <input id="profileRegion" type="text" autocomplete="address-level1" placeholder="Region">
+                                    </div>
+                                    <div class="field field-full">
+                                        <label for="profileCountry">Country</label>
+                                        <input id="profileCountry" type="text" autocomplete="country-name" placeholder="Country">
+                                    </div>
+                                </div>
+                                <div class="profile-form-footer">
+                                    <span class="muted small" id="profileSavedMsg"></span>
+                                    <button type="submit" class="btn primary" disabled>Save changes</button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 </div>
 
                 <div class="dash-section" id="section-devices">
                     <h1 class="dash-title">Devices</h1>
+                    <p class="dash-sub">Devices signed in to your account.</p>
                     <div class="dash-card">
-                        <div class="device-section-head">
-                            <p class="muted">Devices signed in to your account.</p>
+                        <ul class="device-list" id="deviceList"></ul>
+                        <div class="device-section-footer">
                             <button type="button" class="btn secondary small" id="signOutAllDevicesBtn">Sign out of all other devices</button>
                         </div>
-                        <ul class="device-list" id="deviceList"></ul>
                     </div>
                 </div>
 
                 <div class="dash-section" id="section-security">
                     <h1 class="dash-title">Security</h1>
+                    <p class="dash-sub">Manage your password and account sign-in settings.</p>
                     <div class="dash-card">
                         <h2>Email address</h2>
                         <p id="securityEmail"></p>
                     </div>
                     <div class="dash-card" id="passwordCard">
                         <h2>Password</h2>
-                        <p class="muted small">Change your password. Available for email accounts only.</p>
                         <form id="passwordForm" class="profile-form">
                             <div class="field">
                                 <label for="currentPassword">Current password</label>
                                 <input id="currentPassword" type="password" autocomplete="current-password">
+                                <p class="error-message" id="currentPassword-error" aria-live="polite"></p>
                             </div>
                             <div class="field">
                                 <label for="newPassword">New password</label>
                                 <input id="newPassword" type="password" autocomplete="new-password">
+                                <p class="error-message" id="newPassword-error" aria-live="polite"></p>
                             </div>
                             <div class="field">
                                 <label for="confirmNewPassword">Confirm new password</label>
                                 <input id="confirmNewPassword" type="password" autocomplete="new-password">
+                                <p class="error-message" id="confirmNewPassword-error" aria-live="polite"></p>
                             </div>
-                            <button type="submit" class="btn primary">Change password</button>
-                            <span class="muted small" id="passwordMsg"></span>
+                            <div class="password-form-actions">
+                                <span class="muted small" id="passwordMsg" aria-live="polite"></span>
+                                <button type="submit" class="btn primary">Change password</button>
+                            </div>
                         </form>
                     </div>
                     <div class="dash-card" id="googleProviderCard" hidden>
@@ -409,8 +451,9 @@
 
     <script src="/assets/scripts/idb-storage.js"></script>
     <script src="/assets/scripts/auth-client.js?v=4"></script>
-    <script src="/assets/scripts/account.js?v=41"></script>
+    <script src="/assets/scripts/account.js?v=42"></script>
     <script src="/assets/scripts/aboutgl.js"></script>
+    <script src="/assets/scripts/scrollice.js"></script>
     <script src="/assets/scripts/rightclick.js"></script>
 </body>
 

@@ -409,7 +409,7 @@
 
     /* ---------------- Validation helpers ---------------- */
 
-    var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    var EMAIL_RE = /^[^\s@]+@[^\s@]+(?:\.[^\s@]{2,})?$/;
 
     function setError(inputId, message) {
         var input = document.getElementById(inputId);
@@ -472,6 +472,125 @@
     }
 
     var authRequestPending = false;
+    var TEST_EMAIL = 'test@local';
+    var GOOGLE_TEST_EMAIL = 'google@local';
+    var TEST_PASSWORD = '123';
+
+    function isTestSession(session) {
+        var email = session ? resolveSessionEmail(session).toLowerCase() : '';
+        return email === TEST_EMAIL || email === GOOGLE_TEST_EMAIL;
+    }
+
+    function createTestSession() {
+        return {
+            token: 'test-local-token',
+            email: TEST_EMAIL,
+            user: {
+                email: TEST_EMAIL,
+                name: 'Test User',
+                provider: 'email',
+                account: { email: TEST_EMAIL }
+            }
+        };
+    }
+
+    function getTestUsage() {
+        var saved = null;
+        try { saved = JSON.parse(localStorage.getItem('emerald.test.storage') || 'null'); } catch (_) {}
+        if (!saved) {
+            saved = {
+                Docs: Math.round((500 + Math.random() * 180) * 1024 * 1024),
+                Slides: Math.round((120 + Math.random() * 260) * 1024 * 1024),
+                Sheets: Math.round((70 + Math.random() * 190) * 1024 * 1024),
+                Notes: Math.round((15 + Math.random() * 85) * 1024 * 1024),
+                'AI Chat': Math.round((8 + Math.random() * 48) * 1024 * 1024)
+            };
+            try { localStorage.setItem('emerald.test.storage', JSON.stringify(saved)); } catch (_) {}
+        }
+        return saved;
+    }
+
+    function createGoogleTestSession() {
+        return {
+            token: 'google-local-test-token',
+            email: GOOGLE_TEST_EMAIL,
+            user: {
+                email: GOOGLE_TEST_EMAIL,
+                name: 'Google Test User',
+                provider: 'google',
+                account: { email: GOOGLE_TEST_EMAIL }
+            }
+        };
+    }
+
+    async function seedTestAccount() {
+        var session = createTestSession();
+        var now = Date.now();
+        var profile = {
+            name: 'Test User',
+            birth: '1995-06-15',
+            city: 'Testville',
+            region: 'Test Region',
+            country: 'US'
+        };
+        var devices = [
+            Object.assign({}, currentDeviceInfo(), { id: getDeviceId(), name: navigator.platform || 'MacIntel', current: true, addedAt: now - 1000 * 60 * 60 }),
+            { id: 'test-device-phone', name: 'iPhone 15', userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile Safari/604.1', language: 'en-US', addedAt: now - 1000 * 60 * 60 * 24 * 18, updatedAt: now - 1000 * 60 * 36 },
+            { id: 'test-device-windows', name: 'Windows PC', userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36', language: 'en-US', addedAt: now - 1000 * 60 * 60 * 24 * 7, updatedAt: now - 1000 * 60 * 60 * 3 }
+        ];
+        window.__emerald_test_account = true;
+
+        try { localStorage.setItem('emerald.auth.session', JSON.stringify(session)); } catch (_) {}
+        try { sessionStorage.setItem('emerald.auth.session', JSON.stringify(session)); } catch (_) {}
+        try { localStorage.setItem('emerald.account.profile.' + TEST_EMAIL, JSON.stringify(profile)); } catch (_) {}
+        await saveDevices(devices);
+        await saveProfile(TEST_EMAIL, profile);
+        void getTestUsage();
+        return session;
+    }
+
+    async function seedGoogleTestAccount() {
+        var session = createGoogleTestSession();
+        var now = Date.now();
+        var profile = {
+            name: 'Google Test User',
+            birth: '1990-04-22',
+            city: 'Google Testville',
+            region: 'Test Region',
+            country: 'US'
+        };
+        var devices = [
+            Object.assign({}, currentDeviceInfo(), { id: getDeviceId(), name: navigator.platform || 'MacIntel', current: true, addedAt: now - 1000 * 60 * 12 }),
+            { id: 'google-test-device-phone', name: 'Pixel 9', userAgent: 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 Chrome/131.0.0.0 Mobile Safari/537.36', language: 'en-US', addedAt: now - 1000 * 60 * 60 * 24 * 12, updatedAt: now - 1000 * 60 * 22 },
+            { id: 'google-test-device-tablet', name: 'Pixel Tablet', userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel Tablet) AppleWebKit/537.36 Chrome/130.0.0.0 Mobile Safari/537.36', language: 'en-US', addedAt: now - 1000 * 60 * 60 * 24 * 4, updatedAt: now - 1000 * 60 * 60 * 5 }
+        ];
+        var extraDevices = [
+            { name: 'Pixel 8', userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/131.0.0.0 Mobile Safari/537.36' },
+            { name: 'Galaxy S24', userAgent: 'Mozilla/5.0 (Linux; Android 14; SM-S921B) AppleWebKit/537.36 Chrome/131.0.0.0 Mobile Safari/537.36' },
+            { name: 'MacBook Pro', userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36' },
+            { name: 'Windows Laptop', userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36' },
+            { name: 'Windows Desktop', userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0.0.0 Safari/537.36' }
+        ];
+        for (var deviceIndex = 4; devices.length < 20; deviceIndex++) {
+            var template = extraDevices[(deviceIndex - 4) % extraDevices.length];
+            devices.push({
+                id: 'google-test-device-' + deviceIndex,
+                name: template.name + ' ' + deviceIndex,
+                userAgent: template.userAgent,
+                language: 'en-US',
+                addedAt: now - 1000 * 60 * 60 * 24 * deviceIndex,
+                updatedAt: now - 1000 * 60 * (deviceIndex * 17)
+            });
+        }
+        window.__emerald_test_account = true;
+
+        try { localStorage.setItem('emerald.auth.session', JSON.stringify(session)); } catch (_) {}
+        try { sessionStorage.setItem('emerald.auth.session', JSON.stringify(session)); } catch (_) {}
+        try { localStorage.setItem('emerald.account.profile.' + GOOGLE_TEST_EMAIL, JSON.stringify(profile)); } catch (_) {}
+        await saveDevices(devices);
+        await saveProfile(GOOGLE_TEST_EMAIL, profile);
+        return session;
+    }
 
     async function submitAuthRequest(mode) {
         if (authRequestPending) return;
@@ -487,6 +606,26 @@
 
         try {
             showToast(mode === 'login' ? 'Signing in…' : 'Creating your account…');
+            if (mode === 'login' && email.toLowerCase() === TEST_EMAIL && password === TEST_PASSWORD) {
+                var testSession = await seedTestAccount();
+                showToast('Signed in to test account.');
+                if (window.location.pathname !== '/account.html') {
+                    window.location.assign('/account.html');
+                } else {
+                    await refreshSessionView();
+                }
+                return;
+            }
+            if (mode === 'login' && email.toLowerCase() === GOOGLE_TEST_EMAIL && password === TEST_PASSWORD) {
+                await seedGoogleTestAccount();
+                showToast('Signed in to Google test account.');
+                if (window.location.pathname !== '/account.html') {
+                    window.location.assign('/account.html');
+                } else {
+                    await refreshSessionView();
+                }
+                return;
+            }
             var result = mode === 'login'
                 ? await window.EmeraldAuth.login(email, password)
                 : await window.EmeraldAuth.register(email, password);
@@ -1127,6 +1266,8 @@
         return {
             name: (document.getElementById('profileName') && document.getElementById('profileName').value || '').trim(),
             birth: (document.getElementById('profileBirth') && document.getElementById('profileBirth').value || '').trim(),
+            gender: ((document.getElementById('profileGenderBox') && document.getElementById('profileGenderBox').dataset.value) || 'prefer-not-to-say').trim(),
+            phone: (document.getElementById('profilePhone') && document.getElementById('profilePhone').value || '').trim(),
             city: (document.getElementById('profileCity') && document.getElementById('profileCity').value || '').trim(),
             region: (document.getElementById('profileRegion') && document.getElementById('profileRegion').value || '').trim(),
             country: (document.getElementById('profileCountry') && document.getElementById('profileCountry').value || '').trim()
@@ -1305,6 +1446,68 @@
         if (typeof updateSaveButtonState === 'function') updateSaveButtonState();
     }
 
+    var GENDER_OPTIONS = [
+        { value: 'female', label: 'Female' },
+        { value: 'male', label: 'Male' },
+        { value: 'prefer-not-to-say', label: 'Prefer not to say' }
+    ];
+
+    function initGenderPicker() {
+        var box = document.getElementById('profileGenderBox');
+        var btn = document.getElementById('profileGenderBtn');
+        var label = document.getElementById('profileGenderLabel');
+        var menu = document.getElementById('profileGenderMenu');
+        if (!box || !btn || !label || !menu) return;
+
+        GENDER_OPTIONS.forEach(function (option) {
+            var item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'month-option';
+            item.setAttribute('role', 'option');
+            item.textContent = option.label;
+            item.addEventListener('click', function () {
+                box.dataset.value = option.value;
+                label.textContent = option.label;
+                label.classList.remove('b-empty');
+                box.classList.remove('open');
+                btn.setAttribute('aria-expanded', 'false');
+                Array.prototype.forEach.call(menu.children, function (child) {
+                    child.classList.toggle('selected', child === item);
+                });
+                userEditedProfile = true;
+                updateSaveButtonState();
+            });
+            menu.appendChild(item);
+        });
+
+        btn.addEventListener('click', function () {
+            var open = box.classList.toggle('open');
+            btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        document.addEventListener('click', function (e) {
+            if (box.classList.contains('open') && !box.contains(e.target)) {
+                box.classList.remove('open');
+                btn.setAttribute('aria-expanded', 'false');
+            }
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && box.classList.contains('open')) {
+                box.classList.remove('open');
+                btn.setAttribute('aria-expanded', 'false');
+            }
+        });
+    }
+
+    function setGenderPickerValue(value) {
+        var box = document.getElementById('profileGenderBox');
+        var label = document.getElementById('profileGenderLabel');
+        if (!box || !label) return;
+        var option = GENDER_OPTIONS.find(function (item) { return item.value === value; });
+        box.dataset.value = option ? option.value : 'prefer-not-to-say';
+        label.textContent = option ? option.label : 'Prefer not to say';
+        label.classList.remove('b-empty');
+    }
+
     function applySection(name) {
         document.querySelectorAll('.dash-nav-item').forEach(function (btn) {
             btn.classList.toggle('active', btn.dataset.section === name);
@@ -1377,6 +1580,15 @@
             var li = document.createElement('li');
             li.className = 'device-item';
             if (d.id === id) li.classList.add('current');
+
+            var kind = deviceKindOf(d);
+            var art = document.createElement('div');
+            art.className = 'device-art';
+            art.innerHTML = msDeviceArt(kind);
+            art.setAttribute('role', 'img');
+            art.setAttribute('aria-label', ({ phone: 'Phone', laptop: 'Laptop', pc: 'PC' })[kind] + ' illustration');
+            li.appendChild(art);
+
             var info = document.createElement('div');
             info.className = 'device-info';
             var name = document.createElement('div');
@@ -1393,6 +1605,9 @@
             info.appendChild(name);
             info.appendChild(meta);
             li.appendChild(info);
+
+            var spacer = document.createElement('div');
+            spacer.className = 'device-actions';
 
             var btn = document.createElement('button');
             btn.className = 'btn secondary';
@@ -1429,7 +1644,8 @@
                     }
                 });
             }
-            li.appendChild(btn);
+            spacer.appendChild(btn);
+            li.appendChild(spacer);
             ul.appendChild(li);
         });
 
@@ -1566,6 +1782,24 @@
     async function renderStorage() {
         var measured = { agg: {}, total: 0 };
         try { measured = await measureSuiteStorage(); } catch (_) {}
+        var directSession = getStoredSessionDirect();
+        if ((window.__emerald_test_account || (directSession && isTestSession(directSession))) && window.location.pathname === '/account.html') {
+            var email = directSession ? resolveSessionEmail(directSession).toLowerCase() : '';
+            var storageKey = email === GOOGLE_TEST_EMAIL ? 'emerald.google.test.storage' : 'emerald.test.storage';
+            var testUsage = null;
+            try { testUsage = JSON.parse(localStorage.getItem(storageKey) || 'null'); } catch (_) {}
+            if (!testUsage) {
+                testUsage = {
+                    Docs: Math.round(((email === GOOGLE_TEST_EMAIL ? 320 : 500) + Math.random() * 180) * 1024 * 1024),
+                    Slides: Math.round((90 + Math.random() * 220) * 1024 * 1024),
+                    Sheets: Math.round((60 + Math.random() * 170) * 1024 * 1024),
+                    Notes: Math.round((12 + Math.random() * 70) * 1024 * 1024),
+                    'AI Chat': Math.round((8 + Math.random() * 42) * 1024 * 1024)
+                };
+                try { localStorage.setItem(storageKey, JSON.stringify(testUsage)); } catch (_) {}
+            }
+            measured = { agg: testUsage, total: Object.keys(testUsage).reduce(function (sum, key) { return sum + testUsage[key]; }, 0) };
+        }
         var used = measured.total || 0;
 
         var quota = null;
@@ -1692,6 +1926,8 @@
 
         var name = profile.name || deriveDefaultName(email);
         var photo = profile.photo || '';
+        var removePhotoBtn = document.getElementById('removePhotoBtn');
+        if (removePhotoBtn) removePhotoBtn.disabled = !photo;
 
         setSrc('dashAvatar', photo);
         setSrc('overviewAvatar', photo);
@@ -1727,6 +1963,7 @@
            are prefilled from network (IP) location when still empty */
         var nameInput = document.getElementById('profileName');
         var birthInput = document.getElementById('profileBirth');
+        var phoneInput = document.getElementById('profilePhone');
         var cityInput = document.getElementById('profileCity');
         var regionInput = document.getElementById('profileRegion');
         var countryInput = document.getElementById('profileCountry');
@@ -1737,6 +1974,8 @@
         }
         if (birthInput) birthInput.value = profile.birth || '';
         setBirthdayPickerValue(profile.birth || '');
+        setGenderPickerValue(profile.gender || '');
+        if (phoneInput) phoneInput.value = profile.phone || '';
         if (cityInput) cityInput.value = profile.city || '';
         if (regionInput) regionInput.value = profile.region || '';
         if (countryInput) countryInput.value = profile.country || '';
@@ -1863,6 +2102,8 @@
             var profile = await loadProfile(email) || {};
             profile.name = document.getElementById('profileName').value.trim();
             profile.birth = document.getElementById('profileBirth').value;
+            profile.gender = document.getElementById('profileGenderBox').dataset.value || 'prefer-not-to-say';
+            profile.phone = document.getElementById('profilePhone').value.trim();
             profile.city = document.getElementById('profileCity').value.trim();
             profile.region = document.getElementById('profileRegion').value.trim();
             profile.country = document.getElementById('profileCountry').value;
@@ -1878,7 +2119,7 @@
     }
 
     /* dirty tracking: any text input change flips the button on */
-    ['profileName', 'profileCity', 'profileRegion', 'profileCountry'].forEach(function (id) {
+    ['profileName', 'profilePhone', 'profileCity', 'profileRegion', 'profileCountry'].forEach(function (id) {
         var el = document.getElementById(id);
         if (!el) return;
         el.addEventListener('input', function () { userEditedProfile = true; updateSaveButtonState(); });
@@ -1896,10 +2137,15 @@
         photoInput.addEventListener('change', async function () {
             var file = photoInput.files && photoInput.files[0];
             if (!file) return;
-            /* Decoding canvas handles big files; the cap only guards against
-               absurd inputs. */
-            if (file.size > 10 * 1024 * 1024) {
-                showToast('Image must be under 10 MB.');
+            var allowedTypes = ['image/jpeg', 'image/png'];
+            var allowedExtension = /\.(jpe?g|png)$/i.test(file.name || '');
+            if (allowedTypes.indexOf((file.type || '').toLowerCase()) === -1 || !allowedExtension) {
+                showToast('Choose a JPG or PNG image.');
+                photoInput.value = '';
+                return;
+            }
+            if (file.size > 2 * 1024 * 1024) {
+                showToast('Image must be 2 MB or smaller.');
                 photoInput.value = '';
                 return;
             }
@@ -1959,24 +2205,43 @@
                 return;
             }
 
+            if (msg) msg.textContent = '';
+            ['currentPassword', 'newPassword', 'confirmNewPassword'].forEach(function (id) {
+                setError(id, '');
+            });
+
             var current = document.getElementById('currentPassword').value;
             var newp = document.getElementById('newPassword').value;
             var confirm = document.getElementById('confirmNewPassword').value;
 
-            if (!current || !newp || !confirm) {
-                if (msg) msg.textContent = 'Please fill all fields.';
-                return;
+            if (!current) {
+                setError('currentPassword', 'Please enter your current password.');
             }
-            if (newp.length < 8) {
-                if (msg) msg.textContent = 'New password must be at least 8 characters.';
-                return;
+            if (!newp) {
+                setError('newPassword', 'Please enter a new password.');
+            } else if (newp.length < 8) {
+                setError('newPassword', 'Password must be at least 8 characters.');
             }
-            if (newp !== confirm) {
-                if (msg) msg.textContent = 'New passwords don\u2019t match.';
+            if (!confirm) {
+                setError('confirmNewPassword', 'Please confirm your new password.');
+            } else if (newp && newp !== confirm) {
+                setError('confirmNewPassword', 'Passwords don’t match.');
+            }
+            if (!current || !newp || newp.length < 8 || !confirm || newp !== confirm) {
                 return;
             }
 
             if (msg) msg.textContent = 'Password changing isn\u2019t available yet.';
+        });
+
+        ['currentPassword', 'newPassword', 'confirmNewPassword'].forEach(function (id) {
+            var input = document.getElementById(id);
+            if (!input) return;
+            input.addEventListener('input', function () {
+                if (input.classList.contains('invalid')) setError(id, '');
+                var msg = document.getElementById('passwordMsg');
+                if (msg) msg.textContent = '';
+            });
         });
     }
 
@@ -2082,6 +2347,7 @@
 
     var params = new URLSearchParams(window.location.search);
     initBirthdayPicker();
+    initGenderPicker();
     activateMode(params.get('tab') === 'register' ? 'register' : 'login', false);
 
     refreshSessionView().catch(function () {});

@@ -59,6 +59,33 @@ body {
     background: rgba(42, 180, 207, 0.3);
 }
 
+html {
+    scrollbar-width: auto;
+    scrollbar-color: #c1c1c1 #f1f1f1;
+}
+
+body {
+    overscroll-behavior-y: none;
+}
+
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
 :focus-visible {
     outline: 2px solid var(--ui-accent);
     outline-offset: 2px;
@@ -1567,6 +1594,90 @@ body {
     display: block;
 }
 
+#section-security {
+    max-width: 880px;
+}
+
+#section-security > .dash-title {
+    margin-bottom: 6px;
+}
+
+#section-security > .dash-sub {
+    margin-bottom: 26px;
+    line-height: 1.5;
+}
+
+#section-security > .dash-card {
+    padding: 26px 28px;
+    margin-bottom: 18px;
+}
+
+#section-security > .dash-card:last-child {
+    margin-bottom: 0;
+}
+
+#section-security > .dash-card:first-of-type > p {
+    margin-bottom: 0;
+}
+
+#section-security #passwordCard > p {
+    margin-bottom: 22px;
+}
+
+#section-security #passwordForm {
+    display: grid;
+    gap: 14px;
+}
+
+#section-security #passwordForm .field {
+    margin-bottom: 0;
+}
+
+#section-security #passwordForm .field input.invalid {
+    border-color: var(--danger);
+    background: var(--danger-soft);
+}
+
+#section-security #passwordForm .field input.invalid:focus {
+    box-shadow: 0 0 0 4px rgba(217, 48, 37, 0.20);
+}
+
+#section-security #passwordForm .error-message {
+    margin-top: 6px;
+    font-size: 0.82rem;
+    line-height: 1.35;
+}
+
+#section-security #passwordForm .btn.primary {
+    justify-self: end;
+    margin: 0;
+}
+
+#section-security .password-form-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 4px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+#section-security #passwordMsg {
+    margin: 0;
+}
+
+@media (max-width: 520px) {
+    #section-security .password-form-actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    #section-security #passwordForm .btn.primary {
+        width: 100%;
+    }
+}
+
 .dash-title {
     margin: 4px 0 4px;
     font-size: 1.7rem;
@@ -2069,6 +2180,158 @@ body {
     margin-bottom: 0;
 }
 
+/* Personal info */
+.account-dashboard {
+    width: 100%;
+    overflow-x: hidden;
+}
+
+.personal-head {
+    margin-bottom: 18px;
+}
+
+.personal-head .dash-sub {
+    margin-bottom: 0;
+}
+
+.personal-layout {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.72fr) minmax(420px, 1.28fr);
+    align-items: start;
+    gap: 16px;
+}
+
+.personal-layout .dash-card {
+    margin-bottom: 0;
+}
+
+.personal-photo-card,
+.personal-info-card {
+    border-radius: 8px;
+}
+
+    .card-heading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 34px;
+    margin-bottom: 18px;
+}
+
+.card-heading h2 {
+    margin: 0;
+    line-height: 34px;
+}
+
+.card-heading p {
+    margin: 0 !important;
+}
+
+.card-heading-icon {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    color: var(--ui-accent);
+    background: var(--ui-accent-soft);
+    border: 1px solid var(--ui-accent-border);
+}
+
+.card-heading-icon svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.personal-photo-card .photo-row {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 10px 0 3px;
+}
+
+.personal-photo-card .profile-photo {
+    width: 112px;
+    height: 112px;
+}
+
+.photo-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.photo-actions .muted {
+    flex-basis: 100%;
+    margin: 4px 0 0;
+}
+
+.remove-photo-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+    background: #edf1ee;
+    border-color: #dfe6e1;
+    color: #8a9a90 !important;
+}
+
+.profile-info-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+}
+
+.location-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 12px;
+}
+
+.location-grid .field-full {
+    grid-column: 1 / -1;
+}
+
+.form-group-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 4px 0 12px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-input);
+}
+
+.form-group-heading > span {
+    font-size: 0.82rem;
+    font-weight: 800;
+    color: var(--text-strong);
+}
+
+.form-group-heading p {
+    margin: 0 !important;
+}
+
+.profile-form-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 14px;
+    margin-top: 6px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-input);
+}
+
+.profile-form-footer .muted {
+    margin-left: auto;
+}
+
 /* profile card */
 .profile-card {
     display: flex;
@@ -2368,6 +2631,14 @@ body {
 }
 .device-section-head .muted { margin: 0; }
 
+.device-section-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
 /* custom confirm modal (EmeraldSuite/AI Chat-style dialog) */
 .emerald-modal-overlay {
     position: fixed;
@@ -2477,21 +2748,21 @@ body {
     list-style: none;
     padding: 0;
     margin: 0;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
 }
 
 .device-item {
-    display: flex;
+    display: grid;
+    grid-template-columns: 124px minmax(0, 1fr);
     align-items: center;
-    justify-content: space-between;
     gap: 12px;
-    padding: 12px 14px;
+    min-width: 0;
+    padding: 14px;
     border: 1px solid rgba(0, 0, 0, 0.06);
     border-radius: 12px;
     background: #fbfdfc;
-    flex-wrap: wrap;
     transition: background 0.2s ease, border-color 0.2s ease;
 }
 
@@ -2505,6 +2776,26 @@ body {
     flex-direction: column;
     gap: 3px;
     min-width: 0;
+}
+
+.device-item .device-art {
+    height: 112px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+}
+
+.device-item .device-art svg {
+    display: block;
+    width: 112px;
+    height: 104px;
+}
+
+.device-item .device-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: flex-end;
 }
 
 .device-item .device-name {
@@ -2532,6 +2823,10 @@ body {
         grid-template-columns: 1fr;
         padding: 0 14px;
         margin-top: 18px;
+    }
+
+    .device-list {
+        grid-template-columns: 1fr;
     }
 
     .dash-sidebar {
@@ -2616,6 +2911,16 @@ body {
 
 /* responsive tweaks for the dashboard top bar */
 @media (max-width: 900px) {
+    .personal-layout,
+    .personal-info-card,
+    .personal-photo-card,
+    .profile-form,
+    .profile-info-grid,
+    .location-grid {
+        min-width: 0;
+        max-width: 100%;
+    }
+
     .dash-header {
         gap: 10px;
         padding: 0 12px 0 14px;
@@ -2631,7 +2936,95 @@ body {
     }
 }
 
+@media (max-width: 1050px) {
+    .personal-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .personal-photo-card .photo-row {
+        flex-direction: row;
+        align-items: center;
+        text-align: left;
+        justify-content: flex-start;
+    }
+
+    .personal-photo-card .photo-actions {
+        justify-content: flex-start;
+        text-align: left;
+    }
+}
+
+@media (max-width: 900px) {
+    .personal-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
 @media (max-width: 520px) {
+    .dash-layout {
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+    }
+
+    .dash-sidebar,
+    .dash-main,
+    .personal-layout {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    .personal-layout {
+        display: block;
+    }
+
+    .personal-layout .personal-photo-card {
+        margin-bottom: 12px;
+    }
+
+    .personal-photo-card .profile-photo {
+        width: 96px;
+        height: 96px;
+    }
+
+    .location-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .birth-row {
+        gap: 6px;
+    }
+
+    .birth-row #profileBirthDay {
+        width: 64px;
+    }
+
+    .birth-row #profileBirthYear {
+        width: 74px;
+    }
+
+    .form-group-heading {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .profile-form-footer {
+        align-items: stretch;
+        flex-direction: column-reverse;
+    }
+
+    .profile-form-footer .muted {
+        margin: 0;
+        text-align: center;
+    }
+
+    .profile-form-footer .btn.primary {
+        width: 100%;
+    }
+
     .dash-search {
         display: none;
     }
