@@ -113,7 +113,7 @@
                 } catch (_) {}
                 return snapshot;
             } catch (error) {
-                if (error && error.status === 403) {
+                if (error && error.status === 403 && error.code === 'DEVICE_REVOKED') {
                     await clearSession();
                 }
                 return null;
@@ -358,6 +358,7 @@
             var reason = data && data.error ? data.error : (data && data.message ? data.message : 'Request failed.');
             var requestError = new Error(reason);
             requestError.status = response.status;
+            requestError.code = data && data.code ? data.code : null;
             throw requestError;
         }
 
@@ -495,8 +496,11 @@
 
         if (result && result.session) {
             await setSession(result.session);
+            try { localStorage.removeItem('emerald.account.revoked_devices'); } catch (_) {}
+            try { sessionStorage.removeItem('emerald.account.revoked_devices'); } catch (_) {}
             startAutoSync();
             syncCurrentData().catch(function () {});
+            pollDeviceRegistry().catch(function () {});
         }
 
         return result;
@@ -516,8 +520,11 @@
 
         if (result && result.session) {
             await setSession(result.session);
+            try { localStorage.removeItem('emerald.account.revoked_devices'); } catch (_) {}
+            try { sessionStorage.removeItem('emerald.account.revoked_devices'); } catch (_) {}
             startAutoSync();
             syncCurrentData().catch(function () {});
+            pollDeviceRegistry().catch(function () {});
         }
 
         return result;
@@ -675,7 +682,9 @@
                 }
             });
         } catch (error) {
-            if (error && (error.status === 401 || error.status === 404 || error.status === 403)) await clearSession();
+            if (error && error.status === 401) await clearSession();
+            if (error && error.status === 404) await clearSession();
+            if (error && error.status === 403 && error.code === 'DEVICE_REVOKED') await clearSession();
             throw error;
         }
 

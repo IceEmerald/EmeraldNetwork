@@ -226,8 +226,19 @@ function buildAuthSession(email, provider, token, deviceId) {
   };
 }
 
-function mergeDeviceInfo(userData, device) {
+function normalizeDeviceRegistry(userData) {
   const data = userData && typeof userData === 'object' ? { ...userData } : {};
+  const devices = Array.isArray(data['emerald.account.devices']) ? data['emerald.account.devices'] : [];
+  const activeIds = new Set(devices.filter((device) => device && device.id).map((device) => device.id));
+  const revoked = Array.isArray(data['emerald.account.revoked_devices'])
+    ? data['emerald.account.revoked_devices'].filter((id) => id && !activeIds.has(id)) : [];
+  data['emerald.account.devices'] = devices.filter((device) => device && device.id && !revoked.includes(device.id));
+  data['emerald.account.revoked_devices'] = revoked;
+  return data;
+}
+
+function mergeDeviceInfo(userData, device) {
+  let data = normalizeDeviceRegistry(userData);
   if (!device || !device.id) return data;
   const revokedKey = 'emerald.account.revoked_devices';
   if (Array.isArray(data[revokedKey])) {
@@ -240,7 +251,7 @@ function mergeDeviceInfo(userData, device) {
   else list.unshift(saved);
   data['emerald.account.devices'] = list;
   data[revokedKey] = Array.isArray(data[revokedKey]) ? data[revokedKey] : [];
-  return data;
+  return normalizeDeviceRegistry(data);
 }
 
 async function handleRegister(request, env) {
@@ -352,7 +363,10 @@ async function handleSync(request, env) {
   const revokedDevices = Array.isArray(user.data && user.data['emerald.account.revoked_devices'])
     ? user.data['emerald.account.revoked_devices']
     : [];
-  if (jwtPayload.deviceId && revokedDevices.includes(jwtPayload.deviceId)) {
+  const activeDevices = Array.isArray(user.data && user.data['emerald.account.devices'])
+    ? user.data['emerald.account.devices'] : [];
+  const deviceStillActive = jwtPayload.deviceId && activeDevices.some((device) => device && device.id === jwtPayload.deviceId);
+  if (jwtPayload.deviceId && revokedDevices.includes(jwtPayload.deviceId) && !deviceStillActive) {
     return jsonResponse({ error: 'Device signed out.', code: 'DEVICE_REVOKED' }, 403, {}, request, env);
   }
 
@@ -374,12 +388,8 @@ async function handleSync(request, env) {
       ? data['emerald.account.revoked_devices'] : [];
     ids.forEach((id) => { if (id && !revoked.includes(id)) revoked.push(id); });
   });
-  if (revoked.length) {
-    merged['emerald.account.revoked_devices'] = revoked;
-    if (Array.isArray(merged['emerald.account.devices'])) {
-      merged['emerald.account.devices'] = merged['emerald.account.devices'].filter((device) => !device || !revoked.includes(device.id));
-    }
-  }
+  if (revoked.length) merged['emerald.account.revoked_devices'] = revoked;
+  merged = normalizeDeviceRegistry(merged);
 
   await upsertUser(env, {
     ...user,
