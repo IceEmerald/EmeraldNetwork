@@ -241,10 +241,25 @@ function normalizeDeviceRegistry(userData) {
   return data;
 }
 
+function mergeServerDeviceLists(first, second) {
+  const merged = [];
+  const byId = new Map();
+  (Array.isArray(first) ? first : []).concat(Array.isArray(second) ? second : []).forEach((device) => {
+    if (!device || !device.id || byId.has(device.id)) return;
+    byId.set(device.id, device);
+    merged.push(device);
+  });
+  return merged.sort((a, b) => Number(b.updatedAt || b.addedAt || 0) - Number(a.updatedAt || a.addedAt || 0));
+}
+
 function mergeDeviceInfo(userData, device) {
   let data = normalizeDeviceRegistry(userData);
   if (!device || !device.id) return data;
   delete data['emerald.account.revoked_devices'];
+  const signOutRequests = data['emerald.account.signout_requests'] && typeof data['emerald.account.signout_requests'] === 'object'
+    ? { ...data['emerald.account.signout_requests'] } : {};
+  delete signOutRequests[device.id];
+  data['emerald.account.signout_requests'] = signOutRequests;
   const list = Array.isArray(data['emerald.account.devices']) ? data['emerald.account.devices'] : [];
   const existingIndex = list.findIndex((item) => item && item.id === device.id);
   const saved = { ...device, current: false, addedAt: device.addedAt || Date.now(), updatedAt: Date.now() };
@@ -362,9 +377,17 @@ async function handleDevices(request, env) {
     return jsonResponse({ error: 'Device signed out.', code: 'DEVICE_SIGNED_OUT' }, 403, {}, request, env);
   }
 
+  const normalizedDevices = Array.isArray(user.data['emerald.account.devices'])
+    ? user.data['emerald.account.devices'].filter((device) => {
+        if (!device || !device.id) return false;
+        const requestedAt = Number(signOutRequests[device.id]) || 0;
+        return requestedAt <= 0;
+      })
+    : [];
+
   return jsonResponse({
     ok: true,
-    devices: Array.isArray(user.data['emerald.account.devices']) ? user.data['emerald.account.devices'] : [],
+    devices: normalizedDevices,
     signOutRequests,
     syncedAt: Date.now()
   }, 200, {}, request, env);
@@ -408,6 +431,19 @@ async function handleSync(request, env) {
   const incoming = body.snapshot && typeof body.snapshot === 'object' ? body.snapshot : {};
   let merged = { ...(user.data || {}), ...incoming };
   delete merged['emerald.account.revoked_devices'];
+  merged['emerald.account.devices'] = mergeServerDeviceLists(
+    user.data && user.data['emerald.account.devices'],
+    incoming && incoming['emerald.account.devices']
+  );
+  const mergedSignOutRequests = {
+    ...(user.data && typeof user.data['emerald.account.signout_requests'] === 'object' ? user.data['emerald.account.signout_requests'] : {}),
+    ...(incoming && typeof incoming['emerald.account.signout_requests'] === 'object' ? incoming['emerald.account.signout_requests'] : {})
+  };
+  merged['emerald.account.signout_requests'] = mergedSignOutRequests;
+  merged['emerald.account.devices'] = merged['emerald.account.devices'].filter((device) => {
+    return !device || !device.id || !mergedSignOutRequests[device.id];
+  });
+  merged = normalizeDeviceRegistry(merged);
 
   await upsertUser(env, {
     ...user,

@@ -717,6 +717,10 @@
 
     async function importDeviceRegistry(snapshot) {
         if (!snapshot || typeof snapshot !== 'object') return;
+        var serverDevices = snapshot && snapshot['emerald.account.devices'];
+        if (Array.isArray(serverDevices)) {
+            snapshot = Object.assign({}, snapshot, { 'emerald.account.devices': serverDevices });
+        }
         var keys = ['emerald.account.devices', 'emerald.account.signout_requests'];
         for (var index = 0; index < keys.length; index++) {
             var key = keys[index];

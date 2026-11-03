@@ -1869,6 +1869,7 @@
         var seen = {};
         (Array.isArray(list) ? list : []).forEach(function (device) {
             if (!device || !device.id || seen[device.id]) return;
+            if (signOutRequests[device.id]) return;
             seen[device.id] = true;
             unique.push(Object.assign({}, device, { current: device.id === currentId }));
         });
