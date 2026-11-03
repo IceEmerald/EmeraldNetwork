@@ -1246,18 +1246,18 @@
                     var current = await loadDevices();
                     var next = current.filter(function (x) { return x.id !== d.id; });
                     await saveDevices(next);
-                    var revokedKey = 'emerald.account.revoked_devices';
-                    var revoked = [];
+                    var signOutKey = 'emerald.account.signout_requests';
+                    var signOutRequests = {};
                     try {
-                        revoked = await window.EmeraldIDBStorage.getJSON(revokedKey) || [];
+                        signOutRequests = await window.EmeraldIDBStorage.getJSON(signOutKey) || {};
                     } catch (_) {}
-                    if (!Array.isArray(revoked)) revoked = [];
-                    if (!revoked.includes(d.id)) revoked.push(d.id);
+                    if (!signOutRequests || typeof signOutRequests !== 'object' || Array.isArray(signOutRequests)) signOutRequests = {};
+                    signOutRequests[d.id] = Math.floor(Date.now() / 1000);
                     await waitForStorageReady();
                     if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.setJSON === 'function') {
-                        await window.EmeraldIDBStorage.setJSON(revokedKey, revoked);
+                        await window.EmeraldIDBStorage.setJSON(signOutKey, signOutRequests);
                     }
-                    try { localStorage.setItem(revokedKey, JSON.stringify(revoked)); } catch (_) {}
+                    try { localStorage.setItem(signOutKey, JSON.stringify(signOutRequests)); } catch (_) {}
                     await renderDevices(next);
                     showToast('Device removed and signed out.');
                     if (window.EmeraldAuth && typeof window.EmeraldAuth.syncCurrentData === 'function') {
@@ -1861,14 +1861,14 @@
         if (!Array.isArray(list)) {
             list = await loadDevices();
         }
-        var revoked = snapshot && snapshot['emerald.account.revoked_devices'];
-        if (!Array.isArray(revoked)) revoked = [];
+        var signOutRequests = snapshot && snapshot['emerald.account.signout_requests'];
+        if (!signOutRequests || typeof signOutRequests !== 'object') signOutRequests = {};
 
         var currentId = getDeviceId();
         var unique = [];
         var seen = {};
         (Array.isArray(list) ? list : []).forEach(function (device) {
-            if (!device || !device.id || revoked.includes(device.id) || seen[device.id]) return;
+            if (!device || !device.id || seen[device.id]) return;
             seen[device.id] = true;
             unique.push(Object.assign({}, device, { current: device.id === currentId }));
         });

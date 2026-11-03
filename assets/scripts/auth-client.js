@@ -99,7 +99,8 @@
                     ? result.snapshot : {};
                 var registry = {
                     devices: Array.isArray(snapshot['emerald.account.devices']) ? snapshot['emerald.account.devices'] : [],
-                    revoked: Array.isArray(snapshot['emerald.account.revoked_devices']) ? snapshot['emerald.account.revoked_devices'] : []
+                    signOutRequests: snapshot['emerald.account.signout_requests'] && typeof snapshot['emerald.account.signout_requests'] === 'object'
+                        ? snapshot['emerald.account.signout_requests'] : {}
                 };
                 var hash = JSON.stringify(registry);
                 if (hash === lastDeviceRegistryHash) return snapshot;
@@ -113,7 +114,7 @@
                 } catch (_) {}
                 return snapshot;
             } catch (error) {
-                if (error && error.status === 403 && error.code === 'DEVICE_REVOKED') {
+                if (error && error.status === 403 && error.code === 'DEVICE_SIGNED_OUT') {
                     await clearSession();
                 }
                 return null;
@@ -279,19 +280,7 @@
 
     async function revokeDevice(deviceId, options) {
         await waitForStorage();
-        var revokedKey = 'emerald.account.revoked_devices';
-        var revoked = [];
-        if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.getJSON === 'function') {
-            try { revoked = await window.EmeraldIDBStorage.getJSON(revokedKey) || []; } catch (_) {}
-        }
-        if (!Array.isArray(revoked)) revoked = [];
         var id = deviceId || getDeviceId();
-        if (!revoked.includes(id)) revoked.push(id);
-        if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.setJSON === 'function') {
-            await window.EmeraldIDBStorage.setJSON(revokedKey, revoked);
-        }
-        try { localStorage.setItem(revokedKey, JSON.stringify(revoked)); } catch (_) {}
-
         if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.getJSON === 'function') {
             try {
                 var devices = await window.EmeraldIDBStorage.getJSON('emerald.account.devices');
@@ -496,8 +485,6 @@
 
         if (result && result.session) {
             await setSession(result.session);
-            try { localStorage.removeItem('emerald.account.revoked_devices'); } catch (_) {}
-            try { sessionStorage.removeItem('emerald.account.revoked_devices'); } catch (_) {}
             startAutoSync();
             syncCurrentData().catch(function () {});
             pollDeviceRegistry().catch(function () {});
@@ -520,8 +507,6 @@
 
         if (result && result.session) {
             await setSession(result.session);
-            try { localStorage.removeItem('emerald.account.revoked_devices'); } catch (_) {}
-            try { sessionStorage.removeItem('emerald.account.revoked_devices'); } catch (_) {}
             startAutoSync();
             syncCurrentData().catch(function () {});
             pollDeviceRegistry().catch(function () {});
@@ -530,12 +515,11 @@
         return result;
     }
 
-    function mergeDeviceLists(localList, remoteList, revokedIds) {
+    function mergeDeviceLists(localList, remoteList) {
         var merged = [];
-        var revoked = Array.isArray(revokedIds) ? revokedIds : [];
         var byId = {};
         (localList || []).concat(remoteList || []).forEach(function (device) {
-            if (!device || !device.id || revoked.includes(device.id)) return;
+            if (!device || !device.id) return;
             var existing = byId[device.id];
             var candidate = existing && Number(existing.addedAt || 0) >= Number(device.addedAt || 0)
                 ? existing
@@ -576,16 +560,7 @@
             var localValue = localSnapshot && Object.prototype.hasOwnProperty.call(localSnapshot, key) ? localSnapshot[key] : null;
             var remoteValue = remoteSnapshot && Object.prototype.hasOwnProperty.call(remoteSnapshot, key) ? remoteSnapshot[key] : null;
             if (key === 'emerald.account.devices' && (Array.isArray(localValue) || Array.isArray(remoteValue))) {
-                var revokedIds = [];
-                var revokedSources = [localSnapshot, remoteSnapshot];
-                revokedSources.forEach(function (snapshot) {
-                    var ids = snapshot && snapshot['emerald.account.revoked_devices'];
-                    if (Array.isArray(ids)) ids.forEach(function (id) {
-                        if (id && !revokedIds.includes(id)) revokedIds.push(id);
-                    });
-                });
-                merged[key] = mergeDeviceLists(Array.isArray(localValue) ? localValue : [], Array.isArray(remoteValue) ? remoteValue : [], revokedIds);
-                merged['emerald.account.revoked_devices'] = revokedIds;
+                merged[key] = mergeDeviceLists(Array.isArray(localValue) ? localValue : [], Array.isArray(remoteValue) ? remoteValue : []);
                 return;
             }
             var localUpdated = Math.max(Number(localMeta.updated && localMeta.updated[key]) || 0, updatedAt(localValue));
@@ -684,7 +659,7 @@
         } catch (error) {
             if (error && error.status === 401) await clearSession();
             if (error && error.status === 404) await clearSession();
-            if (error && error.status === 403 && error.code === 'DEVICE_REVOKED') await clearSession();
+            if (error && error.status === 403 && error.code === 'DEVICE_SIGNED_OUT') await clearSession();
             throw error;
         }
 
@@ -730,7 +705,7 @@
 
     async function importDeviceRegistry(snapshot) {
         if (!snapshot || typeof snapshot !== 'object') return;
-        var keys = ['emerald.account.devices', 'emerald.account.revoked_devices'];
+        var keys = ['emerald.account.devices', 'emerald.account.signout_requests'];
         for (var index = 0; index < keys.length; index++) {
             var key = keys[index];
             var value = snapshot[key];

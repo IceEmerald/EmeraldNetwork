@@ -229,28 +229,29 @@ function buildAuthSession(email, provider, token, deviceId) {
 function normalizeDeviceRegistry(userData) {
   const data = userData && typeof userData === 'object' ? { ...userData } : {};
   const devices = Array.isArray(data['emerald.account.devices']) ? data['emerald.account.devices'] : [];
-  const activeIds = new Set(devices.filter((device) => device && device.id).map((device) => device.id));
-  const revoked = Array.isArray(data['emerald.account.revoked_devices'])
-    ? data['emerald.account.revoked_devices'].filter((id) => id && !activeIds.has(id)) : [];
-  data['emerald.account.devices'] = devices.filter((device) => device && device.id && !revoked.includes(device.id));
-  data['emerald.account.revoked_devices'] = revoked;
+  const uniqueDevices = [];
+  const seen = new Set();
+  devices.forEach((device) => {
+    if (!device || !device.id || seen.has(device.id)) return;
+    seen.add(device.id);
+    uniqueDevices.push(device);
+  });
+  data['emerald.account.devices'] = uniqueDevices;
+  delete data['emerald.account.revoked_devices'];
   return data;
 }
 
 function mergeDeviceInfo(userData, device) {
   let data = normalizeDeviceRegistry(userData);
   if (!device || !device.id) return data;
-  const revokedKey = 'emerald.account.revoked_devices';
-  if (Array.isArray(data[revokedKey])) {
-    data[revokedKey] = data[revokedKey].filter((id) => id !== device.id);
-  }
+  delete data['emerald.account.revoked_devices'];
   const list = Array.isArray(data['emerald.account.devices']) ? data['emerald.account.devices'] : [];
   const existingIndex = list.findIndex((item) => item && item.id === device.id);
   const saved = { ...device, current: false, addedAt: device.addedAt || Date.now(), updatedAt: Date.now() };
   if (existingIndex >= 0) list[existingIndex] = { ...list[existingIndex], ...saved };
   else list.unshift(saved);
   data['emerald.account.devices'] = list;
-  data[revokedKey] = Array.isArray(data[revokedKey]) ? data[revokedKey] : [];
+  delete data['emerald.account.revoked_devices'];
   return normalizeDeviceRegistry(data);
 }
 
@@ -360,14 +361,12 @@ async function handleSync(request, env) {
     return jsonResponse({ error: 'User not found.' }, 404, {}, request, env);
   }
 
-  const revokedDevices = Array.isArray(user.data && user.data['emerald.account.revoked_devices'])
-    ? user.data['emerald.account.revoked_devices']
-    : [];
-  const activeDevices = Array.isArray(user.data && user.data['emerald.account.devices'])
-    ? user.data['emerald.account.devices'] : [];
-  const deviceStillActive = jwtPayload.deviceId && activeDevices.some((device) => device && device.id === jwtPayload.deviceId);
-  if (jwtPayload.deviceId && revokedDevices.includes(jwtPayload.deviceId) && !deviceStillActive) {
-    return jsonResponse({ error: 'Device signed out.', code: 'DEVICE_REVOKED' }, 403, {}, request, env);
+  const signOutRequests = user.data && typeof user.data['emerald.account.signout_requests'] === 'object'
+    ? user.data['emerald.account.signout_requests'] : {};
+  const requestedAt = jwtPayload.deviceId ? Number(signOutRequests[jwtPayload.deviceId]) || 0 : 0;
+  const issuedAt = Number(jwtPayload.iat) || 0;
+  if (requestedAt > 0 && issuedAt <= requestedAt) {
+    return jsonResponse({ error: 'Device signed out.', code: 'DEVICE_SIGNED_OUT' }, 403, {}, request, env);
   }
 
   if (request.method === 'GET') {
@@ -382,14 +381,7 @@ async function handleSync(request, env) {
   const body = await parseJsonBody(request);
   const incoming = body.snapshot && typeof body.snapshot === 'object' ? body.snapshot : {};
   let merged = { ...(user.data || {}), ...incoming };
-  const revoked = [];
-  [user.data, incoming].forEach((data) => {
-    const ids = data && Array.isArray(data['emerald.account.revoked_devices'])
-      ? data['emerald.account.revoked_devices'] : [];
-    ids.forEach((id) => { if (id && !revoked.includes(id)) revoked.push(id); });
-  });
-  if (revoked.length) merged['emerald.account.revoked_devices'] = revoked;
-  merged = normalizeDeviceRegistry(merged);
+  delete merged['emerald.account.revoked_devices'];
 
   await upsertUser(env, {
     ...user,
