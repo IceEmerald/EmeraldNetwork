@@ -2548,6 +2548,7 @@ class NotesApp {
         this.renderNotesList();
         this.renderNotesCards();
         this.debouncedSave();
+        try { window.EmeraldHistory.action('Created note'); } catch (_) {}
         setTimeout(() => {
             const titleInput = document.getElementById('noteTitle');
             if (!titleInput) {
@@ -2750,6 +2751,7 @@ class NotesApp {
             this.saveNotesToStorage();
             this.renderNotesList();
             this.renderNotesCards();
+            try { window.EmeraldHistory.action('Deleted note \u201C' + title + '\u201D'); } catch (_) {}
         });
     }
     renderNotesList() {
@@ -4932,6 +4934,7 @@ class NotesApp {
             exportModal.classList.add('show');
             exportLink.value = shareLink;
             exportLink.select();
+            try { window.EmeraldHistory.action('Exported note \u201C' + (note.title || 'Untitled Note') + '\u201D as a link'); } catch (_) {}
             const cleanup = () => {
                 exportModal.classList.remove('show');
                 cancelBtn.removeEventListener('click', cleanup);
@@ -5065,6 +5068,7 @@ class NotesApp {
             this.renderNotesList();
             this.renderNotesCards();
             this.saveNotesToStorage();
+            try { window.EmeraldHistory.action('Imported shared note \u201C' + (newNote.title || 'Untitled') + '\u201D'); } catch (_) {}
             setTimeout(() => this.showImportModal(data.t || 'Untitled'), 150);
         } catch (error) { console.error('Error importing note:', error); }
     }

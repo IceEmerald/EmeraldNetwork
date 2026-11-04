@@ -73,7 +73,8 @@ function corsHeaders(request, env) {
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, If-None-Match',
+    'Access-Control-Expose-Headers': 'ETag',
     'Access-Control-Allow-Credentials': 'true',
     'Vary': 'Origin'
   };
@@ -176,6 +177,217 @@ function parseJsonBody(request) {
   return request.json().catch(() => ({}));
 }
 
+const SYNC_META_KEY = '__emerald_sync_meta_v1__';
+const HISTORY_KEY = 'emerald.activity.history.v1';
+const HISTORY_MAX_ENTRIES = 400;
+const SYNC_PAYLOAD_LIMIT = 8 * 1024 * 1024;
+
+function isPlainObject(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function hashText(value) {
+  const text = String(value || '');
+  let hash = 2166136261;
+  for (let index = 0; index < text.length; index++) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16);
+}
+
+async function syncEtag(raw) {
+  const value = typeof raw === 'string' ? raw : '{}';
+  // Native SHA-256 is fast even for multi-megabyte snapshots and, unlike a
+  // length-only tag, can never return a stale 304 after a same-size edit.
+  try {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+    const bytes = new Uint8Array(digest);
+    let hex = '';
+    for (let index = 0; index < 8; index++) {
+      hex += bytes[index].toString(16).padStart(2, '0');
+    }
+    return `"${value.length.toString(16)}-${hex}"`;
+  } catch (_) {
+    return `"${value.length.toString(16)}-${hashText(value)}"`;
+  }
+}
+
+function normalizeSyncMeta(meta) {
+  const result = { updated: {}, deleted: {} };
+  if (!isPlainObject(meta)) return result;
+  ['updated', 'deleted'].forEach((field) => {
+    const source = isPlainObject(meta[field]) ? meta[field] : {};
+    Object.keys(source).forEach((key) => {
+      if (!key || key === SYNC_META_KEY) return;
+      const stamp = Math.floor(Number(source[key]) || 0);
+      if (stamp > 0) result[field][key] = stamp;
+    });
+  });
+  return result;
+}
+
+function valueUpdatedAt(value) {
+  if (!isPlainObject(value)) return 0;
+  const raw = value.updatedAt;
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : 0;
+  const parsed = Date.parse(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizeHistoryEntry(value) {
+  if (!isPlainObject(value)) return null;
+  const t = Number(value.t) || 0;
+  if (!t) return null;
+  const entry = {
+    id: typeof value.id === 'string' && value.id ? value.id : '',
+    t,
+    kind: String(value.kind || 'action'),
+    label: String(value.label || value.title || 'Action').slice(0, 240),
+    title: String(value.title || value.label || 'Action').slice(0, 240),
+    path: String(value.path || '/').slice(0, 500),
+    n: Math.max(1, Number(value.n) || 1)
+  };
+  if (!entry.id) {
+    entry.id = `h_${t.toString(36)}_${hashText([entry.kind, entry.path, entry.label, entry.n].join('\u0001'))}`;
+  }
+  return entry;
+}
+
+function historyEntries(value) {
+  if (isPlainObject(value) && Array.isArray(value.entries)) return value.entries;
+  if (Array.isArray(value)) return value;
+  return [];
+}
+
+function historyClearedAt(value) {
+  if (!isPlainObject(value)) return 0;
+  return Math.max(0, Math.floor(Number(value.clearedAt) || 0));
+}
+
+function mergeHistoryPayloads(first, second) {
+  const clearedAt = Math.max(historyClearedAt(first), historyClearedAt(second));
+  const byId = new Map();
+  historyEntries(first).concat(historyEntries(second)).forEach((item) => {
+    const entry = normalizeHistoryEntry(item);
+    if (!entry || entry.t <= clearedAt) return;
+    const existing = byId.get(entry.id);
+    if (!existing || entry.t > existing.t || (entry.t === existing.t && entry.n > existing.n)) {
+      byId.set(entry.id, entry);
+    }
+  });
+
+  const entries = Array.from(byId.values())
+    .sort((a, b) => b.t - a.t || b.n - a.n)
+    .slice(0, HISTORY_MAX_ENTRIES);
+  const updatedAt = Math.max(
+    valueUpdatedAt(first),
+    valueUpdatedAt(second),
+    clearedAt,
+    entries.length ? entries[0].t : 0
+  );
+  return { v: 2, updatedAt, clearedAt, entries };
+}
+
+// Merge a client snapshot into the stored account data without letting an
+// older device overwrite a newer edit. Each key is resolved independently
+// using the client/server sync metadata. History is a union so actions from
+// every device survive, and tombstones delete keys across devices.
+function mergeSyncData(serverData, clientData) {
+  const server = isPlainObject(serverData) ? serverData : {};
+  const client = isPlainObject(clientData) ? clientData : {};
+  const serverMeta = normalizeSyncMeta(server[SYNC_META_KEY]);
+  const clientMeta = normalizeSyncMeta(client[SYNC_META_KEY]);
+  const merged = {};
+  const mergedMeta = { updated: {}, deleted: {} };
+  const authoritative = new Set([
+    SYNC_META_KEY,
+    'emerald.account.revoked_devices',
+    'emerald.account.devices',
+    'emerald.account.signout_requests'
+  ]);
+
+  function markUpdated(key, stamp) {
+    const value = Math.floor(Number(stamp) || 0);
+    if (!key || !value) return;
+    if ((mergedMeta.deleted[key] || 0) >= value) return;
+    mergedMeta.updated[key] = value;
+    delete mergedMeta.deleted[key];
+  }
+
+  function markDeleted(key, stamp) {
+    const value = Math.floor(Number(stamp) || 0);
+    if (!key || !value) return;
+    mergedMeta.deleted[key] = value;
+    delete mergedMeta.updated[key];
+  }
+
+  const keys = new Set([...Object.keys(server), ...Object.keys(client)]);
+  keys.forEach((key) => {
+    if (authoritative.has(key)) return;
+
+    const hasServer = Object.prototype.hasOwnProperty.call(server, key);
+    const hasClient = Object.prototype.hasOwnProperty.call(client, key);
+    const serverValue = hasServer ? server[key] : null;
+    const clientValue = hasClient ? client[key] : null;
+    const serverUpd = Math.max(serverMeta.updated[key] || 0, valueUpdatedAt(serverValue));
+    const clientUpd = Math.max(clientMeta.updated[key] || 0, valueUpdatedAt(clientValue));
+    const serverDel = serverMeta.deleted[key] || 0;
+    const clientDel = clientMeta.deleted[key] || 0;
+    const newestUpd = Math.max(serverUpd, clientUpd);
+    const newestDel = Math.max(serverDel, clientDel);
+
+    if (newestDel >= newestUpd && newestDel > 0) {
+      markDeleted(key, newestDel);
+      return;
+    }
+
+    if (key === HISTORY_KEY) {
+      const history = mergeHistoryPayloads(serverValue, clientValue);
+      merged[key] = history;
+      markUpdated(key, Math.max(newestUpd, history.updatedAt) || Date.now());
+      return;
+    }
+
+    const hasStamp = newestUpd > 0 || newestDel > 0;
+    // Legacy snapshots (no sync metadata at all) keep the old behaviour of
+    // replacing server values with the incoming ones.
+    const useClient = hasStamp
+      ? (hasClient && (!hasServer || clientUpd > serverUpd))
+      : hasClient;
+
+    const chosen = useClient ? clientValue : serverValue;
+    if (chosen == null) {
+      if (hasStamp) markDeleted(key, Math.max(newestDel, newestUpd));
+      return;
+    }
+
+    merged[key] = chosen;
+    markUpdated(key, newestUpd || Date.now());
+  });
+
+  // Carry forward metadata for keys that no longer have a value. This keeps
+  // tombstones durable so a stale device cannot resurrect deleted data.
+  const stampKeys = new Set([
+    ...Object.keys(serverMeta.updated),
+    ...Object.keys(serverMeta.deleted),
+    ...Object.keys(clientMeta.updated),
+    ...Object.keys(clientMeta.deleted)
+  ]);
+  stampKeys.forEach((key) => {
+    if (authoritative.has(key)) return;
+    if (Object.prototype.hasOwnProperty.call(merged, key)) return;
+    if (mergedMeta.updated[key] || mergedMeta.deleted[key]) return;
+    const updated = Math.max(serverMeta.updated[key] || 0, clientMeta.updated[key] || 0);
+    const deleted = Math.max(serverMeta.deleted[key] || 0, clientMeta.deleted[key] || 0);
+    if (deleted >= updated && deleted > 0) markDeleted(key, deleted);
+    else if (updated > 0) markUpdated(key, updated);
+  });
+
+  merged[SYNC_META_KEY] = mergedMeta;
+  return merged;
+}
+
 const userDataCache = new Map();
 
 async function readUserByEmail(env, email) {
@@ -190,12 +402,15 @@ async function readUserByEmail(env, email) {
   if (!row) return null;
 
   const rawData = typeof row.data === 'string' ? row.data : JSON.stringify(row.data || {});
-  // Keep a small parsed-object cache keyed by row version: repeated device
-  // polling / sync reads on the same row no longer pay for a huge JSON.parse.
-  // Entries stay small (<= 512KB) and the map stays tiny so rows carrying
-  // multi-megabyte payloads never pile up in isolate memory.
-  const cacheKey = `${row.email}:${row.updatedAt || ''}:${rawData.length}`;
+  // Keep a small parsed-object cache keyed by the exact row bytes: repeated
+  // device polling / sync reads on the same row no longer pay for a huge
+  // JSON.parse. Entries stay small (<= 512KB) and the map stays tiny so rows
+  // carrying multi-megabyte payloads never pile up in isolate memory. The
+  // content hash matters because two writes can share a timestamp length.
   const cacheable = rawData.length <= 512 * 1024;
+  const cacheKey = cacheable
+    ? `${row.email}:${row.updatedAt || ''}:${rawData.length}:${hashText(rawData)}`
+    : '';
   let parsed = cacheable ? userDataCache.get(cacheKey) : null;
   if (!parsed) {
     parsed = { data: row.data ? JSON.parse(rawData) : {} };
@@ -503,19 +718,40 @@ async function handleSync(request, env) {
     // re-stringifying megabytes of parsed data on every poll — that single
     // stringify per request was what blew the worker CPU budget (Error 1102).
     const raw = typeof user.rawData === 'string' && user.rawData ? user.rawData : '{}';
-    const envelope = `{"ok":true,"user":{"email":${JSON.stringify(user.email)}},"syncedAt":${Date.now()},"snapshot":${raw}}`;
+    const etag = await syncEtag(raw);
+    if (request.headers.get('If-None-Match') === etag) {
+      return new Response(null, {
+        status: 304,
+        headers: {
+          'ETag': etag,
+          'Cache-Control': 'no-store',
+          ...corsHeaders(request, env)
+        }
+      });
+    }
+
+    const envelope = `{"ok":true,"user":{"email":${JSON.stringify(user.email)}},"syncedAt":${Date.now()},"etag":${JSON.stringify(etag)},"snapshot":${raw}}`;
     return new Response(envelope, {
       status: 200,
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
+        'ETag': etag,
         'Cache-Control': 'no-store',
         ...corsHeaders(request, env)
       }
     });
   }
 
+  const contentLength = Number(request.headers.get('content-length') || 0);
+  if (contentLength > SYNC_PAYLOAD_LIMIT) {
+    return jsonResponse({
+      error: 'This account snapshot is too large to sync.',
+      code: 'SYNC_TOO_LARGE'
+    }, 413, {}, request, env);
+  }
+
   const body = await parseJsonBody(request);
-  const incoming = body.snapshot && typeof body.snapshot === 'object' ? body.snapshot : {};
+  const incoming = isPlainObject(body.snapshot) ? body.snapshot : {};
   let userData = user.data && typeof user.data === 'object' ? { ...user.data } : {};
 
   // A signed-in device is authoritative about itself. Re-register it when
@@ -532,18 +768,35 @@ async function handleSync(request, env) {
     }
   }
 
-  let merged = { ...userData, ...incoming };
+  let merged = mergeSyncData(userData, incoming);
   delete merged['emerald.account.revoked_devices'];
   // Browser snapshots must not own device registry state. The login and
   // device-action endpoints are authoritative for additions/removals.
   merged['emerald.account.devices'] = Array.isArray(userData['emerald.account.devices'])
     ? userData['emerald.account.devices'].filter((device) => device && device.id)
     : [];
-  merged['emerald.account.signout_requests'] = user.data && typeof user.data['emerald.account.signout_requests'] === 'object'
-    ? { ...user.data['emerald.account.signout_requests'] } : {};
+  merged['emerald.account.signout_requests'] = userData && isPlainObject(userData['emerald.account.signout_requests'])
+    ? { ...userData['emerald.account.signout_requests'] } : {};
   merged = normalizeDeviceRegistry(merged);
 
+  // Device registry state is server-owned; keep it out of the sync metadata
+  // so a stale client stamp can never delete or override it.
+  const mergedMeta = normalizeSyncMeta(merged[SYNC_META_KEY]);
+  delete mergedMeta.updated['emerald.account.devices'];
+  delete mergedMeta.updated['emerald.account.signout_requests'];
+  delete mergedMeta.deleted['emerald.account.devices'];
+  delete mergedMeta.deleted['emerald.account.signout_requests'];
+  merged[SYNC_META_KEY] = mergedMeta;
+
   const mergedDataJson = JSON.stringify(merged);
+  if (mergedDataJson.length > SYNC_PAYLOAD_LIMIT) {
+    return jsonResponse({
+      error: 'This account snapshot is too large to sync.',
+      code: 'SYNC_TOO_LARGE'
+    }, 413, {}, request, env);
+  }
+  const mergedEtag = await syncEtag(mergedDataJson);
+
   if (user.rawData === mergedDataJson) {
     // Nothing actually changed; skip a costly D1 write and the full
     // response payload. The client already holds this snapshot.
@@ -551,6 +804,7 @@ async function handleSync(request, env) {
       ok: true,
       user: { email: user.email },
       syncedAt: Date.now(),
+      etag: mergedEtag,
       count: Object.keys(merged).length,
       snapshot: null
     }, 200, {}, request, env);
@@ -568,6 +822,7 @@ async function handleSync(request, env) {
     ok: true,
     user: { email: user.email },
     syncedAt: Date.now(),
+    etag: mergedEtag,
     count: Object.keys(merged).length,
     snapshot: merged
   }, 200, {}, request, env);

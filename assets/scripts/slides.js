@@ -478,7 +478,8 @@ class SlidesApp {
         const openId = ownedId || legacyPresId;
         if (openId) {
             const meta = this.presentations.find(p => p.id === openId);
-            if (meta) { await this.openPresentation(openId); return; }
+            // Deep links are not user actions; do not record them.
+            if (meta) { await this.openPresentation(openId, false); return; }
             // Not found locally — clear stale URL (like notes.js does)
             history.replaceState(null, '', location.pathname);
         }
@@ -701,7 +702,8 @@ class SlidesApp {
         });
         await this.saveIndex();
         await this.savePresData(pres);
-        await this.openPresentation(pres.id);
+        await this.openPresentation(pres.id, false);
+        try { window.EmeraldHistory.action(`Created presentation \u201C${pres.title}\u201D`); } catch (_) {}
     }
 
     // Compute the next sequential "Untitled Presentation" title so that
@@ -761,7 +763,7 @@ class SlidesApp {
         this.showWelcomeScreen(true);
     }
 
-    async openPresentation(id) {
+    async openPresentation(id, logOpen) {
         const data = await this.loadPresData(id);
         if (!data) { this.showToast('Could not load presentation.'); return; }
         this.pres = data;
@@ -808,6 +810,9 @@ class SlidesApp {
         const url = new URL(location.href);
         url.searchParams.set('owned', this.pres.id);
         history.replaceState(null, '', url);
+        if (logOpen !== false) {
+            try { window.EmeraldHistory.action(`Opened presentation \u201C${this.pres.title || 'Untitled Presentation'}\u201D`); } catch (_) {}
+        }
     }
 
     /**
@@ -829,6 +834,7 @@ class SlidesApp {
     }
 
     async deletePresentation(id) {
+        const deleted = this.presentations.find(p => p.id === id);
         this.presentations = this.presentations.filter(p => p.id !== id);
         await Promise.all([this.saveIndex(), this.deletePresData(id)]);
         if (this.pres && this.pres.id === id) {
@@ -843,6 +849,7 @@ class SlidesApp {
             }
         this.renderWelcomeCards();
         this.showToast('Presentation deleted.');
+        try { window.EmeraldHistory.action(`Deleted presentation \u201C${(deleted && deleted.title) || 'Untitled Presentation'}\u201D`); } catch (_) {}
     }
 
     // ── Slide Management ───────────────────────────────────────
@@ -4806,6 +4813,7 @@ class SlidesApp {
         this.renderSlideList();
         this.renderCanvas();
         this.showToast(`Saved as "${newTitle}".`);
+        try { window.EmeraldHistory.action(`Saved a copy \u201C${newTitle}\u201D`); } catch (_) {}
     }
 
     // ── DRAW MODE (bottom-toolbar, notes-app style) ──
@@ -7048,6 +7056,7 @@ class SlidesApp {
             URL.revokeObjectURL(url);
         });
         this.showToast(`Exported ${svgStrings.length} SVG files.`);
+        try { window.EmeraldHistory.action('Exported presentation as SVG'); } catch (_) {}
     }
 
     // ── Delete Modal (presentations only — slide deletion is direct & undoable) ──
@@ -7999,6 +8008,7 @@ class SlidesApp {
 
             await pptx.writeFile({ fileName: `${this.pres.title || 'presentation'}.pptx` });
             this.showToast('✓ PPTX exported!');
+            try { window.EmeraldHistory.action('Exported presentation as PPTX'); } catch (_) {}
         } catch (err) {
             console.error('PPTX export error:', err);
             this.showToast('Export failed: ' + err.message, 5000);
@@ -8044,6 +8054,7 @@ class SlidesApp {
             this.renderCanvas();
             pdf.save(`${this.pres.title || 'presentation'}.pdf`);
             this.showToast('✓ PDF exported!');
+            try { window.EmeraldHistory.action('Exported presentation as PDF'); } catch (_) {}
         } catch (err) {
             console.error('PDF export error:', err);
             this.showToast('PDF export failed: ' + err.message, 5000);
@@ -8890,8 +8901,9 @@ let slideIndex = 0;
             this.presentations.unshift({ id: pres.id, title: pres.title, updatedAt: pres.updatedAt, slideCount: pres.slides.length });
             await this.saveIndex();
             await this.savePresData(pres);
-            await this.openPresentation(pres.id);
+            await this.openPresentation(pres.id, false);
             this.showToast(`Imported ${pres.slides.length} slides from PPTX.`);
+            try { window.EmeraldHistory.action('Imported presentation from PPTX'); } catch (_) {}
         } catch (err) {
             console.error('PPTX import error:', err);
             this.showToast('Import failed: ' + (err && err.message ? err.message : err), 5000);
@@ -8975,8 +8987,9 @@ let slideIndex = 0;
             this.presentations.unshift({ id: pres.id, title: pres.title, updatedAt: pres.updatedAt, slideCount: pres.slides.length });
             await this.saveIndex();
             await this.savePresData(pres);
-            await this.openPresentation(pres.id);
+            await this.openPresentation(pres.id, false);
             this.showToast(`Imported ${pres.slides.length} pages from PDF.`);
+            try { window.EmeraldHistory.action('Imported presentation from PDF'); } catch (_) {}
         } catch (err) {
             console.error('PDF import error:', err);
             this.showToast('PDF import failed: ' + err.message, 5000);
@@ -8996,7 +9009,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const app = window.slidesApp;
             if (!app || !app.pres || !app.pres.id || !key) return;
             if (key !== app.PRES_DATA_KEY(app.pres.id)) return;
-            app.openPresentation(app.pres.id);
+            // Background reload from another tab is not a user action.
+            app.openPresentation(app.pres.id, false);
         });
     }
 });

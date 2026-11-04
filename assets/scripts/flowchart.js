@@ -2372,6 +2372,7 @@ function saveProgram() {
     // Give the browser a tick to start the download before revoking.
     setTimeout(() => URL.revokeObjectURL(url), 200);
     toast('check', ' Flowchart exported as .emeraldcore', 'success');
+    try { window.EmeraldHistory.action('Exported flowchart as .emeraldcore'); } catch (_) {}
   } catch (err) {
     showErrorModal('Export Failed', err.message);
   }
@@ -2639,6 +2640,7 @@ function exportFlowchartPng() {
   a.click();
   a.remove();
   toast('check', ' Flowchart exported as PNG', 'success');
+  try { window.EmeraldHistory.action('Exported flowchart as PNG'); } catch (_) {}
 }
 
 function loadProgram() {
@@ -2667,6 +2669,7 @@ function loadProgram() {
         });
         renderAll();
         toast('check', ' Flowchart imported', 'success');
+        try { window.EmeraldHistory.action('Imported a flowchart'); } catch (_) {}
       } catch (err) {
         await showErrorModal('Import Failed', err.message);
       }
@@ -2737,6 +2740,7 @@ function newProgram() {
   renderAll();
   centerViewOnShapes();
   toast('check', ' Canvas cleared', 'success');
+  try { window.EmeraldHistory.action('Cleared the flowchart'); } catch (_) {}
 }
 
 function loadExample() {

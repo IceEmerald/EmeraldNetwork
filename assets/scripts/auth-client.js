@@ -7,47 +7,135 @@
         syncMeta: '__emerald_sync_meta_v1__'
     };
 
+    var HISTORY_KEY = 'emerald.activity.history.v1';
+    var HISTORY_MAX_ENTRIES = 400;
+    var ETAG_STORAGE_KEY = 'emerald.auth.sync_etag';
+    var SYNC_POLL_MS = 15000;
+    var SYNC_DEBOUNCE_MS = 300;
+    var SYNC_MAX_BACKOFF_MS = 60000;
+    var SYNC_REQUEST_TIMEOUT_MS = 15000;
+    var SYNC_LOCK_TIMEOUT_MS = 12000;
+
     var autoSyncTimer = null;
-    // Fallback polling detects edits made on another device; local edits sync from storage events below.
-    var autoSyncIntervalMs = 15000;
     var storageSyncTimer = null;
+    var syncRetryTimer = null;
     var syncInFlight = null;
     var syncRequestedAgain = false;
     var syncListenersInstalled = false;
+    var syncPendingLocal = false;
+    var syncFailureCount = 0;
+    var hasSyncedThisSession = false;
+    var lastSyncEtag = '';
+    var lastSyncAt = 0;
+    var lastSyncError = null;
+    var syncState = 'idle';
     var realtimeDeviceTimer = null;
     var realtimeDeviceInFlight = null;
     var lastDeviceRegistryHash = '';
     var initializationPromise = null;
 
-    function requestSyncFromLocalChange() {
+    function syncBackoffDelay() {
+        if (!syncFailureCount) return SYNC_DEBOUNCE_MS;
+        var base = Math.min(SYNC_MAX_BACKOFF_MS, 1000 * Math.pow(2, Math.min(syncFailureCount, 6)));
+        var jitter = 0.75 + Math.random() * 0.5;
+        return Math.min(SYNC_MAX_BACKOFF_MS, Math.round(base * jitter));
+    }
+
+    function getSyncState() {
+        return {
+            state: syncState,
+            online: navigator.onLine !== false,
+            syncing: syncState === 'syncing',
+            pending: syncPendingLocal,
+            lastSyncedAt: lastSyncAt,
+            error: lastSyncError ? (lastSyncError.message || String(lastSyncError)) : '',
+            failures: syncFailureCount
+        };
+    }
+
+    function setSyncState(next, extra) {
+        syncState = next || 'idle';
+        var detail = getSyncState();
+        if (extra) Object.assign(detail, extra);
+        try {
+            window.dispatchEvent(new CustomEvent('emerald-sync-state', { detail: detail }));
+        } catch (_) {}
+    }
+
+    function emitSyncComplete(snapshot) {
+        try {
+            window.dispatchEvent(new CustomEvent('emerald-sync-complete', {
+                detail: { snapshot: snapshot || null, state: getSyncState() }
+            }));
+        } catch (_) {}
+    }
+
+    function requestSyncFromLocalChange(options) {
+        syncPendingLocal = true;
         if (storageSyncTimer) {
             clearTimeout(storageSyncTimer);
         }
+        if (syncRetryTimer) {
+            clearTimeout(syncRetryTimer);
+            syncRetryTimer = null;
+        }
 
+        var delay = options && options.immediate ? 0 : syncBackoffDelay();
         storageSyncTimer = setTimeout(async function () {
+            storageSyncTimer = null;
+            if (navigator.onLine === false) {
+                setSyncState('offline');
+                return;
+            }
             try {
                 var session = await getSession();
-                if (!session || !session.token) return;
+                if (!session || !session.token) {
+                    setSyncState('signed-out');
+                    return;
+                }
                 await syncCurrentData();
             } catch (_) {}
-        }, 250);
+        }, delay);
+    }
+
+    function scheduleSyncRetry() {
+        if (syncRetryTimer) clearTimeout(syncRetryTimer);
+        syncRetryTimer = setTimeout(function () {
+            syncRetryTimer = null;
+            if (navigator.onLine === false) {
+                setSyncState('offline');
+                return;
+            }
+            getSession().then(function (session) {
+                if (!session || !session.token) {
+                    setSyncState('signed-out');
+                    return null;
+                }
+                return syncCurrentData();
+            }).catch(function () {});
+        }, syncBackoffDelay());
     }
 
     function startAutoSync() {
         if (autoSyncTimer) return;
 
         startRealtimeDeviceSync();
+        setSyncState('idle');
 
-        autoSyncTimer = window.setInterval(async function () {
-            try {
-                var session = await getSession();
+        autoSyncTimer = window.setInterval(function () {
+            if (navigator.onLine === false) {
+                setSyncState('offline');
+                return;
+            }
+            getSession().then(function (session) {
                 if (!session || !session.token) {
                     stopAutoSync();
-                    return;
+                    setSyncState('signed-out');
+                    return null;
                 }
-                await syncCurrentData();
-            } catch (_) {}
-        }, autoSyncIntervalMs);
+                return syncCurrentData();
+            }).catch(function () {});
+        }, SYNC_POLL_MS);
 
         if (!syncListenersInstalled) {
             syncListenersInstalled = true;
@@ -70,16 +158,23 @@
             }
 
             window.addEventListener('storage', function (event) {
-                if (!event.key || event.key === STORAGE_KEYS.session) return;
+                if (!event.key || shouldExcludeFromSync(event.key)) return;
                 requestSyncFromLocalChange();
             });
 
             window.addEventListener('online', function () {
-                syncCurrentData().catch(function () {});
+                syncFailureCount = 0;
+                lastSyncError = null;
+                requestSyncFromLocalChange({ immediate: true });
+                pollDeviceRegistry().catch(function () {});
+            });
+
+            window.addEventListener('offline', function () {
+                setSyncState('offline');
             });
 
             window.addEventListener('emerald-device-removed', function () {
-                syncCurrentData().catch(function () {});
+                requestSyncFromLocalChange({ immediate: true });
             });
         }
     }
@@ -167,6 +262,10 @@
         if (storageSyncTimer) {
             clearTimeout(storageSyncTimer);
             storageSyncTimer = null;
+        }
+        if (syncRetryTimer) {
+            clearTimeout(syncRetryTimer);
+            syncRetryTimer = null;
         }
     }
 
@@ -278,6 +377,15 @@
             try { sessionStorage.removeItem(STORAGE_KEYS.session); } catch (_) {}
         }
 
+        // A new session starts a fresh sync generation: never reuse the
+        // previous account's ETag or "already synced" flag.
+        hasSyncedThisSession = false;
+        lastSyncEtag = '';
+        lastSyncAt = 0;
+        lastSyncError = null;
+        syncFailureCount = 0;
+        syncPendingLocal = !!session;
+
         emitSessionChanged();
     }
 
@@ -329,6 +437,12 @@
 
     async function clearSession() {
         stopAutoSync();
+        syncPendingLocal = false;
+        syncFailureCount = 0;
+        hasSyncedThisSession = false;
+        lastSyncEtag = '';
+        lastSyncError = null;
+        setSyncState('signed-out');
         await waitForStorage();
 
         if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.delete === 'function') {
@@ -350,20 +464,43 @@
     }
 
     async function fetchJson(path, options) {
-        var requestOptions = options || {};
+        var requestOptions = Object.assign({}, options || {});
         var fetchUrl = getApiBase() + path;
-        var response = await fetch(fetchUrl, {
-            credentials: 'include',
-            headers: {
-                'Content-Type': 'application/json',
-                ...(requestOptions.headers || {})
-            },
-            ...requestOptions,
-            headers: {
-                'Content-Type': 'application/json',
-                ...(requestOptions.headers || {})
+        var timeoutMs = Number(requestOptions.timeoutMs) || SYNC_REQUEST_TIMEOUT_MS;
+        var allowNotModified = !!requestOptions.allowNotModified;
+        delete requestOptions.timeoutMs;
+        delete requestOptions.allowNotModified;
+
+        var headers = Object.assign({ 'Content-Type': 'application/json' }, requestOptions.headers || {});
+        var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        var timer = controller ? setTimeout(function () {
+            try { controller.abort(); } catch (_) {}
+        }, timeoutMs) : null;
+
+        var response;
+        try {
+            response = await fetch(fetchUrl, Object.assign({}, requestOptions, {
+                credentials: 'include',
+                headers: headers,
+                signal: controller ? controller.signal : requestOptions.signal
+            }));
+        } catch (error) {
+            if (timer) clearTimeout(timer);
+            if (error && error.name === 'AbortError') {
+                var timeoutError = new Error('The request timed out. Please try again.');
+                timeoutError.code = 'TIMEOUT';
+                throw timeoutError;
             }
-        });
+            throw error;
+        }
+        if (timer) clearTimeout(timer);
+
+        if (allowNotModified && response.status === 304) {
+            return {
+                __notModified: true,
+                etag: response.headers.get('ETag') || lastSyncEtag
+            };
+        }
 
         var data = null;
         var text = '';
@@ -380,6 +517,11 @@
             requestError.status = response.status;
             requestError.code = data && data.code ? data.code : null;
             throw requestError;
+        }
+
+        if (data && typeof data === 'object' && !data.etag) {
+            var responseEtag = response.headers.get('ETag');
+            if (responseEtag) data.etag = responseEtag;
         }
 
         return data;
@@ -571,6 +713,115 @@
         });
     }
 
+    function loadStoredEtag(email) {
+        if (!email) return '';
+        try {
+            var raw = localStorage.getItem(ETAG_STORAGE_KEY);
+            var saved = raw ? JSON.parse(raw) : null;
+            if (saved && saved.email === email && typeof saved.etag === 'string') return saved.etag;
+        } catch (_) {}
+        return '';
+    }
+
+    function saveStoredEtag(email, etag) {
+        if (!email || typeof etag !== 'string' || !etag) return;
+        try {
+            localStorage.setItem(ETAG_STORAGE_KEY, JSON.stringify({ email: email, etag: etag }));
+        } catch (_) {}
+    }
+
+    function hashHistoryText(value) {
+        var text = String(value || '');
+        var hash = 2166136261;
+        for (var index = 0; index < text.length; index++) {
+            hash ^= text.charCodeAt(index);
+            hash = Math.imul(hash, 16777619);
+        }
+        return (hash >>> 0).toString(36);
+    }
+
+    function normalizeHistoryEntry(value) {
+        if (!value || typeof value !== 'object') return null;
+        var t = Number(value.t) || 0;
+        if (!t) return null;
+        var entry = {
+            id: typeof value.id === 'string' && value.id ? value.id : '',
+            t: t,
+            kind: String(value.kind || 'action'),
+            label: String(value.label || value.title || 'Action').slice(0, 240),
+            title: String(value.title || value.label || 'Action').slice(0, 240),
+            path: String(value.path || '/').slice(0, 500),
+            n: Math.max(1, Number(value.n) || 1)
+        };
+        if (!entry.id) {
+            entry.id = 'h_' + t.toString(36) + '_' +
+                hashHistoryText([entry.kind, entry.path, entry.label, entry.n].join('\u0001'));
+        }
+        return entry;
+    }
+
+    function normalizeHistoryPayload(value) {
+        if (!value) return null;
+        var list = null;
+        var updatedAt = 0;
+        var clearedAt = 0;
+        if (Array.isArray(value)) {
+            list = value;
+        } else if (typeof value === 'object') {
+            list = Array.isArray(value.entries) ? value.entries : null;
+            updatedAt = Number(value.updatedAt) || 0;
+            clearedAt = Number(value.clearedAt) || 0;
+        }
+        if (!list) return null;
+
+        var byId = {};
+        var entries = [];
+        list.forEach(function (item) {
+            var entry = normalizeHistoryEntry(item);
+            if (!entry || entry.t <= clearedAt) return;
+            var existing = byId[entry.id];
+            if (!existing) {
+                byId[entry.id] = entry;
+                entries.push(entry);
+            } else if (entry.t > existing.t || (entry.t === existing.t && entry.n > existing.n)) {
+                entries[entries.indexOf(existing)] = entry;
+                byId[entry.id] = entry;
+            }
+        });
+        entries.sort(function (first, second) {
+            return second.t - first.t || (second.n || 1) - (first.n || 1);
+        });
+        return {
+            v: 2,
+            updatedAt: updatedAt,
+            clearedAt: clearedAt,
+            entries: entries.slice(0, HISTORY_MAX_ENTRIES)
+        };
+    }
+
+    function mergeHistoryValues(first, second) {
+        var firstPayload = normalizeHistoryPayload(first);
+        var secondPayload = normalizeHistoryPayload(second);
+        if (!firstPayload && !secondPayload) return null;
+
+        var clearedAt = Math.max(
+            firstPayload ? firstPayload.clearedAt : 0,
+            secondPayload ? secondPayload.clearedAt : 0
+        );
+        var combined = (firstPayload ? firstPayload.entries : [])
+            .concat(secondPayload ? secondPayload.entries : [])
+            .filter(function (entry) { return entry.t > clearedAt; });
+        var merged = normalizeHistoryPayload({ entries: combined, clearedAt: clearedAt });
+        var updatedAt = Math.max(
+            firstPayload ? firstPayload.updatedAt : 0,
+            secondPayload ? secondPayload.updatedAt : 0,
+            clearedAt,
+            merged.entries.length ? merged.entries[0].t : 0
+        );
+        merged.updatedAt = updatedAt;
+        return merged;
+    }
+
     function mergeSnapshots(localSnapshot, remoteSnapshot) {
         var merged = {};
         var localMeta = localSnapshot && localSnapshot[STORAGE_KEYS.syncMeta] || {};
@@ -607,6 +858,14 @@
                 return;
             }
 
+            if (key === HISTORY_KEY) {
+                var history = mergeHistoryValues(localValue, remoteValue);
+                if (!history) return;
+                merged[key] = history;
+                mergedMeta.updated[key] = Math.max(newestUpdate, history.updatedAt) || Date.now();
+                return;
+            }
+
             if (localValue == null && remoteValue == null) return;
             // A tie means this device has no newer revision than the server.
             // Prefer the server in that case, otherwise an older value cached
@@ -632,14 +891,92 @@
         return merged;
     }
 
+    function withSyncLock(task) {
+        var locks = typeof navigator !== 'undefined' ? navigator.locks : null;
+        if (!locks || typeof locks.request !== 'function') {
+            return Promise.resolve().then(task);
+        }
+
+        return new Promise(function (resolve, reject) {
+            var settled = false;
+            var timedOut = false;
+            var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+
+            function runFallback() {
+                Promise.resolve().then(task).then(resolve, reject);
+            }
+
+            var timer = setTimeout(function () {
+                timedOut = true;
+                try { if (controller) controller.abort(); } catch (_) {}
+                if (!settled) {
+                    settled = true;
+                    runFallback();
+                }
+            }, SYNC_LOCK_TIMEOUT_MS);
+
+            var options = { mode: 'exclusive' };
+            if (controller) options.signal = controller.signal;
+
+            locks.request('emerald-sync', options, function () {
+                if (timedOut) return undefined;
+                clearTimeout(timer);
+                return Promise.resolve().then(task).then(function (result) {
+                    if (!settled) {
+                        settled = true;
+                        resolve(result);
+                    }
+                    return result;
+                }, function (error) {
+                    if (!settled) {
+                        settled = true;
+                        reject(error);
+                    }
+                    throw error;
+                });
+            }).catch(function (error) {
+                clearTimeout(timer);
+                if (settled) return;
+                if (timedOut) {
+                    settled = true;
+                    runFallback();
+                    return;
+                }
+                // Lock API failed for another reason; syncing is still better
+                // than stalling, so run the task directly.
+                settled = true;
+                runFallback();
+            });
+        });
+    }
+
     function syncCurrentData() {
         if (syncInFlight) {
             syncRequestedAgain = true;
+            syncPendingLocal = true;
             return syncInFlight;
         }
 
-        syncInFlight = performSync();
-        return syncInFlight.finally(function () {
+        syncInFlight = withSyncLock(function () {
+            return performSync();
+        });
+
+        return syncInFlight.then(function (result) {
+            syncFailureCount = 0;
+            if (result && result.pendingLocalChanges) {
+                syncPendingLocal = true;
+            } else if (result) {
+                syncPendingLocal = false;
+            }
+            return result;
+        }).catch(function (error) {
+            syncFailureCount = Math.min(syncFailureCount + 1, 8);
+            lastSyncError = error || new Error('Sync failed.');
+            syncPendingLocal = true;
+            setSyncState(navigator.onLine === false ? 'offline' : 'error');
+            scheduleSyncRetry();
+            throw error;
+        }).finally(function () {
             syncInFlight = null;
             if (syncRequestedAgain) {
                 syncRequestedAgain = false;
@@ -691,54 +1028,109 @@
         return pending('updated') || pending('deleted');
     }
 
-    async function performSync() {
-        var session = await getSession();
-        if (!session || !session.token) return null;
+    async function captureSnapshot() {
+        if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.exportAll === 'function') {
+            return await window.EmeraldIDBStorage.exportAll();
+        }
 
         var snapshot = {};
-        if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.exportAll === 'function') {
-            snapshot = await window.EmeraldIDBStorage.exportAll();
-        } else {
-            try {
-                Object.keys(localStorage).forEach(function (key) {
-                    try {
-                        var raw = localStorage.getItem(key);
-                        snapshot[key] = raw ? JSON.parse(raw) : raw;
-                    } catch (_) {
-                        snapshot[key] = localStorage.getItem(key);
-                    }
-                });
-            } catch (_) {}
+        try {
+            Object.keys(localStorage).forEach(function (key) {
+                if (shouldExcludeFromSync(key)) return;
+                try {
+                    var raw = localStorage.getItem(key);
+                    snapshot[key] = raw ? JSON.parse(raw) : raw;
+                } catch (_) {
+                    snapshot[key] = localStorage.getItem(key);
+                }
+            });
+        } catch (_) {}
+        return snapshot;
+    }
+
+    async function performSync() {
+        var session = await getSession();
+        if (!session || !session.token) {
+            setSyncState('signed-out');
+            return null;
         }
+
+        if (navigator.onLine === false) {
+            setSyncState('offline');
+            return null;
+        }
+
+        setSyncState('syncing');
+
+        // History batches are debounced locally; push them to IndexedDB
+        // before taking the sync snapshot so the latest actions are included.
+        if (window.EmeraldHistory && typeof window.EmeraldHistory.flush === 'function') {
+            try { await window.EmeraldHistory.flush(); } catch (_) {}
+        }
+
+        var snapshot = await captureSnapshot();
+        var email = session.user && session.user.email ? session.user.email : '';
+        if (!lastSyncEtag && email) lastSyncEtag = loadStoredEtag(email);
+
+        var conditional = hasSyncedThisSession && !syncPendingLocal && !!lastSyncEtag;
+        var headers = { Authorization: 'Bearer ' + session.token };
+        if (conditional) headers['If-None-Match'] = lastSyncEtag;
 
         var remote;
         try {
             remote = await fetchJson('/api/auth/sync', {
                 method: 'GET',
-                headers: {
-                    Authorization: 'Bearer ' + session.token
-                }
+                headers: headers,
+                allowNotModified: true
             });
         } catch (error) {
-            if (error && error.status === 401) await clearSession();
-            if (error && error.status === 404) await clearSession();
+            if (error && (error.status === 401 || error.status === 404)) await clearSession();
             if (error && error.status === 403 && error.code === 'DEVICE_SIGNED_OUT') await clearSession();
             throw error;
         }
 
+        if (remote && remote.__notModified) {
+            hasSyncedThisSession = true;
+            syncPendingLocal = false;
+            lastSyncAt = Date.now();
+            lastSyncError = null;
+            if (remote.etag) {
+                lastSyncEtag = remote.etag;
+                saveStoredEtag(email, remote.etag);
+            }
+            setSyncState('synced');
+            emitSyncComplete(null);
+            return { ok: true, notModified: true, snapshot: null };
+        }
+
         var baseSnapshot = remote && remote.snapshot && typeof remote.snapshot === 'object' ? remote.snapshot : {};
+        var remoteEtag = remote && typeof remote.etag === 'string' ? remote.etag : '';
         var mergedSnapshot = mergeSnapshots(snapshot, baseSnapshot);
 
-        // Only skip the push when the merge produced nothing new AND this
-        // device has no local writes newer than the server's. Value equality
-        // alone is not enough — a local edit makes the merge keep the local
-        // values, so both snapshots look identical while the server is stale.
-        if (snapshotsMatch(snapshot, mergedSnapshot) && !hasPendingLocalWrites(snapshot, baseSnapshot)) {
-            try {
-                window.dispatchEvent(new CustomEvent('emerald-sync-complete', {
-                    detail: { snapshot: mergedSnapshot }
-                }));
-            } catch (_) {}
+        // Skip the push when the merge produced exactly what the server
+        // already has AND this device has no local writes the server has not
+        // seen yet. Value equality alone is not enough — a local edit makes
+        // the merge keep the local value, so both sides can look identical
+        // while the server is still stale.
+        if (snapshotsMatch(mergedSnapshot, baseSnapshot) && !hasPendingLocalWrites(snapshot, baseSnapshot)) {
+            // The server already has the merged result, but this device may
+            // still be missing or hold an older copy of it (new browser,
+            // cleared cache, another device edited). Pull it down without a
+            // needless POST.
+            if (!snapshotsMatch(snapshot, mergedSnapshot)) {
+                await importDeviceRegistry(mergedSnapshot);
+                await importAccountData(mergedSnapshot);
+            }
+            hasSyncedThisSession = true;
+            syncPendingLocal = false;
+            lastSyncAt = Date.now();
+            lastSyncError = null;
+            if (remoteEtag) {
+                lastSyncEtag = remoteEtag;
+                saveStoredEtag(email, remoteEtag);
+            }
+            setSyncState('synced');
+            emitSyncComplete(mergedSnapshot);
             return { ok: true, snapshot: mergedSnapshot };
         }
 
@@ -767,6 +1159,7 @@
         var latestSnapshot = await exportAccountData();
         if (!snapshotsMatch(snapshot, latestSnapshot)) {
             syncRequestedAgain = true;
+            setSyncState('syncing');
             return { ok: true, pendingLocalChanges: true };
         }
 
@@ -774,11 +1167,19 @@
             await importAccountData(serverSnapshot);
         }
 
-        try {
-            window.dispatchEvent(new CustomEvent('emerald-sync-complete', {
-                detail: { snapshot: serverSnapshot || mergedSnapshot }
-            }));
-        } catch (_) {}
+        hasSyncedThisSession = true;
+        syncPendingLocal = false;
+        lastSyncAt = Date.now();
+        lastSyncError = null;
+
+        var resultEtag = syncResult && typeof syncResult.etag === 'string' ? syncResult.etag : '';
+        if (resultEtag) {
+            lastSyncEtag = resultEtag;
+            saveStoredEtag(email, resultEtag);
+        }
+
+        setSyncState('synced');
+        emitSyncComplete(serverSnapshot || mergedSnapshot);
 
         return { ok: true, snapshot: serverSnapshot };
     }
@@ -811,6 +1212,7 @@
     function shouldExcludeFromSync(key) {
         return key === 'emerald.auth.session' ||
             key === 'emerald.auth.return_url' ||
+            key === 'emerald.auth.sync_etag' ||
             key === 'emerald.device.id';
     }
 
@@ -884,6 +1286,14 @@
         register: register,
         beginOAuth: beginOAuth,
         syncCurrentData: syncCurrentData,
+        requestSync: function (options) { requestSyncFromLocalChange(options); },
+        getSyncState: getSyncState,
+        flushHistory: function () {
+            if (window.EmeraldHistory && typeof window.EmeraldHistory.flush === 'function') {
+                return window.EmeraldHistory.flush();
+            }
+            return Promise.resolve(false);
+        },
         pollDeviceRegistry: pollDeviceRegistry,
         exportAccountData: exportAccountData,
         importAccountData: importAccountData,

@@ -2323,6 +2323,7 @@ function startAutosaveSnapshots() {
         // Autosave handles persistence; the manual Save no longer creates a
         // version snapshot (version history is driven by the 1-minute ticker).
         toast("Document saved", "success");
+        try { window.EmeraldHistory.action("Saved document \u201C" + (currentTitle || "Untitled Document") + "\u201D"); } catch (_) {}
       }
     } catch (e) {
       setAutosaveState("error");
@@ -2392,6 +2393,7 @@ function startAutosaveSnapshots() {
     saveDocument(false);
     closeModal("versionsModal");
     toast("Version restored", "success");
+    try { window.EmeraldHistory.action("Restored a version of \u201C" + (currentTitle || "Untitled Document") + "\u201D"); } catch (_) {}
   }
 
   function showVersions() {
@@ -2538,7 +2540,7 @@ function startAutosaveSnapshots() {
     }
   }
 
-  async function openDocument(id) {
+  async function openDocument(id, logOpen) {
     var data = await loadDocData(id);
     if (!data) { toast("Could not open document", "error"); return; }
     try { togglePrintPreview(false); } catch (e) {}
@@ -2556,6 +2558,9 @@ function startAutosaveSnapshots() {
     updateOwnedUrl();
     updateStatus();
     updateRibbonAvailability();
+    if (logOpen !== false) {
+      try { window.EmeraldHistory.action("Opened document \u201C" + (data.title || "Untitled Document") + "\u201D"); } catch (_) {}
+    }
   }
 
   function closeDocument() {
@@ -2605,7 +2610,8 @@ function startAutosaveSnapshots() {
       endnotes: [],
       comments: [],
     });
-    await openDocument(id);
+    await openDocument(id, false);
+    try { window.EmeraldHistory.action("Created document \u201C" + title + "\u201D"); } catch (_) {}
     setTimeout(function () {
       var c = getContent(getPages()[0]);
       if (c) c.focus();
@@ -2632,6 +2638,10 @@ function startAutosaveSnapshots() {
 
   async function deleteDocument(id) {
     var wasCurrent = (currentDocId === id);
+    var deletedTitle = "";
+    for (var di = 0; di < documents.length; di++) {
+      if (documents[di] && documents[di].id === id) { deletedTitle = documents[di].title; break; }
+    }
     if (wasCurrent) {
       // Detach BEFORE any awaits so a pending debounced autosave can't fire
       // mid-delete and resurrect this document via saveDocument()'s
@@ -2645,6 +2655,7 @@ function startAutosaveSnapshots() {
     if (wasCurrent) closeDocument();
     renderWelcomeCards();
     toast("Document deleted", "success");
+    try { window.EmeraldHistory.action("Deleted document \u201C" + (deletedTitle || "Untitled Document") + "\u201D"); } catch (_) {}
   }
 
   /* ---------------- File modal (Backstage-style, Slides pattern) ---------------- */
@@ -5477,7 +5488,8 @@ function startAutosaveSnapshots() {
     }
     await writeDocData(docData);
     toast("Imported \u201C" + baseName + "\u201D", "success");
-    await openDocument(id);
+    try { window.EmeraldHistory.action("Imported document \u201C" + baseName + "\u201D"); } catch (_) {}
+    await openDocument(id, false);
   }
 
   function setAutosaveState(state) {
@@ -5638,6 +5650,7 @@ function startAutosaveSnapshots() {
         var title = (currentTitle || "document").replace(/[^\w\-]+/g, "_").toLowerCase() || "document";
         pdf.save(title + ".pdf");
         toast("PDF saved", "success");
+        try { window.EmeraldHistory.action("Exported document as PDF"); } catch (_) {}
       } catch (e) { toast("PDF export failed", "error"); }
       if (done) done();
     }
@@ -5651,6 +5664,7 @@ function startAutosaveSnapshots() {
       var text = getAllText();
       downloadBlob(new Blob([text], { type: "text/plain;charset=utf-8" }), title + ".txt");
       toast("Exported as .txt", "success");
+      try { window.EmeraldHistory.action("Exported document as TXT"); } catch (_) {}
     } else if (format === "html") {
       var stats = getStats();
       var bodyHtml = "";
@@ -5664,6 +5678,7 @@ function startAutosaveSnapshots() {
         bodyHtml + "</body></html>";
       downloadBlob(new Blob([html], { type: "text/html;charset=utf-8" }), title + ".html");
       toast("Exported as .html", "success");
+      try { window.EmeraldHistory.action("Exported document as HTML"); } catch (_) {}
     } else if (format === "print") {
       printDocument();
     } else if (format === "pdf") {
@@ -5706,6 +5721,7 @@ function startAutosaveSnapshots() {
       var name = (currentTitle || "document").replace(/[^\w\-]+/g, "_").toLowerCase() || "document";
       downloadBlob(blob, name + ".docx");
       toast("Exported as .docx", "success");
+      try { window.EmeraldHistory.action("Exported document as DOCX"); } catch (_) {}
     } catch (e) {
       console.error("[docs] docx export failed:", e);
       toast("DOCX export failed: " + (e && e.message || e), "error");
@@ -9565,7 +9581,9 @@ function startAutosaveSnapshots() {
         if (documents[mi].id === ownedParam) { meta = documents[mi]; break; }
       }
       if (meta) {
-        await openDocument(ownedParam);
+        // Arriving through a deep link is not an action; only explicit
+        // "open document" clicks are recorded in history.
+        await openDocument(ownedParam, false);
       } else {
         // Stale URL — clean it so a refresh lands on the welcome screen
         history.replaceState({}, document.title, location.pathname);

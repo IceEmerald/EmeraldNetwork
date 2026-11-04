@@ -1074,22 +1074,49 @@
         buildIndex();
         if (!searchInput) return;
 
+        // Log settled search queries to the account activity history. A
+        // longer debounce than the live filter keeps every keystroke out of
+        // the history; only the query the reader pauses on is recorded.
+        var lastLoggedQuery = '';
+        function logSearchNow(value) {
+            var q = String(value || '').replace(/\s+/g, ' ').trim();
+            if (q.length < 2) { lastLoggedQuery = ''; return; }
+            if (q === lastLoggedQuery) return;
+            lastLoggedQuery = q;
+            try {
+                window.EmeraldHistory.action('Searched wiki for \u201C' + (q.length > 80 ? q.slice(0, 80) + '\u2026' : q) + '\u201D');
+            } catch (_) {}
+        }
+        var logSearch = debounce(logSearchNow, 900);
+
         searchInput.addEventListener('input', debounce(function () {
             runSearch(searchInput.value);
+            logSearch(searchInput.value);
         }, 140));
 
         searchInput.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
                 searchInput.value = '';
                 runSearch('');
+                logSearchNow('');
                 searchInput.blur();
+            } else if (e.key === 'Enter') {
+                logSearchNow(searchInput.value);
             }
+        });
+
+        // Cover the case where a reader types a query and immediately clicks
+        // a result link: `change` fires before the navigation, so the search
+        // still lands in the history.
+        searchInput.addEventListener('change', function () {
+            logSearchNow(searchInput.value);
         });
 
         if (searchClear) {
             searchClear.addEventListener('click', function () {
                 searchInput.value = '';
                 runSearch('');
+                logSearchNow('');
                 searchInput.focus();
             });
         }

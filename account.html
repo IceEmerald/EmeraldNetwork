@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/assets/styles/account.css?v=43" />
+    <link rel="stylesheet" href="/assets/styles/account.css?v=51" />
     <link rel="icon" type="image/x-icon" href="/assets/images/favicon.webp">
 </head>
 
@@ -406,15 +406,27 @@
 
                 <div class="dash-section" id="section-data">
                     <h1 class="dash-title">Data &amp; privacy</h1>
+                    <p class="dash-sub">Review your activity, export a copy of your account data, or permanently delete it from this device.</p>
                     <div class="dash-card">
                         <h2>Download your data</h2>
-                        <p>Export your EmeraldNetwork account data as a JSON file.</p>
-                        <button type="button" class="btn secondary" id="exportDataBtn">Download data</button>
+                        <p class="muted small">Export your EmeraldNetwork account data as a JSON file.</p>
+                        <button type="button" class="btn primary small" id="exportDataBtn">Download data</button>
+                    </div>
+                    <div class="dash-card history-card">
+                        <div class="history-head">
+                            <div>
+                                <h2>History</h2>
+                                <p class="muted small">Actions you take across EmeraldNetwork apps, synced with your account.</p>
+                            </div>
+                            <button type="button" class="btn secondary small" id="clearHistoryBtn">Clear history</button>
+                        </div>
+                        <ul class="history-list" id="historyList" role="list"></ul>
+                        <p class="history-empty muted small" id="historyEmpty" hidden>No activity yet. Actions you take in EmeraldNetwork apps will appear here.</p>
                     </div>
                     <div class="dash-card danger">
                         <h2>Delete data</h2>
-                        <p>Permanently delete all synced account data on this device.</p>
-                        <button type="button" class="btn danger" id="deleteDataBtn">Delete all data</button>
+                        <p class="muted small">Permanently delete all synced account data on this device.</p>
+                        <button type="button" class="btn danger small" id="deleteDataBtn">Delete all data</button>
                     </div>
                 </div>
 
@@ -449,10 +461,11 @@
     </div>
     <div id="custom-toast" class="custom-toast" aria-live="polite"></div>
 
+    <script src="/assets/scripts/activity-history.js?v=4"></script>
     <script src="/assets/scripts/idb-storage.js"></script>
-    <script src="/assets/scripts/auth-client.js?v=4"></script>
-    <script src="/assets/scripts/account.js?v=42"></script>
-    <script src="/assets/scripts/aboutgl.js"></script>
+    <script src="/assets/scripts/auth-client.js?v=5"></script>
+    <script src="/assets/scripts/account.js?v=46"></script>
+    <script src="/assets/scripts/aboutgl.js?v=2"></script>
     <script src="/assets/scripts/scrollice.js"></script>
     <script src="/assets/scripts/rightclick.js"></script>
 </body>

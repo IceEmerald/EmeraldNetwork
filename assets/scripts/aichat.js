@@ -692,6 +692,7 @@ function deleteConvConfirm(id) {
     renderSidebar();
     closeModal("deleteModal");
     showToast(`${_aiSvgTrash} Conversation deleted`);
+    try { window.EmeraldHistory.action('Deleted AI chat' + (conv && conv.title ? ' \u201C' + conv.title + '\u201D' : '')); } catch (_) {}
     const _fp = $("filePreviewPanel");
     if (_fp) {
       _fp.classList.remove("open", "closing");
@@ -4040,6 +4041,14 @@ async function handleSend(opts) {
     textarea.value = "";
     textarea.style.height = "auto";
     clearAttachments();
+    var _histText = String(text || "").replace(/\s+/g, " ").trim();
+    var _histLabel;
+    if (_histText) {
+      _histLabel = 'Asked AI: \u201C' + (_histText.length > 80 ? _histText.slice(0, 80) + '\u2026' : _histText) + '\u201D';
+    } else {
+      _histLabel = 'Sent ' + files.length + ' file' + (files.length === 1 ? '' : 's') + ' to AI Chat';
+    }
+    try { window.EmeraldHistory.action(_histLabel); } catch (_) {}
   }
   showMessages();
   const userMsgId = genId();

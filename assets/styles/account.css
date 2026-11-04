@@ -59,11 +59,6 @@ body {
     background: rgba(42, 180, 207, 0.3);
 }
 
-html {
-    scrollbar-width: auto;
-    scrollbar-color: #c1c1c1 #f1f1f1;
-}
-
 body {
     overscroll-behavior-y: none;
 }
@@ -1726,6 +1721,130 @@ body {
     background: linear-gradient(180deg, rgba(217, 48, 37, 0.02), #ffffff);
 }
 
+/* ---------- Activity history (Data & privacy) ---------- */
+
+/* Match the setup checklist's compact heading + muted description rhythm
+   so every Data & privacy card reads the same. */
+#section-data .dash-card h2 {
+    margin-bottom: 2px;
+}
+
+.history-card .history-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 4px;
+}
+
+.history-card .history-head p {
+    margin-bottom: 0;
+}
+
+.history-card .history-head .btn {
+    flex: 0 0 auto;
+}
+
+.history-list {
+    list-style: none;
+    margin: 10px 0 0;
+    padding: 0;
+    max-height: 360px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.history-day {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 8px 0 5px;
+    background: #ffffff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.history-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 0;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.history-item:first-of-type,
+.history-day + .history-item {
+    border-top: 0;
+}
+
+.history-dot {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    margin-top: 7px;
+    border-radius: 50%;
+    background: var(--ui-accent);
+}
+
+.history-item[data-kind="action"] .history-dot {
+    background: #d99b00;
+}
+
+.history-item[data-kind="auth"] .history-dot {
+    background: #2f7de1;
+}
+
+.history-main {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.history-label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-strong);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.history-path {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.76rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.history-time {
+    flex: 0 0 auto;
+    padding-top: 2px;
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.history-empty {
+    margin: 10px 0 0;
+}
+
+@media (max-width: 520px) {
+    .history-card .history-head {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .history-card .history-head .btn {
+        align-self: flex-start;
+    }
+}
+
 .dash-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -2563,9 +2682,10 @@ body {
 .profile-form .btn.primary {
     width: auto;
     min-width: 0;
-    padding: 10px 20px;
+    padding: 8px 14px;
     border-radius: 999px;
-    font-size: 0.88rem;
+    font-size: 0.8rem;
+    gap: 8px;
 }
 
 .profile-form .btn.primary:disabled {

@@ -9379,6 +9379,7 @@ async function importXlsx(file) {
   const bits = [];
   if (styled) bits.push(styled.toLocaleString() + ' formatted cell(s)');
   toast('Imported workbook with ' + wb.SheetNames.length + ' sheet(s)' + (bits.length ? ' — ' + bits.join(', ') : ''), 'success', 4200);
+  try { window.EmeraldHistory.action('Imported spreadsheet'); } catch (_) {}
 }
 async function exportXlsx() {
   const ok = await ensureXlsxLib();
@@ -9463,6 +9464,7 @@ async function exportXlsx() {
     if (XLSX_STYLE_WRITE && styledTotal) notes.splice(1, 0, styledTotal.toLocaleString() + ' formatted cell(s)');
     else if (!XLSX_STYLE_WRITE) notes.push('no colours — the styling library did not load');
     toast('Workbook exported as XLSX (' + notes.join(', ') + ')', 'success', 4000);
+    try { window.EmeraldHistory.action('Exported spreadsheet as XLSX'); } catch (_) {}
   } catch (e) {
     console.error(e);
     toast('XLSX export failed: ' + (e && e.message ? e.message : 'unknown error'), 'error', 5000);
@@ -9485,6 +9487,7 @@ function exportCsv() {
   const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
   downloadBlob(blob, (WB.title || 'sheet').replace(/[\\/:*?"<>|]/g, '_') + ' - ' + sh.name.replace(/[\\/:*?"<>|]/g, '_') + '.csv');
   toast('Active sheet exported as CSV', 'success', 3000);
+  try { window.EmeraldHistory.action('Exported spreadsheet as CSV'); } catch (_) {}
 }
 
 function downloadBlob(blob, name) {
@@ -9572,6 +9575,7 @@ function fileNew() {
     updateOwnedUrl();
     Persistence.markDirty();
     Persistence.flush();
+    try { window.EmeraldHistory.action('Created spreadsheet'); } catch (_) {}
   });
 }
 /* ---------------- Welcome screen (home / workbook overview) ---------------- */
@@ -9664,7 +9668,7 @@ async function renderWelcomeCards() {
   container.innerHTML = '';
   container.appendChild(frag);
 }
-async function openWorkbook(id) {
+async function openWorkbook(id, logOpen) {
   try {
     await flushIfDirty();
     const doc = await IO.loadDoc(id);
@@ -9676,6 +9680,9 @@ async function openWorkbook(id) {
     activateEditor();
     updateOwnedUrl();
     toast('Opened "' + (WB.title || 'Untitled workbook') + '"', 'success');
+    if (logOpen !== false) {
+      try { window.EmeraldHistory.action('Opened spreadsheet \u201C' + (WB.title || 'Untitled workbook') + '\u201D'); } catch (_) {}
+    }
   } catch (e) { toast('Could not open workbook', 'error'); }
 }
 function welcomeNew() {
@@ -9689,6 +9696,7 @@ function welcomeNew() {
   updateOwnedUrl();
   Persistence.markDirty();
   Persistence.flush();
+  try { window.EmeraldHistory.action('Created spreadsheet'); } catch (_) {}
 }
 function welcomeImport() {
   /* Import into a brand-new workbook so the dormant background workbook isn't mutated. */
@@ -9760,7 +9768,8 @@ function returnToHomeTab() {
   swapRibbonBody();
 }
 function deleteCurrentWorkbook() {
-  confirmDialog('Delete Workbook', 'Delete "' + (WB.title || 'Untitled workbook') + '" from browser storage? This cannot be undone.', async () => {
+  const deletedTitle = WB.title || 'Untitled workbook';
+  confirmDialog('Delete Workbook', 'Delete "' + deletedTitle + '" from browser storage? This cannot be undone.', async () => {
     try { await IO.deleteDoc(WB.id); } catch (e) {}
     /* Reset the save controller so a pending debounced flush can't re-save the deleted doc. */
     clearTimeout(Persistence.timer); Persistence.timer = 0;
@@ -9774,6 +9783,7 @@ function deleteCurrentWorkbook() {
     showWelcomeScreen(true);
     updateOwnedUrl();
     toast('Workbook deleted', 'success');
+    try { window.EmeraldHistory.action('Deleted spreadsheet \u201C' + deletedTitle + '\u201D'); } catch (_) {}
   });
 }
 async function openDocumentsDialog() {
@@ -9806,11 +9816,13 @@ async function openDocumentsDialog() {
         updateOwnedUrl();
         closeModalStack();
         toast('Opened "' + WB.title + '"', 'success');
+        try { window.EmeraldHistory.action('Opened spreadsheet \u201C' + (WB.title || 'Untitled workbook') + '\u201D'); } catch (_) {}
       } catch (e) { toast('Could not open document', 'error'); }
     });
     row.querySelector('[data-del]').addEventListener('click', async () => {
       confirmDialog('Delete Document', 'Delete "' + escapeHtml(data.title || 'Untitled') + '" from browser storage? This cannot be undone.', async () => {
         await IO.deleteDoc(d.id);
+        try { window.EmeraldHistory.action('Deleted spreadsheet \u201C' + (data.title || 'Untitled workbook') + '\u201D'); } catch (_) {}
         if (d.id === WB.id) {
           clearTimeout(Persistence.timer); Persistence.timer = 0;
           Persistence.state = 'saved';
@@ -12095,7 +12107,7 @@ async function boot() {
   if (window.emeraldsuiteAgent && window.emeraldsuiteAgent.onSync) {
     window.emeraldsuiteAgent.onSync((msg) => {
       if (msg && msg.type === 'es-edit' && msg.app === 'sheets' && msg.id && WB && msg.id === WB.id) {
-        openWorkbook(msg.id);
+        openWorkbook(msg.id, false);
       }
     });
   }
@@ -12105,7 +12117,7 @@ async function boot() {
   if (ownedParam) {
     try {
       const doc = await IO.loadDoc(ownedParam);
-      if (doc && doc.data) { await openWorkbook(ownedParam); }
+      if (doc && doc.data) { await openWorkbook(ownedParam, false); }
       else { history.replaceState({}, document.title, location.pathname); }
     } catch (e) { history.replaceState({}, document.title, location.pathname); }
   }

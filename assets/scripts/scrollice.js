@@ -20,11 +20,27 @@
      }
  }
  window.addEventListener('wheel', function(event) {
-     if (event.target === document.body || event.target === document.documentElement) {
-         event.preventDefault();
-     } else {
-         return;
+     // Let controls and nested scroll areas (such as menus or text panels)
+     // keep their native wheel behavior. Everything else scrolls the page.
+     const scrollable = event.target instanceof Element
+         ? event.target.closest('[data-native-wheel], textarea, select, [contenteditable="true"], [role="listbox"], [role="menu"]')
+         : null;
+     if (scrollable) return;
+
+     let ancestor = event.target instanceof Element ? event.target.parentElement : null;
+     while (ancestor && ancestor !== document.body && ancestor !== document.documentElement) {
+         const style = window.getComputedStyle(ancestor);
+         const canScrollY = /(auto|scroll|overlay)/.test(style.overflowY)
+             && ancestor.scrollHeight > ancestor.clientHeight;
+         if (canScrollY) {
+             const canMoveDown = event.deltaY > 0 && ancestor.scrollTop + ancestor.clientHeight < ancestor.scrollHeight;
+             const canMoveUp = event.deltaY < 0 && ancestor.scrollTop > 0;
+             if (canMoveDown || canMoveUp) return;
+         }
+         ancestor = ancestor.parentElement;
      }
+
+     event.preventDefault();
      if (!isWheeling || animationFrameId === null) {
           currentScrollY = window.pageYOffset;
      }

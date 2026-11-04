@@ -389,7 +389,15 @@
     window.addEventListener('resize', applyMode, { passive: true });
 
     /* ── Main render loop ────────────────────────────── */
+    var rafId = null;
+    var onScreen = true;
+
     function draw() {
+        rafId = null;
+        /* Skip all work when the canvas is hidden (e.g. the account
+           dashboard replaces the login shell) or the tab is inactive. */
+        if (!onScreen || document.hidden) return;
+
         var w = canvas.offsetWidth, h = canvas.offsetHeight;
 
         /* Safety: force canvas to fill parent */
@@ -474,9 +482,32 @@
         eG.addColorStop(0, 'rgba(244,249,245,0)'); eG.addColorStop(1, 'rgba(244,249,245,0.4)');
         ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fillStyle = eG; ctx.fill();
 
-        requestAnimationFrame(draw);
+        rafId = requestAnimationFrame(draw);
     }
-    requestAnimationFrame(draw);
+
+    function start() {
+        if (rafId !== null || !onScreen || document.hidden) return;
+        rafId = requestAnimationFrame(draw);
+    }
+
+    function stop() {
+        if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+    }
+
+    /* Pause when the canvas leaves the viewport or is display:none
+       (IntersectionObserver reports hidden elements as not intersecting). */
+    if ('IntersectionObserver' in window) {
+        new IntersectionObserver(function (entries) {
+            onScreen = entries[0].isIntersecting;
+            if (onScreen) start(); else stop();
+        }, { threshold: 0 }).observe(canvas);
+    }
+
+    document.addEventListener('visibilitychange', function () {
+        if (document.hidden) stop(); else start();
+    });
+
+    start();
 })();
 
 /* ── Globe box — responsive sizing (mobile + desktop) ─── */

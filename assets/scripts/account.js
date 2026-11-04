@@ -1515,6 +1515,7 @@
         document.querySelectorAll('.dash-section').forEach(function (sec) {
             sec.classList.toggle('active', sec.id === 'section-' + name);
         });
+        if (name === 'data') renderHistory();
         moveNavPill(false);
     }
 
@@ -1628,6 +1629,7 @@
                         await saveDevices(next);
                         await renderDevices(next);
                         showToast('Device signed out.');
+                        recordHistory('Signed out a device');
                         try {
                             window.dispatchEvent(new CustomEvent('emerald-device-removed', {
                                 detail: { deviceId: d.id }
@@ -2021,6 +2023,7 @@
         renderDeviceRows(devices);
 
         await renderStorage();
+        renderHistory();
         requestAnimationFrame(function () { moveNavPill(true); });
     }
 
@@ -2056,6 +2059,7 @@
                 setText('overviewDevices', '1 device signed in');
                 renderDeviceRows(next);
                 showToast('All other devices signed out.');
+                recordHistory('Signed out all other devices');
                 try {
                     window.dispatchEvent(new CustomEvent('emerald-device-removed', { detail: { all: true } }));
                 } catch (_) {}
@@ -2115,6 +2119,7 @@
             userEditedProfile = false;
             updateSaveButtonState();
             showToast('Profile updated.');
+            recordHistory('Updated personal info');
         });
     }
 
@@ -2171,6 +2176,7 @@
                 await saveProfile(email, profile);
                 await renderAccount(session);
                 showToast('Photo updated.');
+                recordHistory('Updated profile photo');
             };
             reader.readAsDataURL(file);
             photoInput.value = '';
@@ -2186,6 +2192,7 @@
             await saveProfile(email, profile);
             await renderAccount(session);
             showToast('Photo removed.');
+            recordHistory('Removed profile photo');
         });
     }
 
@@ -2231,7 +2238,7 @@
                 return;
             }
 
-            if (msg) msg.textContent = 'Password changing isn\u2019t available yet.';
+            showToast('Password changing isn\u2019t available yet.');
         });
 
         ['currentPassword', 'newPassword', 'confirmNewPassword'].forEach(function (id) {
@@ -2245,12 +2252,117 @@
         });
     }
 
+    /* Activity history (Data & privacy) */
+    function formatHistoryTime(ts) {
+        var date = new Date(ts);
+        if (isNaN(date.getTime())) return '';
+        var diff = Date.now() - date.getTime();
+        if (diff >= 0 && diff < 60000) return 'Just now';
+        if (diff >= 0 && diff < 3600000) return Math.max(1, Math.floor(diff / 60000)) + ' min ago';
+        var now = new Date();
+        var time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        if (date.toDateString() === now.toDateString()) return time;
+        var yesterday = new Date(now);
+        yesterday.setDate(now.getDate() - 1);
+        if (date.toDateString() === yesterday.toDateString()) return 'Yesterday ' + time;
+        return date.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ', ' + time;
+    }
+
+    function historyDayLabel(ts) {
+        var date = new Date(ts);
+        if (isNaN(date.getTime())) return '';
+        var now = new Date();
+        if (date.toDateString() === now.toDateString()) return 'Today';
+        var yesterday = new Date(now);
+        yesterday.setDate(now.getDate() - 1);
+        if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+        var options = { weekday: 'short', month: 'short', day: 'numeric' };
+        if (date.getFullYear() !== now.getFullYear()) options.year = 'numeric';
+        return date.toLocaleDateString([], options);
+    }
+
+    function renderHistory() {
+        var list = document.getElementById('historyList');
+        if (!list) return;
+        var empty = document.getElementById('historyEmpty');
+        var entries = [];
+        try {
+            if (window.EmeraldHistory && typeof window.EmeraldHistory.get === 'function') {
+                entries = window.EmeraldHistory.get(120) || [];
+            }
+        } catch (_) {}
+        list.textContent = '';
+        if (empty) empty.hidden = entries.length > 0;
+        if (!entries.length) return;
+
+        var lastDay = '';
+        entries.forEach(function (entry) {
+            var day = historyDayLabel(entry.t);
+            if (day !== lastDay) {
+                lastDay = day;
+                var dayItem = document.createElement('li');
+                dayItem.className = 'history-day';
+                dayItem.textContent = day;
+                list.appendChild(dayItem);
+            }
+
+            var item = document.createElement('li');
+            item.className = 'history-item';
+            item.dataset.kind = entry.kind || 'action';
+
+            var dot = document.createElement('span');
+            dot.className = 'history-dot';
+            dot.setAttribute('aria-hidden', 'true');
+
+            var main = document.createElement('div');
+            main.className = 'history-main';
+            var label = document.createElement('span');
+            label.className = 'history-label';
+            label.textContent = entry.label || entry.title || 'Page';
+            var path = document.createElement('span');
+            path.className = 'history-path';
+            path.textContent = entry.path || '/';
+            main.appendChild(label);
+            main.appendChild(path);
+
+            var time = document.createElement('span');
+            time.className = 'history-time';
+            time.textContent = formatHistoryTime(entry.t);
+
+            item.appendChild(dot);
+            item.appendChild(main);
+            item.appendChild(time);
+            list.appendChild(item);
+        });
+    }
+
+    function recordHistory(label, kind) {
+        try {
+            if (window.EmeraldHistory && typeof window.EmeraldHistory.record === 'function') {
+                window.EmeraldHistory.record(label, { kind: kind || 'action' });
+            }
+        } catch (_) {}
+    }
+
     /* Data & privacy */
     var exportBtn = document.getElementById('exportDataBtn');
     if (exportBtn) {
         exportBtn.addEventListener('click', async function () {
             try {
+                try {
+                    if (window.EmeraldHistory && typeof window.EmeraldHistory.flush === 'function') {
+                        await window.EmeraldHistory.flush();
+                    }
+                } catch (_) {}
                 var data = await window.EmeraldAuth.exportAccountData();
+                try {
+                    if (window.EmeraldHistory && typeof window.EmeraldHistory.exportAll === 'function') {
+                        var historyEntries = window.EmeraldHistory.exportAll();
+                        if (historyEntries && historyEntries.length) {
+                            data['emerald.activity.history'] = historyEntries;
+                        }
+                    }
+                } catch (_) {}
                 var blob = new Blob([JSON.stringify(data || {}, null, 2)], { type: 'application/json' });
                 var url = URL.createObjectURL(blob);
                 var a = document.createElement('a');
@@ -2261,11 +2373,45 @@
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
                 showToast('Data exported.');
+                recordHistory('Exported account data');
             } catch (e) {
                 showToast('Export failed.');
             }
         });
     }
+
+    var clearHistoryBtn = document.getElementById('clearHistoryBtn');
+    if (clearHistoryBtn) {
+        clearHistoryBtn.addEventListener('click', async function () {
+            var confirmed = await showConfirmModal({
+                title: 'Clear history?',
+                subtitle: 'Synced with your account',
+                message: 'This removes the activity history from every device signed in to your account. Your files and app data are not affected.',
+                confirmLabel: 'Clear history',
+                cancelLabel: 'Cancel',
+                danger: true,
+                icon: 'trash',
+                focusCancel: true
+            });
+            if (!confirmed) return;
+            try {
+                if (window.EmeraldHistory && typeof window.EmeraldHistory.clear === 'function') {
+                    window.EmeraldHistory.clear();
+                }
+            } catch (_) {}
+            renderHistory();
+            showToast('History cleared.');
+        });
+    }
+
+    if (window.EmeraldHistory && typeof window.EmeraldHistory.subscribe === 'function') {
+        window.EmeraldHistory.subscribe(renderHistory);
+    }
+    window.addEventListener('storage', function (event) {
+        if (!event.key || event.key.indexOf('emerald.activity.history.v1') !== -1) {
+            renderHistory();
+        }
+    });
 
     var deleteBtn = document.getElementById('deleteDataBtn');
     if (deleteBtn) {
@@ -2286,13 +2432,28 @@
                 var data = {};
                 try { data = await window.EmeraldAuth.exportAccountData(); } catch (_) {}
                 if (window.EmeraldIDBStorage) {
-                    Object.keys(data || {}).forEach(function (key) {
-                        try { window.EmeraldIDBStorage.delete(key); } catch (_) {}
-                    });
+                    await Promise.all(Object.keys(data || {}).map(function (key) {
+                        try {
+                            // Local-only reset: do not write tombstones, or the
+                            // next sync would delete this account's data on
+                            // every other device too.
+                            return Promise.resolve(window.EmeraldIDBStorage.delete(key, null, {
+                                preserveSyncMeta: true,
+                                type: 'local-reset'
+                            })).catch(function () {});
+                        } catch (_) {
+                            return null;
+                        }
+                    }));
                 }
                 /* clear profile & devices */
                 try { localStorage.removeItem('emerald.account.profile.' + resolveSessionEmail(await window.EmeraldAuth.getSession())); } catch (_) {}
                 try { localStorage.removeItem('emerald.account.devices'); } catch (_) {}
+                try {
+                    if (window.EmeraldHistory && typeof window.EmeraldHistory.resetLocal === 'function') {
+                        window.EmeraldHistory.resetLocal();
+                    }
+                } catch (_) {}
                 showToast('Data deleted.');
                 var session = null;
                 try { session = await window.EmeraldAuth.getSession(); } catch (_) {}
@@ -2444,7 +2605,7 @@
         { label: 'Personal info', key: 'personal', hint: 'Name, birthday, city, region, country', words: ['profile', 'photo', 'name', 'birth', 'region', 'country', 'city'] },
         { label: 'Devices', key: 'devices', hint: 'Signed-in devices', words: ['device', 'sessions', 'computers'] },
         { label: 'Security', key: 'security', hint: 'Email address & password', words: ['email', 'password', 'login', 'google'] },
-        { label: 'Data & privacy', key: 'data', hint: 'Download or delete your data', words: ['export', 'download', 'delete', 'privacy'] },
+        { label: 'Data & privacy', key: 'data', hint: 'Download, history or delete your data', words: ['export', 'download', 'delete', 'privacy', 'history', 'activity', 'visited'] },
         { label: 'Storage', key: 'storage', hint: 'Usage and quota', words: ['space', 'quota', 'usage'] }
     ];
 
