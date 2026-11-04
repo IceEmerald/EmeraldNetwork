@@ -17,6 +17,7 @@
      subscribe(callback)                   notified after changes
      scope()                               current account scope
      storageKey()                          localStorage key for that scope
+      seedRandom(n)                         demo samples (local test account only)
 */
 (function () {
     'use strict';
@@ -538,10 +539,98 @@
         };
     }
 
+    /* ── Demo seeding for the local test account ───────────────────── */
+
+    var TEST_SCOPES = ['test@local', 'google@local'];
+    var SEED_FLAG_KEY = 'emerald.test.history.seeded.v1';
+
+    var SAMPLE_ACTIONS = [
+        { path: '/docs',      label: 'Created document \u201CGarden project plan\u201D' },
+        { path: '/docs',      label: 'Saved document \u201CGarden project plan\u201D' },
+        { path: '/docs',      label: 'Exported document \u201CBudget overview\u201D as PDF' },
+        { path: '/docs',      label: 'Opened document \u201CBudget overview\u201D' },
+        { path: '/sheets',    label: 'Created spreadsheet' },
+        { path: '/sheets',    label: 'Exported spreadsheet as XLSX' },
+        { path: '/slides',    label: 'Created presentation \u201CQ3 review\u201D' },
+        { path: '/slides',    label: 'Exported presentation as PPTX' },
+        { path: '/slides',    label: 'Exported presentation as PDF' },
+        { path: '/notes',     label: 'Created note' },
+        { path: '/notes',     label: 'Exported note \u201CGift ideas\u201D as a link' },
+        { path: '/notes',     label: 'Deleted note \u201CTo-do list\u201D' },
+        { path: '/flowchart', label: 'Exported flowchart as .emeraldcore' },
+        { path: '/flowchart', label: 'Imported a flowchart' },
+        { path: '/aichat',    label: 'Asked AI: \u201CHow do I propagate basil?\u201D' },
+        { path: '/aichat',    label: 'Deleted AI chat \u201CStyle ideas\u201D' },
+        { path: '/wiki',      label: 'Searched wiki for \u201Ccompanion planting\u201D' },
+        { path: '/account',   label: 'Updated personal info' },
+        { path: '/account',   label: 'Updated profile photo' },
+        { path: '/account',   label: 'Exported account data as .emeraldcore' }
+    ];
+
+    function isTestScope(scope) {
+        return TEST_SCOPES.indexOf(normalizeScope(scope)) !== -1;
+    }
+
+    // Backdated sample activity for the local test account, so the history
+    // card has something to show on a first sign-in. Entries spread over
+    // the last two weeks; each gets a distinct timestamp so IDs stay unique.
+    function seedRandom(count) {
+        var scope = currentScope();
+        loadScope(scope);
+        if (!isTestScope(scope)) return 0;
+        count = Math.max(1, Math.min(Number(count) || 20, SAMPLE_ACTIONS.length * 3));
+
+        var now = Date.now();
+        var fresh = [];
+        for (var i = 0; i < count; i++) {
+            var sample = SAMPLE_ACTIONS[i % SAMPLE_ACTIONS.length];
+            var t = now - 1000 * 60 * 60 * (4 + i * 16) - i * 1000;
+            fresh.push({
+                id: '',
+                t: t,
+                kind: 'action',
+                label: sample.label,
+                title: sample.label,
+                path: sample.path,
+                n: 1
+            });
+        }
+
+        var watermark = clearedAt || 0;
+        entries = mergeEntries(entries, fresh, watermark);
+        var newest = entries.length ? entries[0].t : 0;
+        stateUpdatedAt = Math.max(stateUpdatedAt || 0, newest);
+        dirty = true;
+        persistLocal();
+        notify();
+
+        if (flushTimer) {
+            clearTimeout(flushTimer);
+            flushTimer = null;
+        }
+        flushNow(true);
+        return entries.length;
+    }
+
+    // Auto-seed once per browser. The sticky flag means a later clear stays
+    // cleared: after the flag exists the samples are never written again,
+    // even if the list is empty. resetLocal keeps the flag as well.
+    function maybeAutoSeed() {
+        var scope = activeScope || currentScope();
+        if (!isTestScope(scope)) return;
+        var flag = '';
+        try { flag = localStorage.getItem(SEED_FLAG_KEY) || ''; } catch (_) {}
+        if (flag === '1') return;
+        if (entries.length || clearedAt) return;
+        try { localStorage.setItem(SEED_FLAG_KEY, '1'); } catch (_) {}
+        seedRandom(20);
+    }
+
     function refreshScope() {
         var scope = currentScope();
         if (scope !== activeScope) {
             loadScope(scope, true);
+            maybeAutoSeed();
             notify();
         }
     }
@@ -556,12 +645,14 @@
         resetLocal: resetLocal,
         flush: flush,
         subscribe: subscribe,
+        seedRandom: seedRandom,
         refresh: refreshScope,
         scope: currentScope,
         storageKey: storageKey
     };
 
     loadScope(currentScope());
+    maybeAutoSeed();
     ensureStorageHooks();
     if (typeof window.addEventListener === 'function') {
         window.addEventListener('emerald-auth-changed', refreshScope);

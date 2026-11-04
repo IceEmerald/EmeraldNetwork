@@ -2345,6 +2345,50 @@
     }
 
     /* Data & privacy */
+
+    // Serialize the account export in the same .emeraldcore style the
+    // Flowchart app uses: a hand-readable comment banner (plain // JSONC
+    // comments outside string literals) followed by pretty-printed JSON.
+    function serializeAccountCore(data) {
+    var H = '\u2500', V = '\u2502', TL = '\u250C', TR = '\u2510', BL = '\u2514', BR = '\u2518', AR = '\u2192';
+    function bar(left, right) { return left + H.repeat(49) + right; }
+    function row(text) { return V + (' ' + text).padEnd(49) + V; }
+
+    var keys = [];
+    Object.keys(data || {}).forEach(function (key) { keys.push(key); });
+    var header = [
+        '// ====================================================',
+        '//               account.emeraldcore',
+        '// ====================================================',
+        '//',
+        '//',
+        '// ' + bar(TL, TR),
+        '// ' + row('ACCOUNT DATA'),
+        '// ' + row(''),
+        '// ' + row('A full export of the data stored under your'),
+        '// ' + row('EmeraldNetwork account.'),
+        '// ' + row(''),
+        '// ' + row('<key> ' + AR + ' one synced storage entry, e.g.'),
+        '// ' + row('docs, notes, sheets, slides, flowcharts'),
+        '// ' + row('or AI chats. Each value is the exact'),
+        '// ' + row('record your apps keep.'),
+        '// ' + row(''),
+        '// ' + row('emerald.activity.history'),
+        '// ' + row('  ' + AR + ' your account activity entries.'),
+        '// ' + row(''),
+        '// ' + bar(BL, BR),
+        '//',
+        '//',
+        '// Generated: ' + new Date().toISOString(),
+        '// Entries: ' + keys.length,
+        '//',
+        '//',
+        '',
+        '',
+    ].join('\n');
+    return header + JSON.stringify(data || {}, null, 2);
+    }
+
     var exportBtn = document.getElementById('exportDataBtn');
     if (exportBtn) {
         exportBtn.addEventListener('click', async function () {
@@ -2363,17 +2407,20 @@
                         }
                     }
                 } catch (_) {}
-                var blob = new Blob([JSON.stringify(data || {}, null, 2)], { type: 'application/json' });
+                var blob = new Blob([serializeAccountCore(data)], { type: 'application/octet-stream' });
                 var url = URL.createObjectURL(blob);
                 var a = document.createElement('a');
                 a.href = url;
-                a.download = 'emerald-account-data.json';
+                a.download = 'account.emeraldcore';
+                // Append to DOM before clicking - some browsers refuse to
+                // trigger a download for a detached <a> element.
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                showToast('Data exported.');
-                recordHistory('Exported account data');
+                // Give the browser a tick to start the download before revoking.
+                setTimeout(function () { URL.revokeObjectURL(url); }, 200);
+                showToast('Data exported as .emeraldcore.');
+                recordHistory('Exported account data as .emeraldcore');
             } catch (e) {
                 showToast('Export failed.');
             }
