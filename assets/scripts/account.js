@@ -2551,6 +2551,23 @@
         }
     }
 
+    /* ---------------- Syncing toast ---------------- */
+
+    var syncingToastActive = false;
+    function showSyncingToast() {
+        if (syncingToastActive) return;
+        syncingToastActive = true;
+        var toast = document.getElementById('custom-toast');
+        if (!toast) return;
+        toast.replaceChildren(createToastIcon(), document.createTextNode('Syncing\u2026'));
+        toast.classList.add('show');
+    }
+    function hideSyncingToast() {
+        syncingToastActive = false;
+        var toast = document.getElementById('custom-toast');
+        if (toast) toast.classList.remove('show');
+    }
+
     /* ---------------- Init ---------------- */
 
     var params = new URLSearchParams(window.location.search);
@@ -2561,10 +2578,33 @@
     refreshSessionView().catch(function () {});
     startSessionMonitor();
 
+    // Kick an immediate sync on load so a signed-in account (e.g. on a new
+    // device) hydrates its data — including activity history — without
+    // waiting for the next polling tick. Show a "Syncing…" toast while it
+    // runs so the user knows data is still loading.
+    if (window.EmeraldAuth && typeof window.EmeraldAuth.getSession === 'function') {
+        window.EmeraldAuth.getSession().then(function (session) {
+            if (!session || !session.user || !session.token) return;
+            showSyncingToast();
+            if (typeof window.EmeraldAuth.syncCurrentData === 'function') {
+                Promise.resolve(window.EmeraldAuth.syncCurrentData())
+                    .catch(function () {})
+                    .then(function () { hideSyncingToast(); renderHistory(); });
+            } else {
+                setTimeout(hideSyncingToast, 1500);
+            }
+        }).catch(function () {});
+    }
+
     // Immediately sync devices on page load so other devices appear right away
     if (window.EmeraldAuth && typeof window.EmeraldAuth.pollDeviceRegistry === 'function') {
         window.EmeraldAuth.pollDeviceRegistry().catch(function () {});
     }
+
+    window.addEventListener('emerald-sync-complete', function () {
+        hideSyncingToast();
+        renderHistory();
+    });
 
     async function refreshSyncedDevices(snapshot) {
         var list = snapshot && Array.isArray(snapshot['emerald.account.devices'])

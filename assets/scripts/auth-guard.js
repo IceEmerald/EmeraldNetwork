@@ -54,6 +54,9 @@
             if (window.EmeraldAuth && typeof window.EmeraldAuth.startAutoSync === 'function') {
                 window.EmeraldAuth.startAutoSync();
             }
+            if (window.EmeraldAuth && typeof window.EmeraldAuth.syncCurrentData === 'function') {
+                window.EmeraldAuth.syncCurrentData().catch(function () {});
+            }
         } catch (_) {}
     }
 
