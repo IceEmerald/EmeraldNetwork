@@ -9483,8 +9483,6 @@ function startAutosaveSnapshots() {
       _docDisconnected = false;
       clearTimeout(_docReconnectTimer);
       _docReconnectTimer = null;
-      hideDisconnectModal();
-      toast("Reconnected!", "success", 4000);
     };
     window.addEventListener("offline", onOffline);
     window.addEventListener("online", onOnline);

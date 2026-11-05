@@ -10174,8 +10174,6 @@ function setupConnectionMonitor() {
     _sheetsDisconnected = false;
     clearTimeout(_sheetsReconnectTimer);
     _sheetsReconnectTimer = null;
-    hideDisconnectModal();
-    toast('Reconnected!', 'success', 4000);
   };
   window.addEventListener('offline', onOffline);
   window.addEventListener('online', onOnline);

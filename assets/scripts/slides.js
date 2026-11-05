@@ -714,8 +714,6 @@ class SlidesApp {
             this._disconnected = false;
             clearTimeout(this._reconnectTimer);
             this._reconnectTimer = null;
-            this._hideDisconnectModal();
-            this.showToast('Reconnected!', 4000);
         };
         window.addEventListener('offline', onOffline);
         window.addEventListener('online', onOnline);
