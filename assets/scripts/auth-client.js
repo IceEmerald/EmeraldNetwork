@@ -9,7 +9,6 @@
 
     var HISTORY_KEY = 'emerald.activity.history.v1';
     var HISTORY_MAX_ENTRIES = 400;
-    var ETAG_STORAGE_KEY = 'emerald.auth.sync_etag';
     var SYNC_POLL_MS = 15000;
     var SYNC_DEBOUNCE_MS = 300;
     var SYNC_MAX_BACKOFF_MS = 60000;
@@ -295,7 +294,10 @@
         var id = null;
         try { id = localStorage.getItem('emerald.device.id'); } catch (_) {}
         if (!id) {
-            id = 'dev-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+            var bytes = new Uint8Array(16);
+            try { if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(bytes); } catch (_) {}
+            id = 'dev-' + Array.prototype.map.call(bytes, function (byte) { return byte.toString(16).padStart(2, '0'); }).join('');
+            if (id === 'dev-' + '00'.repeat(16)) id = 'dev-' + Date.now().toString(36);
             try { localStorage.setItem('emerald.device.id', id); } catch (_) {}
         }
         return id;
@@ -335,8 +337,8 @@
     }
 
     function writeSessionRaw(value) {
-        try { localStorage.setItem(STORAGE_KEYS.session, JSON.stringify(value)); } catch (_) {}
-        try { sessionStorage.setItem(STORAGE_KEYS.session, JSON.stringify(value)); } catch (_) {}
+        try { localStorage.removeItem(STORAGE_KEYS.session); } catch (_) {}
+        try { sessionStorage.removeItem(STORAGE_KEYS.session); } catch (_) {}
     }
 
     async function getSession() {
@@ -349,14 +351,18 @@
                 var idbUpdatedAt = Number(idbSession.updatedAt) || 0;
                 var storedUpdatedAt = Number(storedSession && storedSession.updatedAt) || 0;
                 if (!storedSession || idbUpdatedAt > storedUpdatedAt) {
-                    if (!storedSession || idbSession.user.email !== storedSession.user.email || idbSession.token !== storedSession.token) {
-                        writeSessionRaw(idbSession);
-                    }
+                    writeSessionRaw();
                     return idbSession;
                 }
                 if (idbSession.user.email !== storedSession.user.email || idbSession.token !== storedSession.token) {
                     await window.EmeraldIDBStorage.setJSON(STORAGE_KEYS.session, storedSession);
                 }
+                writeSessionRaw();
+                return storedSession;
+            }
+            if (storedSession && window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.setJSON === 'function') {
+                await window.EmeraldIDBStorage.setJSON(STORAGE_KEYS.session, storedSession);
+                writeSessionRaw();
                 return storedSession;
             }
         }
@@ -470,11 +476,8 @@
                 try { localStorage.removeItem('acct:' + email + ':' + STORAGE_KEYS.syncMeta); } catch (_) {}
             }
         }
-        if (email) {
-            try { localStorage.removeItem('emerald.account.profile.' + email); } catch (_) {}
-        }
+        if (email) try { localStorage.removeItem('emerald.account.profile.' + email); } catch (_) {}
         try { localStorage.removeItem('emerald.account.devices'); } catch (_) {}
-        try { localStorage.removeItem(ETAG_STORAGE_KEY); } catch (_) {}
         lastSyncEtag = '';
         if (window.EmeraldHistory && typeof window.EmeraldHistory.resetLocal === 'function') {
             try { window.EmeraldHistory.resetLocal(); } catch (_) {}
@@ -801,22 +804,9 @@
         });
     }
 
-    function loadStoredEtag(email) {
-        if (!email) return '';
-        try {
-            var raw = localStorage.getItem(ETAG_STORAGE_KEY);
-            var saved = raw ? JSON.parse(raw) : null;
-            if (saved && saved.email === email && typeof saved.etag === 'string') return saved.etag;
-        } catch (_) {}
-        return '';
-    }
+    function loadStoredEtag() { return ''; }
 
-    function saveStoredEtag(email, etag) {
-        if (!email || typeof etag !== 'string' || !etag) return;
-        try {
-            localStorage.setItem(ETAG_STORAGE_KEY, JSON.stringify({ email: email, etag: etag }));
-        } catch (_) {}
-    }
+    function saveStoredEtag() {}
 
     function hashHistoryText(value) {
         var text = String(value || '');
@@ -1293,7 +1283,7 @@
                 if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.setJSON === 'function') {
                     await window.EmeraldIDBStorage.setJSON(key, value, { type: 'import' });
                 }
-                localStorage.setItem(key, JSON.stringify(value));
+                try { localStorage.removeItem(key); } catch (_) {}
             } catch (_) {}
         }
         try {
@@ -1346,10 +1336,7 @@
             return true;
         }
 
-        Object.keys(filteredSnapshot).forEach(function (key) {
-            try { localStorage.setItem(key, JSON.stringify(filteredSnapshot[key])); } catch (_) {}
-        });
-        return true;
+        return false;
     }
 
     function beginOAuth(provider, intent) {

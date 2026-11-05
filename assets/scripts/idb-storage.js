@@ -10,7 +10,17 @@
     const cache = new Map();
     const subscribers = new Set();
     const localSubscribers = new Set();
-    const tabId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    const tabRandom = new Uint8Array(16);
+    let hasSecureTabId = false;
+    try {
+        if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+            crypto.getRandomValues(tabRandom);
+            hasSecureTabId = true;
+        }
+    } catch (_) {}
+    const tabId = hasSecureTabId
+        ? Array.from(tabRandom, function (byte) { return byte.toString(16).padStart(2, '0'); }).join('')
+        : 'tab-' + Date.now().toString(36) + '-' + Math.floor(typeof performance !== 'undefined' ? performance.now() : 0).toString(36);
     const channel = typeof BroadcastChannel !== 'undefined'
         ? new BroadcastChannel('emeraldcore.storage.suite')
         : null;
@@ -29,17 +39,9 @@
     }
 
     function readCurrentSession() {
-        var sources = [
-            function () { try { return JSON.parse(localStorage.getItem('emerald.auth.session') || 'null'); } catch (_) { return null; } },
-            function () { try { return JSON.parse(sessionStorage.getItem('emerald.auth.session') || 'null'); } catch (_) { return null; } }
-        ];
-
-        for (var i = 0; i < sources.length; i++) {
-            var value = sources[i]();
-            if (value && (value.user || value.email)) return value;
-        }
-
-        return null;
+        var raw = cache.get('emerald.auth.session');
+        if (!raw) return null;
+        try { return JSON.parse(raw); } catch (_) { return null; }
     }
 
     function shouldScopeKey(key) {
@@ -193,7 +195,6 @@
             } catch (_) {}
         }
         cache.set(metaKey, raw);
-        try { localStorage.setItem(metaKey, raw); } catch (_) {}
         await readyPromise;
         if (db) await putRaw(metaKey, raw);
     }
@@ -228,7 +229,6 @@
         var metaKey = qualifyKey(SYNC_META_KEY, scope);
         var raw = serializeSyncMeta(meta);
         cache.set(metaKey, raw);
-        try { localStorage.setItem(metaKey, raw); } catch (_) {}
         readyPromise.then(function () {
             if (db) return putRaw(metaKey, raw);
         }).catch(function (error) {
@@ -268,7 +268,7 @@
             return loadCache();
         })
         .catch(function (error) {
-            console.warn('IndexedDB unavailable. Falling back to localStorage for this session.', error);
+            console.warn('IndexedDB unavailable. Account data will not persist after this page closes.', error);
             db = null;
         })
         .finally(function () { ready = true; });
@@ -320,10 +320,15 @@
         var raw = JSON.stringify(value);
         await readyPromise;
         cache.set(qualifiedKey, raw);
-        try { localStorage.setItem(qualifiedKey, raw); } catch (_) {}
         if (db) {
             try { await putRaw(qualifiedKey, raw); }
-            catch (error) { console.warn('IndexedDB write failed, keeping localStorage copy:', qualifiedKey, error); }
+            catch (error) {
+                cache.delete(qualifiedKey);
+                console.warn('IndexedDB write failed; data was not persisted:', qualifiedKey, error);
+                throw error;
+            }
+        } else {
+            console.warn('IndexedDB is unavailable; data is only available until this page closes:', key);
         }
         if (shouldScopeKey(key)) {
             try { localStorage.removeItem(key); } catch (_) {}
@@ -341,7 +346,6 @@
         var qualifiedKey = qualifyKey(key, scope);
         var raw = JSON.stringify(value);
         cache.set(qualifiedKey, raw);
-        try { localStorage.setItem(qualifiedKey, raw); } catch (_) {}
         if (options.type !== 'import' && options.type !== 'meta') {
             markSyncMetaSync(String(key), scope, false, Date.now());
         }
@@ -350,9 +354,6 @@
         readyPromise.then(function () {
             var write = db ? putRaw(qualifiedKey, raw) : Promise.resolve();
             return write.then(function () {
-                if (shouldScopeKey(key)) {
-                    try { localStorage.removeItem(key); } catch (_) {}
-                }
                 broadcast({ key: qualifiedKey, type: 'set' });
             });
         }).catch(function (error) {
@@ -392,14 +393,6 @@
                 } catch (_) {
                     snapshot[actualKey] = entry.value;
                 }
-            });
-            Object.keys(localStorage).forEach(function (key) {
-                if (!key.startsWith(prefix)) return;
-                var raw = readLocalRaw(key);
-                if (raw == null) return;
-                var actualKey = key.slice(prefix.length);
-                try { snapshot[actualKey] = JSON.parse(raw); }
-                catch (_) { snapshot[actualKey] = raw; }
             });
             return snapshot;
         }

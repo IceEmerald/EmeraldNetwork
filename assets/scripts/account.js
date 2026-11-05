@@ -709,7 +709,10 @@
         var id = null;
         try { id = localStorage.getItem('emerald.device.id'); } catch (_) {}
         if (!id) {
-            id = 'dev-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+            var bytes = new Uint8Array(16);
+            try { if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(bytes); } catch (_) {}
+            id = 'dev-' + Array.prototype.map.call(bytes, function (byte) { return byte.toString(16).padStart(2, '0'); }).join('');
+            if (id === 'dev-' + '00'.repeat(16)) id = 'dev-' + Date.now().toString(36);
             try { localStorage.setItem('emerald.device.id', id); } catch (_) {}
         }
         return id;
@@ -913,7 +916,15 @@
         }
         try {
             var raw = localStorage.getItem('emerald.account.profile.' + email);
-            return raw ? JSON.parse(raw) : null;
+            var legacyProfile = raw ? JSON.parse(raw) : null;
+            if (legacyProfile && window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.setJSON === 'function' &&
+                typeof window.EmeraldIDBStorage.usingIndexedDB === 'function' && window.EmeraldIDBStorage.usingIndexedDB()) {
+                try {
+                    await window.EmeraldIDBStorage.setJSON('emerald.account.profile', legacyProfile);
+                    localStorage.removeItem('emerald.account.profile.' + email);
+                } catch (_) {}
+            }
+            return legacyProfile;
         } catch (_) { return null; }
     }
 
@@ -922,7 +933,9 @@
         if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.setJSON === 'function') {
             try { await window.EmeraldIDBStorage.setJSON('emerald.account.profile', profile); } catch (_) {}
         }
-        try { localStorage.setItem('emerald.account.profile.' + email, JSON.stringify(profile)); } catch (_) {}
+        if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.usingIndexedDB === 'function' && window.EmeraldIDBStorage.usingIndexedDB()) {
+            try { localStorage.removeItem('emerald.account.profile.' + email); } catch (_) {}
+        }
     }
 
     /* ---------- Compact profile photos ---------- */
@@ -936,6 +949,8 @@
         var limit = maxSize || 256;
         return new Promise(function (resolve) {
             try {
+                var safeDataUrl = safePhotoSource(dataUrl);
+                if (!safeDataUrl) { resolve(null); return; }
                 var img = new Image();
                 img.onload = function () {
                     try {
@@ -954,7 +969,7 @@
                     } catch (_) { resolve(null); }
                 };
                 img.onerror = function () { resolve(null); };
-                img.src = dataUrl;
+                img.src = safeDataUrl;
             } catch (_) { resolve(null); }
         });
     }
@@ -984,7 +999,15 @@
         }
         try {
             var raw = localStorage.getItem('emerald.account.devices');
-            return raw ? JSON.parse(raw) : [];
+            var legacyDevices = raw ? JSON.parse(raw) : [];
+            if (Array.isArray(legacyDevices) && legacyDevices.length && window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.setJSON === 'function' &&
+                typeof window.EmeraldIDBStorage.usingIndexedDB === 'function' && window.EmeraldIDBStorage.usingIndexedDB()) {
+                try {
+                    await window.EmeraldIDBStorage.setJSON('emerald.account.devices', legacyDevices);
+                    localStorage.removeItem('emerald.account.devices');
+                } catch (_) {}
+            }
+            return legacyDevices;
         } catch (_) { return []; }
     }
 
@@ -993,7 +1016,9 @@
         if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.setJSON === 'function') {
             try { await window.EmeraldIDBStorage.setJSON('emerald.account.devices', list); } catch (_) {}
         }
-        try { localStorage.setItem('emerald.account.devices', JSON.stringify(list)); } catch (_) {}
+        if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.usingIndexedDB === 'function' && window.EmeraldIDBStorage.usingIndexedDB()) {
+            try { localStorage.removeItem('emerald.account.devices'); } catch (_) {}
+        }
     }
 
     async function ensureDevice() {
@@ -1057,9 +1082,20 @@
         pill.classList.add('is-on');
     }
 
+    function safePhotoSource(value) {
+        if (typeof value !== 'string' || value.length > 400000) return '';
+        var source = value.trim();
+        if (/^data:image\/(?:jpeg|png|webp);base64,[a-z0-9+/]+={0,2}$/i.test(source)) return source;
+        try {
+            var url = new URL(source, window.location.origin);
+            if (url.protocol === 'https:' && url.origin === window.location.origin && /\.(?:jpe?g|png|webp)$/i.test(url.pathname)) return url.href;
+        } catch (_) {}
+        return '';
+    }
+
     function setSrc(id, value) {
         var el = document.getElementById(id);
-        if (el) el.src = value || defaultAvatarDataUrl();
+        if (el) el.src = safePhotoSource(value) || defaultAvatarDataUrl();
     }
 
     /* ---------- network auto-detection ---------------------------------
@@ -1068,7 +1104,7 @@
        country + region for the profile form. Results are cached for a
        day so the lookup is not repeated on every render. */
 
-    var GEO_CACHE_KEY = 'emeraldGeoLookupV2';
+    var geoLookupCache = null;
 
     function deriveDefaultName(email) {
         if (!email || email.indexOf('@') === -1) return '';
@@ -1083,8 +1119,7 @@
     }
 
     async function detectNetworkLocation() {
-        var cached = null;
-        try { cached = JSON.parse(localStorage.getItem(GEO_CACHE_KEY) || 'null'); } catch (_) {}
+        var cached = geoLookupCache;
         if (cached && cached.data && (Date.now() - cached.t) < 24 * 60 * 60 * 1000) {
             return cached.data;
         }
@@ -1118,7 +1153,7 @@
                     countryCode: String(countryCode || '').toUpperCase()
                 };
                 if (data.ip) {
-                    try { localStorage.setItem(GEO_CACHE_KEY, JSON.stringify({ t: Date.now(), data: data })); } catch (_) {}
+                    geoLookupCache = { t: Date.now(), data: data };
                     return data;
                 }
             } catch (_) { /* offline or blocked — try the next endpoint */ }
@@ -1797,8 +1832,9 @@
         var initials = document.getElementById('dashInitials');
         if (btn) btn.title = name + ' — Personal info';
         if (img) {
-            if (photo) {
-                img.src = photo;
+            var safePhoto = safePhotoSource(photo);
+            if (safePhoto) {
+                img.src = safePhoto;
                 img.hidden = false;
             } else {
                 img.removeAttribute('src');

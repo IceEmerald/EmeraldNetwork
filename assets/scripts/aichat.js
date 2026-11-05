@@ -6420,7 +6420,7 @@ function _shuffledIdx(n) {
   const arr = [];
   for (let i = 0; i < n; i++) arr.push(i);
   for (let i = n - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = _cryptoInt(i + 1);
     const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
   }
   return arr;
@@ -7984,7 +7984,7 @@ async function _esStoreGet(key) {
 }
 async function _esStoreSet(key, val) {
   if (window.EmeraldIDBStorage) { await window.EmeraldIDBStorage.setJSON(key, val); return; }
-  try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
+  throw new Error("Secure app storage is unavailable.");
 }
 function _esSheetsPut(id, doc) {
   return new Promise((resolve, reject) => {
