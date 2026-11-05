@@ -930,11 +930,16 @@
 
     async function saveProfile(email, profile) {
         await waitForStorageReady();
-        if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.setJSON === 'function') {
-            try { await window.EmeraldIDBStorage.setJSON('emerald.account.profile', profile); } catch (_) {}
-        }
-        if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.usingIndexedDB === 'function' && window.EmeraldIDBStorage.usingIndexedDB()) {
+        var storage = window.EmeraldIDBStorage;
+        if (!storage || typeof storage.setJSON !== 'function' ||
+            typeof storage.usingIndexedDB !== 'function' || !storage.usingIndexedDB()) return false;
+        try {
+            await storage.setJSON('emerald.account.profile', profile);
             try { localStorage.removeItem('emerald.account.profile.' + email); } catch (_) {}
+            return true;
+        } catch (error) {
+            console.warn('Could not save account profile:', error);
+            return false;
         }
     }
 
@@ -949,7 +954,9 @@
         var limit = maxSize || 256;
         return new Promise(function (resolve) {
             try {
-                var safeDataUrl = safePhotoSource(dataUrl);
+                // Original uploads may be up to 2 MB; the saved thumbnail is
+                // separately checked against the smaller display/storage cap.
+                var safeDataUrl = safePhotoSource(dataUrl, 3 * 1024 * 1024);
                 if (!safeDataUrl) { resolve(null); return; }
                 var img = new Image();
                 img.onload = function () {
@@ -965,12 +972,176 @@
                         ctx.fillStyle = '#ffffff';
                         ctx.fillRect(0, 0, w, h);
                         ctx.drawImage(img, 0, 0, w, h);
-                        resolve(canvas.toDataURL('image/jpeg', 0.85));
+                        var thumbnail = canvas.toDataURL('image/jpeg', 0.82);
+                        if (thumbnail.length > 300 * 1024) {
+                            var smaller = document.createElement('canvas');
+                            smaller.width = Math.max(1, Math.round(w * 0.75));
+                            smaller.height = Math.max(1, Math.round(h * 0.75));
+                            var smallerContext = smaller.getContext('2d');
+                            if (!smallerContext) { resolve(null); return; }
+                            smallerContext.fillStyle = '#ffffff';
+                            smallerContext.fillRect(0, 0, smaller.width, smaller.height);
+                            smallerContext.drawImage(img, 0, 0, smaller.width, smaller.height);
+                            thumbnail = smaller.toDataURL('image/jpeg', 0.72);
+                        }
+                        resolve(thumbnail.length <= 300 * 1024 ? thumbnail : null);
                     } catch (_) { resolve(null); }
                 };
                 img.onerror = function () { resolve(null); };
                 img.src = safeDataUrl;
             } catch (_) { resolve(null); }
+        });
+    }
+
+    function openPhotoCropper(dataUrl) {
+        return new Promise(function (resolve, reject) {
+            var safeSource = safePhotoSource(dataUrl, 3 * 1024 * 1024);
+            if (!safeSource) { resolve(null); return; }
+
+            var image = new Image();
+            image.onerror = function () { reject(new Error('Could not load the selected image.')); };
+            image.onload = function () {
+                var overlay = document.createElement('div');
+                overlay.className = 'emerald-modal-overlay photo-crop-overlay';
+                var dialog = document.createElement('section');
+                dialog.className = 'emerald-modal photo-crop-dialog';
+                dialog.setAttribute('role', 'dialog');
+                dialog.setAttribute('aria-modal', 'true');
+                dialog.setAttribute('aria-labelledby', 'photoCropTitle');
+
+                var head = document.createElement('header');
+                head.className = 'photo-crop-head';
+                var title = document.createElement('h2');
+                title.className = 'emerald-modal-title';
+                title.id = 'photoCropTitle';
+                title.textContent = 'Adjust your photo';
+                var help = document.createElement('p');
+                help.className = 'photo-crop-help';
+                help.textContent = 'Drag to reposition, then zoom in or out.';
+                head.appendChild(title);
+                head.appendChild(help);
+
+                var stage = document.createElement('div');
+                stage.className = 'photo-crop-stage';
+                stage.setAttribute('role', 'img');
+                stage.setAttribute('aria-label', 'Drag the photo to choose what appears in the square crop');
+                var cropImage = document.createElement('img');
+                cropImage.alt = '';
+                cropImage.draggable = false;
+                cropImage.src = safeSource;
+                stage.appendChild(cropImage);
+
+                var zoomLabel = document.createElement('label');
+                zoomLabel.className = 'photo-crop-zoom-label';
+                zoomLabel.textContent = 'Zoom';
+                var zoom = document.createElement('input');
+                zoom.type = 'range';
+                zoom.min = '1';
+                zoom.max = '3';
+                zoom.step = '0.01';
+                zoom.value = '1';
+                zoom.setAttribute('aria-label', 'Zoom photo');
+                zoomLabel.appendChild(zoom);
+
+                var foot = document.createElement('footer');
+                foot.className = 'emerald-modal-foot photo-crop-foot';
+                var cancel = document.createElement('button');
+                cancel.type = 'button';
+                cancel.className = 'emerald-modal-btn cancel';
+                cancel.textContent = 'Cancel';
+                var use = document.createElement('button');
+                use.type = 'button';
+                use.className = 'emerald-modal-btn primary';
+                use.textContent = 'Use photo';
+                foot.appendChild(cancel);
+                foot.appendChild(use);
+                dialog.appendChild(head);
+                dialog.appendChild(stage);
+                dialog.appendChild(zoomLabel);
+                dialog.appendChild(foot);
+                overlay.appendChild(dialog);
+                document.body.appendChild(overlay);
+
+                var viewSize = stage.clientWidth || 280;
+                var scale = Math.max(viewSize / image.naturalWidth, viewSize / image.naturalHeight);
+                var zoomLevel = 1;
+                var offsetX = 0;
+                var offsetY = 0;
+                var dragging = false;
+                var pointerX = 0;
+                var pointerY = 0;
+                var done = false;
+                function paint() {
+                    var width = image.naturalWidth * scale * zoomLevel;
+                    var height = image.naturalHeight * scale * zoomLevel;
+                    offsetX = Math.max(-((width - viewSize) / 2), Math.min((width - viewSize) / 2, offsetX));
+                    offsetY = Math.max(-((height - viewSize) / 2), Math.min((height - viewSize) / 2, offsetY));
+                    cropImage.style.width = width + 'px';
+                    cropImage.style.height = height + 'px';
+                    cropImage.style.marginLeft = offsetX + 'px';
+                    cropImage.style.marginTop = offsetY + 'px';
+                }
+                function close(result) {
+                    if (done) return;
+                    done = true;
+                    document.removeEventListener('keydown', onKeyDown);
+                    overlay.remove();
+                    resolve(result);
+                }
+                function onKeyDown(event) {
+                    if (event.key === 'Escape') close(null);
+                }
+
+                stage.addEventListener('pointerdown', function (event) {
+                    dragging = true;
+                    pointerX = event.clientX;
+                    pointerY = event.clientY;
+                    stage.classList.add('is-dragging');
+                    stage.setPointerCapture(event.pointerId);
+                });
+                stage.addEventListener('pointermove', function (event) {
+                    if (!dragging) return;
+                    offsetX += event.clientX - pointerX;
+                    offsetY += event.clientY - pointerY;
+                    pointerX = event.clientX;
+                    pointerY = event.clientY;
+                    paint();
+                });
+                function endDrag() { dragging = false; stage.classList.remove('is-dragging'); }
+                stage.addEventListener('pointerup', endDrag);
+                stage.addEventListener('pointercancel', endDrag);
+                zoom.addEventListener('input', function () {
+                    zoomLevel = Number(zoom.value) || 1;
+                    paint();
+                });
+                cancel.addEventListener('click', function () { close(null); });
+                overlay.addEventListener('click', function (event) {
+                    if (event.target === overlay) close(null);
+                });
+                use.addEventListener('click', function () {
+                    try {
+                        var sourceSize = viewSize / (scale * zoomLevel);
+                        var sx = Math.max(0, Math.min(image.naturalWidth - sourceSize,
+                            image.naturalWidth / 2 - sourceSize / 2 - offsetX / (scale * zoomLevel)));
+                        var sy = Math.max(0, Math.min(image.naturalHeight - sourceSize,
+                            image.naturalHeight / 2 - sourceSize / 2 - offsetY / (scale * zoomLevel)));
+                        var canvas = document.createElement('canvas');
+                        canvas.width = 256;
+                        canvas.height = 256;
+                        var context = canvas.getContext('2d');
+                        if (!context) { close(null); return; }
+                        context.fillStyle = '#ffffff';
+                        context.fillRect(0, 0, canvas.width, canvas.height);
+                        context.drawImage(image, sx, sy, sourceSize, sourceSize, 0, 0, canvas.width, canvas.height);
+                        var result = canvas.toDataURL('image/jpeg', 0.82);
+                        close(result.length <= 300 * 1024 ? result : null);
+                    } catch (_) { close(null); }
+                });
+                document.addEventListener('keydown', onKeyDown);
+                paint();
+                cancel.focus();
+            };
+            image.src = safeSource;
         });
     }
 
@@ -1082,8 +1253,8 @@
         pill.classList.add('is-on');
     }
 
-    function safePhotoSource(value) {
-        if (typeof value !== 'string' || value.length > 400000) return '';
+    function safePhotoSource(value, maxLength) {
+        if (typeof value !== 'string' || value.length > (maxLength || 400000)) return '';
         var source = value.trim();
         if (/^data:image\/(?:jpeg|png|webp);base64,[a-z0-9+/]+={0,2}$/i.test(source)) return source;
         try {
@@ -2047,7 +2218,10 @@
             profile.country = document.getElementById('profileCountry').value;
             delete profile.language;  // field removed from the profile
             if (!profile.photo) profile.photo = (await loadProfile(email) || {}).photo || '';
-            await saveProfile(email, profile);
+            if (!await saveProfile(email, profile)) {
+                showToast('Could not save your profile. Please try again.');
+                return;
+            }
             await renderAccount(session);
             savedProfileSnapshot = profileFormValues();
             userEditedProfile = false;
@@ -2093,24 +2267,30 @@
                 showToast('Could not read that image.');
             };
             reader.onload = async function () {
-                var dataUrl = reader.result;
-                // Keep the synced payload small: anything larger than a
-                // thumbnail is resampled instead of stored raw.
-                if (typeof dataUrl === 'string' && dataUrl.length > 150 * 1024) {
-                    try {
-                        var small = await shrinkPhotoDataUrl(dataUrl, 256);
-                        if (small && small.length && small.length < dataUrl.length) dataUrl = small;
-                    } catch (_) {}
+                try {
+                    var dataUrl = typeof reader.result === 'string' ? reader.result : '';
+                    var thumbnail = await openPhotoCropper(dataUrl);
+                    if (!thumbnail) return;
+                    if (!safePhotoSource(thumbnail)) {
+                        showToast('Could not process that image. Try a different JPG or PNG.');
+                        return;
+                    }
+                    var session = null;
+                    try { session = await window.EmeraldAuth.getSession(); } catch (_) {}
+                    var email = resolveSessionEmail(session);
+                    var profile = await loadProfile(email) || {};
+                    profile.photo = thumbnail;
+                    if (!await saveProfile(email, profile)) {
+                        showToast('Could not save your photo. Please try again.');
+                        return;
+                    }
+                    await renderAccount(session);
+                    showToast('Photo updated.');
+                    recordHistory('Updated profile photo');
+                } catch (error) {
+                    console.warn('Could not update profile photo:', error);
+                    showToast('Could not save your photo. Please try again.');
                 }
-                var session = null;
-                try { session = await window.EmeraldAuth.getSession(); } catch (_) {}
-                var email = resolveSessionEmail(session);
-                var profile = await loadProfile(email) || {};
-                profile.photo = dataUrl;
-                await saveProfile(email, profile);
-                await renderAccount(session);
-                showToast('Photo updated.');
-                recordHistory('Updated profile photo');
             };
             reader.readAsDataURL(file);
             photoInput.value = '';
@@ -2123,7 +2303,10 @@
             var email = resolveSessionEmail(session);
             var profile = await loadProfile(email) || {};
             profile.photo = '';
-            await saveProfile(email, profile);
+            if (!await saveProfile(email, profile)) {
+                showToast('Could not save your profile. Please try again.');
+                return;
+            }
             await renderAccount(session);
             showToast('Photo removed.');
             recordHistory('Removed profile photo');

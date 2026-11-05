@@ -3168,6 +3168,72 @@ body {
 .emerald-modal-btn.danger:hover { background: #e53935; }
 .emerald-modal-btn:focus-visible { outline: 2px solid var(--ui-accent-ring); outline-offset: 2px; }
 
+/* Profile photo crop editor */
+.photo-crop-dialog {
+    max-width: 380px;
+    max-height: calc(100vh - 32px);
+    padding: 22px 20px 0;
+    overflow-y: auto;
+}
+@supports (height: 100dvh) {
+    .photo-crop-dialog { max-height: calc(100dvh - 32px); }
+}
+.photo-crop-head { text-align: center; }
+.photo-crop-head .emerald-modal-title { margin-bottom: 5px; }
+.photo-crop-help {
+    margin: 0 0 16px;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+}
+.photo-crop-stage {
+    position: relative;
+    width: min(280px, calc(100vw - 72px));
+    aspect-ratio: 1;
+    margin: 0 auto;
+    overflow: hidden;
+    border-radius: 14px;
+    background: #e8eeea;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+}
+.photo-crop-stage.is-dragging { cursor: grabbing; }
+.photo-crop-stage::after {
+    position: absolute;
+    inset: 0;
+    border: 1px solid rgba(255, 255, 255, 0.78);
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 1px rgba(22, 131, 71, 0.13);
+    content: '';
+    pointer-events: none;
+}
+.photo-crop-stage img {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    max-width: none;
+    max-height: none;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    user-select: none;
+}
+.photo-crop-zoom-label {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    max-width: 280px;
+    margin: 18px auto 0;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+.photo-crop-zoom-label input {
+    width: 100%;
+    accent-color: var(--ui-accent);
+}
+.photo-crop-foot { padding: 18px 0 20px; }
+.photo-crop-foot .emerald-modal-btn { min-width: 112px; }
+
 @keyframes em-overlay-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes em-modal-in {
     from { opacity: 0; transform: translateY(10px) scale(0.98); }
