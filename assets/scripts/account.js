@@ -472,125 +472,6 @@
     }
 
     var authRequestPending = false;
-    var TEST_EMAIL = 'test@local';
-    var GOOGLE_TEST_EMAIL = 'google@local';
-    var TEST_PASSWORD = '123';
-
-    function isTestSession(session) {
-        var email = session ? resolveSessionEmail(session).toLowerCase() : '';
-        return email === TEST_EMAIL || email === GOOGLE_TEST_EMAIL;
-    }
-
-    function createTestSession() {
-        return {
-            token: 'test-local-token',
-            email: TEST_EMAIL,
-            user: {
-                email: TEST_EMAIL,
-                name: 'Test User',
-                provider: 'email',
-                account: { email: TEST_EMAIL }
-            }
-        };
-    }
-
-    function getTestUsage() {
-        var saved = null;
-        try { saved = JSON.parse(localStorage.getItem('emerald.test.storage') || 'null'); } catch (_) {}
-        if (!saved) {
-            saved = {
-                Docs: Math.round((500 + Math.random() * 180) * 1024 * 1024),
-                Slides: Math.round((120 + Math.random() * 260) * 1024 * 1024),
-                Sheets: Math.round((70 + Math.random() * 190) * 1024 * 1024),
-                Notes: Math.round((15 + Math.random() * 85) * 1024 * 1024),
-                'AI Chat': Math.round((8 + Math.random() * 48) * 1024 * 1024)
-            };
-            try { localStorage.setItem('emerald.test.storage', JSON.stringify(saved)); } catch (_) {}
-        }
-        return saved;
-    }
-
-    function createGoogleTestSession() {
-        return {
-            token: 'google-local-test-token',
-            email: GOOGLE_TEST_EMAIL,
-            user: {
-                email: GOOGLE_TEST_EMAIL,
-                name: 'Google Test User',
-                provider: 'google',
-                account: { email: GOOGLE_TEST_EMAIL }
-            }
-        };
-    }
-
-    async function seedTestAccount() {
-        var session = createTestSession();
-        var now = Date.now();
-        var profile = {
-            name: 'Test User',
-            birth: '1995-06-15',
-            city: 'Testville',
-            region: 'Test Region',
-            country: 'US'
-        };
-        var devices = [
-            Object.assign({}, currentDeviceInfo(), { id: getDeviceId(), name: navigator.platform || 'MacIntel', current: true, addedAt: now - 1000 * 60 * 60 }),
-            { id: 'test-device-phone', name: 'iPhone 15', userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile Safari/604.1', language: 'en-US', addedAt: now - 1000 * 60 * 60 * 24 * 18, updatedAt: now - 1000 * 60 * 36 },
-            { id: 'test-device-windows', name: 'Windows PC', userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36', language: 'en-US', addedAt: now - 1000 * 60 * 60 * 24 * 7, updatedAt: now - 1000 * 60 * 60 * 3 }
-        ];
-        window.__emerald_test_account = true;
-
-        try { localStorage.setItem('emerald.auth.session', JSON.stringify(session)); } catch (_) {}
-        try { sessionStorage.setItem('emerald.auth.session', JSON.stringify(session)); } catch (_) {}
-        try { localStorage.setItem('emerald.account.profile.' + TEST_EMAIL, JSON.stringify(profile)); } catch (_) {}
-        await saveDevices(devices);
-        await saveProfile(TEST_EMAIL, profile);
-        void getTestUsage();
-        return session;
-    }
-
-    async function seedGoogleTestAccount() {
-        var session = createGoogleTestSession();
-        var now = Date.now();
-        var profile = {
-            name: 'Google Test User',
-            birth: '1990-04-22',
-            city: 'Google Testville',
-            region: 'Test Region',
-            country: 'US'
-        };
-        var devices = [
-            Object.assign({}, currentDeviceInfo(), { id: getDeviceId(), name: navigator.platform || 'MacIntel', current: true, addedAt: now - 1000 * 60 * 12 }),
-            { id: 'google-test-device-phone', name: 'Pixel 9', userAgent: 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 Chrome/131.0.0.0 Mobile Safari/537.36', language: 'en-US', addedAt: now - 1000 * 60 * 60 * 24 * 12, updatedAt: now - 1000 * 60 * 22 },
-            { id: 'google-test-device-tablet', name: 'Pixel Tablet', userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel Tablet) AppleWebKit/537.36 Chrome/130.0.0.0 Mobile Safari/537.36', language: 'en-US', addedAt: now - 1000 * 60 * 60 * 24 * 4, updatedAt: now - 1000 * 60 * 60 * 5 }
-        ];
-        var extraDevices = [
-            { name: 'Pixel 8', userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/131.0.0.0 Mobile Safari/537.36' },
-            { name: 'Galaxy S24', userAgent: 'Mozilla/5.0 (Linux; Android 14; SM-S921B) AppleWebKit/537.36 Chrome/131.0.0.0 Mobile Safari/537.36' },
-            { name: 'MacBook Pro', userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36' },
-            { name: 'Windows Laptop', userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36' },
-            { name: 'Windows Desktop', userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0.0.0 Safari/537.36' }
-        ];
-        for (var deviceIndex = 4; devices.length < 20; deviceIndex++) {
-            var template = extraDevices[(deviceIndex - 4) % extraDevices.length];
-            devices.push({
-                id: 'google-test-device-' + deviceIndex,
-                name: template.name + ' ' + deviceIndex,
-                userAgent: template.userAgent,
-                language: 'en-US',
-                addedAt: now - 1000 * 60 * 60 * 24 * deviceIndex,
-                updatedAt: now - 1000 * 60 * (deviceIndex * 17)
-            });
-        }
-        window.__emerald_test_account = true;
-
-        try { localStorage.setItem('emerald.auth.session', JSON.stringify(session)); } catch (_) {}
-        try { sessionStorage.setItem('emerald.auth.session', JSON.stringify(session)); } catch (_) {}
-        try { localStorage.setItem('emerald.account.profile.' + GOOGLE_TEST_EMAIL, JSON.stringify(profile)); } catch (_) {}
-        await saveDevices(devices);
-        await saveProfile(GOOGLE_TEST_EMAIL, profile);
-        return session;
-    }
 
     async function submitAuthRequest(mode) {
         if (authRequestPending) return;
@@ -606,26 +487,6 @@
 
         try {
             showToast(mode === 'login' ? 'Signing in…' : 'Creating your account…');
-            if (mode === 'login' && email.toLowerCase() === TEST_EMAIL && password === TEST_PASSWORD) {
-                var testSession = await seedTestAccount();
-                showToast('Signed in to test account.');
-                if (window.location.pathname !== '/account.html') {
-                    window.location.assign('/account.html');
-                } else {
-                    await refreshSessionView();
-                }
-                return;
-            }
-            if (mode === 'login' && email.toLowerCase() === GOOGLE_TEST_EMAIL && password === TEST_PASSWORD) {
-                await seedGoogleTestAccount();
-                showToast('Signed in to Google test account.');
-                if (window.location.pathname !== '/account.html') {
-                    window.location.assign('/account.html');
-                } else {
-                    await refreshSessionView();
-                }
-                return;
-            }
             var result = mode === 'login'
                 ? await window.EmeraldAuth.login(email, password)
                 : await window.EmeraldAuth.register(email, password);
@@ -865,26 +726,26 @@
         };
     }
 
-    /* device-type visualisation for the overview card */
+    /* Infer the device family from its OS/platform before falling back to
+       generic device-name hints. */
     function deviceKindOf(d) {
         var hay = ((d && d.userAgent) || '') + ' ' + ((d && d.name) || '');
         hay = hay.toLowerCase();
         if (/iphone|ipad|ipod|android|mobile|phone|tablet/.test(hay)) return 'phone';
-        if (/desktop|workstation|\bpc\b/.test(hay)) return 'pc';
+        if (/windows|win32|win64|winnt|desktop|workstation|\bpc\b/.test(hay)) return 'pc';
+        if (/macintosh|macintel|mac os|macos|\bmac\b/.test(hay)) return 'laptop';
         return 'laptop';
     }
 
-    /* Overview shows only the device you are using right now; the full list
-       lives in the Devices section (Manage devices). */
+    /* Keep the overview compact; the full list lives in Manage devices. */
     function renderDeviceRows(devices) {
         var wrap = document.getElementById('overviewDeviceList');
         if (!wrap) return;
         wrap.innerHTML = '';
         var labels = { phone: 'Phone', laptop: 'Laptop', pc: 'PC' };
         var currentId = getDeviceId();
-        var rows = devices || [];
-        rows.forEach(function (d) {
-            if (!d || !d.id) return;
+        var rows = (devices || []).filter(function (d) { return d && d.id; });
+        rows.slice(0, 3).forEach(function (d) {
             var kind = deviceKindOf(d);
             var os = deviceOsOf(d);
             var browser = deviceBrowserOf(d && d.userAgent);
@@ -904,10 +765,12 @@
 
             var head = document.createElement('h4');
             head.textContent = labels[kind];
-            var chip = document.createElement('span');
-            chip.className = 'ms-chip';
-            chip.textContent = isCurrent ? 'This device' : '';
-            head.appendChild(chip);
+            if (isCurrent) {
+                var chip = document.createElement('span');
+                chip.className = 'ms-chip';
+                chip.textContent = 'This device';
+                head.appendChild(chip);
+            }
             info.appendChild(head);
 
             var model = document.createElement('p');
@@ -919,6 +782,12 @@
             row.appendChild(info);
             wrap.appendChild(row);
         });
+        if (rows.length > 3) {
+            var more = document.createElement('div');
+            more.className = 'ms-device-more';
+            more.textContent = 'and ' + (rows.length - 3) + ' more…';
+            wrap.appendChild(more);
+        }
         if (rows.length === 0) {
             wrap.appendChild(Object.assign(document.createElement('div'), {
                 className: 'ms-device-empty',
@@ -958,34 +827,34 @@
         return '';
     }
 
-    /* Microsoft-account-style flat artwork: dark bezel, brand screen with
-       white window tiles, grey body on the deck / stand / keyboard. */
+    /* Layered device artwork with per-instance gradients for both the
+       overview and the Devices section. */
     function msDeviceArt(kind) {
-        var screen = '#239a4d';
-        var bezel = '#48524d';
+        msDeviceArt.instance = (msDeviceArt.instance || 0) + 1;
+        var gradientId = 'deviceArt' + msDeviceArt.instance;
         var deck = '#d9dfdc';
         var deck2 = '#c2cac6';
-        var tiles = 'rgba(255, 255, 255, 0.85)';
+        var tiles = '#e8f8ed';
         var svgs = {
             phone:
-                '<svg viewBox="0 -2 72 114" xmlns="http://www.w3.org/2000/svg">' +
-                '<rect x="8" y="2" width="56" height="106" rx="9" fill="' + bezel + '"/>' +
-                '<rect x="12" y="12" width="48" height="86" rx="3" fill="' + screen + '"/>' +
-                '<g fill="' + tiles + '">' +
-                '<rect x="17" y="17" width="19" height="13" rx="1"/>' +
-                '<rect x="38" y="17" width="9" height="6" rx="1"/>' +
-                '<rect x="49" y="17" width="9" height="6" rx="1"/>' +
-                '<rect x="38" y="25" width="9" height="5" rx="1"/>' +
-                '<rect x="49" y="25" width="9" height="5" rx="1"/>' +
-                '<rect x="38" y="33" width="20" height="12" rx="1"/>' +
-                '</g>' +
-                '<rect x="29" y="6.6" width="14" height="2.6" rx="1.3" fill="' + deck + '"/>' +
-                '<circle cx="36" cy="102.5" r="2.6" fill="' + deck + '"/>' +
+                '<svg class="device-art-phone" viewBox="0 -2 72 114" xmlns="http://www.w3.org/2000/svg">' +
+                '<rect x="8" y="2" width="52" height="100" rx="12" fill="url(#' + gradientId + 'PhoneFrame)"/>' +
+                '<rect x="10" y="4" width="48" height="96" rx="10" fill="#1b2821"/>' +
+                '<rect x="12" y="6" width="44" height="92" rx="8" fill="url(#' + gradientId + 'PhoneScreen)"/>' +
+                '<path d="M12 49c11-9 22-12 44-7v25c-15-7-30-6-44 4V49Z" fill="#9ce8af" opacity=".24"/>' +
+                '<path d="M12 76c13-11 27-14 44-9v22c-16-7-29-5-44 5V76Z" fill="#075d31" opacity=".16"/>' +
+                '<path d="M12 12q0-6 7-6h30q7 0 7 7v6H12v-7Z" fill="#fff" opacity=".10"/>' +
+                '<rect x="25" y="9" width="18" height="5" rx="2.5" fill="#101713"/>' +
+                '<circle cx="39.5" cy="11.5" r="1" fill="#476b55"/>' +
+                '<rect x="22" y="92" width="24" height="2" rx="1" fill="#d8f7df" opacity=".65"/>' +
+                '<defs><linearGradient id="' + gradientId + 'PhoneFrame" x1="8" y1="2" x2="60" y2="102" gradientUnits="userSpaceOnUse"><stop stop-color="#d7e2db"/><stop offset=".45" stop-color="#8b9d92"/><stop offset="1" stop-color="#d7e2db"/></linearGradient><linearGradient id="' + gradientId + 'PhoneScreen" x1="12" y1="6" x2="56" y2="98" gradientUnits="userSpaceOnUse"><stop stop-color="#49c779"/><stop offset=".55" stop-color="#209c53"/><stop offset="1" stop-color="#137341"/></linearGradient></defs>' +
                 '</svg>',
             laptop:
-                '<svg viewBox="3 -4 114 87" xmlns="http://www.w3.org/2000/svg">' +
-                '<rect x="26" y="2" width="68" height="52" rx="5" fill="' + bezel + '"/>' +
-                '<rect x="30" y="6" width="60" height="44" rx="2" fill="' + screen + '"/>' +
+                '<svg class="device-art-laptop" viewBox="3 -4 114 87" xmlns="http://www.w3.org/2000/svg">' +
+                '<rect x="26" y="2" width="68" height="52" rx="5" fill="url(#' + gradientId + 'LaptopBezel)"/>' +
+                '<rect x="30" y="6" width="60" height="44" rx="2" fill="url(#' + gradientId + 'LaptopScreen)"/>' +
+                '<path d="M33 9h54v3H33z" fill="#a2e9b5" opacity=".28"/>' +
+                '<path d="M33 43h54v4H33z" fill="#075d31" opacity=".10"/>' +
                 '<g fill="' + tiles + '">' +
                 '<rect x="34" y="10" width="21" height="15" rx="1"/>' +
                 '<rect x="57" y="10" width="12" height="7" rx="1"/>' +
@@ -994,13 +863,21 @@
                 '<rect x="71" y="19" width="15" height="6" rx="1"/>' +
                 '<rect x="57" y="28" width="29" height="18" rx="1"/>' +
                 '</g>' +
-                '<path d="M18 54h84l9 17a4 4 0 0 1-3.6 6H12.6a4 4 0 0 1-3.6-6z" fill="' + deck + '"/>' +
-                '<rect x="49" y="59" width="22" height="10" rx="3" fill="' + deck2 + '"/>' +
+                '<path d="M26 54h68l8 14.5c1.2 2.4-.4 4-3.2 4H21.2c-2.8 0-4.4-1.6-3.2-4L26 54Z" fill="url(#' + gradientId + 'LaptopUnderside)"/>' +
+                '<path d="M28 54.5h64l6.5 12H21.5l6.5-12Z" fill="url(#' + gradientId + 'LaptopDeck)"/>' +
+                '<path d="M29 55.5h62" stroke="#e4ebe7" stroke-width=".8" opacity=".7"/>' +
+                '<path d="m36 58.5h44l2.5 6H33.5l2.5-6Z" fill="url(#' + gradientId + 'LaptopKeys)"/>' +
+                '<g fill="#87968d"><rect x="38" y="59.7" width="4.5" height="1" rx=".4"/><rect x="44" y="59.7" width="4.5" height="1" rx=".4"/><rect x="50" y="59.7" width="4.5" height="1" rx=".4"/><rect x="56" y="59.7" width="4.5" height="1" rx=".4"/><rect x="62" y="59.7" width="4.5" height="1" rx=".4"/><rect x="68" y="59.7" width="4.5" height="1" rx=".4"/><rect x="74" y="59.7" width="4.5" height="1" rx=".4"/><rect x="37" y="61.7" width="5.5" height="1" rx=".4"/><rect x="44" y="61.7" width="5" height="1" rx=".4"/><rect x="51" y="61.7" width="5" height="1" rx=".4"/><rect x="58" y="61.7" width="5" height="1" rx=".4"/><rect x="65" y="61.7" width="5" height="1" rx=".4"/><rect x="72" y="61.7" width="5.5" height="1" rx=".4"/></g>' +
+                '<path d="M51 65.8h18l-1 2.6H52l-1-2.6Z" fill="#b2beb7"/>' +
+                '<path d="M21 69.2h78" stroke="#aebbb4" stroke-width=".7" opacity=".8"/>' +
+                '<defs><linearGradient id="' + gradientId + 'LaptopBezel" x1="26" y1="2" x2="94" y2="54" gradientUnits="userSpaceOnUse"><stop stop-color="#58645d"/><stop offset="1" stop-color="#344139"/></linearGradient><linearGradient id="' + gradientId + 'LaptopScreen" x1="30" y1="6" x2="90" y2="50" gradientUnits="userSpaceOnUse"><stop stop-color="#38ba65"/><stop offset="1" stop-color="#168347"/></linearGradient><linearGradient id="' + gradientId + 'LaptopUnderside" x1="9" y1="54" x2="110" y2="73" gradientUnits="userSpaceOnUse"><stop stop-color="#c2cdc7"/><stop offset=".5" stop-color="#edf1ef"/><stop offset="1" stop-color="#bbc7c1"/></linearGradient><linearGradient id="' + gradientId + 'LaptopDeck" x1="20" y1="54" x2="93" y2="68" gradientUnits="userSpaceOnUse"><stop stop-color="#f0f4f2"/><stop offset="1" stop-color="#cbd5d0"/></linearGradient><linearGradient id="' + gradientId + 'LaptopKeys" x1="39" y1="59" x2="79" y2="66" gradientUnits="userSpaceOnUse"><stop stop-color="#c5d0ca"/><stop offset="1" stop-color="#aebbb4"/></linearGradient></defs>' +
                 '</svg>',
             pc:
                 '<svg viewBox="10 -4 92 105" xmlns="http://www.w3.org/2000/svg">' +
-                '<rect x="16" y="2" width="88" height="62" rx="5" fill="' + bezel + '"/>' +
-                '<rect x="20" y="6" width="80" height="54" rx="2" fill="' + screen + '"/>' +
+                '<rect x="16" y="2" width="88" height="62" rx="5" fill="url(#' + gradientId + 'PcBezel)"/>' +
+                '<rect x="20" y="6" width="80" height="54" rx="2" fill="url(#' + gradientId + 'PcScreen)"/>' +
+                '<path d="M23 9h74v3H23z" fill="#a2e9b5" opacity=".28"/>' +
+                '<path d="M23 51h74v5H23z" fill="#075d31" opacity=".10"/>' +
                 '<g fill="' + tiles + '">' +
                 '<rect x="25" y="11" width="25" height="18" rx="1"/>' +
                 '<rect x="53" y="11" width="13" height="8" rx="1"/>' +
@@ -1009,10 +886,12 @@
                 '<rect x="69" y="21" width="26" height="8" rx="1"/>' +
                 '<rect x="53" y="32" width="42" height="21" rx="1"/>' +
                 '</g>' +
-                '<rect x="55" y="63" width="10" height="12" fill="' + deck2 + '"/>' +
-                '<rect x="41" y="75" width="38" height="4" rx="2" fill="' + deck + '"/>' +
-                '<rect x="24" y="85" width="72" height="10" rx="3" fill="' + deck + '"/>' +
-                '<rect x="28" y="88" width="64" height="3" rx="1.5" fill="' + deck2 + '"/>' +
+                '<path d="M55 63h10l6 14H49l6-14Z" fill="' + deck2 + '"/>' +
+                '<path d="M57 64h6l3 10H54l3-10Z" fill="' + deck + '"/>' +
+                '<path d="M42 76h36l4 5H38l4-5Z" fill="#c2cec8"/>' +
+                '<path d="M24 85h72l4 7a3 3 0 0 1-2.8 4H22.8A3 3 0 0 1 20 92l4-7Z" fill="' + deck + '"/>' +
+                '<path d="M28 88h64l2 4H26l2-4Z" fill="#b8c5be"/>' +
+                '<defs><linearGradient id="' + gradientId + 'PcBezel" x1="16" y1="2" x2="104" y2="64" gradientUnits="userSpaceOnUse"><stop stop-color="#58645d"/><stop offset="1" stop-color="#344139"/></linearGradient><linearGradient id="' + gradientId + 'PcScreen" x1="20" y1="6" x2="100" y2="60" gradientUnits="userSpaceOnUse"><stop stop-color="#38ba65"/><stop offset="1" stop-color="#168347"/></linearGradient></defs>' +
                 '</svg>'
         };
         return svgs[kind] || svgs.laptop;
@@ -1194,7 +1073,7 @@
     function deriveDefaultName(email) {
         if (!email || email.indexOf('@') === -1) return '';
         var local = email.split('@')[0].trim();
-        if (!local || local === 'test') local = 'Test User';  // mock test session
+        if (!local) return '';
         // "john.doe_92" → "John Doe 92"
         var words = local.replace(/[._\-]+/g, ' ').trim().split(/\s+/);
         for (var i = 0; i < words.length; i++) {
@@ -1759,17 +1638,47 @@
             el.textContent = pctUsed.toFixed(1) + '%';
         });
 
+        // Segmented rounded bar (storage section): one colored slice per app
+        // out of the quota, neutral remainder for free space.
+        document.querySelectorAll('.storage-bar').forEach(function (bar) {
+            bar.innerHTML = '';
+            var denom = (quota > 0 && quota > used) ? quota : Math.max(used, 1);
+            var cursor = 0;
+            apps.forEach(function (k) {
+                var span = (agg[k] / denom) * 100;
+                if (span <= 0) return;
+                var seg = document.createElement('span');
+                seg.className = 'storage-bar-seg';
+                seg.style.width = span.toFixed(2) + '%';
+                seg.style.background = SUITE_APP_COLORS[k];
+                bar.appendChild(seg);
+                cursor += span;
+            });
+            if (cursor < 100) {
+                var rest = document.createElement('span');
+                rest.className = 'storage-bar-rest';
+                rest.style.width = (100 - cursor).toFixed(2) + '%';
+                bar.appendChild(rest);
+            }
+        });
+
         document.querySelectorAll('.storage-legend').forEach(function (legend) {
+            // The overview legend (beside the donut) is name-only; the
+            // storage section keeps the byte values.
+            var showValue = legend.id === 'storageLegend';
             legend.innerHTML = '';
             apps.forEach(function (k) {
-                var share = used > 0 ? (agg[k] / used) * 100 : 0;
                 var row = document.createElement('div');
                 row.className = 'legend-row';
                 row.innerHTML =
                     '<span class="legend-dot" style="background:' + SUITE_APP_COLORS[k] + '"></span>' +
-                    '<span class="legend-name">' + k + '</span>' +
-                    '<span class="legend-val">' + fmtBytes(agg[k]) + '</span>' +
-                    '<span class="legend-pct">' + share.toFixed(0) + '%</span>';
+                    '<span class="legend-name">' + k + '</span>';
+                if (showValue) {
+                    var val = document.createElement('span');
+                    val.className = 'legend-val';
+                    val.textContent = fmtBytes(agg[k]);
+                    row.appendChild(val);
+                }
                 legend.appendChild(row);
             });
             if (!apps.length) {
@@ -1784,24 +1693,6 @@
     async function renderStorage() {
         var measured = { agg: {}, total: 0 };
         try { measured = await measureSuiteStorage(); } catch (_) {}
-        var directSession = getStoredSessionDirect();
-        if ((window.__emerald_test_account || (directSession && isTestSession(directSession))) && window.location.pathname === '/account.html') {
-            var email = directSession ? resolveSessionEmail(directSession).toLowerCase() : '';
-            var storageKey = email === GOOGLE_TEST_EMAIL ? 'emerald.google.test.storage' : 'emerald.test.storage';
-            var testUsage = null;
-            try { testUsage = JSON.parse(localStorage.getItem(storageKey) || 'null'); } catch (_) {}
-            if (!testUsage) {
-                testUsage = {
-                    Docs: Math.round(((email === GOOGLE_TEST_EMAIL ? 320 : 500) + Math.random() * 180) * 1024 * 1024),
-                    Slides: Math.round((90 + Math.random() * 220) * 1024 * 1024),
-                    Sheets: Math.round((60 + Math.random() * 170) * 1024 * 1024),
-                    Notes: Math.round((12 + Math.random() * 70) * 1024 * 1024),
-                    'AI Chat': Math.round((8 + Math.random() * 42) * 1024 * 1024)
-                };
-                try { localStorage.setItem(storageKey, JSON.stringify(testUsage)); } catch (_) {}
-            }
-            measured = { agg: testUsage, total: Object.keys(testUsage).reduce(function (sum, key) { return sum + testUsage[key]; }, 0) };
-        }
         var used = measured.total || 0;
 
         var quota = null;
@@ -1815,7 +1706,7 @@
         var text;
         if (quota) {
             var pct = Math.min(100, (used / quota) * 100);
-            text = fmtBytes(used) + ' of ' + fmtBytes(quota) + ' used · ' + pct.toFixed(1) + '%';
+            text = fmtBytes(used) + ' of ' + fmtBytes(quota) + ' used';
         } else {
             quota = 15 * 1024 * 1024 * 1024;
             text = (used / (1024 * 1024)).toFixed(2) + ' MB used of 15 GB';
@@ -1830,6 +1721,13 @@
 
         setText('storageText', text);
         setText('overviewStorage', text);
+
+        // Simple Microsoft-style summary in the storage section: total used
+        // with the quota beside it, and the percentage above the bar.
+        var pctUsed = quota > 0 ? Math.min(100, (used / quota) * 100) : 0;
+        setText('storageUsedTotal', fmtBytes(used));
+        setText('storageQuotaTotal', '/ ' + fmtBytes(quota));
+        setText('storageUseLabel', pctUsed.toFixed(0) + '% used');
     }
 
     /* overview setup checklist, myaccount.google.com style: one dropdown on
@@ -2292,6 +2190,7 @@
             }
         } catch (_) {}
         list.textContent = '';
+        list.classList.remove('is-scrollable');
         if (empty) empty.hidden = entries.length > 0;
         if (!entries.length) return;
 
@@ -2321,7 +2220,8 @@
             label.textContent = entry.label || entry.title || 'Page';
             var path = document.createElement('span');
             path.className = 'history-path';
-            path.textContent = entry.path || '/';
+            var displayPath = String(entry.path || '/').replace(/^\/+/, '');
+            path.textContent = displayPath || 'home';
             main.appendChild(label);
             main.appendChild(path);
 
@@ -2334,6 +2234,7 @@
             item.appendChild(time);
             list.appendChild(item);
         });
+        list.classList.toggle('is-scrollable', list.scrollHeight > list.clientHeight);
     }
 
     function recordHistory(label, kind) {
@@ -2432,7 +2333,6 @@
         clearHistoryBtn.addEventListener('click', async function () {
             var confirmed = await showConfirmModal({
                 title: 'Clear history?',
-                subtitle: 'Synced with your account',
                 message: 'This removes the activity history from every device signed in to your account. Your files and app data are not affected.',
                 confirmLabel: 'Clear history',
                 cancelLabel: 'Cancel',

@@ -797,7 +797,7 @@ body {
 }
 
 .btn.primary {
-    background: linear-gradient(100deg, var(--brand-cta-a) 0%, var(--brand-cta-b) 55%, var(--brand-cta-c) 100%);
+    background: var(--ui-accent);
     color: #ffffff;
     box-shadow: 0 8px 20px -6px rgba(35, 150, 90, 0);
 }
@@ -1128,7 +1128,7 @@ body {
 
 /* ---------- Wiki-style top bar ---------- */
 
- .dash-header {
+.dash-header {
     position: sticky;
     top: 0;
     z-index: 60;
@@ -1137,9 +1137,8 @@ body {
     gap: 20px;
     height: 62px;
     padding: 0 24px 0 20px;
-    background: transparent;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
     color: var(--text-strong);
     border: 0;
     box-shadow: none;
@@ -1460,9 +1459,11 @@ body {
    line #e4e6e8, sunken #eef0f2, text #2b2b2b, soft #5d6165,
    brand-ink #157a38. */
 .dash-sidebar {
-    position: sticky;
-    top: 62px;
-    align-self: stretch;
+    position: fixed;
+    top: 88px;
+    left: max(24px, calc((100vw - 1140px) / 2 + 24px));
+    z-index: 55;
+    width: 250px;
 }
 
 .dash-nav {
@@ -1561,6 +1562,7 @@ body {
 /* ---------- Content ---------- */
 
 .dash-main {
+    grid-column: 2;
     min-width: 0;
     padding-top: 4px;
 
@@ -1617,6 +1619,10 @@ body {
 
 #section-security #passwordCard > p {
     margin-bottom: 22px;
+}
+
+#section-security #googleProviderCard > p {
+    margin-bottom: 0;
 }
 
 #section-security #passwordForm {
@@ -1741,6 +1747,14 @@ body {
     margin-bottom: 0;
 }
 
+.history-card .history-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
 .history-card .history-head .btn {
     flex: 0 0 auto;
 }
@@ -1749,7 +1763,7 @@ body {
     list-style: none;
     margin: 10px 0 0;
     padding: 0;
-    max-height: 360px;
+    max-height: 620px;
     overflow-y: auto;
     overscroll-behavior: contain;
 }
@@ -1768,16 +1782,42 @@ body {
 }
 
 .history-item {
+    position: relative;
     display: flex;
     align-items: flex-start;
     gap: 12px;
     padding: 10px 0;
+}
+
+.history-item::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
     border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .history-item:first-of-type,
 .history-day + .history-item {
     border-top: 0;
+}
+
+.history-item:first-of-type::before,
+.history-day + .history-item::before {
+    display: none;
+}
+
+.history-list.is-scrollable .history-day {
+    padding-right: 18px;
+}
+
+.history-list.is-scrollable .history-item {
+    padding-right: 18px;
+}
+
+.history-list.is-scrollable .history-item::before {
+    right: 18px;
 }
 
 .history-dot {
@@ -1813,13 +1853,18 @@ body {
 }
 
 .history-path {
-    display: block;
-    margin-top: 2px;
-    font-size: 0.76rem;
+    display: inline-block;
+    margin-top: 4px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.05);
+    font-size: 0.72rem;
     color: var(--text-muted);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .history-time {
@@ -1849,6 +1894,129 @@ body {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 16px;
+}
+
+/* bento grid for the overview: devices card fills the left column,
+   Data & privacy + storage stack in the right column and share any
+   extra height equally so spacing stays even */
+.bento-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+    gap: 18px;
+    align-items: start;
+}
+
+.bento-grid > .dash-card,
+.bento-side > .dash-card {
+    margin-bottom: 0;
+}
+
+.bento-grid .bento-devices {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    min-width: 0;
+}
+
+.bento-grid .bento-devices .ms-device-list {
+    flex: 0 0 auto;
+}
+
+.bento-devices > .btn {
+    align-self: flex-start;
+    width: auto;
+}
+
+.bento-side {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    min-width: 0;
+}
+
+/* Keep overview cards sized to their content and align their contents from
+   the top, avoiding large empty bands on taller screens. */
+.bento-side > .dash-card {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-start;
+    width: 100%;
+}
+
+.bento-side > .stat-card:not(.storage-overview) .stat-head {
+    margin-bottom: 8px;
+}
+
+.bento-side > .stat-card:not(.storage-overview) .stat-value {
+    margin-bottom: 2px;
+}
+
+.bento-side > .stat-card:not(.storage-overview) .stat-hint {
+    margin: 0 0 10px;
+}
+
+/* legend sits beside the donut, pushed to the right side of the card */
+.bento-grid .storage-pie-side {
+    width: 100%;
+    align-self: auto;
+    justify-content: space-between;
+}
+
+.bento-side .storage-overview {
+    align-items: stretch;
+    gap: 10px;
+}
+
+.bento-side .storage-overview .stat-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 0;
+}
+
+.bento-side .storage-overview .stat-head h3 {
+    margin: 0;
+}
+
+.bento-side .storage-overview > .stat-value {
+    margin: 0;
+}
+
+.bento-side .storage-facts {
+    flex: 0 0 auto;
+    min-width: 0;
+    margin-top: 10px;
+}
+
+.bento-side .storage-facts .stat-value {
+    margin: 0 0 8px;
+}
+
+.bento-side .storage-facts {
+    margin-top: 0;
+    padding-top: 2px;
+}
+
+.storage-pie-side .storage-legend {
+    flex: 0 0 auto;
+    min-width: 0;
+    gap: 10px;
+    align-items: flex-end;
+    margin-left: auto;
+    padding-left: 12px;
+}
+
+.storage-pie-side .storage-legend .legend-row {
+    justify-content: flex-end;
+    flex-direction: row-reverse;
+}
+
+@media (max-width: 900px) {
+    .bento-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* stat cards on the overview grid */
@@ -1930,6 +2098,15 @@ body {
     height: 72px;
     width: auto;
     display: block;
+    filter: drop-shadow(0 3px 4px rgba(20, 80, 45, 0.15)) drop-shadow(0 0 7px rgba(35, 154, 77, 0.10));
+}
+
+.ms-device-art svg.device-art-phone {
+    filter: none;
+}
+
+.ms-device-art svg.device-art-laptop {
+    filter: none;
 }
 
 .ms-device-info {
@@ -1967,6 +2144,15 @@ body {
 .ms-device-empty {
     font-size: 0.82rem;
     color: var(--text-muted);
+}
+
+.ms-device-more {
+    padding: 10px 0 2px;
+    border-top: 1px solid var(--ui-accent-border);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-align: center;
 }
 
 /* ---- storage donut (overview card + storage section) ---- */
@@ -2052,8 +2238,6 @@ body {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    border-left: 1px solid rgba(0, 0, 0, 0.06);
-    padding-left: 24px;
 }
 
 .legend-row {
@@ -2094,17 +2278,94 @@ body {
     color: var(--text-muted);
 }
 
-/* storage section page */
-.donut-row {
-    display: flex;
-    gap: 28px;
-    align-items: center;
-    flex-wrap: wrap;
-    margin-bottom: 8px;
+/* storage section: simple Microsoft-style summary */
+.storage-summary {
+    display: grid;
+    grid-template-columns: minmax(180px, 0.55fr) minmax(320px, 1fr);
+    gap: 40px;
+    align-items: start;
 }
 
-.storage-section-card .pie-free {
-    margin: 0 0 10px;
+.storage-total-label {
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+    color: var(--text-strong);
+}
+
+.storage-total-value {
+    margin: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.storage-total-value strong {
+    font-size: 2.1rem;
+    font-weight: 700;
+    color: var(--text-strong);
+    letter-spacing: -0.01em;
+}
+
+.storage-total-quota {
+    font-size: 0.95rem;
+    color: var(--text-muted);
+}
+
+.storage-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
+
+.storage-use-label {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-strong);
+    align-self: flex-start;
+}
+
+.storage-bar {
+    display: flex;
+    height: 8px;
+    border-radius: 999px;
+    background: #eef2f0;
+    overflow: hidden;
+}
+
+.storage-bar-seg,
+.storage-bar-rest {
+    height: 100%;
+    flex: 0 0 auto;
+}
+
+.storage-bar-seg:first-child { border-radius: 999px 0 0 999px; }
+.storage-bar-seg:last-of-type,
+.storage-bar-rest { border-radius: 0 999px 999px 0; }
+
+.storage-section-card .storage-legend {
+    flex: 0 0 auto;
+    min-width: 0;
+    margin-top: 4px;
+}
+
+.storage-section-card .legend-row {
+    gap: 12px;
+    padding: 3px 0;
+    font-size: 0.86rem;
+}
+
+.storage-section-card .legend-val {
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+@media (max-width: 760px) {
+    .storage-summary {
+        grid-template-columns: 1fr;
+        gap: 18px;
+    }
 }
 
 /* ---------- setup checklist ---------- */
@@ -2221,7 +2482,7 @@ body {
 /* ---------- recommendations ---------- */
 
 .reco-block {
-    margin: 4px 0 16px;
+    margin: 30px 0 16px;
 }
 
 .reco-block > h2 {
@@ -2233,22 +2494,25 @@ body {
 
 .reco-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-    gap: 14px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
 }
 
 .reco-card {
+    position: relative;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 6px;
+    gap: 8px;
+    min-height: 156px;
     text-align: left;
     border: 1px solid rgba(0, 0, 0, 0.06);
     border-radius: 12px;
     background: #ffffff;
     box-shadow: 0 1px 2px rgba(16, 36, 24, 0.05);
     font: inherit;
-    padding: 16px 18px;
+    padding: 18px 20px;
     cursor: pointer;
     transition: background .14s ease, border-color .14s ease;
 }
@@ -2258,41 +2522,80 @@ body {
     border-color: var(--ui-accent-border);
 }
 
+.reco-card::after {
+    content: "";
+    position: absolute;
+    width: 118px;
+    height: 118px;
+    top: -42px;
+    right: -28px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(71, 181, 105, 0.10), rgba(71, 181, 105, 0));
+    pointer-events: none;
+}
+
 .reco-card h4 {
     margin: 0;
-    font-size: 0.9rem;
+    font-size: 1rem;
     font-weight: 700;
     color: var(--text-strong);
 }
 
 .reco-card p {
     margin: 0;
-    font-size: 0.78rem;
+    font-size: 0.86rem;
     color: var(--text-muted);
 }
 
 .reco-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    margin-bottom: 4px;
-    border-radius: 9px;
-    background: var(--ui-accent-soft);
-    border: 1px solid var(--ui-accent-border);
-    color: var(--ui-accent);
-}
-
-.reco-icon svg {
-    width: 16px;
-    height: 16px;
+    display: none;
 }
 
 .reco-arrow {
-    margin-top: 6px;
+    position: relative;
+    z-index: 1;
+    margin-top: auto;
+    padding-top: 4px;
     font-size: 0.9rem;
     color: var(--ui-accent);
+}
+
+.reco-art {
+    position: absolute;
+    z-index: 1;
+    top: 34px;
+    right: 18px;
+    width: 104px;
+    height: 82px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    filter: drop-shadow(0 7px 7px rgba(20, 80, 45, 0.14));
+    transition: transform .2s ease;
+}
+
+.reco-art svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.reco-card:hover .reco-art {
+    transform: translateY(-3px) rotate(-2deg);
+}
+
+.reco-card h4,
+.reco-card p {
+    position: relative;
+    z-index: 2;
+    max-width: 62%;
+}
+
+@media (max-width: 620px) {
+    .reco-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 .dash-grid .dash-card {
@@ -2302,7 +2605,7 @@ body {
 /* Personal info */
 .account-dashboard {
     width: 100%;
-    overflow-x: hidden;
+    overflow-x: clip;
 }
 
 .personal-head {
@@ -2725,7 +3028,7 @@ body {
 }
 
 .btn.danger {
-    background: linear-gradient(100deg, #e05548, #d93025);
+    background: var(--danger);
     border-color: transparent;
     color: #fff;
     width: auto;
@@ -2733,6 +3036,11 @@ body {
     padding: 10px 18px;
     border-radius: 999px;
     font-size: 0.85rem;
+}
+
+#deleteDataBtn {
+    padding: 8px 14px;
+    font-size: 0.8rem;
 }
 
 .btn.danger:hover {
@@ -2775,38 +3083,41 @@ body {
 }
 .emerald-modal {
     width: 100%;
-    max-width: 420px;
+    max-width: 400px;
     background: #ffffff;
-    border-radius: 20px;
-    box-shadow: var(--shadow-card), 0 28px 72px -28px rgba(16, 36, 24, 0.38);
+    border-radius: 12px;
+    box-shadow: var(--shadow-card), 0 20px 60px rgba(16, 36, 24, 0.3);
     overflow: hidden;
     animation: em-modal-in 0.18s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 .emerald-modal-head {
     display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 18px 20px 10px;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    padding: 24px 24px 0;
+    text-align: center;
 }
 .emerald-modal-icon {
-    flex: 0 0 34px;
-    width: 34px;
-    height: 34px;
-    border-radius: 10px;
+    flex: 0 0 48px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
     display: grid;
     place-items: center;
-    background: var(--ui-accent-soft);
-    color: var(--ui-accent);
+    background: var(--ui-accent);
+    color: #ffffff;
+    margin-bottom: 12px;
 }
-.emerald-modal-icon svg { width: 18px; height: 18px; }
-.emerald-modal.danger .emerald-modal-icon { background: var(--danger-soft); color: var(--danger); }
+.emerald-modal-icon svg { width: 24px; height: 24px; }
+.emerald-modal.danger .emerald-modal-icon { background: #ee5a52; color: #ffffff; }
 .emerald-modal-copy { min-width: 0; }
 .emerald-modal-title {
-    margin: 0;
-    font-size: 1rem;
-    font-weight: 700;
+    margin: 0 0 8px;
+    font-size: 1.125rem;
+    font-weight: 600;
     color: var(--text-strong);
-    line-height: 1.25;
+    line-height: 1.3;
 }
 .emerald-modal-sub {
     margin: 2px 0 0;
@@ -2814,43 +3125,44 @@ body {
     color: var(--text-muted);
 }
 .emerald-modal-body {
-    padding: 0 22px 6px;
-    color: var(--text-body);
-    font-size: 0.88rem;
-    line-height: 1.55;
+    padding: 0 24px;
+    color: rgba(44, 62, 80, 0.7);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    text-align: center;
 }
 .emerald-modal-body p { margin: 0 0 6px; }
 .emerald-modal-body p:last-child { margin-bottom: 0; }
 .emerald-modal-foot {
     display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    padding: 16px 18px 18px;
+    justify-content: center;
+    gap: 12px;
+    padding: 22px 24px 24px;
 }
 .emerald-modal-btn {
     appearance: none;
-    border: 1px solid var(--border-input);
-    background: #ffffff;
-    color: var(--text-body);
-    font-weight: 600;
-    font-size: 0.82rem;
-    padding: 9px 18px;
-    border-radius: 999px;
+    border: 1px solid rgba(108, 117, 125, 0.2);
+    background: rgba(108, 117, 125, 0.1);
+    color: rgba(108, 117, 125, 0.9);
+    font-weight: 500;
+    font-size: 0.875rem;
+    padding: 10px 24px;
+    min-width: 100px;
+    border-radius: 8px;
     cursor: pointer;
-    transition: background 0.18s ease, border-color 0.18s ease, transform 0.12s ease;
+    transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.12s ease;
 }
-.emerald-modal-btn:hover { background: #f4f7f5; }
+.emerald-modal-btn:hover { background: rgba(108, 117, 125, 0.2); color: rgba(108, 117, 125, 1); }
 .emerald-modal-btn:active { transform: translateY(1px); }
 .emerald-modal-btn.primary,
 .emerald-modal-btn.danger {
     color: #ffffff;
-    border-color: transparent;
-    box-shadow: 0 8px 20px -10px rgba(16, 36, 24, 0.35);
+    border-color: rgba(238, 90, 82, 0.3);
 }
-.emerald-modal-btn.primary { background: var(--ui-accent); }
+.emerald-modal-btn.primary { background: var(--ui-accent); border-color: transparent; }
 .emerald-modal-btn.primary:hover { background: var(--ui-accent-hover); }
-.emerald-modal-btn.danger { background: var(--danger); }
-.emerald-modal-btn.danger:hover { filter: saturate(1.12); }
+.emerald-modal-btn.danger { background: #ee5a52; }
+.emerald-modal-btn.danger:hover { background: #e53935; }
 .emerald-modal-btn:focus-visible { outline: 2px solid var(--ui-accent-ring); outline-offset: 2px; }
 
 @keyframes em-overlay-in { from { opacity: 0; } to { opacity: 1; } }
@@ -2910,6 +3222,15 @@ body {
     display: block;
     width: 112px;
     height: 104px;
+    filter: drop-shadow(0 3px 5px rgba(20, 80, 45, 0.14)) drop-shadow(0 0 8px rgba(35, 154, 77, 0.10));
+}
+
+.device-item .device-art svg.device-art-phone {
+    filter: none;
+}
+
+.device-item .device-art svg.device-art-laptop {
+    filter: none;
 }
 
 .device-item .device-actions {
@@ -2941,8 +3262,12 @@ body {
 @media (max-width: 900px) {
     .dash-layout {
         grid-template-columns: 1fr;
-        padding: 0 14px;
+        padding: 42px 14px 0;
         margin-top: 18px;
+    }
+
+    .dash-main {
+        grid-column: 1;
     }
 
     .device-list {
@@ -2950,7 +3275,12 @@ body {
     }
 
     .dash-sidebar {
-        position: static;
+        position: fixed;
+        top: 80px;
+        left: 14px;
+        right: 14px;
+        z-index: 55;
+        width: auto;
     }
 
     .dash-nav {
