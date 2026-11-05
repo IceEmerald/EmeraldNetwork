@@ -1448,6 +1448,18 @@ body {
   transform: none;
 }
 
+/* Connection-lost dialog: the Reload button follows the Docs accent (cyan)
+   instead of the default modal blue. */
+#connectionLostModal .modal-foot .btn.primary {
+  background: var(--ui-accent);
+  border-color: var(--ui-accent);
+}
+
+#connectionLostModal .modal-foot .btn.primary:hover {
+  background: var(--ui-accent-hover);
+  border-color: var(--ui-accent);
+}
+
 /* Form fields — styled like Slides' .link-input */
 .field {
   margin-bottom: 16px;

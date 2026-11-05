@@ -10066,6 +10066,10 @@ function _toastIcon(rawMsg, type) {
   const INK = '#111';
   const svg = paths => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + INK + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + paths + '</svg>';
 
+  /* 0. Connection state (mirrors notes.js connection monitor) */
+  if (m.indexOf('reconnected') !== -1) return { icon: svg('<polyline points="20 6 9 17 4 12"/>'), msg };
+  if (m.indexOf('reconnect') !== -1) return { icon: svg('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>'), msg };
+
   /* 1. Loading / progress */
   if (m.indexOf('generating') === 0 || m.indexOf('importing') === 0 || m.indexOf('reading') === 0 ||
       m.indexOf('loading') === 0 || m.indexOf('tracing') === 0 || m.indexOf('this may take') !== -1) {
@@ -10147,6 +10151,57 @@ function toast(msg, type = 'info', ms = 2600) {
   t.className = 'toast show';
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { t.className = 'toast'; }, ms);
+}
+
+/* ---------------- connection monitor (mirrors Notes app) ----------------
+   Watches the browser's online/offline state: a persistent "Reconnecting…"
+   toast while offline, then a "Connection Lost" dialog offering a Reload if
+   the network doesn't come back within 15s. */
+let _sheetsDisconnected = false;
+let _sheetsReconnectTimer = null;
+let _sheetsDisconnectDialog = null;
+function setupConnectionMonitor() {
+  const onOffline = () => {
+    if (_sheetsDisconnected) return;
+    _sheetsDisconnected = true;
+    toast('Reconnecting…', 'info', 99999);
+    _sheetsReconnectTimer = setTimeout(() => {
+      if (_sheetsDisconnected) showDisconnectModal();
+    }, 15000);
+  };
+  const onOnline = () => {
+    if (!_sheetsDisconnected) return;
+    _sheetsDisconnected = false;
+    clearTimeout(_sheetsReconnectTimer);
+    _sheetsReconnectTimer = null;
+    hideDisconnectModal();
+    toast('Reconnected!', 'success', 4000);
+  };
+  window.addEventListener('offline', onOffline);
+  window.addEventListener('online', onOnline);
+}
+function showDisconnectModal() {
+  if (_sheetsDisconnectDialog) return;
+  const body = el('<div><p style="font-size:14px;color:#383838;text-align:center;margin:0;font-family:\'DM Sans\',sans-serif;line-height:1.6;">Your internet connection was lost. Check your connection then reload to continue working.</p></div>');
+  _sheetsDisconnectDialog = openModal({
+    title: 'Connection Lost',
+    width: 380,
+    confirm: true,
+    content: body,
+    buttons: [{ label: 'Reload', primary: true, onClick: () => { window.location.reload(); return true; } }]
+  });
+  const iconEl = _sheetsDisconnectDialog && _sheetsDisconnectDialog.modal
+    ? _sheetsDisconnectDialog.modal.querySelector('.modal-icon') : null;
+  if (iconEl) {
+    iconEl.style.background = '#ee5a52';
+    iconEl.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.56 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>';
+  }
+}
+function hideDisconnectModal() {
+  if (_sheetsDisconnectDialog) {
+    try { _sheetsDisconnectDialog.close(); } catch (e) { /* already closed */ }
+    _sheetsDisconnectDialog = null;
+  }
 }
 
 /* ---------------- modal infra ---------------- */
@@ -12100,6 +12155,7 @@ async function boot() {
   booted = true;
   if (window.EmeraldAuth && window.EmeraldAuth.ready) await window.EmeraldAuth.ready();
   setupChrome();
+  setupConnectionMonitor();
   await loadLastOrNew();
   showWelcomeScreen(true);
   /* Agent link: the AI chat posts an "es-edit" message here after rewriting

@@ -461,6 +461,7 @@ class SlidesApp {
         this.setupResizeObserver();
         this.setupDropdownMenus();
         this.setupPresenterNotes();
+        this._setupConnectionMonitor();
         // Note: showWelcomeScreen(true) below already calls renderWelcomeCards().
         // Calling it twice here used to trigger an async race that duplicated
         // cards on the welcome screen, so we no longer call it directly.
@@ -600,6 +601,14 @@ class SlidesApp {
         const svg = (paths) =>
             `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${INK}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
 
+        // 0. Connection state (mirrors notes.js connection monitor)
+        if (m.includes('reconnected')) {
+            return { icon: svg('<polyline points="20 6 9 17 4 12"/>'), msg };
+        }
+        if (m.includes('reconnect')) {
+            return { icon: svg('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>'), msg };
+        }
+
         // 1. Loading / progress (generating, importing, ...)
         if (m.startsWith('generating') || m.startsWith('importing') || m.includes('this may take')) {
             return { icon: svg('<line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>'), msg };
@@ -682,6 +691,77 @@ class SlidesApp {
         toast.classList.add('show');
         clearTimeout(this._toastTimer);
         this._toastTimer = setTimeout(() => toast.classList.remove('show'), duration);
+    }
+
+    // ── Connection monitor (mirrors notes.js) ───────────────────
+    // Watches the browser's online/offline state: a persistent
+    // "Reconnecting…" toast while offline, then a "Connection Lost"
+    // dialog offering a Reload if it doesn't come back in time.
+    _setupConnectionMonitor() {
+        this._disconnected = false;
+        this._reconnectTimer = null;
+        this._disconnectModalEl = null;
+        const onOffline = () => {
+            if (this._disconnected) return;
+            this._disconnected = true;
+            this.showToast('Reconnecting…', 99999);
+            this._reconnectTimer = setTimeout(() => {
+                if (this._disconnected) this._showDisconnectModal();
+            }, 15000);
+        };
+        const onOnline = () => {
+            if (!this._disconnected) return;
+            this._disconnected = false;
+            clearTimeout(this._reconnectTimer);
+            this._reconnectTimer = null;
+            this._hideDisconnectModal();
+            this.showToast('Reconnected!', 4000);
+        };
+        window.addEventListener('offline', onOffline);
+        window.addEventListener('online', onOnline);
+    }
+    _showDisconnectModal() {
+        if (this._disconnectModalEl) return;
+        const overlay = document.createElement('div');
+        overlay.id = 'disconnectModal';
+        overlay.className = 'link-modal';
+        overlay.innerHTML = `
+            <div class="link-modal-content" style="max-width:380px;text-align:center;">
+                <div class="link-modal-header">
+                    <div class="link-modal-icon" style="background:#ee5a52;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="1" y1="1" x2="23" y2="23"/>
+                            <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
+                            <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
+                            <path d="M10.71 5.05A16 16 0 0 1 22.56 9"/>
+                            <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
+                            <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+                            <line x1="12" y1="20" x2="12.01" y2="20"/>
+                        </svg>
+                    </div>
+                    <h3 class="link-modal-title">Connection Lost</h3>
+                </div>
+                <div class="link-modal-body">
+                    <p style="font-size:14px;color:#383838;text-align:center;margin:0;font-family:'DM Sans',sans-serif;line-height:1.6;">
+                        Your internet connection was lost. Check your connection then reload to continue working.
+                    </p>
+                </div>
+                <div class="link-modal-actions" style="justify-content:center;">
+                    <button class="link-modal-btn link-modal-btn-create" id="disconnectReloadBtn">Reload</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        requestAnimationFrame(() => overlay.classList.add('show'));
+        this._disconnectModalEl = overlay;
+        const reloadBtn = overlay.querySelector('#disconnectReloadBtn');
+        reloadBtn.addEventListener('click', () => window.location.reload());
+    }
+    _hideDisconnectModal() {
+        if (this._disconnectModalEl) {
+            this._disconnectModalEl.remove();
+            this._disconnectModalEl = null;
+        }
     }
 
     // ── Presentation Management ────────────────────────────────

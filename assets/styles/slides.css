@@ -3242,6 +3242,17 @@ body.collab-non-owner #exportNoteBtn, body.collab-non-owner #deleteNoteBtn, body
     background: rgb(0, 77, 135);
 }
 
+/* Connection-lost dialog: the Reload button follows the Slides accent
+   (orange) instead of the default modal blue. */
+#disconnectModal .link-modal-btn-create {
+    background: var(--ui-accent);
+    border-color: var(--ui-accent);
+}
+
+#disconnectModal .link-modal-btn-create:hover {
+    background: var(--ui-accent-hover);
+}
+
 #shareModal .link-modal-icon {
     background: rgb(195, 220, 56);
 }

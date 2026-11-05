@@ -9373,6 +9373,14 @@ function startAutosaveSnapshots() {
       return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + INK + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + paths + "</svg>";
     };
 
+    // 0. Connection state (mirrors notes.js connection monitor)
+    if (m.indexOf("reconnected") !== -1) {
+      return { icon: svg('<polyline points="20 6 9 17 4 12"/>'), msg: msg };
+    }
+    if (m.indexOf("reconnect") !== -1) {
+      return { icon: svg('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>'), msg: msg };
+    }
+
     // 1. Loading / progress (reading, recording, generating…)
     if (m.indexOf("generating") === 0 || m.indexOf("importing") === 0 || m.indexOf("recording") === 0 ||
         m.indexOf("reading") === 0 || m.indexOf("previewing") === 0 ||
@@ -9433,7 +9441,7 @@ function startAutosaveSnapshots() {
     return { icon: svg('<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'), msg: msg };
   }
 
-  function toast(message, type) {
+  function toast(message, type, ms) {
     var el = $("toast");
     if (!el) return;
     var pair = _toastIcon(message, type);
@@ -9451,7 +9459,76 @@ function startAutosaveSnapshots() {
     el.className = "toast show";
     clearTimeout(toastTimer);
     // Slides' default duration: 3000ms.
-    toastTimer = setTimeout(function () { el.className = "toast"; }, 3000);
+    toastTimer = setTimeout(function () { el.className = "toast"; }, ms || 3000);
+  }
+
+  /* ---------------- Connection monitor (mirrors Notes app) ----------------
+     Watches the browser's online/offline state: a persistent "Reconnecting…"
+     toast while offline, then a "Connection Lost" dialog offering a Reload if
+     the network doesn't come back within 15s. */
+  var _docDisconnected = false;
+  var _docReconnectTimer = null;
+
+  function setupConnectionMonitor() {
+    var onOffline = function () {
+      if (_docDisconnected) return;
+      _docDisconnected = true;
+      toast("Reconnecting…", "info", 99999);
+      _docReconnectTimer = setTimeout(function () {
+        if (_docDisconnected) showDisconnectModal();
+      }, 15000);
+    };
+    var onOnline = function () {
+      if (!_docDisconnected) return;
+      _docDisconnected = false;
+      clearTimeout(_docReconnectTimer);
+      _docReconnectTimer = null;
+      hideDisconnectModal();
+      toast("Reconnected!", "success", 4000);
+    };
+    window.addEventListener("offline", onOffline);
+    window.addEventListener("online", onOnline);
+  }
+
+  function showDisconnectModal() {
+    if ($("connectionLostModal")) { openModal("connectionLostModal"); return; }
+    var overlay = document.createElement("div");
+    overlay.id = "connectionLostModal";
+    overlay.className = "modal-overlay";
+    overlay.setAttribute("aria-hidden", "true");
+    overlay.innerHTML =
+      '<div class="modal modal-sm" role="dialog" aria-modal="true" aria-label="Connection Lost">' +
+        '<div class="modal-head">' +
+          '<div class="modal-icon" style="background:#ee5a52;">' +
+            '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' +
+              '<line x1="1" y1="1" x2="23" y2="23"/>' +
+              '<path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>' +
+              '<path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>' +
+              '<path d="M10.71 5.05A16 16 0 0 1 22.56 9"/>' +
+              '<path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>' +
+              '<path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>' +
+              '<line x1="12" y1="20" x2="12.01" y2="20"/>' +
+            '</svg>' +
+          '</div>' +
+          '<h3>Connection Lost</h3>' +
+        '</div>' +
+        '<div class="modal-body">' +
+          '<p style="font-size:14px;color:#383838;text-align:center;margin:0;font-family:\'DM Sans\',sans-serif;line-height:1.6;">' +
+            "Your internet connection was lost. Check your connection then reload to continue working." +
+          '</p>' +
+        '</div>' +
+        '<div class="modal-foot">' +
+          '<button class="btn primary" id="connectionLostReloadBtn" type="button">Reload</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    var reloadBtn = overlay.querySelector("#connectionLostReloadBtn");
+    reloadBtn.addEventListener("click", function () { window.location.reload(); });
+    openModal("connectionLostModal");
+  }
+
+  function hideDisconnectModal() {
+    if ($("connectionLostModal")) closeModal("connectionLostModal");
   }
 
   /* ---------------- Slides-style ms-dropdowns (portal-based) ----------------
@@ -9530,6 +9607,7 @@ function startAutosaveSnapshots() {
 
     ensureFirstPage();
     paginate();
+    setupConnectionMonitor();
 
     // Word-like table interactions (border resize, row resize, move, select,
     // proportional scale). The kit paints its own handles in a body-level
