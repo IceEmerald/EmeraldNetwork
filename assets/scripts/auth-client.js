@@ -33,6 +33,7 @@
     var realtimeDeviceInFlight = null;
     var lastDeviceRegistryHash = '';
     var initializationPromise = null;
+    var resettingAccountData = false;
 
     function syncBackoffDelay() {
         if (!syncFailureCount) return SYNC_DEBOUNCE_MS;
@@ -71,6 +72,7 @@
     }
 
     function requestSyncFromLocalChange(options) {
+        if (resettingAccountData) return;
         syncPendingLocal = true;
         if (storageSyncTimer) {
             clearTimeout(storageSyncTimer);
@@ -99,6 +101,7 @@
     }
 
     function scheduleSyncRetry() {
+        if (resettingAccountData) return;
         if (syncRetryTimer) clearTimeout(syncRetryTimer);
         syncRetryTimer = setTimeout(function () {
             syncRetryTimer = null;
@@ -180,6 +183,7 @@
     }
 
     async function pollDeviceRegistry() {
+        if (resettingAccountData) return null;
         if (realtimeDeviceInFlight) return realtimeDeviceInFlight;
         realtimeDeviceInFlight = (async function () {
             var session = await getSession();
@@ -213,6 +217,11 @@
                 return snapshot;
             } catch (error) {
                 if (error && error.status === 403 && error.code === 'DEVICE_SIGNED_OUT') {
+                    await clearSession();
+                }
+                if (error && error.status === 403 && error.code === 'ACCOUNT_DATA_RESET') {
+                    var resetSession = await getSession();
+                    await clearAccountDataLocal(resetSession && resetSession.user && resetSession.user.email || '');
                     await clearSession();
                 }
                 return null;
@@ -433,6 +442,85 @@
         }
         await clearSession();
         return true;
+    }
+
+    async function clearAccountDataLocal(email) {
+        await waitForStorage();
+        var snapshot = {};
+        try { snapshot = await exportAccountData(); } catch (_) {}
+        var storage = window.EmeraldIDBStorage;
+        if (storage && typeof storage.delete === 'function') {
+            await Promise.all(Object.keys(snapshot).filter(function (key) {
+                return key !== STORAGE_KEYS.syncMeta;
+            }).map(function (key) {
+                return Promise.resolve(storage.delete(key, null, {
+                    preserveSyncMeta: true,
+                    type: 'import'
+                })).catch(function () {});
+            }));
+            if (email) {
+                try { await storage.delete(STORAGE_KEYS.syncMeta, email, { type: 'meta' }); } catch (_) {}
+            }
+        } else {
+            Object.keys(snapshot).forEach(function (key) {
+                if (key === STORAGE_KEYS.syncMeta) return;
+                try { localStorage.removeItem(key); } catch (_) {}
+            });
+            if (email) {
+                try { localStorage.removeItem('acct:' + email + ':' + STORAGE_KEYS.syncMeta); } catch (_) {}
+            }
+        }
+        if (email) {
+            try { localStorage.removeItem('emerald.account.profile.' + email); } catch (_) {}
+        }
+        try { localStorage.removeItem('emerald.account.devices'); } catch (_) {}
+        try { localStorage.removeItem(ETAG_STORAGE_KEY); } catch (_) {}
+        lastSyncEtag = '';
+        if (window.EmeraldHistory && typeof window.EmeraldHistory.resetLocal === 'function') {
+            try { window.EmeraldHistory.resetLocal(); } catch (_) {}
+        }
+    }
+
+    async function resetAccountData() {
+        await waitForStorage();
+        var session = await getSession();
+        if (!session || !session.token) throw new Error('Sign in again to delete account data.');
+
+        resettingAccountData = true;
+        stopAutoSync();
+        if (syncInFlight) {
+            try { await syncInFlight; } catch (_) {}
+        }
+        if (realtimeDeviceInFlight) {
+            try { await realtimeDeviceInFlight; } catch (_) {}
+        }
+        syncRequestedAgain = false;
+
+        try {
+            var result = await fetchJson('/api/auth/data-reset', {
+                method: 'POST',
+                headers: { Authorization: 'Bearer ' + session.token }
+            });
+            if (!result || !result.session || !result.session.token) {
+                throw new Error('The account data reset could not be confirmed.');
+            }
+
+            await setSession(result.session);
+            await clearAccountDataLocal(session.user && session.user.email || '');
+            syncPendingLocal = false;
+            hasSyncedThisSession = false;
+            lastSyncEtag = '';
+            lastSyncAt = 0;
+            resettingAccountData = false;
+            setSyncState('idle');
+            startAutoSync();
+            return true;
+        } catch (error) {
+            resettingAccountData = false;
+            startAutoSync();
+            requestSyncFromLocalChange({ immediate: true });
+            throw error;
+        }
     }
 
     async function clearSession() {
@@ -951,6 +1039,7 @@
     }
 
     function syncCurrentData() {
+        if (resettingAccountData) return Promise.resolve(null);
         if (syncInFlight) {
             syncRequestedAgain = true;
             syncPendingLocal = true;
@@ -1086,6 +1175,11 @@
         } catch (error) {
             if (error && (error.status === 401 || error.status === 404)) await clearSession();
             if (error && error.status === 403 && error.code === 'DEVICE_SIGNED_OUT') await clearSession();
+            if (error && error.status === 403 && error.code === 'ACCOUNT_DATA_RESET') {
+                var resetSession = await getSession();
+                await clearAccountDataLocal(resetSession && resetSession.user && resetSession.user.email || '');
+                await clearSession();
+            }
             throw error;
         }
 
@@ -1281,6 +1375,7 @@
         revokeDevice: revokeDevice,
         signOutDevice: signOutDevice,
         logoutCurrentDevice: logoutCurrentDevice,
+        resetAccountData: resetAccountData,
         consumeAuthCallbackFromUrl: consumeAuthCallbackFromUrl,
         login: login,
         register: register,

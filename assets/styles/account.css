@@ -3141,18 +3141,21 @@ body {
 }
 .emerald-modal-btn {
     appearance: none;
+    font-family: inherit;
     border: 1px solid rgba(108, 117, 125, 0.2);
     background: rgba(108, 117, 125, 0.1);
-    color: rgba(108, 117, 125, 0.9);
-    font-weight: 500;
+    color: #52635a;
+    font-weight: 600;
     font-size: 0.875rem;
+    line-height: 1.2;
+    letter-spacing: 0;
     padding: 10px 24px;
     min-width: 100px;
     border-radius: 8px;
     cursor: pointer;
     transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.12s ease;
 }
-.emerald-modal-btn:hover { background: rgba(108, 117, 125, 0.2); color: rgba(108, 117, 125, 1); }
+.emerald-modal-btn:hover { background: rgba(108, 117, 125, 0.14); color: #34453b; }
 .emerald-modal-btn:active { transform: translateY(1px); }
 .emerald-modal-btn.primary,
 .emerald-modal-btn.danger {

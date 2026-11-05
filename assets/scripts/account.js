@@ -2364,9 +2364,8 @@
     if (deleteBtn) {
         deleteBtn.addEventListener('click', async function () {
             var confirmed = await showConfirmModal({
-                title: 'Delete data on this device?',
-                subtitle: 'Only affects this device',
-                message: 'This clears all locally stored account data on this browser, including your synced profile and device list. Data on other devices is not affected.',
+                title: 'Delete data?',
+                message: 'This permanently deletes your profile, files, settings, and activity from your account on all devices.',
                 confirmLabel: 'Delete data',
                 cancelLabel: 'Cancel',
                 danger: true,
@@ -2374,40 +2373,21 @@
                 focusCancel: true
             });
             if (!confirmed) return;
+            deleteBtn.disabled = true;
             try {
-                await waitForStorageReady();
-                var data = {};
-                try { data = await window.EmeraldAuth.exportAccountData(); } catch (_) {}
-                if (window.EmeraldIDBStorage) {
-                    await Promise.all(Object.keys(data || {}).map(function (key) {
-                        try {
-                            // Local-only reset: do not write tombstones, or the
-                            // next sync would delete this account's data on
-                            // every other device too.
-                            return Promise.resolve(window.EmeraldIDBStorage.delete(key, null, {
-                                preserveSyncMeta: true,
-                                type: 'local-reset'
-                            })).catch(function () {});
-                        } catch (_) {
-                            return null;
-                        }
-                    }));
+                if (!window.EmeraldAuth || typeof window.EmeraldAuth.resetAccountData !== 'function') {
+                    throw new Error('Account data deletion is unavailable. Please try again later.');
                 }
-                /* clear profile & devices */
-                try { localStorage.removeItem('emerald.account.profile.' + resolveSessionEmail(await window.EmeraldAuth.getSession())); } catch (_) {}
-                try { localStorage.removeItem('emerald.account.devices'); } catch (_) {}
-                try {
-                    if (window.EmeraldHistory && typeof window.EmeraldHistory.resetLocal === 'function') {
-                        window.EmeraldHistory.resetLocal();
-                    }
-                } catch (_) {}
-                showToast('Data deleted.');
+                await window.EmeraldAuth.resetAccountData();
+                showToast('Account data deleted from all devices.');
                 var session = null;
                 try { session = await window.EmeraldAuth.getSession(); } catch (_) {}
                 if (session) await renderAccount(session);
                 await renderStorage();
             } catch (e) {
-                showToast('Delete failed.');
+                showToast(e && e.message ? e.message : 'Could not delete account data. Please try again.');
+            } finally {
+                deleteBtn.disabled = false;
             }
         });
     }
