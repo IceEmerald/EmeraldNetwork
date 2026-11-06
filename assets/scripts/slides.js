@@ -714,6 +714,9 @@ class SlidesApp {
             this._disconnected = false;
             clearTimeout(this._reconnectTimer);
             this._reconnectTimer = null;
+            // Confirm recovery with a toast only while the Connection Lost
+            // modal hasn't taken over — once it's up, the user must reload.
+            if (!this._disconnectModalEl) this.showToast('Reconnected!', 4000);
         };
         window.addEventListener('offline', onOffline);
         window.addEventListener('online', onOnline);

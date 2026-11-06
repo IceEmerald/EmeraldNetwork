@@ -10174,6 +10174,9 @@ function setupConnectionMonitor() {
     _sheetsDisconnected = false;
     clearTimeout(_sheetsReconnectTimer);
     _sheetsReconnectTimer = null;
+    // Confirm recovery with a toast only while the Connection Lost modal
+    // hasn't taken over — once it's up, the user must reload.
+    if (!_sheetsDisconnectDialog) toast('Reconnected!', 'success', 4000);
   };
   window.addEventListener('offline', onOffline);
   window.addEventListener('online', onOnline);

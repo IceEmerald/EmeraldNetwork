@@ -9483,6 +9483,9 @@ function startAutosaveSnapshots() {
       _docDisconnected = false;
       clearTimeout(_docReconnectTimer);
       _docReconnectTimer = null;
+      // Confirm recovery with a toast only while the Connection Lost modal
+      // hasn't taken over — once it's up, the user must reload.
+      if (!$("connectionLostModal")) toast("Reconnected!", "success", 4000);
     };
     window.addEventListener("offline", onOffline);
     window.addEventListener("online", onOnline);
