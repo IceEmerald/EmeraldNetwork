@@ -392,8 +392,6 @@
             try { sessionStorage.removeItem(STORAGE_KEYS.session); } catch (_) {}
         }
 
-        // A new session starts a fresh sync generation: never reuse the
-        // previous account's ETag or "already synced" flag.
         hasSyncedThisSession = false;
         lastSyncEtag = '';
         lastSyncAt = 0;
@@ -661,8 +659,7 @@
         } catch (_) {}
 
         if (window.location.pathname === '/account.html' || window.location.pathname.endsWith('/account.html')) {
-            /* opened account.html directly (no ?redirect=, no saved return
-               URL): after login, stay on the account dashboard itself. */
+
             return window.location.origin + '/account.html';
         }
 
@@ -717,8 +714,7 @@
 
         var redirectTarget = savedReturnUrl || getReturnUrl();
         if (!redirectTarget) {
-            /* nothing remembered and no ?redirect=: the OAuth callback came
-               straight back to the account page — stay on the dashboard. */
+
             redirectTarget = window.location.origin + '/account.html';
         }
 
@@ -945,9 +941,7 @@
             }
 
             if (localValue == null && remoteValue == null) return;
-            // A tie means this device has no newer revision than the server.
-            // Prefer the server in that case, otherwise an older value cached
-            // on a reloaded device would overwrite a newer edit from another PC.
+
             var useLocal = remoteValue == null || (localValue != null && localUpdated > remoteUpdated);
             merged[key] = useLocal ? localValue : remoteValue;
             var winnerUpdated = useLocal ? localUpdated : remoteUpdated;
@@ -1020,8 +1014,7 @@
                     runFallback();
                     return;
                 }
-                // Lock API failed for another reason; syncing is still better
-                // than stalling, so run the task directly.
+
                 settled = true;
                 runFallback();
             });
@@ -1075,12 +1068,6 @@
         return true;
     }
 
-    // A value-equality match between the local and merged snapshot does NOT
-    // mean the server is up to date: when this device has edited something
-    // (e.g. profile photo, personal info), the merge correctly keeps the
-    // local values, which makes both snapshots identical. Local changes are
-    // visible in the sync metadata instead: any local updated/deleted stamp
-    // newer than the server's record means we still owe the server a push.
     function hasPendingLocalWrites(localSnapshot, remoteSnapshot) {
         var localMeta = {};
         var remoteMeta = {};
@@ -1141,8 +1128,6 @@
 
         setSyncState('syncing');
 
-        // History batches are debounced locally; push them to IndexedDB
-        // before taking the sync snapshot so the latest actions are included.
         if (window.EmeraldHistory && typeof window.EmeraldHistory.flush === 'function') {
             try { await window.EmeraldHistory.flush(); } catch (_) {}
         }
@@ -1191,16 +1176,8 @@
         var remoteEtag = remote && typeof remote.etag === 'string' ? remote.etag : '';
         var mergedSnapshot = mergeSnapshots(snapshot, baseSnapshot);
 
-        // Skip the push when the merge produced exactly what the server
-        // already has AND this device has no local writes the server has not
-        // seen yet. Value equality alone is not enough — a local edit makes
-        // the merge keep the local value, so both sides can look identical
-        // while the server is still stale.
         if (snapshotsMatch(mergedSnapshot, baseSnapshot) && !hasPendingLocalWrites(snapshot, baseSnapshot)) {
-            // The server already has the merged result, but this device may
-            // still be missing or hold an older copy of it (new browser,
-            // cleared cache, another device edited). Pull it down without a
-            // needless POST.
+
             if (!snapshotsMatch(snapshot, mergedSnapshot)) {
                 await importDeviceRegistry(mergedSnapshot);
                 await importAccountData(mergedSnapshot);
@@ -1234,12 +1211,8 @@
             ? syncResult.snapshot
             : mergedSnapshot;
 
-        // Device registry changes are always safe to import separately. The
-        // broader pending-edit guard below must not hide a new/removed device.
         await importDeviceRegistry(serverSnapshot);
 
-        // Do not import the response captured before a local edit. Doing so
-        // would visibly roll an in-progress edit back to its old position.
         var latestSnapshot = await exportAccountData();
         if (!snapshotsMatch(snapshot, latestSnapshot)) {
             syncRequestedAgain = true;

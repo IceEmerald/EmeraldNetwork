@@ -20,12 +20,7 @@
 
 <body>
     <div class="flowchart-app">
-        <!-- =====================================================
-             FULL-BLEED CANVAS
-             Covers the entire viewport. Every other UI element
-             (brand pill, palette, panels, ribbon) floats above it
-             as detached absolute-positioned panels.
-             ===================================================== -->
+
         <main class="fc-canvas-wrap" id="canvas-wrap">
             <div id="canvas">
                 <div id="canvas-content">
@@ -34,8 +29,6 @@
                 </div>
             </div>
 
-            <!-- Floating bottom toolbar (centered pill, between the
-                 bottom-left code panel and bottom-right console/vars). -->
             <div class="fc-ribbon" id="fc-ribbon">
                 <div class="ribbon-row" id="menubar">
                     <button class="ribbon-btn primary icon-only" id="btn-run" title="Run">
@@ -71,18 +64,11 @@
             </div>
         </main>
 
-        <!-- =====================================================
-             TOP-LEFT FLOATING BRAND PILL
-             ===================================================== -->
         <div class="fc-brand-pill">
             <img src="/assets/images/favicon.webp" alt="EmeraldStudio" class="fc-brand-icon">
             <span class="fc-brand-text">EmeraldStudio Flowchart</span>
         </div>
 
-        <!-- =====================================================
-             TOP-RIGHT FLOATING FILE TOOLBAR (Save / Export / Open / Clear)
-             Mirrors the brand-pill's glass/white-box styling.
-             ===================================================== -->
         <div class="fc-file-bar" id="fc-file-bar">
             <button class="file-btn" id="btn-save" type="button" title="Save flowchart to a .emeraldcore file">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -124,10 +110,6 @@
             </button>
         </div>
 
-        <!-- =====================================================
-             LEFT FLOATING PALETTE (under brand pill)
-             Sizes to its content — no excess whitespace below.
-             ===================================================== -->
         <aside class="fc-palette" id="palette">
             <div class="palette-section">
                 <div class="palette-section-title">
@@ -203,10 +185,6 @@
             </div>
         </aside>
 
-        <!-- =====================================================
-             BOTTOM-RIGHT FLOATING PANELS — Variables & Console
-             Stacked vertically. Each has a minimize toggle.
-             ===================================================== -->
         <div class="fc-side-panels" id="side-panels">
         <section class="fc-panel" id="panel-variables" data-panel="variables">
             <div class="panel-header">
@@ -273,9 +251,6 @@
     <div id="context-menu" class="fc-context-menu"></div>
     <div id="toast" class="fc-toast"></div>
 
-    <!-- idb-storage.js MUST load before flowchart.js so the
-         window.EmeraldIDBStorage global is available when
-         flowchart.js initializes its persistence layer. -->
     <script src="assets/scripts/idb-storage.js"></script>
     <script src="assets/scripts/auth-client.js?v=5"></script>
     <script src="assets/scripts/auth-guard.js"></script>

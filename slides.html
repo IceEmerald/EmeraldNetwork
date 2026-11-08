@@ -16,7 +16,6 @@
 <body class="no-active-note">
 <div class="notes-app" id="slidesApp">
 
-    <!-- NAVBAR -->
     <header class="navbar sticky-top">
         <div class="navcontainer nav-container">
             <a href="emeraldsuite" class="logo">
@@ -45,7 +44,6 @@
         </div>
     <div id="custom-toast" class="custom-toast"></div>
 
-    <!-- RIBBON TABS (outside ribbon box, like Microsoft Office) -->
     <div class="ribbon-tabs" id="mainRibbonTabs">
         <div class="ribbon-tabs-left">
             <button class="ribbon-tab" data-tab="file">File</button>
@@ -70,13 +68,12 @@
             </button>
         </div>
     </div>
-    <!-- RIBBON CONTENT BOX -->
+
     <div class="ribbon" id="mainRibbon">
         <div class="ribbon-content">
-            <!-- HOME TAB -->
+
             <div class="ribbon-panel active" data-panel="home">
 
-                <!-- HISTORY -->
                 <div class="ribbon-group">
                     <div class="group-label">History</div>
                     <div class="ribbon-controls">
@@ -91,7 +88,6 @@
                     </div>
                 </div>
 
-                <!-- CLIPBOARD -->
                 <div class="ribbon-group">
                     <div class="group-label">Clipboard</div>
                     <div class="ribbon-controls">
@@ -110,7 +106,6 @@
                     </div>
                 </div>
 
-                <!-- FONT -->
                 <div class="ribbon-group" id="textFormatGroup">
                     <div class="group-label">Font</div>
                     <div class="ribbon-controls">
@@ -247,7 +242,6 @@
                     </div>
                 </div>
 
-                <!-- PARAGRAPH -->
                 <div class="ribbon-group" id="paragraphGroup">
                     <div class="group-label">Paragraph</div>
                     <div class="ribbon-controls">
@@ -283,7 +277,6 @@
                     </div>
                 </div>
 
-                <!-- SLIDES (New / Duplicate / Delete) -->
                 <div class="ribbon-group">
                     <div class="group-label">Slides</div>
                     <div class="ribbon-controls">
@@ -302,16 +295,10 @@
                     </div>
                 </div>
 
-                <!-- SHAPE FORMAT & ARRANGE groups moved to the contextual "Shape Format" tab -->
+            </div>
 
-                <!-- SLIDE SHOW buttons moved to the ribbon-tabs row (always visible) -->
-
-            </div><!-- end HOME panel -->
-
-            <!-- SHAPE FORMAT TAB (contextual — shown only when a shape is selected) -->
             <div class="ribbon-panel" data-panel="shape-format">
 
-                <!-- SHAPE FILL — list-style dropdown matching Font Color design -->
                 <div class="ribbon-group" id="shapeFormatGroup">
                     <div class="group-label">Shape Fill</div>
                     <div class="ribbon-controls">
@@ -339,7 +326,7 @@
                                 <div class="ms-dropdown-item" data-value="#a3e635" data-label="Lime"><span class="color-preview" style="background:#a3e635;"></span>Lime</div>
                             </div>
                         </div>
-                        <!-- STROKE — same list-style dropdown as Font Color -->
+
                         <div class="ms-dropdown" id="strokeColorDropdown">
                             <button class="ms-dropdown-btn" type="button" style="min-width:82px;">
                                 <span id="strokeColorSwatch" class="color-preview" style="background:transparent;border:2px solid #666;"></span>
@@ -357,7 +344,7 @@
                                 <div class="ms-dropdown-item" data-value="#8b5cf6" data-label="Violet"><span class="color-preview" style="background:#8b5cf6;"></span>Violet</div>
                             </div>
                         </div>
-                        <!-- Stroke Width — dropdown-style matching ms-dropdown-btn -->
+
                         <div class="ms-dropdown" id="strokeWidthDropdown">
                             <button class="ms-dropdown-btn" type="button" style="min-width:62px;">
                                 <span class="dropdown-value" id="strokeWidthLabel">2 pt</span>
@@ -378,7 +365,6 @@
                     </div>
                 </div>
 
-                <!-- ARRANGE — clean monochrome icons -->
                 <div class="ribbon-group" id="arrangeGroup">
                     <div class="group-label">Arrange</div>
                     <div class="ribbon-controls">
@@ -409,12 +395,10 @@
                     </div>
                 </div>
 
-            </div><!-- end SHAPE-FORMAT panel -->
+            </div>
 
-            <!-- IMAGE FORMAT TAB (contextual — shown only when an image is selected) -->
             <div class="ribbon-panel" data-panel="image-format">
 
-                <!-- FILTERS — list-style dropdown -->
                 <div class="ribbon-group" id="imageFormatGroup">
                     <div class="group-label">Filters</div>
                     <div class="ribbon-controls">
@@ -433,7 +417,6 @@
                     </div>
                 </div>
 
-                <!-- COLOR — steppers reusing the transition/animation timing controls -->
                 <div class="ribbon-group img-adj-group">
                     <div class="group-label">Color</div>
                     <div class="tr-timing-panel img-adj-panel">
@@ -476,7 +459,6 @@
                     </div>
                 </div>
 
-                <!-- BORDER — color + width -->
                 <div class="ribbon-group" id="imageBorderGroup">
                     <div class="group-label">Border</div>
                     <div class="ribbon-controls">
@@ -518,7 +500,6 @@
                     </div>
                 </div>
 
-                <!-- TRANSPARENCY — stepper -->
                 <div class="ribbon-group" id="imageOpacityGroup">
                     <div class="group-label">Transparency</div>
                     <div class="ribbon-controls">
@@ -533,11 +514,10 @@
                     </div>
                 </div>
 
-            </div><!-- end IMAGE-FORMAT panel -->
+            </div>
 
-            <!-- INSERT TAB -->
             <div class="ribbon-panel" data-panel="insert">
-                <!-- SLIDES -->
+
                 <div class="ribbon-group">
                     <div class="group-label">Slides</div>
                     <div class="ribbon-controls">
@@ -548,7 +528,6 @@
                     </div>
                 </div>
 
-                <!-- TEXT -->
                 <div class="ribbon-group">
                     <div class="group-label">Text</div>
                     <div class="ribbon-controls">
@@ -562,7 +541,6 @@
                     </div>
                 </div>
 
-                <!-- MEDIA -->
                 <div class="ribbon-group">
                     <div class="group-label">Media</div>
                     <div class="ribbon-controls">
@@ -594,7 +572,6 @@
                     </div>
                 </div>
 
-                <!-- ILLUSTRATION -->
                 <div class="ribbon-group">
                     <div class="group-label">Illustration</div>
                     <div class="ribbon-controls">
@@ -608,7 +585,7 @@
                                 <span>Shapes</span>
                             </button>
                             <div class="ms-dropdown-menu shape-dropdown-menu">
-                                <!-- Rectangles -->
+
                                 <div class="shape-cat-label">Rectangles</div>
                                 <div class="shape-grid">
                                     <button class="shape-option" data-shape="rect" title="Rectangle">
@@ -645,7 +622,6 @@
                                     </button>
                                 </div>
 
-                                <!-- Basic Shapes -->
                                 <div class="shape-cat-label">Basic Shapes</div>
                                 <div class="shape-grid">
                                     <button class="shape-option" data-shape="ellipse" title="Ellipse">
@@ -766,7 +742,6 @@
                                     </button>
                                 </div>
 
-                                <!-- Block Arrows -->
                                 <div class="shape-cat-label">Block Arrows</div>
                                 <div class="shape-grid">
                                     <button class="shape-option" data-shape="arrow" title="Right Arrow">
@@ -819,7 +794,6 @@
                                     </button>
                                 </div>
 
-                                <!-- Stars & Banners -->
                                 <div class="shape-cat-label">Stars & Banners</div>
                                 <div class="shape-grid">
                                     <button class="shape-option" data-shape="star" title="5-Point Star">
@@ -848,7 +822,6 @@
                                     </button>
                                 </div>
 
-                                <!-- Callouts -->
                                 <div class="shape-cat-label">Callouts</div>
                                 <div class="shape-grid">
                                     <button class="shape-option" data-shape="calloutRect" title="Rectangular Callout">
@@ -869,7 +842,6 @@
                                     </button>
                                 </div>
 
-                                <!-- Flowchart -->
                                 <div class="shape-cat-label">Flowchart</div>
                                 <div class="shape-grid">
                                     <button class="shape-option" data-shape="fcProcess" title="Process">
@@ -914,7 +886,6 @@
                                     </button>
                                 </div>
 
-                                <!-- Lines -->
                                 <div class="shape-cat-label">Lines</div>
                                 <div class="shape-grid">
                                     <button class="shape-option" data-shape="line" title="Line">
@@ -950,7 +921,6 @@
                     </div>
                 </div>
 
-                <!-- LINKS -->
                 <div class="ribbon-group">
                     <div class="group-label">Links</div>
                     <div class="ribbon-controls">
@@ -964,7 +934,6 @@
                     </div>
                 </div>
 
-                <!-- COMMENTS -->
                 <div class="ribbon-group">
                     <div class="group-label">Comments</div>
                     <div class="ribbon-controls">
@@ -977,7 +946,6 @@
                     </div>
                 </div>
 
-                <!-- SYMBOLS -->
                 <div class="ribbon-group">
                     <div class="group-label">Symbols</div>
                     <div class="ribbon-controls">
@@ -997,16 +965,15 @@
                         </button>
                     </div>
                 </div>
-            </div><!-- end INSERT panel -->
+            </div>
 
-            <!-- DESIGN TAB -->
             <div class="ribbon-panel" data-panel="design">
-                <!-- THEMES -->
+
                 <div class="ribbon-group" id="themesGroup">
                     <div class="group-label">Themes</div>
                     <div class="ribbon-controls">
                         <div class="theme-thumbnail-row" id="themeThumbnailRow">
-                            <!-- Theme thumbnails populated by JS -->
+
                         </div>
                         <div class="ms-dropdown" id="moreThemesDropdown">
                                                         <button class="more-thumb ms-dropdown-btn" type="button" id="moreThemesBtn" title="Browse all themes" aria-label="More themes">
@@ -1021,18 +988,17 @@
                                 <span class="more-thumb-label">More</span>
                             </button>
                             <div class="ms-dropdown-menu theme-gallery-menu" id="themeGalleryMenu">
-                                <!-- All themes populated by JS -->
+
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- TEMPLATES (replaces Variants) -->
                 <div class="ribbon-group" id="templatesGroup">
                     <div class="group-label">Templates</div>
                     <div class="ribbon-controls">
                         <div class="template-thumbnail-row" id="templateThumbnailRow">
-                            <!-- Template thumbnails populated by JS -->
+
                         </div>
                         <div class="ms-dropdown" id="moreTemplatesDropdown">
                                                         <button class="more-thumb ms-dropdown-btn" type="button" id="moreTemplatesBtn" title="Browse all templates" aria-label="More templates">
@@ -1047,13 +1013,12 @@
                                 <span class="more-thumb-label">More</span>
                             </button>
                             <div class="ms-dropdown-menu template-gallery-menu" id="templateGalleryMenu">
-                                <!-- All templates populated by JS -->
+
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- CUSTOMIZE -->
                 <div class="ribbon-group" id="customizeGroup">
                     <div class="group-label">Customize</div>
                     <div class="ribbon-controls">
@@ -1125,23 +1090,17 @@
                     </div>
                 </div>
 
-            </div><!-- end DESIGN panel -->
+            </div>
 
-            <!-- TRANSITIONS TAB -->
             <div class="ribbon-panel" data-panel="transitions">
                 <div class="ribbon-group" id="transitionsGroup">
                     <div class="group-label">Transition</div>
                     <div class="ribbon-controls">
-                        <!-- Ribbon row: a horizontally-scrolling strip of preview
-                             thumbnails for the most-used transitions (None,
-                             Fade, Push, Wipe, Split, Reveal). Mirrors the
-                             Themes/Templates pattern on the Design tab. -->
+
                         <div class="transition-thumbnail-row" id="transitionThumbnailRow">
-                            <!-- Top transitions populated by JS -->
+
                         </div>
-                        <!-- More button: opens a categorized gallery with ALL
-                             transitions (Subtle / Exciting / Dynamic Content),
-                             same visual pattern as the Themes "More" gallery. -->
+
                         <div class="ms-dropdown" id="moreTransitionsDropdown">
                                                         <button class="more-thumb ms-dropdown-btn" type="button" id="moreTransitionsBtn" title="Browse all transitions" aria-label="More transitions">
                                 <div class="more-thumb-preview">
@@ -1155,11 +1114,10 @@
                                 <span class="more-thumb-label">More</span>
                             </button>
                             <div class="ms-dropdown-menu transition-gallery-menu" id="transitionGalleryMenu">
-                                <!-- All transitions, categorized, populated by JS -->
+
                             </div>
                         </div>
-                        <!-- Hidden label span kept for backwards-compat with
-                             any code that still reads #transitionLabel. -->
+
                         <span id="transitionLabel" style="display:none;">None</span>
                     </div>
                 </div>
@@ -1214,11 +1172,10 @@
                         </button>
                     </div>
                 </div>
-            </div><!-- end TRANSITIONS panel -->
+            </div>
 
-            <!-- ANIMATIONS TAB -->
             <div class="ribbon-panel" data-panel="animations">
-                <!-- ANIMATION -->
+
                 <div class="ribbon-group">
                     <div class="group-label">Animation</div>
                     <div class="ribbon-controls">
@@ -1236,12 +1193,12 @@
                                 <span id="animationLabel">Add Animation</span>
                             </button>
                             <div class="ms-dropdown-menu animation-list-menu" id="animationListMenu" style="min-width:220px;">
-                                <!-- Animation options populated by JS -->
+
                             </div>
                         </div>
                     </div>
                 </div>
-                <!-- TIMING -->
+
                 <div class="ribbon-group anim-timing-group">
                     <div class="group-label">Timing</div>
                     <div class="tr-timing-panel anim-timing-panel">
@@ -1290,7 +1247,7 @@
                         </div>
                     </div>
                 </div>
-                <!-- ADVANCED -->
+
                 <div class="ribbon-group">
                     <div class="group-label">Advanced</div>
                     <div class="ribbon-controls">
@@ -1303,11 +1260,10 @@
                         </button>
                     </div>
                 </div>
-            </div><!-- end ANIMATIONS panel -->
+            </div>
 
-            <!-- VIEW TAB -->
             <div class="ribbon-panel" data-panel="view">
-                <!-- SHOW -->
+
                 <div class="ribbon-group">
                     <div class="group-label">Show</div>
                     <div class="ribbon-controls">
@@ -1326,7 +1282,7 @@
                         </button>
                     </div>
                 </div>
-                <!-- PRESENTATION VIEWS -->
+
                 <div class="ribbon-group">
                     <div class="group-label">Presentation Views</div>
                     <div class="ribbon-controls">
@@ -1362,7 +1318,7 @@
                         </button>
                     </div>
                 </div>
-                <!-- ZOOM -->
+
                 <div class="ribbon-group">
                     <div class="group-label">Zoom</div>
                     <div class="ribbon-controls">
@@ -1395,9 +1351,8 @@
                         </button>
                     </div>
                 </div>
-            </div><!-- end VIEW panel -->
+            </div>
 
-            <!-- FILE TAB -->
             <div class="ribbon-panel" data-panel="file">
                 <div class="ribbon-group">
                     <div class="group-label">File</div>
@@ -1423,14 +1378,12 @@
                         </button>
                     </div>
                 </div>
-            </div><!-- end FILE panel -->
-        </div><!-- end ribbon-content -->
-    </div><!-- end ribbon -->
+            </div>
+        </div>
+    </div>
 
-    <!-- MAIN CONTENT -->
     <div class="main-content">
 
-        <!-- SIDEBAR: Slide Thumbnails -->
         <aside class="sidebar" id="slidesSidebar">
             <div class="sidebar-header">
                 <button class="sidebar-toggle" id="sidebarToggle" title="Toggle Sidebar">
@@ -1439,19 +1392,16 @@
                 <input type="text" class="pres-title-input" id="presentationTitle" placeholder="Untitled Presentation" maxlength="100" />
             </div>
             <div class="notes-list" id="slidesList">
-                <!-- Slide thumbnails rendered by JS -->
+
             </div>
         </aside>
 
-        <!-- EDITOR COLUMN: holds editor-area + presenter-notes + statusbar as stacked siblings -->
         <div class="editor-column" id="editorColumn">
 
-        <!-- EDITOR AREA -->
         <main class="editor-area" id="editorArea">
 
-            <!-- SLIDE CANVAS AREA -->
             <div class="editor-content" id="editorContent">
-                <!-- Rulers (top + left + corner) - visible when body.show-rulers is set -->
+
                 <div class="editor-rulers" id="editorRulers" aria-hidden="true">
                     <div class="ruler-corner"></div>
                     <div class="ruler-top" id="rulerTop"></div>
@@ -1460,17 +1410,16 @@
                 <div class="slide-canvas-wrapper" id="slideCanvasWrapper">
                     <div class="slide-canvas-scaler" id="slideCanvasScaler">
                         <div class="slide-canvas" id="slideCanvas">
-                            <!-- Slide elements rendered here by JS -->
+
                         </div>
-                        <!-- Drawing overlay canvas (Pen/Highlighter/Eraser strokes) -->
+
                         <canvas id="drawingCanvas" width="960" height="540"></canvas>
-                        <!-- Selection marquee -->
+
                         <div class="selection-marquee" id="selectionMarquee" style="display:none;"></div>
                     </div>
                 </div>
             </div>
 
-            <!-- WELCOME SCREEN (inside editor-area so it overlays the canvas) -->
             <div class="welcome-screen" id="welcomeScreen">
                 <aside class="su-rail" aria-label="Suite navigation">
                     <a class="rail-item" href="/emeraldsuite" title="Home">
@@ -1528,11 +1477,10 @@
                 </div>
             </div>
 
-        </main><!-- end editor-area -->
+        </main>
 
-        </div><!-- end editor-column -->
+        </div>
 
-        <!-- ANIMATION PANE (right sidebar, shown when toggled) -->
         <aside id="animationPane" class="animation-pane">
             <div class="ap-header">
                 <span>Animation Pane</span>
@@ -1555,8 +1503,8 @@
             </div>
         </aside>
 
-    </div><!-- end main-content -->
-    <!-- PRESENTER NOTES (sibling of editor-area, so it has its own border radius) -->
+    </div>
+
         <div class="presenter-notes-panel" id="presenterNotesPanel">
             <div class="pnotes-header">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -1565,7 +1513,6 @@
             <textarea id="presenterNotesInput" class="pnotes-textarea" placeholder="Add notes for this slide…"></textarea>
         </div>
 
-        <!-- STATUS BAR (sibling of editor-area, so it has its own border radius) -->
         <div class="editor-statusbar" id="editorStatusbar">
             <span class="statbar-item" id="slideNumStatus">Slide 1 of 1</span>
             <span class="statbar-sep">|</span>
@@ -1578,11 +1525,8 @@
                 <span>Notes</span>
             </button>
         </div>
-</div><!-- end notes-app -->
+</div>
 
-<!-- ===== MODALS ===== -->
-
-<!-- Slide Designer Modal -->
 <div class="link-modal" id="designerModal">
     <div class="link-modal-content" style="max-width:640px;">
         <button class="link-modal-close-btn" id="designerModalCloseBtn" title="Close">
@@ -1596,12 +1540,11 @@
         </div>
         <p class="link-modal-body" style="text-align:center;color:rgba(44,62,80,0.7);font-size:14px;margin-bottom:20px;font-family:'DM Sans',sans-serif;">Choose a layout for your slide</p>
         <div class="designer-layout-grid" id="designerLayoutGrid">
-            <!-- Layout cards populated by JS -->
+
         </div>
     </div>
 </div>
 
-<!-- Delete Presentation/Slide Modal -->
 <div class="delete-modal" id="deleteModal">
     <div class="delete-modal-content">
         <div class="delete-modal-header">
@@ -1621,25 +1564,23 @@
     </div>
 </div>
 
-
-<!-- File Management Modal (AIChat Settings-style centered overlay) -->
 <div class="file-overlay" id="fileModal">
     <div class="file-overlay-card">
-        <!-- Header -->
+
         <div class="file-overlay-header">
             <span class="file-overlay-header-title">File</span>
             <button class="file-overlay-close-btn" id="fileModalCloseXBtn" title="Close">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
         </div>
-        <!-- Body -->
+
         <div class="file-overlay-body">
-            <!-- Presentation name -->
+
             <div class="file-overlay-section">
                 <div class="file-overlay-section-label">Name</div>
                 <input class="file-overlay-name-input" id="fileModalNameInput" type="text" placeholder="Untitled Presentation" autocomplete="off" />
             </div>
-            <!-- Actions -->
+
             <div class="file-overlay-section">
                 <div class="file-overlay-section-label">Actions</div>
                 <div class="file-overlay-actions-row">
@@ -1653,7 +1594,7 @@
                     </button>
                 </div>
             </div>
-            <!-- Export -->
+
             <div class="file-overlay-section">
                 <div class="file-overlay-section-label">Export</div>
                 <button class="file-overlay-action-btn" id="fileExportPdfBtn">
@@ -1673,7 +1614,6 @@
     </div>
 </div>
 
-<!-- Background Picker Modal -->
 <div class="link-modal" id="bgPickerModal">
     <div class="link-modal-content" style="max-width:400px;">
         <div class="link-modal-header">
@@ -1725,7 +1665,6 @@
     </div>
 </div>
 
-<!-- ===== DRAWING TOOLBAR (bottom-docked, notes-app style) ===== -->
 <div class="draw-toolbar" id="drawToolbar">
     <button class="draw-tool-btn active" id="drawPenBtn" title="Pen">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1778,10 +1717,9 @@
     <button class="draw-tool-btn draw-done-btn" id="drawDoneBtn" title="Done">&check; Done</button>
 </div>
 
-<!-- ===== SYMBOL BAR ===== -->
 <div class="symbol-toolbar" id="symbolToolbar">
     <div class="symbol-bar-scroll" id="symbolBarScroll">
-        <!-- Stars & Misc -->
+
         <div class="symbol-toolbar-divider"></div>
         <div class="symbol-group">
             <span class="symbol-section-label">Stars</span>
@@ -1810,7 +1748,7 @@
             </div>
         </div>
         <div class="symbol-toolbar-divider"></div>
-        <!-- Checkmarks & Hearts -->
+
         <div class="symbol-group">
             <span class="symbol-section-label">Marks</span>
             <div class="symbol-group-row">
@@ -1836,7 +1774,7 @@
             </div>
         </div>
         <div class="symbol-toolbar-divider"></div>
-        <!-- Arrows -->
+
         <div class="symbol-group">
             <span class="symbol-section-label">Arrows</span>
             <div class="symbol-group-row">
@@ -1857,7 +1795,7 @@
             </div>
         </div>
         <div class="symbol-toolbar-divider"></div>
-        <!-- Math -->
+
         <div class="symbol-group">
             <span class="symbol-section-label">Math</span>
             <div class="symbol-group-row">
@@ -1894,7 +1832,7 @@
             </div>
         </div>
         <div class="symbol-toolbar-divider"></div>
-        <!-- Greek -->
+
         <div class="symbol-group">
             <span class="symbol-section-label">Greek</span>
             <div class="symbol-group-row">
@@ -1923,7 +1861,7 @@
             </div>
         </div>
         <div class="symbol-toolbar-divider"></div>
-        <!-- Numbers & Bullets -->
+
         <div class="symbol-group">
             <span class="symbol-section-label">Numbers</span>
             <div class="symbol-group-row">
@@ -1942,7 +1880,7 @@
             </div>
         </div>
         <div class="symbol-toolbar-divider"></div>
-        <!-- Floral & Special -->
+
         <div class="symbol-group">
             <span class="symbol-section-label">Special</span>
             <div class="symbol-group-row">
@@ -1970,14 +1908,13 @@
     <button class="draw-tool-btn draw-done-btn" id="symbolDoneBtn" title="Done">&check; Done</button>
 </div>
 
-<!-- ===== PRESENTATION OVERLAY ===== -->
 <div id="presentOverlay" class="present-overlay" style="display:none;">
     <div class="present-slide-container" id="presentSlideContainer">
         <div class="present-slide" id="presentSlide">
-            <!-- Slide content rendered here -->
+
         </div>
     </div>
-    <!-- Bottom toolbar -->
+
     <div class="present-toolbar" id="presentToolbar">
         <button class="present-toolbar-btn" id="presentPrevBtn" title="Previous Slide (←)">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
@@ -1992,7 +1929,6 @@
     </div>
 </div>
 
-<!-- ===== SCRIPTS ===== -->
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" crossorigin="anonymous"></script>

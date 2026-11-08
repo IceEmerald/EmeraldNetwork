@@ -36,8 +36,7 @@
         </header>
 
         <div class="su-shell">
-            <!-- Decorative night sky. Stars are injected by JS so each one can
-                 carry its own twinkle period; hidden outside evening via CSS. -->
+
             <div class="su-sky" id="skyLayer" aria-hidden="true"></div>
 
             <aside class="su-rail" aria-label="Suite navigation">
@@ -68,15 +67,6 @@
                     <h1 class="suite-greeting" id="greeting">Welcome back.</h1>
                 </section>
 
-                <!-- Collapsed while a search is active (see .searching on
-                     .suite-main).
-
-                     Each .collapsible must hold EXACTLY ONE child. The
-                     grid-template-rows: 1fr → 0fr trick only sizes the
-                     declared row; a second child lands in an implicit
-                     auto-sized row and never animates. So the heading +
-                     section pair is wrapped in .collapsible-inner, which is
-                     what actually gets clipped. -->
                 <div class="collapsible" id="recentBlock">
                     <div class="collapsible-inner">
                         <h2 class="su-section-title">Recent files</h2>

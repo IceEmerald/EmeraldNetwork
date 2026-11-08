@@ -1,38 +1,7 @@
-/* ============================================================================
-   wiki.css — EmeraldNetwork Wiki
-   ----------------------------------------------------------------------------
-   Everything here is namespaced under `wiki-` so nothing can collide with
-   style.css (loaded first) or any app stylesheet.
 
-   ARCHITECTURE — "blocks, not tangled":
-   A wiki block is one <section class="wiki-block"> in wiki.html. Each block is
-   self-contained: it owns its heading, its optional intro line, and its body.
-   The sidebar, the search index, the scroll-spy and the collapse state are all
-   DERIVED from the blocks that exist in the HTML. Add a block, it appears in
-   the nav and the search index. Delete a block, it disappears from both.
-   There is no registry to keep in sync.
-
-   TO ADD A BLOCK:
-     1. Copy any existing <section class="wiki-block">.
-     2. Give it a unique id and a data-tags attribute (extra search keywords).
-     3. Put an <h2> as the first child of .wiki-block-head — that is what the
-        sidebar reads.
-     4. Done. No JS or CSS changes required.
-
-   TO REMOVE A BLOCK: delete the whole <section>. Nothing else references it.
-
-   Only the behaviour layer needs JavaScript (assets/scripts/wiki.js), and it
-   is written to work with zero wiki-blocks too.
-   ========================================================================== */
-
-/* --------------------------------------------------------------------------
-   1. THEME TOKENS
-   -------------------------------------------------------------------------- */
 
 body.wiki-page {
-    /* Palette — light is the default; dark overrides only what changes.
-       Scoped to body (not .wiki-root) so the page background and the shared
-       toast / context-menu can read the same tokens. */
+
     --w-bg-soft: #f6f7f8;
     --w-bg-sunken: #eef0f2;
     --w-surface: #ffffff;
@@ -59,8 +28,6 @@ body.wiki-page {
     --w-code-bg: #f2f3f5;
     --w-code-text: #1f2933;
 
-    /* Top-bar chrome — these mirror assets/styles/emeraldsuite.css so the wiki
-       bar and the suite bar are pixel-identical in light mode. */
     --w-search-bg: #ffffff;
     --w-search-focus-bg: #ffffff;
     --w-search-border: #d3d3d3;
@@ -78,16 +45,14 @@ body.wiki-page {
     --w-mark-bg: #ffe680;
     --w-mark-ink: #3d2c00;
 
-    /* Per-app accent — set with style="--w-app:#0f172a" on a block. */
     --w-app: var(--w-brand);
     --w-app-soft: var(--w-brand-soft);
 
-    /* Metrics */
     --w-nav-w: 286px;
     --w-toc-w: 232px;
     --w-toc-pad-x: 1.1rem;
     --w-toc-pad-y: 1.1rem;
-    --w-topbar-h: 62px;      /* must match .su-top height */
+    --w-topbar-h: 62px;
     --w-radius: 8px;
     --w-radius-sm: 6px;
     --w-shadow-1: 0 1px 2px rgba(16, 24, 32, 0.05);
@@ -97,11 +62,6 @@ body.wiki-page {
 
 html[data-wiki-theme="dark"] body.wiki-page {
     color-scheme: dark;
-
-    /* Neutrals are taken straight from discordemeraldbot.html, which is the
-       site's existing dark surface treatment: #1a1a1a page, #252525 panels,
-       #D2D2D2 body copy, #313131 borders. The emerald accent is kept — that is
-       the EmeraldNetwork identity, not a Discord one. */
 
     --w-bg-soft: #1a1a1a;
     --w-bg-sunken: #151515;
@@ -119,7 +79,6 @@ html[data-wiki-theme="dark"] body.wiki-page {
     --w-brand-soft: rgba(35, 154, 77, 0.16);
     --w-brand-ink: #4ec27f;
 
-    /* #7289da is the accent discordemeraldbot.html uses for its call-to-action. */
     --w-info: #7289da;
     --w-info-soft: rgba(114, 137, 218, 0.18);
     --w-warn: #e0a44a;
@@ -152,8 +111,6 @@ html[data-wiki-theme="dark"] body.wiki-page {
     --w-shadow-3: 0 18px 40px -18px rgba(0, 0, 0, .8);
 }
 
-/* The right-click menu and toast come from style.css and live outside
-   .wiki-root, so they need the dark palette applied to them directly. */
 html[data-wiki-theme="dark"] body.wiki-page .rightclick-menu {
     background: rgba(37, 37, 37, .97);
     border-color: #313131;
@@ -174,49 +131,12 @@ html[data-wiki-theme="dark"] body.wiki-page .rightclick-menu a:hover {
     background: rgba(255, 255, 255, 0.06);
 }
 
-/* The toast is deliberately NOT themed. It is transient feedback, not page
-   furniture, and every other page on this site shows it light even on a dark
-   background. Leaving it alone here keeps that consistency — a dark toast on a
-   dark page was the one place the wiki looked like it belonged to somewhere
-   else. */
-
-/* --------------------------------------------------------------------------
-   2. RESET / PAGE SHELL
-   -------------------------------------------------------------------------- */
-
 body.wiki-page {
     color-scheme: light;
     background: var(--w-bg-soft);
     font-family: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
-/* --- scrollbar ------------------------------------------------------------
-   The sidebar gets NO scrollbar rules of its own, on purpose.
-
-   style.css declares ::-webkit-scrollbar, its track and its thumb unqualified,
-   so those rules already reach every scroller on the page -- the document at
-   the right edge and .wiki-nav at the left. Leaving the sidebar to inherit is
-   what makes the two bars identical in style, colour and thickness: there is
-   one definition, not two that have to be kept in step. An earlier version
-   restated them on .wiki-nav and set its own width, which is precisely how the
-   two bars drifted apart in the first place.
-
-   So the sidebar reads:
-
-     LIGHT  ::-webkit-scrollbar { width: 10px; height: 10px }
-             track #f1f1f1   thumb #c1c1c1   thumb:hover #a8a8a8
-
-     DARK   one override, the same single one discordemeraldbot.css uses,
-             replaces the track with #1a1a1a and inherits width and thumb.
-
-   Deliberately NO scrollbar-color here. That property re-renders the scrollbar
-   itself rather than just recolouring it, which is what made the bar change
-   size and design. */
-
-/* Chips, step numbers and markers sit on a --w-app-soft tint. At 16% of a
-   mid-tone accent that measures ~1.2:1 on the dark panel — effectively
-   nothing — so dark runs a stronger mix of the lifted colour, which reads as
-   a distinct chip without turning into a block of colour. */
 html[data-wiki-theme="dark"] .wiki-block {
     --w-app-soft: color-mix(in srgb, var(--w-app-ink) 24%, transparent);
 }
@@ -225,10 +145,6 @@ html[data-wiki-theme="dark"] ::-webkit-scrollbar-track {
     background: #1a1a1a;
 }
 
-/* Deliberately no background here. This element covers the whole page at
-   min-height:100vh, so any colour set on it would paint over the themed body
-   colour and the page would stay light in dark mode while the text on it went
-   near-white. The page colour is defined once, on body, and inherits through. */
 .wiki-root {
     color: var(--w-text);
     min-height: 100vh;
@@ -243,9 +159,6 @@ html[data-wiki-theme="dark"] ::-webkit-scrollbar-track {
     box-sizing: border-box;
 }
 
-/* Prose links only. Deliberately NOT `.wiki-root a`: that selector outranks the
-   single-class chrome styles (.icon-btn, .social-icon-button-footer) and would
-   paint every top-bar and footer icon green instead of its own colour. */
 .wiki-block a {
     color: var(--w-brand-ink);
     text-decoration-thickness: 1px;
@@ -255,25 +168,6 @@ html[data-wiki-theme="dark"] ::-webkit-scrollbar-track {
 .wiki-block a:hover {
     color: var(--w-brand);
 }
-
-/* --------------------------------------------------------------------------
-   3. TOP BAR — a copy of the EmeraldSuite chrome
-   --------------------------------------------------------------------------
-   This is deliberately the same bar as emeraldsuite.html, so the two apps feel
-   like one product. Class names match too (.su-top / .su-search / .su-top-right
-   / .icon-btn), which means the source of truth is a side-by-side diff against
-   these rules in assets/styles/emeraldsuite.css:
-
-       .su-top            line ~1326
-       .su-search         line ~1350
-       .su-top-right      line ~1361
-       .icon-btn          line ~520
-
-   The only difference is that the suite's hard-coded colours are read from
-   --w-* tokens instead, so dark mode can use the identical geometry.
-
-   Layout, left to right:   logo icon   |   search (centred)   |   buttons
-   -------------------------------------------------------------------------- */
 
 .su-top {
     position: sticky;
@@ -297,8 +191,6 @@ html[data-wiki-theme="dark"] .su-top::after {
     background: linear-gradient(to top, rgba(0, 0, 0, .35), rgba(0, 0, 0, 0));
 }
 
-/* --- left: logo icon ------------------------------------------------------ */
-
 .su-top .logo {
     display: flex;
     align-items: center;
@@ -319,8 +211,6 @@ html[data-wiki-theme="dark"] .su-top::after {
 .su-top .logo:hover {
     opacity: .82;
 }
-
-/* --- middle: search, optically centred ------------------------------------ */
 
 .su-search {
     position: absolute;
@@ -398,8 +288,6 @@ html[data-wiki-theme="dark"] .su-top::after {
     display: flex;
 }
 
-/* --- right: icon buttons -------------------------------------------------- */
-
 .su-top-right {
     display: flex;
     align-items: center;
@@ -441,15 +329,6 @@ html[data-wiki-theme="dark"] .su-top::after {
     outline-offset: 2px;
 }
 
-/* --- the bare icon buttons -----------------------------------------------
-   The theme toggle follows the suite's storage icon: no filled box, no border,
-   no shadow. It is the only control in the bar, so a box around it would be the
-   loudest thing on the page.
-
-   The suite needs `!important` here because its `.icon-btn:hover` background
-   outranks the plain rule. Declaring the :hover state explicitly does the same
-   job without it — and these rules sit after `.icon-btn:hover`, so order wins. */
-
 .wiki-theme-btn,
 .wiki-burger,
 .wiki-theme-btn:hover,
@@ -468,31 +347,18 @@ html[data-wiki-theme="dark"] .su-top::after {
     height: 20px;
 }
 
-/* Colour still changes on hover — only the box is suppressed. */
 .wiki-theme-btn:hover,
 .wiki-burger:hover {
     color: var(--w-brand);
 }
 
-/* Hamburger only earns its place once the sidebar becomes a drawer. */
 .wiki-burger {
     display: none;
 }
 
-/* --------------------------------------------------------------------------
-   4. LAYOUT: SIDEBAR + CONTENT
-   --------------------------------------------------------------------------
-   The sidebar is deliberately plain: no panel background, and no scrollbar
-   rules of its own -- it inherits the shared ones, so its bar matches the one
-   on the right edge exactly. It reads as a column of navigation sitting on the
-   page rather than a second card competing with the content.
-   -------------------------------------------------------------------------- */
-
 .wiki-shell {
     display: grid;
-    /* The right rail is a real column, not an overlay, so the reading measure
-       stays put whether or not the current page has headings. It is
-       width:0-and-hidden when empty (see .wiki-toc below). */
+
     grid-template-columns: var(--w-nav-w) minmax(0, 1fr) auto;
     align-items: start;
     gap: 0;
@@ -500,18 +366,13 @@ html[data-wiki-theme="dark"] .su-top::after {
     margin: 0 auto;
 }
 
-/* --- the "On this page" rail --------------------------------------------
-   Sits on the right, pinned under the top bar, and scrolls on its own so a
-   long heading list never lengthens the page. Same rhythm and same scrollbar
-   as the sidebar; only the edge it hangs off is different. */
 .wiki-toc {
     position: sticky;
     top: var(--w-topbar-h);
     max-height: calc(100vh - var(--w-topbar-h));
     overflow-y: auto;
     overscroll-behavior: contain;
-    /* Hidden when wiki.js finds no headings, so the column collapses to 0
-       instead of leaving a dead gutter beside the text. */
+
     width: 0;
     padding: 0;
     border-left: 0 solid var(--w-line);
@@ -523,14 +384,10 @@ html[data-wiki-theme="dark"] .su-top::after {
     border-left-width: 1px;
 }
 
-/* Nothing to outline on this route — take the column back. */
 .wiki-toc:empty {
     display: none;
 }
 
-/* Same rule, same bar. Written per-selector rather than relying on the global
-   ::-webkit-scrollbar block so the rail is a deliberate choice even if the
-   shared rule is ever changed. */
 .wiki-toc::-webkit-scrollbar {
     width: 10px;
 }
@@ -559,24 +416,14 @@ html[data-wiki-theme="dark"] .wiki-toc::-webkit-scrollbar-track {
     overflow-y: auto;
     overscroll-behavior: contain;
 
-    /* One source of truth for the column's rhythm. --w-nav-pad-x is also the
-       pill's left edge, so the rail always sits exactly on the row edge. */
     --w-nav-pad-x: 1.2rem;
     --w-nav-row-py: 0.44rem;
     --w-nav-group-top: 1rem;
 
-    /* No top padding: each category header carries its own gap, so the first
-       one is spaced exactly like the rest instead of one notch tighter. */
     padding: 0 0.9rem 4rem var(--w-nav-pad-x);
     border-right: 1px solid var(--w-line);
 }
 
-/* --- the sliding pill ---------------------------------------------------
-   One element for the whole column rather than a ::before per row. A
-   per-row rail can only grow and shrink where it stands, so moving between
-   pages reads as two separate bars blinking rather than one bar moving.
-   This one is translated to the active row, so it slides. It lives inside
-   the nav (a positioned element) so it scrolls with the content it marks. */
 .wiki-nav-pill {
     position: absolute;
     left: var(--w-nav-pad-x);
@@ -590,9 +437,6 @@ html[data-wiki-theme="dark"] .wiki-toc::-webkit-scrollbar-track {
     pointer-events: none;
     will-change: transform;
 
-    /* The pill is the nav's first child, so without this it paints before the
-       rows and a hovered row's background covers it. The rail is the one mark
-       that must never be hidden by a row behind it. */
     z-index: 2;
     transition: transform 0.34s cubic-bezier(0.32, 0.72, 0, 1),
         height 0.2s ease,
@@ -610,10 +454,6 @@ html[data-wiki-theme="dark"] .wiki-toc::-webkit-scrollbar-track {
     padding: 0;
 }
 
-/* Section labels. Small, spaced and quiet, so they read as structure rather
-   than as content competing with the links. */
-/* Category headers. Identical spacing above and below on every one,
-   including the first, so the groups read as evenly stacked shelves. */
 .wiki-nav-group {
     padding: var(--w-nav-group-top) 0.65rem 0.3rem;
     font-family: inherit;
@@ -625,11 +465,6 @@ html[data-wiki-theme="dark"] .wiki-toc::-webkit-scrollbar-track {
     color: var(--w-text-faint);
     user-select: none;
 }
-
-/* --- the links themselves ------------------------------------------------
-   Rows are padded from --w-nav-row-py, so a product row and a nested page
-   row are exactly the same height and the column has one even rhythm. The
-   current-page rail is .wiki-nav-pill, not a ::before here. */
 
 .wiki-nav-link {
     position: relative;
@@ -650,8 +485,6 @@ html[data-wiki-theme="dark"] .wiki-toc::-webkit-scrollbar-track {
     color: var(--w-text);
 }
 
-/* Selected = the rail, the accent colour and the weight. No filled box, so a
-   long list of rows never turns into a column of coloured chips. */
 .wiki-nav-link.is-active {
     background: transparent;
     color: var(--w-app-ink, var(--w-brand-ink));
@@ -669,8 +502,6 @@ html[data-wiki-theme="dark"] .wiki-toc::-webkit-scrollbar-track {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-
-/* --- product rows -------------------------------------------------------- */
 
 .wiki-nav-link--product {
     font-weight: 700;
@@ -695,8 +526,6 @@ html[data-wiki-theme="dark"] .wiki-toc::-webkit-scrollbar-track {
     background: transparent;
 }
 
-/* --- the pages nested under the active product ---------------------------- */
-
 .wiki-nav-sub {
     list-style: none;
     margin: 0.12rem 0 0.45rem;
@@ -716,17 +545,6 @@ html[data-wiki-theme="dark"] .wiki-toc::-webkit-scrollbar-track {
     padding-bottom: var(--w-nav-row-py);
 }
 
-/* --- "On this page" outline ---------------------------------------------- */
-
-/* --- "On this page" rail -------------------------------------------------
-   Lives in the right-hand column, not in the sidebar. Items deliberately carry
-   no background at all, hovered or current — the sliding pill is the only
-   marker, which keeps a long heading list from turning into a stack of tinted
-   chips. */
-
-/* Same label treatment as the sidebar's category headers, so the two columns
-   read as the same system. It is still a .wiki-nav-group for that, but the
-   rhythm comes from the rail's own tokens now that it is not in the nav. */
 .wiki-nav-outline-title {
     margin: 0 0 0.4rem;
     padding: 0;
@@ -738,8 +556,6 @@ html[data-wiki-theme="dark"] .wiki-toc::-webkit-scrollbar-track {
     padding: 0;
 }
 
-/* The outline's own pill. Same shape as .wiki-nav-pill, one step smaller so
-   the finer type it marks is not overpowered by it. */
 .wiki-nav-outline-pill {
     position: absolute;
     left: 0;
@@ -764,8 +580,6 @@ html[data-wiki-theme="dark"] .wiki-toc::-webkit-scrollbar-track {
     opacity: 1;
 }
 
-/* Uniform row rhythm, matching --w-nav-row-py so the outline continues the
-   column's spacing instead of starting a second, tighter one. */
 .wiki-toc a {
     position: relative;
     display: block;
@@ -775,12 +589,11 @@ html[data-wiki-theme="dark"] .wiki-toc::-webkit-scrollbar-track {
     line-height: 1.45;
     color: var(--w-text-soft);
     text-decoration: none;
-    /* Explicitly none: this is the one place with no hover fill. */
+
     background: none;
     transition: color 0.14s ease;
 }
 
-/* Hover is colour only. The pill is reserved for "you are here". */
 .wiki-toc a:hover {
     color: var(--w-text);
     background: none;
@@ -791,8 +604,6 @@ html[data-wiki-theme="dark"] .wiki-toc::-webkit-scrollbar-track {
     font-weight: 600;
 }
 
-/* Deeper levels indent without shrinking the type, so the list keeps one
-   even rhythm instead of stepping down in size. */
 .wiki-toc li[data-level="4"] a {
     padding-left: 1.75rem;
     font-size: 0.795rem;
@@ -807,14 +618,6 @@ html[data-wiki-theme="dark"] .wiki-toc::-webkit-scrollbar-track {
     min-width: 0;
     padding: 1.6rem clamp(0.9rem, 3vw, 2.6rem) 4rem;
 
-    /* Page change, matched to the two places the site already does this.
-
-       The timing is deliberately lopsided, and that is the whole effect: the
-       old page leaves quickly (0.18s ease-in, as aichat's branch switch and
-       docs' .ribbon-panel.blur-out both do) and the new one arrives slowly
-       (0.3s ease-out, as docs' .ribbon-panel.active does). Fast out, slow in
-       reads as a dissolve settling rather than a flash. The sidebar and the
-       rail stay sharp, so only the content being replaced animates. */
     transition: filter 0.3s ease-out,
         opacity 0.3s ease-out;
 }
@@ -826,10 +629,6 @@ html[data-wiki-theme="dark"] .wiki-toc::-webkit-scrollbar-track {
     transition: filter 0.18s ease-in,
         opacity 0.18s ease-in;
 }
-
-/* --------------------------------------------------------------------------
-   5. HERO
-   -------------------------------------------------------------------------- */
 
 .wiki-hero {
     position: relative;
@@ -862,22 +661,14 @@ html[data-wiki-theme="dark"] .wiki-toc::-webkit-scrollbar-track {
     font-variant-numeric: tabular-nums;
 }
 
-/* --------------------------------------------------------------------------
-   6. THE BLOCK — the one primitive everything else lives inside
-   -------------------------------------------------------------------------- */
-
 .wiki-block {
     --w-app: var(--w-brand);
-    /* Accents were picked against a white page. On the dark panel most of them
-       fall under 4.5:1, so JS sets --w-app-ink to a lifted value per accent and
-       re-computes it on every theme change. Light mode leaves it == --w-app. */
+
     --w-app-ink: var(--w-app);
     --w-app-soft: color-mix(in srgb, var(--w-app-ink) 16%, transparent);
 
     position: relative;
-    /* `clip`, not `hidden`: it keeps the accent strip inside the rounded
-       corners without creating a scroll container, so the sticky table
-       headers inside blocks still work. */
+
     overflow: clip;
     margin-bottom: 1.1rem;
     border: 1px solid var(--w-line);
@@ -885,15 +676,10 @@ html[data-wiki-theme="dark"] .wiki-toc::-webkit-scrollbar-track {
     background: var(--w-surface);
     box-shadow: var(--w-shadow-1);
     scroll-margin-top: calc(var(--w-topbar-h) + 14px);
-    /* No box-shadow here: the block sits at a fixed elevation and does not
-       lift on hover. Only the surface colours transition. */
+
     transition: border-color 0.25s ease, background 0.25s ease;
 }
 
-/* Thin accent strip along the top edge, coloured per block.
-   The radius is 9px, not the card's 10px: the strip is positioned against the
-   padding box, so it sits 1px inside the border and has to follow the INNER
-   edge of the rounded corner. */
 .wiki-block::before {
     content: "";
     position: absolute;
@@ -956,16 +742,14 @@ html[data-wiki-theme="dark"] .wiki-toc::-webkit-scrollbar-track {
     border-top: 1px solid transparent;
 }
 
-/* Search filtering: a block that does not match is removed from flow. */
 .wiki-block.is-filtered {
     display: none;
 }
 
-/* Routing: a block that is not part of the current ?section= is not rendered. */
 .wiki-block.is-page-hidden {
     display: none;
 }
-/* Sub-sections inside a block. */
+
 .wiki-block h3 {
     margin: 1.7rem 0 0.65rem;
     font-size: 1.02rem;
@@ -1036,12 +820,6 @@ html[data-wiki-theme="dark"] .wiki-toc::-webkit-scrollbar-track {
     opacity: 1;
 }
 
-/* --------------------------------------------------------------------------
-   7. CONTENT PRIMITIVES
-   -------------------------------------------------------------------------- */
-
-/* 7.1 Card grid ------------------------------------------------------------ */
-
 .wiki-cards {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
@@ -1080,8 +858,6 @@ a.wiki-card:hover {
     font-size: 0.85rem;
     line-height: 1.55;
 }
-
-/* 7.2 Tables ---------------------------------------------------------------- */
 
 .wiki-table-wrap {
     margin: 0 0 1.1rem;
@@ -1127,14 +903,11 @@ a.wiki-card:hover {
     background: var(--w-surface-2);
 }
 
-/* The first column of a definition-style table reads as a label. */
 .wiki-table td:first-child {
     color: var(--w-text);
     font-weight: 600;
     white-space: nowrap;
 }
-
-/* 7.3 Inline chips: keys, labels, commands --------------------------------- */
 
 .wiki-key {
     display: inline-block;
@@ -1173,8 +946,6 @@ a.wiki-card:hover {
     background: var(--w-danger-soft);
 }
 
-/* 7.4 Inline code ---------------------------------------------------------- */
-
 .wiki-code {
     padding: 0.1rem 0.38rem;
     font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
@@ -1184,8 +955,6 @@ a.wiki-card:hover {
     border-radius: 5px;
     white-space: nowrap;
 }
-
-/* 7.5 Callouts ------------------------------------------------------------- */
 
 .wiki-note {
     display: flex;
@@ -1240,8 +1009,6 @@ a.wiki-card:hover {
     color: var(--w-danger);
 }
 
-/* 7.6 Numbered steps ------------------------------------------------------- */
-
 .wiki-steps {
     counter-reset: wstep;
     list-style: none;
@@ -1273,8 +1040,6 @@ a.wiki-card:hover {
     border-radius: 80px;
 }
 
-/* 7.7 Check list ----------------------------------------------------------- */
-
 .wiki-checks {
     list-style: none;
     margin: 0 0 1.1rem;
@@ -1299,8 +1064,6 @@ a.wiki-card:hover {
     border-bottom: 2px solid var(--w-app-ink, var(--w-brand));
     transform: rotate(-45deg);
 }
-
-/* 7.8 Copyable row --------------------------------------------------------- */
 
 .wiki-copy {
     display: flex;
@@ -1344,8 +1107,6 @@ a.wiki-card:hover {
     border-color: var(--w-brand);
 }
 
-/* 7.9 Command grid (Discord bot) ------------------------------------------ */
-
 .wiki-commands {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -1388,7 +1149,6 @@ a.wiki-card:hover {
     display: none;
 }
 
-/* Filter bar — reused for command categories. */
 .wiki-filters {
     display: flex;
     flex-wrap: wrap;
@@ -1426,8 +1186,6 @@ a.wiki-card:hover {
     color: var(--w-text-faint);
 }
 
-/* 7.10 Feature list (compact two-column pairs) ----------------------------- */
-
 .wiki-features {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
@@ -1456,8 +1214,6 @@ a.wiki-card:hover {
     background: var(--w-app-ink, var(--w-brand));
 }
 
-/* 7.11 Empty search state -------------------------------------------------- */
-
 .wiki-empty {
     display: none;
     padding: 2.4rem 1.5rem;
@@ -1478,23 +1234,12 @@ a.wiki-card:hover {
     color: var(--w-text);
 }
 
-/* 7.12 Search highlight ---------------------------------------------------- */
-
 .wiki-hit {
     padding: 0.02em 0.22em;
     color: var(--w-mark-ink);
     background: var(--w-mark-bg);
     border-radius: 4px;
 }
-
-/* --------------------------------------------------------------------------
-   7b. PAGE CHROME — breadcrumbs, prev/next and the sidebar
-   --------------------------------------------------------------------------
-   All of this is generated by wiki.js from the data-product attribute on each
-   .wiki-block, so a new block gets its crumbs and prev/next links for free.
-   -------------------------------------------------------------------------- */
-
-/* 7b.1 Breadcrumbs ------------------------------------------------------- */
 
 .wiki-crumbs {
     display: flex;
@@ -1529,8 +1274,6 @@ a.wiki-crumb:hover {
 .wiki-crumb-sep {
     opacity: .55;
 }
-
-/* 7b.2 Previous / next pager -------------------------------------------- */
 
 .wiki-pager {
     display: grid;
@@ -1603,8 +1346,6 @@ a.wiki-crumb:hover {
     text-overflow: ellipsis;
 }
 
-/* 7b.3 Unknown route ----------------------------------------------------- */
-
 .wiki-notfound {
     padding: 1.8rem 1.5rem;
     margin-bottom: 1rem;
@@ -1630,8 +1371,6 @@ a.wiki-crumb:hover {
 .wiki-notfound .wiki-cards {
     margin-bottom: 0;
 }
-
-/* 7b.4 Sidebar: product rows, nested pages, "you are reading this" -------- */
 
 .wiki-nav-sub {
     list-style: none;
@@ -1666,23 +1405,11 @@ a.wiki-crumb:hover {
     color: var(--w-text);
 }
 
-/* --------------------------------------------------------------------------
-   7c. CONTENT ADDITIONS
-   --------------------------------------------------------------------------
-   .wiki-lead     the opening paragraph of a page — a size up, sets the tone
-   .wiki-shelves  the four category columns on Start here
-   .wiki-apps     the icon + name + one-liner grid on App map
-   -------------------------------------------------------------------------- */
-
-/* 7c.1 Lead paragraph ------------------------------------------------------ */
-
 .wiki-lead {
     font-size: 1.02rem;
     line-height: 1.6;
     color: var(--w-text);
 }
-
-/* 7c.2 Shelves ------------------------------------------------------------- */
 
 .wiki-shelves {
     display: grid;
@@ -1739,8 +1466,6 @@ a.wiki-crumb:hover {
 .wiki-shelf a:hover {
     text-decoration: underline;
 }
-
-/* 7c.3 App grid ------------------------------------------------------------ */
 
 .wiki-apps {
     display: grid;
@@ -1815,19 +1540,6 @@ a.wiki-crumb:hover {
     color: var(--w-text-soft);
 }
 
-/* --------------------------------------------------------------------------
-   8. FOOTER
-   --------------------------------------------------------------------------
-   The footer markup in wiki.html is copied verbatim from index.html, so it is
-   styled entirely by the .footer rules in style.css. This section only has to
-   solve one problem the rest of the site doesn't have: the wiki can switch to
-   dark at runtime, and .footer hard-codes a light background.
-
-   The values below mirror the .footer--dark rules in style.css (around line
-   924), which is what discordemeraldbot.html uses: #212121 with #eef5ff text.
-   Keep the two in step.
-   -------------------------------------------------------------------------- */
-
 html[data-wiki-theme="dark"] body.wiki-page .footer {
     border-top-color: rgba(255, 255, 255, .08);
     background: #212121;
@@ -1865,12 +1577,8 @@ html[data-wiki-theme="dark"] body.wiki-page .footer-splitter {
     background: rgba(255, 255, 255, .16);
 }
 
-/* --------------------------------------------------------------------------
-   9. RESPONSIVE
-   -------------------------------------------------------------------------- */
-
 @media (max-width: 1200px) {
-    /* Not enough width for a third column: give it back to the text. */
+
     .wiki-shell {
         grid-template-columns: var(--w-nav-w) minmax(0, 1fr);
     }
@@ -1887,7 +1595,7 @@ html[data-wiki-theme="dark"] body.wiki-page .footer-splitter {
 
     .wiki-burger {
         display: inline-flex;
-        order: -2;   /* stays left of the logo on narrow screens */
+        order: -2;
     }
 
     .wiki-nav {
@@ -1919,8 +1627,7 @@ html[data-wiki-theme="dark"] body.wiki-page .footer-splitter {
 }
 
 @media (max-width: 760px) {
-    /* Not enough room for a centred floating search between the burger and the
-       right-hand buttons, so it becomes a normal flex child at full width. */
+
     .su-search {
         position: static;
         transform: none;
@@ -1957,13 +1664,8 @@ html[data-wiki-theme="dark"] body.wiki-page .footer-splitter {
     }
 }
 
-/* --------------------------------------------------------------------------
-   10. MOTION / PRINT
-   -------------------------------------------------------------------------- */
-
 @media (prefers-reduced-motion: reduce) {
-    /* No blur for readers who asked for less motion — the page still swaps,
-       just without the dissolve. Matches how AI Chat handles it. */
+
     .wiki-main.is-switching {
         filter: none;
         opacity: 0;
@@ -1989,7 +1691,6 @@ html[data-wiki-theme="dark"] body.wiki-page .footer-splitter {
         display: none !important;
     }
 
-    /* Print everything, whatever the current route is. */
     .wiki-block.is-page-hidden {
         display: block;
     }

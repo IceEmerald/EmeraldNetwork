@@ -1,9 +1,4 @@
-/* ============================================================
-   EmeraldSuite TableKit — overlay chrome
-   ============================================================
-   Painted above the editors from document.body (never inside
-   saved content). Scales with the app's page zoom via --emtk-s.
-   ============================================================ */
+
 
 .emtk-overlay {
   position: fixed;
@@ -11,17 +6,12 @@
   top: 0;
   z-index: 60000;
   pointer-events: none;
-  /*
-    The overlay is scaled by the app's own page zoom so that px
-    coordinates written into it stay in DESIGN units (the same
-    numbers offsetWidth/offsetHeight report).
-  */
+
   transform: scale(var(--emtk-s, 1));
   transform-origin: 0 0;
   --emtk-accent: var(--accent, #0f9d6e);
 }
 
-/* --- hint + drag guide lines --- */
 .emtk-line {
   position: absolute;
   pointer-events: none;
@@ -39,11 +29,6 @@
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
-/* --- grab handle (top-left): click to select, drag to move.
-   Neutral look matching the floating row/column toolbar buttons
-   (dark icon, subtle outline, accent only on hover). Handles are
-   counter-scaled so they keep a constant on-screen size regardless
-   of the page zoom. --- */
 .emtk-grab {
   position: absolute;
   z-index: 3;
@@ -64,7 +49,7 @@
   justify-content: center;
   user-select: none;
   -webkit-user-select: none;
-  /* counter-scale: keep constant screen size despite overlay zoom */
+
   transform: scale(calc(1 / var(--emtk-s, 1)));
   transform-origin: center;
   transition: background 0.15s, color 0.15s, transform 0.1s, border-color 0.15s;
@@ -89,8 +74,6 @@
   transform: scale(calc(0.95 / var(--emtk-s, 1)));
 }
 
-/* --- corner handle (bottom-right): proportional table resize.
-   Same neutral pill language as the floating toolbar; counter-scaled. --- */
 .emtk-corner {
   position: absolute;
   z-index: 3;
@@ -110,7 +93,7 @@
   justify-content: center;
   user-select: none;
   -webkit-user-select: none;
-  /* counter-scale: keep constant screen size despite overlay zoom */
+
   transform: scale(calc(1 / var(--emtk-s, 1)));
   transform-origin: center;
   transition: background 0.15s, color 0.15s, transform 0.1s, border-color 0.15s;
@@ -134,7 +117,6 @@
   transform: scale(calc(0.95 / var(--emtk-s, 1)));
 }
 
-/* --- Word-style whole-table selection tint --- */
 .emtk-tint {
   position: absolute;
   inset: 0;
@@ -144,9 +126,6 @@
   outline-offset: 0;
 }
 
-/* A floating table may sit over the page margins, so its text column must
-   stop clipping it. The .page sheet itself still clips at the paper edge,
-   which is exactly the "never larger than the paper" limit. */
 .page-content.emtk-has-float {
   overflow: visible;
 }

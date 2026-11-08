@@ -1,39 +1,4 @@
-/* ============================================================================
-   wiki.js — EmeraldNetwork Wiki behaviour layer
-   ----------------------------------------------------------------------------
-   This file contains NO wiki content and NO per-page registry. Everything is
-   derived from the markup in wiki.html:
 
-     .wiki-block[data-product][data-product-label][data-tags]
-             -> a page, a sidebar entry, breadcrumbs and a search entry
-     .wiki-block[data-product] on several blocks
-             -> those blocks are the pages of one product
-     .wiki-block-head h2
-             -> sidebar label
-     .wiki-copy > code
-             -> gets a copy button automatically
-
-   ROUTES
-   -----
-   Everything lives in this one HTML file; "pages" are a view over it, encoded
-   in the query string so every page is linkable and bookmarkable:
-
-     /wiki.html                                   -> the first page (home)
-     /wiki.html?section=emeraldsuite              -> every EmeraldSuite page
-     /wiki.html?section=emeraldsuite.docs         -> just EmeraldDocs
-     /wiki.html?section=emeraldsuite.notes        -> just EmeraldNotes
-     /wiki.html?section=aichat                    -> EmeraldBot AI Chat
-     /wiki.html?section=aichat.livevoice          -> live voice only
-     /wiki.html?section=discordemeraldbot         -> the Discord bot
-     /wiki.html?section=emeraldessentialsplugin  -> the Minecraft plugin
-     /wiki.html?section=all                       -> everything, one long page
-
-   A product with only one page is addressed by product name alone, so simple
-   cases stay short.
-
-   As you scroll, ?section= is rewritten to whatever you are reading (with
-   replaceState, so Back still means Back). Clicking navigation pushes instead.
-   ========================================================================== */
 
 (function () {
     'use strict';
@@ -53,14 +18,10 @@
     var themeBtn = root.querySelector('.wiki-theme-btn');
     var crumbs = root.querySelector('[data-crumbs]');
     var pager = root.querySelector('[data-pager]');
-    var toc = root.querySelector('[data-outline]');   // the 'On this page' rail on the right
-    var main = root.querySelector('.wiki-main');      // blurs during a page change
+    var toc = root.querySelector('[data-outline]');
+    var main = root.querySelector('.wiki-main');
 
     var blocks = [].slice.call(root.querySelectorAll('.wiki-block'));
-
-    /* ---------------------------------------------------------------------
-       Helpers
-       --------------------------------------------------------------------- */
 
     function el(tag, className, text) {
         var n = document.createElement(tag);
@@ -81,7 +42,7 @@
     function writeStore(key, value) {
         try {
             localStorage.setItem(key, JSON.stringify(value));
-        } catch (e) { /* private mode / quota — the page still works */ }
+        } catch (e) {  }
     }
 
     function normalize(s) { return (s || '').toLowerCase(); }
@@ -99,8 +60,6 @@
         };
     }
 
-    // Heading text with the injected "#" permalink anchor removed, so labels
-    // never read "Live voice chat#".
     function cleanTitle(heading) {
         if (!heading) return '';
         var clone = heading.cloneNode(true);
@@ -113,13 +72,6 @@
         return cleanTitle(pageEl.querySelector('.wiki-block-head h2')) || pageEl.id;
     }
 
-    // Each nav row / tab / pager button carries its product's colour. The soft
-    // tint has to be derived from that SAME colour on that SAME element: a
-    // custom property declared further up resolves against the value it saw
-    // there, so a shared --w-app-soft on <body> would paint every product green.
-    // Every inline accent goes through here. Setting --w-app alone would leave
-    // --w-app-ink unset, and everything that renders with it would lose its
-    // colour, so all three are always written together.
     function setAccent(node, accent, soft) {
         if (!node || !accent) return;
         node.style.setProperty('--w-app', accent);
@@ -135,7 +87,6 @@
         setAccent(node, accent, 0.16);
     }
 
-    // #rrggbb -> rgba(r, g, b, alpha), with a green fallback for anything odd.
     function alphaOf(accent, alpha) {
         var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec((accent || '').trim());
         if (!m) return 'rgba(35, 154, 77, ' + alpha + ')';
@@ -146,17 +97,6 @@
         var value = window.getComputedStyle(node).getPropertyValue('--w-app');
         return (value || '').trim() || '#239a4d';
     }
-
-    /* ---------------------------------------------------------------------
-       Dark-mode accent lifting.
-
-       The twelve accents were chosen against a white page. On the dark panel
-       (#252525) eight of them fall under the 4.5:1 body-text ratio and the 16%
-       tint behind chips is effectively invisible. --w-app is an inline style, so
-       no stylesheet rule can override it; instead this computes a lifted
-       --w-app-ink for whatever theme is active and rewrites it when the theme
-       changes. Light mode gets --w-app back unchanged, so nothing moves.
-       --------------------------------------------------------------------- */
 
     var DARK_PANEL = '#252525';
 
@@ -171,7 +111,6 @@
         }).join('');
     }
 
-    // Mix toward white by pct%.
     function whiten(hex, pct) {
         var rgb = rgbOf(hex);
         if (!rgb) return hex;
@@ -193,8 +132,6 @@
         return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
     }
 
-    // The smallest lightening that clears `target` against `bg`. Accents that
-    // already pass are left alone, so #f97316 stays exactly the orange it was.
     function liftFor(accent, target) {
         var best = accent;
         for (var pct = 0; pct <= 100; pct += 4) {
@@ -215,8 +152,6 @@
         var dark = isDark();
         var soft = dark ? 0.22 : 0.16;
 
-        // Everything that was given an accent inline: the blocks themselves,
-        // plus the nav rows, both pills, the outline and the pager.
         [].forEach.call(root.querySelectorAll(
             '.wiki-block, .wiki-nav-link, .wiki-nav-pill, .wiki-nav-outline-pill, .wiki-toc, .wiki-pager-btn'
         ), function (el) {
@@ -229,10 +164,6 @@
         });
     }
 
-    /* ---------------------------------------------------------------------
-       Toast — reuses the site-wide #custom-toast when present.
-       --------------------------------------------------------------------- */
-
     var toastEl = document.getElementById('custom-toast');
     var toastTimer = null;
 
@@ -244,13 +175,9 @@
         toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, 2600);
     }
 
-    /* =====================================================================
-       1. THE MODEL — products and pages, derived from the blocks in the DOM
-       ===================================================================== */
-
-    var products = [];        // [{ key, label, accent, pages: [block] }]
+    var products = [];
     var productByKey = {};
-    var info = {};            // blockId -> { el, product, order, only }
+    var info = {};
 
     function buildModel() {
         blocks.forEach(function (block, order) {
@@ -273,26 +200,18 @@
             productByKey[key].pages.push(block);
         });
 
-        // A one-page product is addressed by product name alone.
         products.forEach(function (product) {
             product.pages.forEach(function (page) { info[page.id].only = product.pages.length === 1; });
         });
     }
 
-    // The canonical, shareable address of one page. A product with several
-    // pages is addressed as product.page; a one-page product just by name.
     function addressOf(pageEl) {
         var entry = info[pageEl.id];
         if (!entry) return '';
         return entry.only ? entry.product : entry.product + '.' + entry.el.id;
     }
 
-    /* ---------------------------------------------------------------------
-       1a. Reading order — one flat list of every page, in document order.
-       This is what prev/next and the sidebar both walk.
-       --------------------------------------------------------------------- */
-
-    var readingOrder = [];    // [{ el, address, product, label, summary }]
+    var readingOrder = [];
 
     function buildReadingOrder() {
         blocks.forEach(function (block) {
@@ -310,16 +229,10 @@
     }
 
     function productAddress(product) {
-        // A product's own address is its first page when it has several, so
-        // ?section=emeraldsuite always lands somewhere sensible.
+
         return product.pages.length === 1 ? addressOf(product.pages[0]) : product.key;
     }
 
-    /* =====================================================================
-       2. ROUTING
-       ===================================================================== */
-
-    // What the reader is looking at right now.
     var view = { product: 'home', pageId: null, all: false };
 
     function resolve(raw) {
@@ -329,7 +242,6 @@
 
         if (text.toLowerCase() === 'all') return { all: true };
 
-        // product.page
         var dot = text.indexOf('.');
         if (dot > -1) {
             var productKey = text.slice(0, dot);
@@ -369,10 +281,6 @@
         return view.product;
     }
 
-    // What the address bar actually says. The scroll-spy rewrites the URL
-    // without touching `view` — deliberately, so its own guard cannot feed back
-    // into itself — which means currentAddress() is NOT the URL and must not be
-    // used to decide whether a rewrite is needed.
     function routeInUrl() {
         return new URLSearchParams(window.location.search).get('section');
     }
@@ -381,12 +289,8 @@
         var url = window.location.pathname + '?section=' + encodeURIComponent(address);
         try {
             window.history[push ? 'pushState' : 'replaceState']({ wiki: true }, '', url);
-        } catch (e) { /* file:// — the page still navigates, just no history */ }
+        } catch (e) {  }
     }
-
-    /* ---------------------------------------------------------------------
-       2a. Render — the one function that turns state into the visible page
-       --------------------------------------------------------------------- */
 
     var searching = false;
     var lastRoute = { product: 'home', pageId: null };
@@ -405,25 +309,14 @@
 
         if (!searching) lastRoute = { product: view.product, pageId: view.pageId };
 
-        // A focused page is always opened — arriving at a collapsed page and
         if (hero) hero.hidden = view.all || view.product !== 'home';
         if (pager) pager.hidden = view.all || (notFound && !notFound.hidden);
         updateChrome(visible);
     }
 
-    /* ---------------------------------------------------------------------
-       2b. go() — the single entry point for navigation
-       --------------------------------------------------------------------- */
-
-    // Page-change dissolve, the same one AI Chat uses when you switch
-    // conversations: blur out, swap underneath, blur back in. The two guards
-    // come from that implementation too — a click during the fade-out
-    // REPLACES the pending swap instead of queueing, so fast clicking lands on
-    // the last page rather than replaying every one on the way.
     var switchPending = null;
     var switchAnimating = false;
-    // Matches aichat's branch switch: 180ms out, 200ms to settle the fade-in.
-    // The two CSS halves are 0.18s and 0.3s, so the total reads as ~0.48s.
+
     var SWITCH_MS = 180;
 
     function applyRoute(target, opts) {
@@ -436,13 +329,9 @@
         writeUrl(address, opts.push !== false && !opts.fromScroll);
 
         if (opts.fromScroll) {
-            // already in place
+
         } else {
-            // To the very top, always. Scrolling to the first block instead put
-            // the block flush under the top bar and scrolled the breadcrumbs out
-            // of sight, so arriving anywhere in the suite lost the path bar that
-            // says where you are. Top of document also puts the page's own
-            // heading and hero back in view, which is what arriving should mean.
+
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -457,22 +346,16 @@
             return;
         }
 
-        // A scroll-spy rewrite or a first render has nothing to dissolve from.
         if (opts.fromScroll || opts.instant || !main) {
             applyRoute(target, opts);
             return;
         }
 
-        // Already dissolving: remember the newest target and let the run in
-        // flight apply it at the midpoint.
         if (switchAnimating) {
             switchPending = { target: target, opts: opts };
             return;
         }
 
-        // Set it here as well, not only on the interrupting branch: this is the
-        // swap the timeout will apply. A later click overwrites it with a newer
-        // target, so the timeout always has something to do.
         switchPending = { target: target, opts: opts };
         switchAnimating = true;
         main.classList.add('is-switching');
@@ -483,8 +366,7 @@
             try {
                 if (next) applyRoute(next.target, next.opts);
             } finally {
-                // Force a reflow before removing the class, or there is nothing
-                // to transition back from and the content snaps into focus.
+
                 void main.offsetWidth;
                 main.classList.remove('is-switching');
                 setTimeout(function () { switchAnimating = false; }, 200);
@@ -504,17 +386,6 @@
         syncSidebar();
     }
 
-    /* ---------------------------------------------------------------------
-       2c. Chrome — breadcrumbs, pager, sidebar
-       --------------------------------------------------------------------- */
-
-    // The sidebar is grouped by what you are trying to DO, not by which product
-    // owns the feature: Getting started, Create, Ask and automate, Reference.
-    // Products still nest inside their category, so a product with several
-    // pages stays one row that expands.
-    //
-    // Category names come from data-category on each block, so adding a block
-    // with a new category needs no change here.
     function buildSidebar() {
         if (!nav) return;
         nav.innerHTML = '';
@@ -535,8 +406,6 @@
 
                 var li = el('li');
 
-                // First page of a multi-page product carries the product row;
-                // the rest nest underneath it.
                 if (index === 0) {
                     var link = el('a', 'wiki-nav-link wiki-nav-link--product');
                     link.href = '#';
@@ -550,7 +419,7 @@
                     if (product.pages.length > 1) {
                         var sub = el('ul', 'wiki-nav-sub');
                         sub.setAttribute('data-sub', product.key);
-                        sub.hidden = true;          // syncSidebar() opens the active one
+                        sub.hidden = true;
                         product.pages.forEach(function (subPage) {
                             var sli = el('li');
                             var slink = el('a', 'wiki-nav-link wiki-nav-link--page');
@@ -564,8 +433,6 @@
                         li.appendChild(sub);
                     }
                 }
-                // A multi-page product's other pages are already in its
-                // sub-list above, so they add no row of their own here.
 
                 list.appendChild(li);
             });
@@ -581,21 +448,11 @@
         });
     }
 
-    /* ---------------------------------------------------------------------
-       2c-ii. "On this page" — the focused page's own headings, as an outline.
-       Rebuilt whenever the route changes, so it is never stale.
-       --------------------------------------------------------------------- */
-
     function buildOutline() {
         var holder = toc;
         if (!holder) return;
         holder.innerHTML = '';
 
-        // A bare product route (?section=emeraldsuite) has no pageId, but it is
-        // not an empty page: the product's landing page is on screen, so
-        // outline that. Falling back to pages[0] is what makes "On this page"
-        // survive clicking the product row instead of only appearing once a
-        // sub-page is picked. Only ?section=all has no single page to outline.
         var page = null;
         if (!view.all) {
             if (view.pageId) {
@@ -606,9 +463,6 @@
         }
         if (!page) return;
 
-        // An unknown route falls back to Home internally so the sidebar has
-        // something to mark, but the reader is looking at "No such page", not
-        // at Home. Outlining Home's headings there would be a lie.
         if (notFound && !notFound.hidden) {
             holder.innerHTML = '';
             return;
@@ -619,8 +473,6 @@
 
         if (!headings.length) return;
 
-        // Same accent as the nav rows, so the outline's rail is the page's
-        // colour rather than always green.
         applyAccent(holder, accentOf(page));
 
         holder.appendChild(el('div', 'wiki-nav-group wiki-nav-outline-title', 'On this page'));
@@ -636,24 +488,14 @@
             ol.appendChild(li);
         });
 
-        // Created per route, like the list it marks. It is the only highlight
-        // these items get, so it has to be rebuilt whenever they are.
         var pill = el('span', 'wiki-nav-outline-pill');
         pill.setAttribute('aria-hidden', 'true');
         holder.appendChild(pill);
         holder.appendChild(ol);
 
-        // The observer does not re-fire on a route change, so settle the
-        // highlight here too.
         refreshHeading();
     }
 
-    /* ---------------------------------------------------------------------
-       The outline's "you are here" marker. Same trick as the nav pill: one
-       element, moved with a transform. Offset is measured against the outline
-       box, which is the pill's offset parent, so it survives the heading list
-       growing and shrinking between routes.
-       --------------------------------------------------------------------- */
     function syncOutlinePill() {
         var holder = toc;
         if (!holder) return;
@@ -667,8 +509,6 @@
             return;
         }
 
-        // Same rule as syncPill(): an unlaid-out row reports zero height, and
-        // centring on that would float the pill above the list.
         var h = link.offsetHeight;
         var rail = h ? Math.max(11, Math.round(h * 0.66)) : 11;
         var y = h ? Math.round(link.offsetTop + (h - rail) / 2) : Math.round(link.offsetTop);
@@ -678,7 +518,6 @@
         pill.classList.add('is-on');
     }
 
-    // Mark the heading the reader is on, and move the pill onto it.
     function setCurrentHeading(id) {
         var holder = toc;
         if (!holder || !id) return;
@@ -691,8 +530,6 @@
             if (on) found = a;
         });
 
-        // Leaving the last heading (scrolled to the very bottom) keeps the last
-        // item marked rather than clearing the pill entirely.
         if (!found && links.length) {
             links[links.length - 1].classList.add('is-current');
         }
@@ -710,8 +547,6 @@
             link.classList.toggle('is-active', key === address || key === active);
         });
 
-        // Expand the active product. When a single page is focused, keep its
-        // siblings visible too — the reader needs somewhere else to go.
         [].forEach.call(nav.querySelectorAll('.wiki-nav-sub'), function (sub) {
             sub.hidden = sub.getAttribute('data-sub') !== view.product;
         });
@@ -719,16 +554,6 @@
         syncPill();
     }
 
-    /* ---------------------------------------------------------------------
-       The "you are here" rail is one element for the whole column, moved with
-       a transform instead of being redrawn per row. buildSidebar() empties the
-       nav, so the pill is looked up (and rebuilt) on every sync rather than
-       being inserted once.
-
-       offsetTop is read from the nav's own box, so the pill stays glued to its
-       row when the column scrolls, and it inherits the row's --w-app so the
-       rail is the page's colour instead of always green.
-       --------------------------------------------------------------------- */
     function syncPill() {
         if (!nav) return;
 
@@ -739,20 +564,14 @@
             nav.insertBefore(pill, nav.firstChild);
         }
 
-        // The row being read wins over the product row it sits under, so the
-        // pill tracks the scroll-spy down into the nested pages.
         var row = nav.querySelector('.wiki-nav-link.is-reading') ||
             nav.querySelector('.wiki-nav-link.is-active');
 
-        // ?section=all has no active row, so there is nothing to point at.
         if (!row) {
             pill.classList.remove('is-on');
             return;
         }
 
-        // A row that has not been laid out yet reports zero height. Centring on
-        // that would put the rail above the top of the column, so fall back to
-        // sitting on the row's own top edge instead of guessing.
         var h = row.offsetHeight;
         var rail = h ? Math.max(14, Math.round(h * 0.62)) : 14;
         var y = h ? Math.round(row.offsetTop + (h - rail) / 2) : Math.round(row.offsetTop);
@@ -766,7 +585,7 @@
 
     function updateChrome(visible) {
         buildOutline();
-        // buildOutline() just set inline accents on the outline and its pill.
+
         refreshAccents();
 
         if (crumbs) {
@@ -794,8 +613,6 @@
         if (pager && !pager.hidden) {
             pager.innerHTML = '';
 
-            // "Where am I" in the flat reading order: the focused page, or the
-            // first page of the product we are inside.
             var currentEl = view.pageId
                 ? info[view.pageId].el
                 : (productByKey[view.product] ? productByKey[view.product].pages[0] : null);
@@ -827,17 +644,10 @@
         }
     }
 
-    /* =====================================================================
-       3. THEME
-       ===================================================================== */
-
-    // Two states only. There is no "system": the wiki does not follow the OS,
-    // so the choice is always the reader's and never changes under them.
     function applyTheme(theme) {
         var resolved = theme === 'dark' ? 'dark' : 'light';
         document.documentElement.setAttribute('data-wiki-theme', resolved);
-        // Accents have to be re-lifted: the same hex reads differently on each
-        // surface, so dark and light cannot share one value.
+
         refreshAccents();
         if (themeBtn) {
             var label = 'Theme: ' + resolved + '. Click to switch.';
@@ -858,14 +668,8 @@
         });
     }
 
-    /* =====================================================================
-       4. COPY
-       ===================================================================== */
-
     function initCopy() {
-        // Buttons are created once, up front, and clicked via delegation: the
-        // search index restores each block body from an innerHTML snapshot,
-        // which would throw away a listener bound directly to the button.
+
         [].forEach.call(root.querySelectorAll('.wiki-copy'), function (row) {
             if (row.querySelector('.wiki-copy-btn')) return;
             row.appendChild(el('button', 'wiki-copy-btn', 'Copy'));
@@ -908,10 +712,6 @@
             ok ? resolve() : reject();
         });
     }
-
-    /* =====================================================================
-       5. FILTER BARS
-       ====================================================================== */
 
     var filterState = {};
 
@@ -962,10 +762,6 @@
         });
     }
 
-    /* =====================================================================
-       6. SEARCH — always searches everything, then hands the page back
-       ===================================================================== */
-
     var index = [];
 
     function buildIndex() {
@@ -974,8 +770,6 @@
             var heading = block.querySelector('.wiki-block-head h2');
             if (!body) return;
 
-            // Snapshot taken after the copy buttons were added, so restoring it
-            // keeps them. Clicks are delegated for the same reason.
             block.__originalHTML = body.innerHTML;
 
             index.push({
@@ -1033,8 +827,7 @@
         var highlighting = query.length >= 2;
 
         if (highlighting && !searching) {
-            // Searching always spans the whole wiki, so open everything up and
-            // remember where to come back to.
+
             searching = true;
             view = { all: true };
             render();
@@ -1054,8 +847,6 @@
             restore(entry);
             if (highlighting && hit) wrapMatches(entry.body, query);
 
-            // Only filter by search when we are in browse mode; on a focused
-            // page the other blocks are already hidden.
             entry.block.classList.toggle('is-filtered', !hit);
             if (hit) shownBlocks++;
         });
@@ -1066,7 +857,6 @@
             if (label) label.textContent = rawQuery;
         }
 
-        // The snapshot restore rebuilt every filter bar, so re-apply the choice.
         syncFilters();
     }
 
@@ -1074,9 +864,6 @@
         buildIndex();
         if (!searchInput) return;
 
-        // Log settled search queries to the account activity history. A
-        // longer debounce than the live filter keeps every keystroke out of
-        // the history; only the query the reader pauses on is recorded.
         var lastLoggedQuery = '';
         function logSearchNow(value) {
             var q = String(value || '').replace(/\s+/g, ' ').trim();
@@ -1105,9 +892,6 @@
             }
         });
 
-        // Cover the case where a reader types a query and immediately clicks
-        // a result link: `change` fires before the navigation, so the search
-        // still lands in the history.
         searchInput.addEventListener('change', function () {
             logSearchNow(searchInput.value);
         });
@@ -1122,18 +906,10 @@
         }
     }
 
-    /* =====================================================================
-       7. SCROLL-SPY — keeps the sidebar and ?section= in sync
-       ===================================================================== */
-
-    // Every heading that could ever appear in an outline.
     function headings() {
         return [].slice.call(root.querySelectorAll('.wiki-block-body h3[id]'));
     }
 
-    // The subset of those on a page that is currently rendered — a heading
-    // inside a hidden block never reaches the reader, so it must never be
-    // marked current either.
     function headingsInView() {
         return headings().filter(function (h) {
             var block = h.closest('.wiki-block');
@@ -1142,11 +918,8 @@
         });
     }
 
-    // The heading the reader is "at": the last one whose title has passed up
-    // under the top bar. Read from live geometry, not from observer entries —
-    // see initHeadingSpy for why that matters.
     function refreshHeading() {
-        // Nothing to mark on ?section=all or an unknown route.
+
         if (!toc) return;
         if (!toc.querySelector('a.is-current, a[data-outline]')) {
             setCurrentHeading(null);
@@ -1163,18 +936,9 @@
             if (top <= 96 && top > bestTop) { bestTop = top; best = h; }
         });
 
-        // Nothing under the bar yet (still in the intro) leaves the first
-        // heading marked, so the list always shows where you are.
         setCurrentHeading(best ? best.id : live[0].id);
     }
 
-    /* Heading "you are here" is driven by scrolling rather than by an
-       IntersectionObserver. The observer only speaks on threshold crossings, so
-       a smooth scroll that lands without a final crossing never updates the
-       pill — it keeps whatever it read mid-animation, which is the heading
-       before the one you jumped to. Reading geometry on scroll settles on the
-       real resting position every time, including clicks, hash loads and
-       keyboard paging. Throttled to one read per frame. */
     function initHeadingSpy() {
         var queued = false;
 
@@ -1197,11 +961,6 @@
 
         var visibleTop = {};
 
-        // Headings get their own observer: the block spy answers "which page am
-        // I on", this one answers "which heading am I at", which is a much finer
-        // question and needs a tighter band. rootMargin pins the active band
-        // just under the top bar so a heading counts as current once its title
-        // has scrolled up to there.
         var observer = new IntersectionObserver(function (entries) {
             entries.forEach(function (entry) {
                 if (entry.isIntersecting) visibleTop[entry.target.id] = entry.boundingClientRect.top;
@@ -1223,13 +982,10 @@
 
             syncSidebarFocus(best.id);
 
-            if (searching) return;      // never rewrite the URL mid-search
-            if (view.pageId) return;     // reader focused one page: leave it alone
+            if (searching) return;
+            if (view.pageId) return;
             if (shownBlocks.length < 2) return;
 
-            // While the reader is on the product's opening page, keep the
-            // product-wide address — ?section=aichat must stay that until they
-            // actually scroll past it, rather than being rewritten on load.
             var product = productByKey[view.product];
             var atProductStart = product && !view.pageId && best === product.pages[0];
             var address = atProductStart ? productAddress(product) : addressOf(best);
@@ -1250,10 +1006,6 @@
         syncPill();
     }
 
-    /* =====================================================================
-       8. ANCHORS ON HEADINGS
-       ===================================================================== */
-
     function addAnchors() {
         blocks.forEach(function (block) {
             var targets = block.querySelectorAll('.wiki-block-head h2, .wiki-block-body h3');
@@ -1268,17 +1020,13 @@
                 a.addEventListener('click', function (e) {
                     e.preventDefault();
                     var base = window.location.pathname + '?section=' + encodeURIComponent(addressOf(block));
-                    try { window.history.replaceState({ wiki: true }, '', base + '#' + id); } catch (err) { /* file:// */ }
+                    try { window.history.replaceState({ wiki: true }, '', base + '#' + id); } catch (err) {  }
                     heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 });
                 heading.appendChild(a);
             });
         });
     }
-
-    /* =====================================================================
-       10. MOBILE NAV + KEYS
-       ===================================================================== */
 
     function closeNav() {
         if (!root) return;
@@ -1301,13 +1049,6 @@
         });
     }
 
-    /* ---------------------------------------------------------------------
-       9b. IN-PAGE CROSS LINKS
-       Any <a href="#block-id"> in the prose is a real navigation: it routes to
-       that block and pushes history, so Back behaves the way a reader expects.
-       Heading permalinks (.wiki-anchor) keep their own handler.
-       --------------------------------------------------------------------- */
-
     function initCrossLinks() {
         root.addEventListener('click', function (e) {
             var link = e.target.closest('a[href^="#"]');
@@ -1322,7 +1063,7 @@
             closeNav();
 
             if (!info[id]) {
-                // A heading inside a page we are already on: just scroll to it.
+
                 document.getElementById(id).scrollIntoView({ behavior: 'smooth', block: 'start' });
                 return;
             }
@@ -1331,7 +1072,6 @@
             var target = { product: entry.product, pageId: entry.only ? null : id };
             go(target);
 
-            // A cross link may point at a heading rather than the page itself.
             var heading = link.getAttribute('data-target-heading');
             if (heading) {
                 setTimeout(function () {
@@ -1362,10 +1102,6 @@
         });
     }
 
-    /* =====================================================================
-       11. BOOT
-       ===================================================================== */
-
     function routeFromLocation() {
         var params = new URLSearchParams(window.location.search);
         var section = params.get('section');
@@ -1374,7 +1110,6 @@
             return { resolved: resolve(section), raw: section };
         }
 
-        // A bare #hash still works: it may be a block id or a heading id.
         var hash = window.location.hash.slice(1);
         if (hash) {
             if (info[hash]) return { resolved: resolve(hash), raw: hash };
@@ -1450,14 +1185,13 @@
     initTheme();
     initRouting();
     initNotFoundSuggestions();
-    // Collapse was removed along with its toggle; drop any ids it left behind
-    // so the key does not linger in storage forever.
+
     try { localStorage.removeItem('emeraldcore.wiki.collapsed'); } catch (e) {}
 
     var navWidth = nav ? nav.clientWidth : 0;
     window.addEventListener('resize', function () {
         if (!nav) return;
-        if (nav.clientWidth === navWidth) return;   // height-only change, rows unmoved
+        if (nav.clientWidth === navWidth) return;
         navWidth = nav.clientWidth;
         syncPill();
         refreshHeading();

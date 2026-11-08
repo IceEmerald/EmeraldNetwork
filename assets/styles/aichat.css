@@ -11,10 +11,7 @@
     --text: #e0e0e0;
     --text-muted: #888888;
     --hover: #2a2a2a;
-    /* Ink for a highlighted run. Same in both modes, on purpose: a
-       highlight is always a light paint, so its text is always the Docs
-       paper ink (docs.css --paper-ink) whether the bubble behind it is
-       dark or light. */
+
     --md-tint-ink: #1a1a1a;
 }
 
@@ -265,7 +262,6 @@ body {
 body.light-mode .sidebar-time-group {
     color: rgb(140, 140, 140);
 }
-
 
 .sidebar-history {
     flex: 1 1 0%;
@@ -731,8 +727,6 @@ body.light-mode .model-dropdown-other-list {
         max-width: 180px;
     }
 
-    /* Mobile now opens a full modal picker (#modelModal) when the selector
-       is tapped, so the inline dropdown is hidden entirely on small screens. */
     .model-dropdown {
         display: none;
     }
@@ -1277,10 +1271,6 @@ body.light-mode .message-avatar-user {
     color: rgb(224, 85, 85);
 }
 
-/* ── Reply suggestion chips ───────────────────────────────────────
-   One-click follow-ups under the newest AI message. Pill-shaped like
-   the welcome-screen quick cards, but smaller and quieter so they
-   read as a footnote to the answer, not a second UI. */
 .msg-suggestions {
     display: flex;
     flex-wrap: wrap;
@@ -1339,8 +1329,6 @@ body.light-mode .message-avatar-user {
     -webkit-box-orient: vertical;
 }
 
-/* While a reply is streaming the chips belong to the message that
-   prompted it, so they are inert until the new answer lands. */
 .msg-suggestions.is-busy {
     opacity: 0.4;
     pointer-events: none;
@@ -1662,10 +1650,6 @@ body.light-mode .esb-citation-chip svg {
     font-family: "DM Sans", sans-serif;
 }
 
-/* Active-shade state: the AI is answering in another conversation the user
-   switched away from — gray out the + / thinking buttons and gray the
-   "Ask anything..." placeholder (now "Still answering"). Used only when NOT
-   viewing the streaming conversation. */
 .chat-input-box.input-busy .input-attach-btn,
 .chat-input-box.input-busy .input-thinking-btn {
     opacity: 0.45;
@@ -2590,13 +2574,6 @@ body.light-mode .md-content code {
     border: 1px solid transparent;
 }
 
-/* Text colour + highlight ─────────────────────────────────────
-   The chat's answer to the two formatting operations a user reaches
-   for when they select text in a document: Docs writes them with
-   exec("foreColor") and exec("hiliteColor"), both driven by the named
-   swatch lists in aichat.js, and this is the same pair of spans those
-   calls leave behind. .md-color carries no rule of its own — the colour
-   itself is inline, exactly as execCommand writes it. */
 .md-hl {
     color: var(--md-tint-ink);
     border-radius: 3px;
@@ -2605,13 +2582,6 @@ body.light-mode .md-content code {
     -webkit-box-decoration-break: clone;
 }
 
-/* A run is an inline span, but the markdown elements inside it carry
-   their OWN colour rules — strong is near-white, em is grey, a link is
-   green — and those would beat the run's colour, so
-   <color red>**bold**</color> would come out grey. The run wins here.
-   The light-mode copy is not optional: those element colours are
-   re-declared under body.light-mode at a higher specificity than the
-   dark ones, so a single selector cannot cover both modes. */
 .md-content .md-color strong,
 .md-content .md-color em,
 .md-content .md-color b,
@@ -4862,12 +4832,6 @@ body.light-mode .fp-text-code {
     border-top: none;
 }
 
-/* ── Share / Import modals ───────────────────────
-   Layout mirrors EmeraldSuite Notes' export modal: centred icon +
-   title, a "Share Link:" label over a readonly input, and centred
-   actions. Only the parts Notes doesn't already own are styled here —
-   the shell reuses .ai-modal--centered / .modal-icon / .sett-input.
-   ────────────────────────────────────────────── */
 .share-link-input {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 12px;
@@ -5674,8 +5638,6 @@ body.light-mode .quiz-match-dd-item.selected {
     cursor: default;
 }
 
-/* Extra blanks in a fill question, which carry a single shared answer and so
-   cannot be answered individually. Matches the input's footprint. */
 .quiz-fill-static {
     display: inline-block;
     vertical-align: middle;
@@ -5899,7 +5861,6 @@ body.light-mode .quiz-card:hover {
     background: rgba(217, 48, 37, 0.04);
 }
 
-/* ── EmeraldSuite import card (mirrors .quiz-card) ── */
 .esapp-card {
     display: flex;
     align-items: center;
@@ -5973,7 +5934,6 @@ body.light-mode .esapp-card:hover {
     background: rgba(217, 48, 37, 0.04);
 }
 
-/* ── EmeraldSuite file agent: "Updated File" pill ── */
 .file-edit-badge {
     display: inline-flex;
     align-items: center;
@@ -5994,7 +5954,6 @@ body.light-mode .esapp-card:hover {
     border-color: rgba(217, 48, 37, 0.3);
     color: rgb(224, 90, 80);
 }
-
 
 .quiz-panel-body .quiz-widget {
     border-width: medium;
@@ -6271,8 +6230,6 @@ body.light-mode .sett-store-meta {
     color: rgb(76, 175, 125);
 }
 
-/* EmeraldSuite loading cards (generating / updating a file) pick up the
-   app's accent color (notes purple, docs cyan, slides orange, sheets lime). */
 .es-loading-card .quiz-loading-icon {
     background: color-mix(in srgb, var(--esaccent, #0891b2) 14%, transparent);
     color: var(--esaccent, #0891b2);
@@ -6872,8 +6829,6 @@ html, body {
     box-shadow: rgba(80, 200, 120, 0.08) 0px 0px 0px 3px;
 }
 
-/* Parsed-memory preview rendered by _obMemoryPreview(). Only the light-mode
-   override for .ob-import-item existed, so these items had no base styling. */
 .ob-import-preview {
     display: flex;
     flex-direction: column;
@@ -7448,8 +7403,6 @@ body.light-mode .img-gen-loading-title {
     background: rgba(0, 191, 18, 0.85);
 }
 
-/* ── Image editing affordances ───────────────────────────────── */
-
 .img-gen-edit {
     position: absolute;
     top: 8px;
@@ -7536,7 +7489,6 @@ body.light-mode .img-gen-loading-title {
     opacity: 1;
     background: rgba(35, 154, 77, 0.18);
 }
-/* ── Inline Web Images (from [IMAGE: url] tags) ──────────── */
 
 .web-image-gallery {
     display: grid;
@@ -7561,7 +7513,6 @@ body.light-mode .img-gen-loading-title {
     margin-bottom: 4px;
 }
 
-/* Inside a gallery grid, images take full width of their grid cell */
 .web-image-gallery .web-image-result {
     max-width: none;
     width: 100%;
@@ -7591,12 +7542,10 @@ body.light-mode .web-image-result {
     object-fit: contain;
 }
 
-/* "Open in new tab" button - removed (click opens right-side panel) */
 .web-image-open {
     display: none !important;
 }
 
-/* Failed image state — show a visible error placeholder instead of hiding */
 .web-image-result.web-image-failed {
     display: flex;
     align-items: center;
@@ -7634,11 +7583,6 @@ body.light-mode .web-image-result.web-image-failed:hover {
     border-color: rgba(0,0,0,0.2);
     color: rgba(0,0,0,0.6);
 }
-
-
-
-
-/* ── Image Search Loading State ─────────────────────────── */
 
 .web-image-result.web-image-searching {
     display: flex;
@@ -7710,15 +7654,7 @@ body.light-mode .ws-searching-badge {
     --rs-text: #8a8a8a;
     --rs-chevron: #8a8a8a;
     --rs-hover: rgba(255, 255, 255, 0.04);
-    /* Stops for the live label's sweep. Deliberately neutral, and not the
-       live call's --lv-sweep-* set: the dim stop here IS the label's
-       resting colour, because it is also the flat under-layer the sweep
-       reveals the text as. Borrowing the buttons' green dim stop made the
-       label sit green at rest, between passes and after the block was
-       done reading as a green word rather than a grey one.
 
-       So this ramp is grey, not green — the text keeps the colour it
-       always had and only brightens while the band is over it. */
     --pl-sweep-dim: #8a8a8a;
     --pl-sweep-body: #c4c4c4;
     --pl-sweep-hot: #ffffff;
@@ -7783,29 +7719,6 @@ body.light-mode .ws-searching-badge {
     text-overflow: ellipsis;
 }
 
-/* The live label is swept rather than dotted.
-
-   It used to append an animated "..." after the text — width-stepping one
-   dot at a time — which is a timer that has already told you the time.
-   The label reads "Thinking for 12s", so the dots were saying nothing the
-   sentence was not, and they said it in the one place the eye already was:
-   right at the end of the text that is changing. The sweep reuses the
-   live-call loading shine, so a panel that is working looks the same way
-   as a call that is connecting, and the movement is now the thing telling
-   you it is still running.
-
-   Same construction as .live-ctl-btn.is-loading .live-ctl-label: two
-   layers clipped to the glyphs, the band on top and a flat under-layer
-   that never moves. The under-layer is why the sweep does not make the
-   text vanish behind it part-way across — with the gradient alone, the
-   part of the label the band had already passed would have nothing
-   behind it.
-
-   background-position percentages resolve against (container − image), and
-   the image is 200% wide, so ±200% is what puts the band's hot stop a full
-   band-width clear of the text at each end. That is what makes the two
-   ends of the cycle the same unlit picture and the wrap between them
-   invisible. */
 @keyframes panel-label-sweep {
     0% {
         background-position: 200% 0px, 0px 0px;
@@ -7841,8 +7754,7 @@ body.light-mode .ws-searching-badge {
     background-clip: text;
     color: transparent;
     -webkit-text-fill-color: transparent;
-    /* 2100ms, matching SHINE_MS in aichat-livevoice.js, so a thinking panel
-       and a connecting call pulse at the same rate. */
+
     animation: panel-label-sweep 2100ms cubic-bezier(0.4, 0, 0.2, 1) 0s infinite normal none running;
 }
 
@@ -7946,14 +7858,7 @@ body.light-mode .thinking-block {
     --rs-label-done: #666;
     --rs-text: #555;
     --rs-chevron: #888;
-    /* Light mode inverts which end is bright, but the resting colour is
-       still the dim stop and still has to be neutral — hence grey here,
-       not the green-tinted grey the buttons use.
 
-       The band itself stays neutral in both themes: white on a light page
-       is invisible, so the hot stop is white on the dark theme and near
-       black here. Darkening rather than brightening is what keeps the
-       sweep visible on white at all. */
     --pl-sweep-dim: #6f6f6f;
     --pl-sweep-body: #3a3a3a;
     --pl-sweep-hot: #0d0d0d;
@@ -7983,10 +7888,6 @@ body.light-mode .thinking-text pre {
         font-size: 0.8rem;
     }
 }
-/* ── Searching panel — same design as Thinking, separate UI block ────── */
-/* Mirrors .thinking-block styles. The searching block appears BEFORE the
-   thinking block, giving users a clear visual separation between
-   "Searching: <query>" and "Thinking..." panels. */
 
 .searching-block {
     --ss-bar: #6b6b6b;
@@ -7996,7 +7897,7 @@ body.light-mode .thinking-text pre {
     --ss-text: #8a8a8a;
     --ss-chevron: #8a8a8a;
     --ss-hover: rgba(255, 255, 255, 0.04);
-    /* See --pl-sweep-* on .thinking-block. */
+
     --pl-sweep-dim: #8a8a8a;
     --pl-sweep-body: #c4c4c4;
     --pl-sweep-hot: #ffffff;
@@ -8060,10 +7961,6 @@ body.light-mode .thinking-text pre {
     overflow: hidden;
     text-overflow: ellipsis;
 }
-
-/* The searching label's sweep is declared with the thinking label's, one
-   rule above — the two blocks are the same design and were kept as two
-   selectors rather than duplicated. */
 
 .searching-block.is-done .searching-label {
     color: var(--ss-label-done);
@@ -8223,7 +8120,7 @@ body.light-mode .searching-block {
     --ss-text: #555;
     --ss-chevron: #888;
     --ss-hover: rgba(0, 0, 0, 0.03);
-    /* See the thinking block's light-mode --pl-sweep-* note. */
+
     --pl-sweep-dim: #6f6f6f;
     --pl-sweep-body: #3a3a3a;
     --pl-sweep-hot: #0d0d0d;
@@ -8252,18 +8149,7 @@ body.light-mode .searching-text pre {
         font-size: 0.8rem;
     }
 }
-/* ══════════════════════════════════════════════════════════════
-   Collapsible dropdowns
-   The model wraps parts of its answer in <dropdown title="…">…
-   </dropdown>; renderMarkdown() turns each into one .ai-dropdown
-   card. Open/close is independent per card — opening one never
-   closes another.
 
-   Height animates with grid-template-rows 0fr → 1fr rather than a
-   max-height guess, so a one-line section and a long one both ease
-   to exactly their own height (same technique as the Suite
-   .collapsible in emeraldsuite.css).
-   ══════════════════════════════════════════════════════════════ */
 .ai-dropdown {
     --dd-border: rgba(255, 255, 255, 0.09);
     --dd-surface: rgba(255, 255, 255, 0.025);
@@ -8354,13 +8240,6 @@ body.light-mode .searching-text pre {
     overflow-y: auto;
 }
 
-/* Padding + divider are UNCONDITIONAL, never toggled with .is-open.
-   Applying them only while open made them vanish the instant the class
-   came off — a ~26px upward jump at the START of the collapse, while
-   the row was still animating from 1fr to 0fr. Constant padding means
-   the content slides smoothly with no step. box-sizing:border-box plus
-   the clip's height:0 / overflow:hidden keeps that padding from
-   peeking out while collapsed. */
 .ai-dropdown-content {
     padding: 12px 13px 13px;
     border-top: 1px solid var(--dd-divider);
@@ -8424,18 +8303,7 @@ body.light-mode .ai-dropdown-content pre {
         transition: none;
     }
 }
-/* ══════════════════════════════════════════════════════════════
-   Card groups
-   <cards layout="…"><card title="…">…</card></cards> becomes one
-   .ai-cards grid of .ai-card children. The model picks the layout;
-   aiCardsHTML() validates it against the allow-list and falls back
-   to grid-auto for anything unrecognised.
 
-   Layouts: grid-auto (responsive wrap), grid-1, grid-2, grid-3, and
-   featured (first card spans the full row — for "my pick + the
-   runners-up" answers). Every one collapses to a single column on
-   mobile, where three side-by-side cards would be unreadable.
-   ══════════════════════════════════════════════════════════════ */
 .ai-cards {
     --cd-border: rgba(255, 255, 255, 0.09);
     --cd-surface: rgba(255, 255, 255, 0.028);
@@ -8473,8 +8341,6 @@ body.light-mode .ai-dropdown-content pre {
     grid-column: 1 / -1;
 }
 
-/* The group heading is a sibling of .ai-cards, not a descendant, so it
-   re-declares the accent token rather than inheriting it. */
 .ai-cards-title {
     --cd-accent: #50c878;
     font-size: 0.78rem;
@@ -8508,8 +8374,6 @@ body.light-mode .ai-cards-title {
     border-color: rgba(80, 200, 120, 0.28);
 }
 
-/* Accent rail on the leading edge. Silent unless the card actually
-   asked for an accent, so unaccented cards stay plain. */
 .ai-card::before {
     content: "";
     position: absolute;
@@ -8583,13 +8447,7 @@ body.light-mode .ai-cards-title {
 .ai-card-body code {
     font-size: 0.86em;
 }
-/* ══════════════════════════════════════════════════════════════
-   Charts
-   The SVG is drawn by aiChartSVG() and coloured entirely through
-   custom properties, so light mode is a token swap rather than a
-   second set of generated paths. --chart-1..6 are the categorical
-   series colours; the rest are chrome (grid, axis, node fill).
-   ══════════════════════════════════════════════════════════════ */
+
 .ai-chart {
     --chart-1: #50c878;
     --chart-2: #5aa2ff;
@@ -8625,10 +8483,6 @@ body.light-mode .ai-cards-title {
     overflow-y: hidden;
 }
 
-/* width:100% lets a chart fill a narrow bubble, but the inline
-   max-width on each <svg> (emitted by aiChartSVG) caps it at the
-   drawing's natural size so it is never blown up past 1:1. The
-   remaining max-width:100% is just the overflow guard. */
 .ai-chart-svg {
     display: block;
     width: 100%;
@@ -8743,23 +8597,14 @@ body.light-mode .ai-chart-legend {
         font-size: 0.74rem;
     }
 }
-/* ══════════════════════════════════════════════════════════════
-   Icons
-   One .ai-icon class, sized in em, so the same SVG drops into a
-   sentence, a list item, a card header or a dropdown header and
-   always sits on the text's baseline at the text's size. No
-   per-context sizing needed.
-   ══════════════════════════════════════════════════════════════ */
+
 .ai-icon {
     width: 1em;
     height: 1em;
     display: inline-block;
     vertical-align: -0.15em;
     flex-shrink: 0px;
-    /* No margin by default: renderMarkdown() adds .ai-icon-lead /
-       .ai-icon-next only where a neighbour actually abuts the icon, so
-       a space already in the source is never doubled. */
-    /* Inherits colour from surrounding text so it works on any accent. */
+
 }
 
 .ai-icon-lead {
@@ -8770,8 +8615,6 @@ body.light-mode .ai-chart-legend {
     margin-right: 0.34em;
 }
 
-/* Card and dropdown headers are flex rows whose `gap` already spaces
-   the icon from the label, so any inline margin must be zeroed. */
 .ai-card-head > .ai-icon,
 .ai-dropdown-header > .ai-icon {
     width: 1.15em;
@@ -8782,10 +8625,6 @@ body.light-mode .ai-chart-legend {
     margin-right: 0px;
 }
 
-/* The group heading is NOT flex — its icon is emitted inline directly
-   before the text with no whitespace between, so it always needs the
-   trailing gap. It also re-declares --cd-accent (it is a sibling of
-   .ai-cards, so the token cannot be inherited). */
 .ai-cards-title > .ai-icon {
     width: 1.15em;
     height: 1.15em;
@@ -8858,8 +8697,6 @@ body.light-mode .ai-card-body pre {
         margin: 10px 0px;
     }
 
-    /* Matches the specificity of the [data-layout="…"] rules above, and
-       comes later, so every layout drops to one readable column. */
     .ai-cards[data-layout] {
         grid-template-columns: 1fr;
     }
@@ -8881,56 +8718,19 @@ body.light-mode .ai-card-body pre {
         font-size: 0.85rem;
     }
 }
-/* ══════════════════════════════════════════════════════════════
-   Live Chat — EmeraldCore Live v1
-   Takes over the main screen while a live session runs. Tokens are
-   namespaced --lv-* and reuse the exact accent already used by
-   .sidebar-btn:hover svg (rgb(80,200,120)) and --rs-bar-active.
-   ══════════════════════════════════════════════════════════════ */
 
-/* Tokens live on .chat-main.live-active so BOTH the live view and the
-   control bar (which sits in the composer slot, outside .live-view)
-   inherit them. --lv-accent is the exact value already used by
-   .sidebar-btn:hover svg (rgb(80,200,120)) and --rs-bar-active. */
 .chat-main.live-active {
     --lv-accent: rgb(80, 200, 120);
-    /* The three stops of the loading shine, in the order the light meets
-       them: dim at either edge, body either side of the flare, flare at
-       the centre. Declared here rather than on the <stop> elements
-       because the icon (which reads them off #liveSweepGrad) and the
-       button's label (which reads them into a CSS gradient) have to be
-       lit from the same three colours or the bar would shimmer in two
-       different hues at the same moment.
 
-       Neutral grey, matching the sweep on the Thinking and Working
-       labels (--pl-sweep-*). They were green and are not any more: the
-       band is not a brand-coloured highlight, it is a light travelling
-       over a control, and a hue around it turns that into an indicator.
-       The flare itself is white and always was — it was the green on
-       either side of it that was showing.
-
-       The dim stop is also the label's resting colour, since it doubles
-       as the flat under-layer the sweep reveals the text as, which is
-       why it has to be a real text grey rather than a dark tint. */
     --lv-sweep-dim: #8a8a8a;
     --lv-sweep-body: #c4c4c4;
     --lv-sweep-hot: #ffffff;
-    /* How solid the live orb's body is filled. It is the one part of the
-       orb that cannot be theme-agnostic: a translucent creature all but
-       disappears against white, so light mode needs it far more opaque.
-       Read by the canvas in aichat-livevoice.js. */
+
     --lv-orb-body-alpha: 0.62;
-    /* Stroke and aura strength for the orb. On a dark surface the orb is
-       a light source, so its lines are pale and its halo additive; on
-       white both vanish, so light mode needs a far more saturated stroke
-       and a weaker, tint-like halo. */
+
     --lv-orb-line: rgb(94, 234, 168);
     --lv-orb-aura: 0.30;
-    /* The orb body's three gradient stops, the membrane highlight and
-       the halo colour. These live here rather than as literals in the
-       canvas renderer because they are the parts that glare: on a white
-       surface the dark-mode neons below read as a glaring neon blob
-       instead of a calm sphere, so light mode needs its own set. */
+
     --lv-orb-core: rgb(214, 255, 240);
     --lv-orb-mid: rgb(45, 212, 191);
     --lv-orb-edge: rgb(74, 222, 128);
@@ -8953,28 +8753,14 @@ body.light-mode .ai-card-body pre {
     display: none;
     flex-direction: column;
     min-height: 0;
-    /* Horizontal padding removed. .chat-content has none in text chat, so
-       this 20px was the entire reason the live transcript sat 20px right
-       of text chat's and the scrollbar 20px in from the panel edge. The
-       transcript re-applies the inset for its own content, and the stage
-       and scroll wrapper position themselves against the edges directly. */
+
     padding: 66px 0 6px;
     gap: 14px;
     overflow: hidden;
 }
 
-/* The orb only takes the space it needs; it is hidden before a
-   session starts, in which case the transcript claims the screen. */
-/* The orb takes all the space above the transcript and centres itself
-   in it, so it sits mid-screen rather than pinned to the top. */
 .live-stage {
-    /* Taken out of the flex flow so it centres on the live view itself
-       rather than on whatever space the transcript happens to leave. As a
-       flex child it was squeezed by the transcript, so the orb visibly
-       rose and fell depending on how much had been said. The insets
-       mirror .live-view's padding so it still centres within the real
-       content area, and they are overridden in the mobile block where
-       that padding differs. */
+
     position: absolute;
     top: 66px;
     right: 20px;
@@ -8983,13 +8769,10 @@ body.light-mode .ai-card-body pre {
     display: flex;
     align-items: center;
     justify-content: center;
-    /* Decorative — must never intercept a click meant for the controls
-       underneath it. */
+
     pointer-events: none;
 }
 
-/* An explicit `display` in author CSS outranks the UA rule behind the
-   `hidden` attribute, so it has to be restated here. */
 .live-stage[hidden] {
     display: none;
 }
@@ -9003,19 +8786,10 @@ body.light-mode .ai-card-body pre {
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    /* Matches .messages-area (aichat.css:1122) so live turns sit on the
-       same grid and rhythm as typed ones. */
-    /* Padding matches .messages-area. The wrapper pulls the scrollbar out to
-       the panel edge with a negative margin and puts that space back as
-       padding here, so the message column keeps the same width and
-       position as text chat's. */
+
     padding: 30px 20px;
     gap: 22px;
-    /* No scrollbar-gutter here. Text chat scrolls in .chat-content, which
-       already reserves the gutter; this box sits inside it, so reserving
-       a second one shifted the live transcript left of where text chat
-       sits and left a stray scrollbar that scrolled nothing. */
-    /* Sits at the bottom, next to the controls; turns stack upward. */
+
     justify-content: flex-end;
 }
 
@@ -9028,9 +8802,6 @@ body.light-mode .ai-card-body pre {
     transition: filter 0.15s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Opening the live screen and switching between live chats share one
-   treatment: the blur-to-unblur of .chat-content (aichat.css:871).
-   Nothing here translates — the old up-from-below fade is gone. */
 .chat-main.live-active .live-view.is-switching {
     animation: none;
 }
@@ -9052,12 +8823,6 @@ body.light-mode .live-view.is-switching {
 .chat-main.live-active .live-controls {
     display: block;
 }
-
-/* ── Call timer ───────────────────────────────────────────────
-   Lives in the topbar, in the slot Temporary Chat normally occupies
-   (that button is hidden while a live chat is on screen). Hidden by
-   default so text chat is unaffected.
-   ────────────────────────────────────────────────────────── */
 
 .live-timer {
     display: none;
@@ -9083,9 +8848,6 @@ body.light-mode .live-view.is-switching {
     display: inline-block;
 }
 
-/* The live model is fixed, so the topbar dropdown is meaningless during
-   a call — show it as a static label instead. Temporary chat likewise
-   doesn't apply to a live session. */
 .chat-main.live-active .model-selector-chevron,
 .chat-main.live-active #tempChatBtn {
     display: none;
@@ -9099,24 +8861,6 @@ body.light-mode .live-view.is-switching {
     background: transparent;
 }
 
-/* ── Start-of-call morph ────────────────────────────────────
-   Pressing "Start live chat" runs a three-stage transition driven by
-   a class on .live-view; the coordinates come from JS, which measures
-   the logo and the orb and feeds them in as custom properties.
-
-     1. the greeting blurs away
-     2. the logo flies to centre, grows and blurs up
-     3. it hands off to the living blob, which settles back to size
-
-   The blank card is pinned with position:fixed for the duration so the
-   layout can move to its final shape underneath without the card
-   jumping. Everything is undone in cleanup().
-   ────────────────────────────────────────────────────────── */
-
-/* The logo flies to the centre, grows to the blob's size and blurs up to
-   --lv-peak-blur, which is set from the orb's real size at runtime. At
-   that blur radius nothing about either shape is legible, so the swap
-   below cannot read as a cut. */
 .live-view.lv-morph .live-blank img {
     transform: translate(var(--lv-tx, 0px), var(--lv-ty, 0px))
                scale(var(--lv-sc, 1));
@@ -9126,8 +8870,6 @@ body.light-mode .live-view.is-switching {
                 filter 0.68s ease;
 }
 
-/* The greeting dissolves slowly. It used to fade in about a quarter of
-   a second, which at a glance looked like it was simply deleted. */
 .live-view.lv-morph .live-blank .welcome-heading {
     opacity: 0;
     filter: blur(10px);
@@ -9135,11 +8877,6 @@ body.light-mode .live-view.is-switching {
                 filter 0.54s ease;
 }
 
-/* The wait. Once the logo has reached centre and full blur, it stays
-   there — fully defocused, nothing legible — until the connection is
-   live and .lv-orb-in arrives. The pulse keeps the frame alive so the
-   screen reads as "connecting" rather than frozen: the glow breathes
-   while it waits. */
 .live-view.lv-morph.lv-at-peak .live-blank img {
     animation: lv-peak-breathe 1.9s ease-in-out infinite;
 }
@@ -9157,19 +8894,12 @@ body.light-mode .live-view.is-switching {
     }
 }
 
-/* Reduced motion: hold the glow statically. It still waits for the
-   connection, it just does not breathe. */
 @media (prefers-reduced-motion: reduce) {
     .live-view.lv-morph.lv-at-peak .live-blank img {
         animation: none;
     }
 }
 
-/* The swap. Added once the logo has arrived and gone fully soft, and at
-   the same instant the orb is told to come in, so the two cross-fade
-   rather than one replacing the other. .lv-at-peak is dropped in the same
-   tick, which stops the breathe animation so the departing card fades
-   once instead of pulsing out. */
 .live-view.lv-dissolve .live-blank {
     opacity: 0;
     pointer-events: none;
@@ -9177,121 +8907,46 @@ body.light-mode .live-view.is-switching {
     transition: opacity 0.56s ease;
 }
 
-/* Resting state is fully visible; the hidden/blurred treatment below
-   applies only while the morph is running. */
 .live-orb {
     opacity: 1;
     transform: scale(1);
     filter: blur(0);
 }
 
-/* Held at the same blur the logo reached and at the same size, so the
-   two are indistinguishable the instant the cross-fade begins. */
 .live-view.lv-morph .live-orb {
     opacity: 0;
     transform: scale(1);
     filter: blur(var(--lv-peak-blur, 14px));
 }
 
-/* The blob emerges out of the blur the logo left behind and resolves. */
 .live-view.lv-morph.lv-orb-in .live-orb {
     opacity: 1;
     filter: blur(0);
     transition: opacity 0.56s ease, filter 0.78s ease;
 }
 
-/* The conversation hands over to the blob.
-
-   Starting a call from a live chat that already has turns in it — the
-   history screen, or restarting after End — leaves that transcript on
-   screen for the whole morph. It used to sit there at full opacity while
-   the blob grew behind it, and because .live-running is already on, it
-   had also just reflowed into the call layout: the old turns rearranged
-   themselves mid-animation and competed with the glow for the middle of
-   the screen.
-
-   So the transcript is faded out and softened for the duration, leaving
-   the blob the stage to itself, and brought back once the orb resolves.
-   The timing deliberately trails the orb: .lv-orb-in resolves the glow
-   over 0.56s, and the text returns only after that, so the two never
-   cross-fade and the blob is never behind readable text.
-
-   Scoped to .lv-morph, so this only runs on the start hand-over — the
-   rest of the live call is untouched.
-
-   No transition on the way out, deliberately. A fade left the chat it was
-   leaving on screen for a third of a second while it dissolved, so the
-   loading state still started from "here is the previous conversation"
-   before becoming the blob. Cutting instead makes the loading screen one
-   fixed thing the moment it begins, whatever was being read a moment
-   earlier. The return below is still a fade. */
-/* These target the messages, NOT the scroll wrapper or the transcript.
-
-   .live-blank is a sibling of the messages inside .live-transcript, and
-   during the morph it is pinned with `position: fixed` so it can fly to
-   the orb. A `filter` on any ancestor of a fixed element — including
-   .live-scroll here — turns that ancestor into the containing block for
-   fixed positioning, so the pin's left/top stop being viewport
-   coordinates. The card silently landed ~280px right of where it was
-   pinned, and the logo consequently flew to a point that was not the orb
-   at all: the glow sat off to one side and never resolved into the blob.
-
-   `opacity` is safe here (it creates a stacking context, not a containing
-   block), but blur is not, so the fade and the softening are applied to
-   the turns themselves. The card keeps the viewport as its containing
-   block and the flight lands on the orb again. */
 .live-view.lv-morph .live-transcript > .message {
     opacity: 0;
     filter: blur(6px);
     transition: none;
 }
 
-/* Back in, once the blob has resolved — and not before.
-
-   The delay is the whole point. .lv-orb-in resolves the orb's blur over
-   0.78s, and until that finishes the blob is still soft; fading the text
-   in underneath it put readable words behind a half-formed blob. 0.82s
-   starts the return only once the blur has reached zero, so the first
-   thing visible after the blob is finished is the conversation.
-
-   These two numbers are paired with MORPH.textDelay / MORPH.textFade in
-   aichat-livevoice.js, which sizes the morph's hand-off to outlast this
-   fade. Changing one without the other cuts the text off mid-fade. */
 .live-view.lv-morph.lv-orb-in .live-transcript > .message {
     opacity: 1;
     filter: blur(0);
     transition: opacity 0.42s ease 0.82s, filter 0.42s ease 0.82s;
 }
 
-/* ── Orb ───────────────────────────────────────────────────── */
-
-/* .live-stage is positioned in the layout section above — it is taken out
-   of flow so the orb centres regardless of transcript height. Only the
-   orb's own box belongs here. */
-
 .live-orb {
-    /* Sized from the same variable the transcript reserves room with
-       (aichat.css .live-view). Two separate spellings of this number is
-       how the turns ended up drawn over the blob. */
+
     width: var(--live-orb-size, 230px);
     height: var(--live-orb-size, 230px);
-    /* Clamped on both axes. The drawing is laid out against the canvas
-       half-width, so as long as the box stays square nothing is ever
-       cropped. */
+
     max-width: min(42vw, 40vh);
     max-height: min(42vw, 40vh);
     display: block;
 }
 
-/* ── Transcript ──────────────────────────────────────────── */
-/* The transcript uses the regular .message / .message-text markup so a
-   live conversation is visually identical to a typed one. Only the
-   scroll container and the empty state are ours. */
-
-/* Mirrors .welcome-screen (aichat.css:892) so a new live chat looks
-   like a new normal chat. Reuses .welcome-heading / .welcome-sub for
-   the type; only the box model differs because this one sits inside a
-   scroll container rather than filling the viewport. */
 .live-blank {
     display: flex;
     flex-direction: column;
@@ -9303,83 +8958,33 @@ body.light-mode .live-view.is-switching {
     margin: auto 0;
 }
 
-/* With the orb hidden the transcript would otherwise collapse to the
-   top. Give it the same box the normal welcome screen occupies —
-   .welcome-screen is min-height calc(-140px + 100vh) starting at the
-   top of the chat area (aichat.css:894) — so the greeting lands at
-   exactly the same height on both screens. The top inset goes with it,
-   since that space only exists to clear the orb and the timer lives in
-   the topbar, not here. */
-/* The view's horizontal inset is dropped so the transcript's own 20px
-   gives the blank exactly the same content width as .welcome-screen.
-   A narrower box wraps the greeting onto more lines and shifts it
-   down, which is what put the two out of alignment. */
 .chat-main.live-active .live-view.is-welcome {
     padding: 0;
 }
 
-/* When there is no blank card the transcript should still hug the
-   bottom, above the controls — the orb is hidden in that state and
-   would otherwise leave nothing to push it down. */
 .live-view:not(.is-welcome) .live-transcript {
-    /* The stage is out of flow now, so nothing pushes this down. It spans
-       the view and pins its own content to the bottom, which keeps the
-       orb centred regardless of how many turns are on screen. */
+
     flex: 1 1 auto;
     margin-top: 0;
 }
 
-/* Text chat gets its scrollbar from .chat-content, which wraps the
-       800px .messages-area — so the messages box itself is a clean 800px
-       and the bar sits outside it.
-
-       Live has no such wrapper (.chat-content is display:none), so the
-       transcript had to carry the scrollbar, which made it 790px and put
-       the bar inside the message column. Re-measured, that put live
-       messages at x=435 against text chat's x=450 and drew the scrollbar
-       over the content.
-
-       The wrapper restores text chat's arrangement exactly: the bar
-       lives outside the 800px box, and both views measure identically. */
-/* The blob is centred in this same box, so its size is declared here
-   once and every rule that has to make room for it reads this variable.
-   Keeping the two in lockstep is what stops the turns drifting onto the
-   blob: the offset used to be re-derived by hand at each breakpoint
-   while the orb size changed underneath it. */
 .live-view {
     --live-orb-size: min(230px, 42vw, 40vh);
-    /* Breathing room between a turn and the edge of the blob. */
+
     --live-orb-gap: 28px;
 }
 
-/* .live-stage is styled once, above, where its `[hidden]` override lives.
-   A second copy here would re-declare `display: flex` at a higher
-   specificity, which silently defeats the `hidden` attribute and leaves
-   the orb on screen in every phase — including a stored chat and the
-   New Live Chat screen. */
-
-/* Sits between the live view and the controls and does the scrolling,
-   mirroring .chat-content in text chat. The transcript inside is the
-   content and never scrolls itself. */
 .live-scroll {
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
-    /* Reserved on the wrapper, exactly as .chat-content does, so the
-       transcript below it measures as a clean 800px and the bar sits
-       beside the content rather than over it. */
+
     scrollbar-gutter: stable;
     display: flex;
     flex-direction: column;
-    /* No padding of its own: the transcript inside carries the same 20px
-       .messages-area uses. Adding it here as well would double the inset
-       and leave the message column 20px narrower than text chat's. Being
-       the scroller, this wrapper is what puts the scrollbar on the panel
-       edge, exactly where text chat's sits. */
+
 }
 
-/* With a dedicated scroller the transcript must not clip or scroll —
-   otherwise there are two nested scroll regions again. */
 .live-scroll .live-transcript {
     overflow-y: visible;
     scrollbar-gutter: auto;
@@ -9387,86 +8992,24 @@ body.light-mode .live-view.is-switching {
     max-height: none;
 }
 
-/* Bottom-aligns a short transcript while leaving a long one fully
-   scrollable.
-
-   justify-content: flex-end cannot do both. It pushes overflow ABOVE the
-   scroll origin, so the overflow never counts toward scrollHeight: a long
-   history rendered, but scrollHeight stayed equal to clientHeight and
-   nothing could be scrolled back to — the oldest turns were rendered
-   above the visible area in unreachable space. Measured, 40 turns:
-   flex-end reported 633px of scrollable content, flex-start reported
-   3321px for the same DOM.
-
-   flex-start keeps every turn inside the scrollable area. Short chats
-   still sit at the bottom because the transcript box spans the full
-   height and the controls are pinned below it. */
 .live-view:not(.is-welcome) .live-transcript {
     justify-content: flex-start;
 }
 
-/* While a call is running the orb owns the middle of the screen, so the
-   user's half of the exchange is kept exactly as text chat renders it —
-   left aligned, avatar outside — and only the model's replies are centred
-   beneath the blob. Splitting them this way keeps the exchange readable
-   while still reading as a call.
-
-   Scoped to .live-running so a stored live chat, which has no orb on
-   screen, falls back to the plain text-chat layout entirely. */
-/* The orb-clearing offset now lives on the scroll wrapper, since that is
-   the box that occupies the view. The transcript inside is just content. */
 .live-view.live-running .live-scroll {
-    /* The orb is absolutely positioned and vertically centred in this
-       same area, so the transcript does not have to clear it at all —
-       it fills the box and the two simply sit at opposite ends of the
-       same column: the user's turn at the top, above the blob, and the
-       model's reply at the bottom, below it.
 
-       An earlier version reserved orb-sized padding instead, computed
-       from the orb's bottom edge. That is what pinned everything below
-       the blob, and it broke on any viewport whose aspect ratio changed
-       the orb's extent. Flexbox placement needs no such arithmetic, so
-       it holds at every screen shape by construction. */
     max-height: none;
 }
 
 .live-view.live-running .live-transcript {
-    /* Fills the scroll area so the turns can be positioned against it
-       rather than against their own content. While the transcript is only
-       as tall as what it holds, any auto margin has no room to act. */
-    flex: 1 1 auto;
-    /* The orb is centred in this box, so the space above the blob and the
-       space below it are equal. Pinning the user's turn to the very top
-       and the reply to the very bottom (justify-content: space-between)
-       therefore leaves them marooned at opposite ends of a tall screen
-       with the blob stranded in a large empty middle.
 
-       Centring the pair instead keeps them both hugging the blob, which
-       is the whole intent of the layout. The gap between the two halves
-       comes from the reply's own margin below, so the orb's band is
-       reserved without any viewport arithmetic. */
+    flex: 1 1 auto;
+
     justify-content: center;
 }
 
 .live-view.live-running .live-transcript > .message:not(.message--user) {
-    /* .message is a flex row, so the body has to be centered inside it
-       as well — centring the row alone would still left-align the text.
 
-       align-self is what actually centers it: this is a column-direction
-       flex container, where a plain width:100% shrinks the item to its
-       content instead of filling the row.
-
-       margin-top is the orb's own band: exactly as tall as the
-       blob plus a little air, so the reply begins one blob-width below
-       the user's turn and lands directly under the blob. Both turns sit
-       close to it because the transcript centres the pair; this margin is
-       what separates them, not the leftover height of a tall window.
-
-       Spelled in orb units rather than as a viewport offset: the blob is
-       centred in this same box, so its band is simply its own size at
-       any window shape. The vh/vw arithmetic this replaced had to be
-       re-derived per breakpoint and drifted out of step with the orb,
-       which is what put replies on top of it. */
     margin-top: calc(var(--live-orb-size, 230px) + var(--live-orb-gap, 28px));
     align-self: center;
     flex-direction: column;
@@ -9474,48 +9017,21 @@ body.light-mode .live-view.is-switching {
     text-align: center;
     max-width: 620px;
     width: 100%;
-    /* Both halves get the same cap: the space from the transcript's middle
-       out to the blob's nearest edge, less the gap.
 
-       The orb is centred in this box, so each half has exactly
-       50% - halfOrb - gap of room before it would touch the blob. Capping
-       both to that keeps a long turn from shoving its opposite half into
-       the blob — centring alone does not prevent that, because a tall
-       user turn shifts the whole pair up. Each side scrolls internally
-       rather than being cut off. */
     max-height: calc(50% - var(--live-orb-size, 230px) / 2 - var(--live-orb-gap, 28px));
     overflow-y: auto;
 }
 
 .live-view.live-running .live-transcript > .message--user {
-    /* Same cap as the reply above, for the same reason: a long user turn
-       would otherwise push the reply up over the blob. The text-chat
-       layout (row-reverse, avatar outside) is left untouched. */
+
     max-height: calc(50% - var(--live-orb-size, 230px) / 2 - var(--live-orb-gap, 28px));
     overflow-y: auto;
 }
 
-/* A second reply in the same run — a completed turn with the next one
-   streaming in behind it — stacks directly under the first rather than
-   opening a second blob-sized band, which would push it off screen. */
 .live-view.live-running .live-transcript > .message:not(.message--user) ~ .message:not(.message--user) {
     margin-top: 0;
 }
 
-/* Between the user's turn and the reply the transcript holds only the
-   orb, so the pair centres correctly and lands on either side of the
-   blob. With no reply yet there is nothing below it, and centring alone
-   drops the user's turn straight onto the blob.
-
-   This restores the same shape the pair has when a reply is present: the
-   turn at the top, then the orb's full band beneath it. The band is a
-   percentage of the transcript's own height, which is what keeps it
-   correct at any window shape — and the same height-derived value the
-   reply's margin-top already uses, so the lone turn sits exactly where
-   the turn-plus-reply pair would put it.
-
-   :has() scopes this to the no-reply state, so the normal pair is
-   untouched. */
 .live-view.live-running .live-transcript:not(:has(> .message:not(.message--user))) {
     justify-content: center;
 }
@@ -9529,14 +9045,6 @@ body.light-mode .live-view.is-switching {
     text-align: center;
 }
 
-/* During a call the reply is centred on the blob, so its rating buttons
-   centre with it. In history this rule does not apply and the buttons sit
-   under the bubble on the left, exactly as they do in text chat.
-
-   Sized off the line height rather than a fixed height: the row is
-   flex-end with auto margins, so it contributes only its own height to
-   the reply — and the reply is height-capped against the blob, so every
-   pixel here is a pixel the text has to give up. */
 .live-view.live-running .live-transcript > .message:not(.message--user) .message-actions {
     justify-content: center;
     margin-top: 6px;
@@ -9546,36 +9054,15 @@ body.light-mode .live-view.is-switching {
     padding: 2px 6px;
 }
 
-/* A centred reply does not need a sender label or an avatar stacked above
-   it — the orb already says who is talking. */
 .live-view.live-running .live-transcript > .message:not(.message--user) .message-avatar,
 .live-view.live-running .live-transcript > .message:not(.message--user) .message-sender {
     display: none;
 }
 
-/* In history — a stored chat that is not running — the transcript is
-   the whole screen and should scroll like the text chat does, rather
-   than being capped to a fraction of the view. The cap is only there to
-   keep the orb visible during a live call, and history has no orb. */
 .live-view:not(.is-welcome):not(.live-running) .live-scroll {
     max-height: none;
 }
 
-/* History gets the same top inset as text chat: none.
-
-   .live-view carries 66px up top to hold the blob clear of the top bar,
-   and text chat carries none at all — its first turn sits 30px down,
-   straight out of .messages-area's padding. With that 66px still
-   applied, a stored live chat started 66px lower than the typed chat it
-   is supposed to be indistinguishable from.
-
-   Scoped to not(.live-running): during a call the transcript and .live-stage
-   must stay the same box, because the blob is centred in one and the
-   turns are positioned against the other. Dropping the padding there
-   would shift the scroll area up and pull the blob off centre.
-
-   This touches the flex children only. .live-stage is absolutely
-   positioned with its own top:66px, so the orb does not move. */
 .live-view:not(.live-running) {
     padding-top: 0;
 }
@@ -9584,81 +9071,44 @@ body.light-mode .live-view.is-switching {
     flex: 0 0 auto;
     max-height: none;
     justify-content: flex-start;
-    /* The blank card supplies its own 20px, matching .welcome-screen.
-       Leaving the transcript's inset too would double it and wrap the
-       greeting onto more lines. */
+
     padding: 0;
 }
 
-/* The normal welcome screen carries a quick-action row below the
-   greeting, and centring all three together lifts the logo and heading.
-   A live chat has no such row, so the same space is reserved underneath
-   to keep the greeting at the same height. That row is 54px wide, stacks
-   into a column below 768px and is display:none below 768px, so its
-   height (plus its gap) is measured at runtime and fed in as
-   --lv-welcome-reserve rather than hard-coded. It is 0 when the row is
-   hidden, in which case no gap may be added either. */
 .live-view.is-welcome .live-blank {
     min-height: calc(-140px + 100vh);
     margin: 0;
     padding-bottom: calc(20px + var(--lv-welcome-reserve, 0px));
-    /* Nudged a little below the normal welcome screen rather than
-       exactly level with it — dead level made the two read as one
-       element duplicated. The content is vertically centred, so extra
-       top padding moves it down by half of what is added. Change
-       --lv-welcome-drop to adjust the amount. */
+
     padding-top: calc(20px + var(--lv-welcome-drop, 40px));
 }
 
-/* Interim (still-being-spoken) text. */
 .live-turn--pending .message-text {
     color: var(--lv-muted);
     font-style: italic;
 }
 
-/* In light mode the finished-text colour override (body.light-mode
-   .message-text) out-specifics the pending rule above, so the interim
-   text would otherwise render as fully dark. Re-assert the muted colour
-   with a more specific selector so speaking text stays grayish until the
-   reply is complete. */
 body.light-mode .live-turn--pending .message-text {
     color: var(--lv-muted);
 }
-
-/* ── Controls (replaces the composer in place) ──────────── */
 
 .live-controls {
     display: none;
 }
 
-/* The shell hugs whichever buttons are present, so it is widest while
-   Start is showing and shrinks to just Mute + End once the call is up.
-   A block-level box would stretch to .chat-input-box's 800px, so width
-   is driven by the content instead. The transition lets the box resize
-   with the buttons rather than snapping. */
 .chat-main.live-active .live-controls {
     width: fit-content;
     max-width: 100%;
-    /* A shrink-wrapped box is no longer a full-width block, so the
-       inherited `margin: 0 auto` no longer centres it — auto margins only
-       resolve against free space, and there is none on either side now.
-       Explicit centring keeps the bar in the same place it was before it
-       started tracking the buttons. */
+
     margin-left: auto;
     margin-right: auto;
     transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Both levels have to shrink-wrap, not just the outer box: the row is a
-   flex container that would otherwise fill whatever the outer box gives
-   it, leaving fit-content nothing to hug. */
 .chat-main.live-active .live-controls .input-container {
     width: fit-content;
     max-width: 100%;
-    /* The shell is a block-level flex box inside a wider parent, so it
-       would otherwise sit flush against the left edge. Once Start is
-       hidden and the outer box is wider than the buttons, that left the
-       bar visibly off-centre. Auto margins centre it at every size. */
+
     margin-left: auto;
     margin-right: auto;
 }
@@ -9666,43 +9116,13 @@ body.light-mode .live-turn--pending .message-text {
 .live-controls-row {
     justify-content: center;
     gap: 10px;
-    /* Buttons size to their label; nothing here should force the row
-       wider than the widest button present. */
+
     width: auto;
 }
 
-/* ── Live typing bar ────────────────────────────────────────────
-   The text chat's composer, transplanted into the live control bar.
-
-   It is a sibling of .live-controls-row inside .live-controls and carries
-   .input-container itself — the controls row is an .input-container too, so
-   the bar IS the controls row becoming writable rather than a new widget
-   next to it. That is what keeps the shell's background, border and radius
-   identical for free, and it is why no rule below restates them: the
-   composer already has them, and restating them here is what left the light
-   theme broken the last time the live rules borrowed a composer property.
-
-   The two swap places rather than stacking: JS hides the row and shows the
-   bar, so the box keeps one height and the transcript and orb do not move
-   up the screen the moment the user starts typing. ───────────────────── */
-
-/* The typing bar is the normal composer, at the normal composer's width.
-
-   `.live-controls` is a `.chat-input-box`, so it already carries the text
-   chat's 800px max-width — but the live rule above narrows it to
-   fit-content so the button row can shrink-wrap itself around however many
-   buttons are showing. That leaves the typing bar with nothing to fill: a
-   `width: 100%` child of a fit-content parent is only as wide as the field's
-   minimum, which came out far narrower than the composer the user knows.
-
-   So the shell goes back to being the text chat's shell exactly while the
-   bar is open, and the existing width transition animates between the two —
-   the bar grows from the button row rather than appearing at full size,
-   which is what makes it read as that row becoming writable. */
 .chat-main.live-active .live-controls.is-typing {
     width: 100%;
-    /* The 800px of .chat-input-box. Not 100%: this has to be the composer's
-       measure, not the window's. */
+
     max-width: 800px;
 }
 
@@ -9723,18 +9143,13 @@ body.light-mode .live-turn--pending .message-text {
     font-weight: 400;
     line-height: 1.5;
     min-height: 28px;
-    /* Same ceiling as .chat-textarea, so a long message grows to the same
-       height here as it does in the text chat. JS grows it in steps and
-       stops at LV_TYPE_MAX_H, which is set to match this number. */
+
     max-height: 180px;
     overflow-y: hidden;
     padding: 0;
     margin: 0;
 }
 
-/* The placeholder in the live typing bar follows the live palette rather
-   than the text chat's hard-coded rgb(68,68,68), which is already close to
-   invisible on a light bar and would be worse on the light-mode surface. */
 .live-typebar-input::placeholder {
     color: var(--lv-muted);
     opacity: 0.75;
@@ -9749,11 +9164,6 @@ body.light-mode .live-typebar-close:hover {
     background: rgb(235, 235, 238);
 }
 
-/* Sits in the attach button's slot from the text composer, and is the same
-   size and shape so the bar has the same outline as the one it replaces.
-   It is an X rather than the "+" it takes the place of because a live call
-   has nothing to attach: the model takes audio, video and text, and
-   sendText sends a string. */
 .live-typebar-close {
     width: 33px;
     height: 33px;
@@ -9776,7 +9186,6 @@ body.light-mode .live-typebar-close:hover {
     background: rgb(40, 40, 40);
 }
 
-/* Identical to .send-btn — the same green disc, the same lift on hover. */
 .live-typebar-send {
     width: 33px;
     height: 33px;
@@ -9803,22 +9212,12 @@ body.light-mode .live-typebar-close:hover {
     transform: scale(0.95);
 }
 
-/* The live controls keep the composer shell so they read as the same
-   input box the text chat uses, rather than bare buttons floating on the
-   page.
-
-   Only the structural properties are restored here — background, border
-   colour and radius deliberately come from .input-container and its
-   light-mode counterpart. Re-declaring the colours would out-specify the
-   light-mode rule and leave this box dark in a light theme. */
 .chat-main.live-active .live-controls .input-container {
     border-radius: 28px;
     padding: 10px 12px;
     box-shadow: none;
 }
 
-/* The #liveSweepGrad definition in aichat.html. Taken out of flow so its
-   zero size cannot open a gap in the composer shell it is parked in. */
 .live-sweep-defs {
     position: absolute;
     width: 0;
@@ -9857,23 +9256,10 @@ body.light-mode .live-typebar-close:hover {
     transform: none;
 }
 
-/* The typing bar and the controls row are BOTH .input-container, which
-   declares `display: flex` in author CSS — and author CSS outranks the UA
-   rule behind the hidden attribute. So neither would ever actually hide,
-   and both would be on screen at once: the bar's field sitting under the
-   button row. Same reason as .live-ctl-btn[hidden] and .live-stage[hidden]
-   above.
-
-   Scoped to .live-controls rather than written for the two classes, so it
-   also covers the End button's initial paint and the Flip button's. */
 .chat-main.live-active .live-controls [hidden] {
     display: none;
 }
 
-/* .live-ctl-btn declares `display: flex`, which is author CSS and so
-   outranks the UA rule behind the hidden attribute — without this the
-   flip button would sit in the bar while hidden. Same reason as
-   .live-video-panel[hidden]. */
 .live-ctl-btn[hidden] {
     display: none;
 }
@@ -9882,44 +9268,11 @@ body.light-mode .live-typebar-close:hover {
     flex-shrink: 0;
 }
 
-/* Waiting signal on Start while the connection is being established. The
-   camera and screen buttons use the same signal while they wait on a
-   permission prompt — getDisplayMedia in particular blocks for as long as
-   the user takes to pick a window.
-
-   A shine rather than a spinner: the icon is repainted with #liveSweepGrad
-   instead of turning, and that gradient slides across the viewBox from off
-   the left edge to off the right one, holding still over the middle for a
-   beat before it repeats. Swapping the paint server is all this rule has
-   to do — the motion belongs to the gradient, which is why it is SMIL. */
 .live-ctl-start.is-loading .live-ctl-icon,
 .live-ctl-btn.is-loading .live-ctl-icon {
     stroke: url(#liveSweepGrad);
 }
 
-/* The label is swept with the same gradient as the icon, but it cannot
-   simply repeat the icon's keyframe: the two would run on their own
-   boxes, so the flare would cross the 18px icon in a fraction of the time
-   it takes to cross the word beside it and the control would read as two
-   things happening at once. Instead aichat-livevoice.js drives
-   background-position here from the same band position it feeds to the
-   icon's gradient, which is why there is no animation shorthand on this
-   rule — only the paint.
-
-   Two layers, both clipped to the glyphs. The top one is the band, which
-   the script slides along; the flat one underneath is what the text looks
-   like before the band arrives and after it has left. It has to be a
-   second layer rather than the gradient's own dim ends, because the band
-   is narrower than the word: with the gradient alone and no-repeat, the
-   part of the label the band had already passed would have nothing behind
-   it and the glyphs would simply vanish mid-sweep. With repeat instead,
-   the next copy of the gradient arrives and lights a second flare across
-   the text — the seam the band used to have at the top of every cycle.
-
-   background-clip is the only way to paint a gradient through text, and
-   the label has to give up its own colour for both layers — hence
-   color/-webkit-text-fill-color transparent, or the glyph sits on top as
-   a flat silhouette. */
 .live-ctl-btn.is-loading .live-ctl-label {
     background-image: linear-gradient(
         90deg,
@@ -9938,11 +9291,6 @@ body.light-mode .live-typebar-close:hover {
     -webkit-text-fill-color: transparent;
 }
 
-/* Stop colours for #liveSweepGrad. They are thin wrappers over the
-   --lv-sweep-* tokens, which is where the per-theme values live: the same
-   three colours have to reach the label through a CSS gradient, and a
-   variable is the one thing both a <stop> and a background-image can
-   read. */
 .lv-sweep-dim {
     stop-color: var(--lv-sweep-dim);
 }
@@ -9955,31 +9303,12 @@ body.light-mode .live-typebar-close:hover {
     stop-color: var(--lv-sweep-hot);
 }
 
-/* The shine in light mode. A descendant selector, not the compound
-   `body.light-mode.chat-main.live-active` used for the rest of the live
-   tokens below: .chat-main is the <main>, so nothing is ever body and
-   chat-main at once. Written this way these three actually apply, which
-   matters here — the shine is the only part of the live bar whose colours
-   cannot be spelled out as a literal in a `body.light-mode .live-ctl-btn`
-   rule, because it is read by a <stop> and by a background-image inside a
-   label the button rule never sees.
-
-The ramp inverts rather than merely dims. These buttons sit on a near-
-    white surface, where a white flare would disappear at exactly the moment
-    the animation is trying to say something, so here "brighter" has to mean
-    "darker". The same three greys as the dark theme, in the opposite
-    direction — see the dark-theme note on --lv-sweep-dim. */
 body.light-mode .chat-main.live-active {
     --lv-sweep-dim: #6f6f6f;
     --lv-sweep-body: #3a3a3a;
     --lv-sweep-hot: #0d0d0d;
 }
 
-/* While loading, the in-call controls stay visible but inert so the bar
-   doesn't reflow when the call starts. End is excluded on purpose: it is
-   hidden outright until phase "live" — see setPhase. The hidden attribute
-   and the inline display:none are both inline, so a rule here could only
-   reach it if it somehow won the cascade, which it must not. */
 .live-controls[data-phase="loading"] .live-ctl-btn:not(.live-ctl-start):not(.live-ctl-end) {
     opacity: 0.35;
     pointer-events: none;
@@ -10006,12 +9335,6 @@ body.light-mode .chat-main.live-active {
     transform: rotate(135deg);
 }
 
-/* ── Camera / screen ──────────────────────────────────────
-   Two toggles that are about being seen rather than hearing, so a
-   pressed camera/screen takes the emerald accent — the same treatment
-   as the Start button — instead of the mute button's red, which would
-   read as "something is wrong with this call". ──────────────────────── */
-
 .live-ctl-btn.live-ctl-video[aria-pressed="true"] {
     color: rgb(255, 255, 255);
     background: var(--lv-accent);
@@ -10031,47 +9354,24 @@ body.light-mode .live-ctl-btn.live-ctl-video[aria-pressed="true"]:hover {
     background: rgb(31, 138, 68);
 }
 
-/* ── Camera / screen preview ────────────────────────────────
-   Picture-in-picture of whatever the model can see, parked in the
-   bottom-right of the live view: clear of the orb, which is centred, and
-   clear of the control bar, which lives outside this box entirely.
-
-   Bottom-right is also the emptiest corner this layout has — the user's
-   turn sits above the orb and the reply is centred under it — so this
-   overlaps the transcript on short windows only, exactly as it does in
-   every other calling app. Reserving space for it instead would move the
-   whole message column sideways the moment a source was switched on.
-
-   The panel is hidden whenever no source is running, so the preview can
-   never show something the model is not actually looking at. ───────── */
-
 .live-video-panel {
     position: absolute;
     right: 20px;
     bottom: 14px;
-    /* Big enough to actually read small text the model might have
-       misheard — the panel exists to show what the model is looking at,
-       and at 216px on a laptop that was a postage stamp. It is still a
-       picture-in-picture in the corner, not a second video surface. */
+
     width: 300px;
     border-radius: 14px;
     overflow: hidden;
-    /* --lv-* resolves in both themes because the panel sits inside
-       .chat-main.live-active, where the light-mode overrides live. */
+
     background: var(--lv-surface);
     border: 1px solid var(--lv-accent-border);
-    /* The transcript scrolls underneath, so this needs to separate from
-       it rather than cast a hard edge on the copy below. */
+
     box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
-    /* Above the transcript, below nothing else — the stage is a sibling
-       with pointer-events:none, so this is what stays clickable. */
+
     z-index: 2;
     animation: lvVideoIn 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* An explicit `display` in author CSS outranks the UA rule behind the
-   `hidden` attribute, so it is restated here for the same reason it is
-   on .live-stage. */
 .live-video-panel[hidden] {
     display: none;
 }
@@ -10082,20 +9382,9 @@ body.light-mode .live-ctl-btn.live-ctl-video[aria-pressed="true"]:hover {
     aspect-ratio: 16 / 9;
     object-fit: cover;
     background: rgb(0, 0, 0);
-    /* Never mirrored.
 
-       The model is sent the video's intrinsic pixels — drawImage reads the
-       frame, not the element's rendering — so any flip applied here would
-       show up in the preview and nowhere else, leaving the user looking at
-       a different picture from the one EmeraldBot is describing. That is
-       worse than either choice on its own: mirrored is a lie about what
-       the model can see, and the two disagreeing is confusing to read
-       against an answer. Same picture both places is the only version that
-       holds up. */
 }
 
-/* A shared window or tab is rarely 16:9, and cropping the edges off a
-   screen is exactly how the model misses the thing being asked about. */
 .live-video-panel[data-source="screen"] .live-video-el {
     object-fit: contain;
     background: rgb(10, 10, 10);
@@ -10119,7 +9408,6 @@ body.light-mode .live-ctl-btn.live-ctl-video[aria-pressed="true"]:hover {
     -webkit-backdrop-filter: blur(6px);
 }
 
-/* Recording red, on both sources: this is a live feed of the user. */
 .live-video-dot {
     width: 6px;
     height: 6px;
@@ -10152,24 +9440,6 @@ body.light-mode .live-video-panel {
     box-shadow: 0 12px 28px rgba(0, 0, 0, 0.14);
 }
 
-/* ── Sidebar button ──────────────────────────────────────────
-   Deliberately has no "selected" state, matching New Chat. Which
-   conversation is open is already shown by .history-item.active in
-   the Recents list; highlighting this button too would read as a
-   second, conflicting selection.
-
-   The mic glyph also carries NO idle animation. It used to pulse
-   (lvMicIdle, 2.6s, opacity + scale) as a "this is live" affordance,
-   which made this one button move while New Chat, Search and Library
-   sat perfectly still — the eye went straight to it and the row read
-   as broken rather than as a live option. All four sidebar buttons
-   now behave identically; hover colour comes from .sidebar-btn svg.
-   ────────────────────────────────────────────────────────── */
-
-/* ══════════════════════════════════════════════════════════
-   Light mode
-   ══════════════════════════════════════════════════════════ */
-
 body.light-mode .chat-main.live-active {
     --lv-surface: rgb(245, 245, 247);
     --lv-surface-2: rgb(238, 238, 240);
@@ -10177,18 +9447,11 @@ body.light-mode .chat-main.live-active {
     --lv-text: rgb(26, 26, 26);
     --lv-muted: rgb(120, 120, 120);
     --lv-accent: rgb(35, 154, 77);
-    /* See the note on the dark-mode token: light mode needs a far more
-       opaque body for the creature to read at all. */
+
     --lv-orb-body-alpha: 0.88;
     --lv-orb-line: rgb(13, 148, 94);
     --lv-orb-aura: 0.17;
-    /* Dark mode's neons are far too hot on white: the body gradient's
-       near-white core vanishes into the page, the bright teal middle
-       and neon-green edge glare, and the whole thing stops reading as
-       a soft creature. These are the same three roles moved down into
-       the light-mode green family — a pale mint highlight that still
-       separates from white, a deeper teal, and an edge that matches
-       the membrane so body and outline agree. */
+
     --lv-orb-core: rgb(196, 238, 219);
     --lv-orb-mid: rgb(24, 158, 122);
     --lv-orb-edge: rgb(13, 148, 94);
@@ -10218,8 +9481,6 @@ body.light-mode .live-ctl-end:hover {
     background: rgb(231, 76, 60);
 }
 
-/* Primary action before a session exists. Emerald accent so it reads
-   as the thing to press; hidden the moment a call is running. */
 .live-ctl-start {
     background: var(--lv-accent);
     border-color: transparent;
@@ -10241,29 +9502,6 @@ body.light-mode .live-ctl-start:hover {
     background: rgb(31, 138, 68);
 }
 
-/* ── Responsive ──────────────────────────────────────────── */
-
-/* Matches .messages-area at this width (the max-width: 768px block
-   elsewhere in this file: 12px top, 15px sides). Without it a stored
-   live chat kept the desktop 30px/20px and started visibly lower than
-   the typed chat it is meant to be indistinguishable from.
-
-   Deliberately keyed to 768px, the same breakpoint text chat uses, and
-   not to the 640px one below — that left 641px–768px with the two views
-   disagreeing about where a conversation starts.
-
-   The bottom stays at the desktop 30px rather than text chat's 80px:
-   that space clears the input box, which sits in the flow below
-   .chat-content. The live controls are a sibling of the scroll wrapper
-   and already occupy their own row, so 80px here would only open a gap
-   above them.
-
-   Scoped to history. During a call this transcript is centred and the
-   pair of turns is positioned against the blob, which assumes equal
-   padding top and bottom — 12px against 30px would shift the whole
-   column down by half the difference and pull the reply off the blob's
-   lower edge. :not(.is-welcome) keeps the greeting's own padding:0
-   intact, since that rule would otherwise tie on specificity. */
 @media (max-width: 768px) {
     .live-view:not(.live-running):not(.is-welcome) .live-transcript {
         padding: 12px 15px 30px;
@@ -10272,19 +9510,15 @@ body.light-mode .live-ctl-start:hover {
 
 @media (max-width: 640px) {
     .live-view {
-        /* Overrides the desktop variable above, which the transcript also
-           reads, so the reserved band shrinks with the orb here instead
-           of needing its own hand-derived offset. */
+
         --live-orb-size: min(168px, 42vw, 40vh);
-        /* Horizontal padding dropped here too, matching the desktop rule:
-           text chat has none, and keeping it left the mobile scrollbar
-           14px in from the panel edge. */
+
         padding: 62px 0 6px;
         gap: 11px;
     }
 
     .live-stage {
-        /* Tracks the reduced .live-view padding above. */
+
         top: 62px;
         right: 14px;
         left: 14px;
@@ -10295,29 +9529,15 @@ body.light-mode .live-ctl-start:hover {
         height: var(--live-orb-size, 168px);
     }
 
-    /* No .live-scroll override here on purpose: the layout is plain
-       flexbox placement now (user at the top, reply at the bottom), so
-       it needs no orb-offset arithmetic and this breakpoint inherits the
-       desktop behaviour unchanged. The old override still set a
-       padding-top computed from this orb's size, which would have pinned
-       the whole transcript below the blob again on phones. */
-
     .live-ctl-btn {
         padding: 8px 14px;
         font-size: 0.8rem;
     }
 
-    /* Every button goes icon-only on phones, including Start — the row is
-       already the widest element in the composer shell and the labels are
-       what push it past the edge. The title attribute carries the wording
-       on tap/hover, same as the rest. */
     .live-ctl-btn .live-ctl-label {
         display: none;
     }
 
-    /* The typing bar's shell tightens with the controls row's so the
-       composer does not change width the instant it is opened — the row
-       loses its labels here too, and the two boxes are the same box. */
     .chat-main.live-active .live-controls .live-typebar {
         padding: 8px 10px;
     }
@@ -10326,13 +9546,6 @@ body.light-mode .live-ctl-start:hover {
         font-size: 0.9rem;
     }
 
-    /* Six buttons and a preview now share a phone-width bar with the
-       orb. The panel shrinks rather than disappearing — seeing what the
-       model is looking at is the entire point of the feature — and the
-       chrome inside it shrinks with it so the picture stays readable.
-       Just under half the width of the narrowest phone, which is as much
-       as the panel can take before it starts covering the orb it shares
-       the view with. */
     .live-video-panel {
         width: 46vw;
         max-width: 190px;
@@ -10361,9 +9574,6 @@ body.light-mode .live-ctl-start:hover {
         opacity: 0;
     }
 
-    /* The preview still appears — it is information, not decoration — but
-       it arrives without the slide-in, and the recording dot holds steady
-       instead of pulsing once a second for the length of a long call. */
     .live-video-panel {
         animation: none;
     }
@@ -10372,10 +9582,6 @@ body.light-mode .live-ctl-start:hover {
         animation: none;
     }
 
-    /* The shine is dropped whole rather than slowed: the icons and the
-       labels keep the colours they would have anyway, and only the
-       references to the gradient go away. The SMIL keeps ticking inside
-       an unreferenced gradient, which paints nothing. */
     .live-ctl-start.is-loading .live-ctl-icon,
     .live-ctl-btn.is-loading .live-ctl-icon {
         stroke: currentColor;
@@ -10388,11 +9594,6 @@ body.light-mode .live-ctl-start:hover {
         animation: none;
     }
 
-    /* The panel labels' sweep goes the same way: the label keeps the flat
-       dim colour, so it still says "Thinking for 12s" and the sentence
-       alone tells the reader it is live. It is not replaced by the
-       ellipsis that used to be here — the seconds in the text already
-       said that, which is the whole reason the ellipsis went. */
     .thinking-block:not(.is-done) .thinking-label,
     .searching-block:not(.is-done) .searching-label {
         background-image: none;

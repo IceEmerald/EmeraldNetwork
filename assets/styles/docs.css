@@ -1,23 +1,7 @@
-/* =========================================================
-   BUILD 2026-08-26.11 — MULTI-DOCUMENT / WELCOME SCREEN
-   (Welcome home screen with document cards, Slides-style File
-   modal, body.no-active-doc welcome state. See the big block
-   at the end of this file.)
-   If this line is missing from your docs.css, you are running
-   a stale copy — replace it with this file.
-   =========================================================
-   Emerald Docs — Word Processor Styles
-   EmeraldSuite design language:
-   • DM Sans typography
-   • Emerald accent (#239a4d / #2BD059)
-   • Glassmorphism chrome (backdrop-blur)
-   • Ribbon toolbar with tabbed panels + sliding indicator
-   • Fluid cubic-bezier animations + blur/fade panel transitions
-   Supports light & dark themes via [data-theme].
-   ========================================================= */
+
 
 :root {
-  /* Cyan accent (default, locked — user cannot change) */
+
   --ui-accent: #0891b2;
   --ui-accent-hover: #0e7490;
   --ui-accent-soft: rgba(8, 145, 178, 0.10);
@@ -26,7 +10,6 @@
   --ui-accent-ring: rgba(34, 211, 238, 0.35);
   --ring: #22d3ee;
 
-  /* App chrome — light */
   --bg-app: #f4f5f7;
   --bg-doc-canvas: #e8eaee;
   --bg-menubar: rgba(255, 255, 255, 0.92);
@@ -37,42 +20,35 @@
   --border-chrome: hsl(214, 25%, 90%);
   --border-strong: hsl(214, 25%, 82%);
 
-  /* Text */
   --text-strong: #1a1a1a;
   --text-base: #383838;
   --text-muted: #6b7280;
   --text-faint: #9ca3af;
 
-  /* Accent (alias for legacy vars) */
   --accent: var(--ui-accent);
   --accent-strong: var(--ui-accent-hover);
   --accent-soft: var(--ui-accent-soft);
   --accent-contrast: #ffffff;
 
-  /* Page (paper) */
   --paper-shadow: 0 1px 3px rgba(15, 23, 42, 0.12), 0 12px 32px rgba(15, 23, 42, 0.10);
   --paper-bg: #ffffff;
   --paper-ink: #1a1a1a;
   --paper-margin-guide: rgba(8, 145, 178, 0.12);
   --paper-selection: rgba(34, 211, 238, 0.20);
 
-  /* Ruler */
   --ruler-bg: #fbfbfc;
   --ruler-fg: #9ca3af;
   --ruler-line: #d8dce1;
 
-  /* Page margins (dynamic — set by JS) */
   --page-margin-top: 96px;
   --page-margin-right: 96px;
   --page-margin-bottom: 96px;
   --page-margin-left: 96px;
 
-  /* Modal */
   --modal-overlay: rgba(20, 24, 28, 0.45);
   --modal-bg: rgba(255, 255, 255, 0.98);
   --modal-border: hsl(214, 25%, 88%);
 
-  /* Marks */
   --mark-bg: #fff59d;
   --mark-current: #ffb300;
   --hr-color: #d8dce1;
@@ -80,7 +56,6 @@
   --font-ui: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'DM Mono', 'Courier Prime', monospace;
 
-  /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
@@ -96,14 +71,12 @@
   --ruler-h: 22px;
   --statusbar-h: 36px;
 
-  /* Easing */
   --ease-fluid: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-bouncy: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 * { box-sizing: border-box; }
 
-/* Scrollbar styling (from style.css) */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -134,7 +107,6 @@ body {
   transition: background 0.25s, color 0.25s;
 }
 
-/* ===================== App shell ===================== */
 .app {
   display: flex;
   flex-direction: column;
@@ -143,7 +115,6 @@ body {
   overflow: hidden;
 }
 
-/* ===================== Navbar (minimal overrides on top of style.css) ===================== */
 .navbar {
   border-bottom: transparent;
   background-color: transparent;
@@ -151,8 +122,6 @@ body {
   height: 4.5rem;
 }
 
-/* App icon in navbar — matching Slides (.icon-primary renders at 1.75rem = 28px
-   with margin-bottom 0.2rem in the Slides app via style.css) */
 .logo .icon-primary {
   width: 1.75rem;
   height: 1.75rem;
@@ -164,12 +133,6 @@ body {
   z-index: 3000;
 }
 
-/* Brand mark (app-specific — the "E" icon)
-   Sized to EXACTLY match the Slides navbar icon box: 1.75rem (28px) square with
-   0.2rem bottom margin. This makes the .logo line box (28 + 3.2 = 31.2px) and
-   therefore the "EmeraldSuite" text position pixel-identical to Slides:
-   text starts at icon-left + 28 + 12(gap) instead of +30 +12 (was 2px too far
-   right), and the logo block centers at the same y as Slides. */
 .brand-mark {
   width: 1.75rem;
   height: 1.75rem;
@@ -184,7 +147,6 @@ body {
   box-shadow: 0 2px 8px rgba(8, 145, 178, 0.35);
 }
 
-/* Save indicator pill — byte-identical to slides.css */
 .save-indicator {
   background: rgba(35, 154, 77, 0.2);
   border: 1px solid rgba(35, 154, 77, 0.3);
@@ -215,7 +177,6 @@ body {
   color: rgb(217, 48, 37);
 }
 
-/* ===================== Buttons (shared, Slides-style) ===================== */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -265,7 +226,6 @@ body {
 
 .btn.primary:active { transform: translateY(0) scale(0.97); }
 
-/* Dropdown (Export menu) */
 .dropdown { position: relative; }
 
 .dropdown-menu {
@@ -315,7 +275,6 @@ body {
   color: var(--ui-accent);
 }
 
-/* ===================== Ribbon Tabs (matching Slides) ===================== */
 .ribbon-tabs {
   display: flex;
   align-items: flex-end;
@@ -431,7 +390,6 @@ body {
   opacity: 1;
 }
 
-/* File tab special hover */
 .ribbon-tab[data-tab="file"]::before {
   content: "";
   position: absolute;
@@ -454,9 +412,6 @@ body {
   outline-offset: 0px;
 }
 
-/* Contextual tab (Image Format) — appears only while an image is selected.
-   Same styling as Slides: coloured label only; the active underline comes from
-   the shared .ribbon-tab-indicator that slides beneath the active tab. */
 .ribbon-tab-contextual {
   position: relative;
   color: var(--ui-accent);
@@ -488,7 +443,6 @@ body {
 
 .ribbon-tab-indicator.visible { opacity: 1; }
 
-/* ===================== Ribbon (floating box, matching Slides) ===================== */
 .ribbon {
   background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(3px);
@@ -612,7 +566,6 @@ body {
   gap: 4px;
 }
 
-/* Ribbon buttons — matching Slides (vertical icon-over-label) */
 .ribbon-btn {
   background: rgba(255, 255, 255, 0.6);
   border: 1px solid rgba(0, 0, 0, 0.08);
@@ -678,11 +631,6 @@ body {
 
 .ribbon-btn-icon span { font-size: 12px; }
 
-/* Icon-only buttons (no span/label) — base .ribbon-btn sizing, matching Slides.
-   Slides keeps icon-only buttons at the default 60px min-width unless they live
-   inside .font-controls (see below). */
-
-/* Font controls wrapper (matching slides) */
 .font-controls {
   display: flex;
   align-items: center;
@@ -695,7 +643,6 @@ body {
   padding: 4px 6px;
 }
 
-/* Selects */
 .select {
   height: 32px;
   border: 1px solid var(--border-strong);
@@ -726,7 +673,6 @@ body {
 #blockType { min-width: 120px; }
 #fontFamily { min-width: 108px; }
 
-/* Color tool */
 .color-tool {
   position: relative;
   display: flex;
@@ -774,7 +720,6 @@ body {
   padding: 0;
 }
 
-/* Legacy btn-icon for toolbar-stats / version-count etc. (kept for compat) */
 .btn-icon {
   width: 30px;
   height: 30px;
@@ -827,7 +772,6 @@ body {
   color: var(--ui-accent);
 }
 
-/* ===================== Document scroll area ===================== */
 .document-scroll {
   flex: 1;
   min-height: 0;
@@ -851,7 +795,6 @@ body {
   min-width: 100%;
 }
 
-/* ===================== Page (A4 default; per-document from imports) ===== */
 .page {
   position: relative;
   width: var(--emu-pw, 794px);
@@ -872,9 +815,6 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Modal animations — exact Slides' keyframes (clean opacity fade on
-   entrance, exit is a clean 0.23s opacity fade, removed 230ms after
-   `.closing`). */
 @keyframes fadeInModal {
   0% { opacity: 0; }
   100% { opacity: 1; }
@@ -890,10 +830,6 @@ body {
   100% { opacity: 0; }
 }
 
-/* Margin guide removed (per user request) — clean paper like Slides */
-
-/* Guidelines (Show > Guidelines) — center crosshair on each page, using the
-   docs accent (cyan). */
 .pages-wrapper.show-guides .page::before,
 .pages-wrapper.show-guides .page::after {
   content: "";
@@ -917,7 +853,6 @@ body {
   transform: translateY(-0.5px);
 }
 
-/* Page number badge removed (per user request) */
 .page-badge {
   display: none !important;
 }
@@ -940,10 +875,8 @@ body {
 
 .page-content:focus { outline: none; }
 
-/* Selection color */
 .page-content ::selection { background: var(--paper-selection); }
 
-/* Placeholder for empty first page */
 .page-content:empty::before,
 .page-content > p:only-child:empty::before {
   content: "Start writing…";
@@ -952,7 +885,6 @@ body {
   font-style: italic;
 }
 
-/* ===================== Content typography ===================== */
 .page-content p {
   margin: 0 0 10px;
   min-height: 1em;
@@ -1036,7 +968,6 @@ body {
 .page-content s, .page-content strike { text-decoration: line-through; }
 .page-content sup, .page-content sub { font-size: smaller; }
 
-/* Images */
 .page-content img {
   max-width: 100%;
   height: auto;
@@ -1045,7 +976,6 @@ body {
   margin: 8px 0;
 }
 
-/* Tables */
 .page-content table {
   border-collapse: collapse;
   width: 100%;
@@ -1073,8 +1003,6 @@ body {
   background: var(--accent-soft);
 }
 
-/* Floating table toolbar (Notes-parity) — Row/Column operations when the
-   caret is inside a table. Fixed chrome, never serialized with the page. */
 #tableToolbar {
   display: none;
   position: fixed;
@@ -1144,7 +1072,6 @@ body {
   color: #dc2626;
 }
 
-/* Horizontal rule */
 .page-content hr {
   border: none;
   border-top: 2px solid var(--hr-color);
@@ -1152,7 +1079,6 @@ body {
   border-radius: 1px;
 }
 
-/* Find highlight marks */
 .page-content mark.emdocs-mark {
   background: var(--mark-bg);
   color: inherit;
@@ -1165,12 +1091,10 @@ body {
   color: #fff;
 }
 
-/* ===================== Status bar (Slides-style floating pill) ===================== */
 .statusbar {
   display: flex !important;
   align-items: center;
-  /* space-between keeps .status-right (zoom / lang / A4) pinned to the right
-     end of the pill, like the Slides statbar (which uses a flex:1 spacer). */
+
   justify-content: space-between;
   gap: 0;
   margin: 10px;
@@ -1188,7 +1112,6 @@ body {
   z-index: 20;
 }
 
-/* Items / separators / toggle buttons — ported from slides .statbar-* */
 .statbar-item, .statusbar .statbar-item {
   white-space: nowrap;
   padding: 0 12px;
@@ -1235,7 +1158,6 @@ body {
   border-color: var(--ui-accent-border);
 }
 
-/* Page info — let statbar-item style win */
 .page-info {
   color: inherit;
   font-weight: inherit;
@@ -1244,17 +1166,11 @@ body {
   letter-spacing: inherit;
 }
 
-/* Zoom percentage — plain statbar-item, NOT clickable (matches Slides' #zoomStatus).
-   Zoom is changed via Ctrl+Scroll or the View → Zoom ribbon controls. */
 #statusZoomPct {
   font-variant-numeric: tabular-nums;
   cursor: default;
 }
 
-/* A4 page-size label — static, informational only.
-   NOT clickable: no pointer events, no hover affordance, no popup.
-   (The Slides status bar has no page-size switcher; clicking A4 in Docs
-   used to open a blue quick-switch menu — removed per user request.) */
 .page-size-label {
   color: inherit;
   font-weight: inherit;
@@ -1277,7 +1193,6 @@ body {
   box-shadow: none;
 }
 
-/* ===================== Modal / Dialog (matching Slides link-modal) ===================== */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -1323,7 +1238,6 @@ body {
   animation: 0.25s ease 0s 1 normal both running fadeInModal;
 }
 
-/* Closing — Slides' fadeOut (0.23s, removed 230ms after .closing is added). */
 .modal-overlay.closing {
   animation: 0.23s ease 0s 1 normal forwards running fadeOutOverlay;
   pointer-events: none;
@@ -1336,11 +1250,6 @@ body {
 .modal-sm { width: 380px; }
 .modal-find { width: 460px; }
 
-/* Header — centered title with a circular icon badge above it, stacked
-   vertically (exact Slides' .link-modal-header / .delete-modal-header
-   structure). The close button is pulled out of flow via position:absolute
-   so it floats at the top-right corner of the modal card, exactly like
-   Slides' .link-modal-close-btn. */
 .modal-head {
   display: flex;
   flex-direction: column;
@@ -1360,8 +1269,6 @@ body {
   text-align: center;
 }
 
-/* Icon badge — 48px colored circle with a white 24px stroke SVG, centered
-   above the title (exact Slides' .link-modal-icon / .delete-modal-icon). */
 .modal-icon {
   width: 48px;
   height: 48px;
@@ -1375,9 +1282,6 @@ body {
   flex-shrink: 0;
 }
 
-/* Close button — floats at top-right corner of the modal (exact Slides'
-   .link-modal-close-btn: 30x30 hit target, 8px radius, 18px SVG glyph,
-   subtle hover). */
 .modal-close {
   position: absolute;
   top: 14px;
@@ -1403,7 +1307,6 @@ body {
   color: rgba(44, 62, 80, 0.7);
 }
 
-/* Body — generous padding, matches Slides' .link-modal-content (24px). */
 .modal-body {
   padding-left: 24px;
   padding-right: 24px;
@@ -1413,7 +1316,6 @@ body {
   flex: 1;
 }
 
-/* Footer — centered buttons, no border bar (matches Slides' centered actions). */
 .modal-foot {
   display: flex;
   align-items: center;
@@ -1429,15 +1331,12 @@ body {
   gap: 12px;
 }
 
-/* Modal buttons — exact Slides' .link-modal-btn sizing (10px 24px padding,
-   14px font, 100px min-width) instead of the smaller .btn.sm chrome. */
 .modal-foot .btn {
   padding: 10px 24px;
   font-size: 14px;
   min-width: 100px;
 }
 
-/* Slides' primary hover: flat darker blue, no lift. */
 .modal-foot .btn.primary:hover {
   background: rgb(0, 77, 135);
   border-color: rgba(0, 95, 163, 0.3);
@@ -1448,8 +1347,6 @@ body {
   transform: none;
 }
 
-/* Connection-lost dialog: the Reload button follows the Docs accent (cyan)
-   instead of the default modal blue. */
 #connectionLostModal .modal-foot .btn.primary {
   background: var(--ui-accent);
   border-color: var(--ui-accent);
@@ -1460,7 +1357,6 @@ body {
   border-color: var(--ui-accent);
 }
 
-/* Form fields — styled like Slides' .link-input */
 .field {
   margin-bottom: 16px;
 }
@@ -1535,7 +1431,6 @@ body {
 
 .check input { accent-color: var(--accent); cursor: pointer; }
 
-/* Table grid picker */
 .table-grid {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
@@ -1564,7 +1459,6 @@ body {
   text-align: center;
 }
 
-/* Stats grid */
 .stats-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1590,7 +1484,6 @@ body {
   margin-top: 2px;
 }
 
-/* ===================== Outline Sidebar ===================== */
 .outline-panel {
   display: none;
   flex-direction: column;
@@ -1624,10 +1517,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  /* Side-panel spacing scale — shared with the Slides animation pane and the
-     Sheets chart pane:
-       header  8px 16px   body  8px 16px 12px   foot  8px 16px 12px
-     container margin 0 */
+
   padding: 4px 12px;
   gap: 8px;
   flex-shrink: 0;
@@ -1635,16 +1525,13 @@ body {
 
 .outline-head h3 {
   margin: 0;
-  /* 14px/700 with the same tracking and ink as Slides .ap-header and the
-     Sheets .cp-title — these three side-panel titles read as one set. */
+
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.02em;
   color: rgba(44, 62, 80, 0.95);
 }
 
-/* Side-panel close (Outline / Pages / Footnotes) matches Slides' Animation
-   Pane close button: 14px SVG glyph, compact hit target. */
 .outline-head .modal-close {
   background: transparent;
   border: none;
@@ -1734,7 +1621,6 @@ body {
   letter-spacing: 0.02em;
 }
 
-/* ===================== Shortcuts Grid ===================== */
 .shortcuts-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -1790,7 +1676,6 @@ body {
   line-height: 1.4;
 }
 
-/* ===================== Page Break element ===================== */
 .page-content .emdocs-page-break {
   display: flex;
   align-items: center;
@@ -1830,12 +1715,6 @@ body {
   flex: 0 0 auto;
 }
 
-/* ===================== Imported PDF pages =====================
-   "Keep the page exactly as it is": the page's artwork — images, tables,
-   rules, colours — is the background with only the glyph pixels removed, and
-   every line is rebuilt as live text on top at the position, font, size,
-   weight and colour the PDF gave it. The break between pages is hidden: it
-   only mirrors the PDF's own pagination. */
 .page-content .emdocs-pdf-page {
   position: relative;
   width: 100%;
@@ -1871,7 +1750,6 @@ body {
   display: none;
 }
 
-/* ===================== Link hover preview ===================== */
 .link-preview {
   position: fixed;
   z-index: 250;
@@ -1907,7 +1785,6 @@ body {
   margin-top: 4px;
 }
 
-/* ===================== Image resize handles ===================== */
 .page-content img[data-selected="true"] {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -1950,7 +1827,6 @@ body {
 .img-resize-handle.handle-sw { bottom: -6px; left: -6px; cursor: nesw-resize; }
 .img-resize-handle.handle-w  { top: 50%; left: -6px; margin-top: -6px; cursor: ew-resize; }
 
-/* ===================== Version history list ===================== */
 .versions-list {
   display: flex;
   flex-direction: column;
@@ -1999,7 +1875,6 @@ body {
   flex-shrink: 0;
 }
 
-/* ===================== Goal tracker ===================== */
 .goal-bar-wrap {
   margin: 8px 0 4px;
 }
@@ -2109,7 +1984,6 @@ body {
 
 .goal-clear:hover { color: var(--accent-strong); }
 
-/* ===================== Document statistics chart ===================== */
 .stats-chart-section {
   margin-top: 14px;
   padding-top: 14px;
@@ -2201,7 +2075,6 @@ body {
   color: var(--text-muted);
 }
 
-/* Writing time grid — same scale as Reading time / stat items */
 .writing-time-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -2225,7 +2098,6 @@ body {
   margin-top: 2px;
 }
 
-/* ===================== Focus mode ===================== */
 .focus-bar {
   display: none;
   flex: 0 0 auto;
@@ -2301,7 +2173,6 @@ body {
   box-shadow: 0 4px 24px rgba(15, 157, 110, 0.12), 0 2px 12px rgba(0, 0, 0, 0.08);
 }
 
-/* ===================== Session timer ===================== */
 .session-timer {
   display: inline-flex;
   align-items: center;
@@ -2325,7 +2196,6 @@ body {
 
 .session-timer svg { opacity: 0.7; }
 
-/* ===================== Word cloud ===================== */
 .word-cloud {
   display: flex;
   flex-wrap: wrap;
@@ -2360,7 +2230,6 @@ body {
   margin: 0;
 }
 
-/* ===================== Modal helper hint text ===================== */
 .dict-hint {
   font-size: 12.5px;
   color: var(--text-muted);
@@ -2368,7 +2237,6 @@ body {
   margin: 0 0 12px;
 }
 
-/* ===================== Print preview ===================== */
 .app.print-preview .menubar,
 .app.print-preview .toolbar,
 .app.print-preview .statusbar,
@@ -2433,7 +2301,6 @@ body {
   border-color: rgba(15, 157, 110, 0.25);
 }
 
-/* ===================== Outline search ===================== */
 .outline-search {
   position: relative;
   padding: 4px 12px 4px;
@@ -2484,7 +2351,6 @@ body {
 
 .outline-no-match.show { display: block; }
 
-/* ===================== Margins dialog ===================== */
 .margin-presets {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2566,7 +2432,6 @@ body {
   text-align: center;
 }
 
-/* ===================== Confetti celebration ===================== */
 .confetti-container {
   position: fixed;
   inset: 0;
@@ -2595,7 +2460,6 @@ body {
   }
 }
 
-/* ===================== Autosave timestamp ===================== */
 .autosave.has-time {
   cursor: pointer;
 }
@@ -2606,7 +2470,6 @@ body {
   margin-left: 2px;
 }
 
-/* ===================== Readability gauge ===================== */
 .readability-wrap {
   display: flex;
   align-items: center;
@@ -2688,7 +2551,6 @@ body {
   line-height: 1.4;
 }
 
-/* ===================== Word frequency list ===================== */
 .word-freq-list {
   display: flex;
   flex-direction: column;
@@ -2743,7 +2605,6 @@ body {
   margin: 0;
 }
 
-/* ===================== Distribution chart ===================== */
 .dist-chart {
   display: flex;
   align-items: flex-end;
@@ -2805,7 +2666,6 @@ body {
   padding: 20px 0;
 }
 
-/* ===================== Writing issues ===================== */
 .issues-list {
   display: flex;
   flex-direction: column;
@@ -2876,7 +2736,6 @@ body {
   margin: 0;
 }
 
-/* ===================== Margin preview diagram ===================== */
 .margin-preview-wrap {
   display: flex;
   justify-content: center;
@@ -2929,7 +2788,6 @@ body {
 .margin-preview-page::before { width: 80%; }
 .margin-preview-page::after { width: 60%; }
 
-/* ===================== Page thumbnails panel ===================== */
 .thumbnails-panel {
   display: none;
   flex-direction: column;
@@ -3016,8 +2874,6 @@ body {
   flex-shrink: 0;
 }
 
-/* 1:1 scaled page clone — absolute inside the 132×185 thumbnail frame,
-   inheriting the real .page typography/colors/padding. */
 .thumbnail-page .page[data-thumb="1"] {
   position: absolute;
   top: 0;
@@ -3040,7 +2896,6 @@ body {
   font-weight: 600;
 }
 
-/* ===================== Brand sub-label ===================== */
 .brand-sub {
   display: block;
   font-size: 10px;
@@ -3051,7 +2906,6 @@ body {
   margin-top: -1px;
 }
 
-/* ===================== Templates grid ===================== */
 .templates-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -3109,12 +2963,6 @@ body {
   line-height: 1.3;
 }
 
-/* ===================== Symbol picker =====================
-   The modal-box picker was replaced by the bottom-docked Symbol Bar
-   (Slides symbolToolbar parity) — see .symbol-toolbar styles near the
-   Draw mode section below. */
-
-/* ===================== Watermark ===================== */
 .watermark-presets {
   display: flex;
   flex-wrap: wrap;
@@ -3128,9 +2976,7 @@ body {
 }
 
 .page-watermark {
-  /* Robust centering: the page box is the containing block, so inset 0 +
-     margin auto + a flex-less one-liner keeps the text dead-center on the
-     PAGE regardless of margins/padding; rotate happens around the center. */
+
   position: absolute;
   top: 0;
   left: 0;
@@ -3151,7 +2997,6 @@ body {
   z-index: 0;
 }
 
-/* ===================== Paste special ===================== */
 .paste-special-options {
   display: flex;
   flex-direction: column;
@@ -3169,7 +3014,6 @@ body {
 .paste-special-options .check:hover { border-color: var(--ui-accent-border); }
 .paste-special-options .check input { margin-right: 6px; accent-color: var(--ui-accent); }
 
-/* ===================== Comments panel ===================== */
 .comments-panel {
   position: fixed;
   top: 0;
@@ -3181,8 +3025,7 @@ body {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border-left: 1px solid var(--modal-border);
-  /* Shadow only when open — see .outline-panel note about the closed-state
-     shadow bleeding a dark band onto the right edge of the screen. */
+
   z-index: 150;
   transform: translateX(100%);
   transition: transform 0.28s var(--ease-bouncy), box-shadow 0.28s var(--ease-bouncy);
@@ -3269,7 +3112,6 @@ body {
 
 .comment-actions button:hover { color: var(--ui-accent); background: var(--ui-accent-soft); }
 
-/* ===================== View modes ===================== */
 .app.view-web .page {
   height: auto;
   min-height: 0;
@@ -3318,7 +3160,6 @@ body {
   line-height: 1.8;
 }
 
-/* ===================== Drop cap ===================== */
 .page-content p.has-dropcap::first-letter {
   float: left;
   font-size: 3.2em;
@@ -3328,7 +3169,6 @@ body {
   color: var(--ui-accent);
 }
 
-/* ===================== Columns ===================== */
 .page-content.is-cols-2 {
   column-count: 2;
   column-gap: 28px;
@@ -3346,7 +3186,6 @@ body {
   break-inside: avoid;
 }
 
-/* ===================== Header / Footer / Page number fields ===================== */
 .page-header, .page-footer {
   position: absolute;
   left: var(--page-margin-left);
@@ -3361,9 +3200,6 @@ body {
 .page-header { top: calc(var(--page-margin-top) / 2.6); }
 .page-footer { bottom: calc(var(--page-margin-bottom) / 2.6); text-align: center; }
 
-/* Editable header/footer strips (Layout -> Header / Footer, MS Word style).
-   Enabled strips are clickable, show a faint frame on hover and an accent
-   frame while focused, so inline editing is obvious. */
 .page-header.editable,
 .page-footer.editable {
   pointer-events: auto;
@@ -3377,7 +3213,7 @@ body {
   border-radius: 2px;
   z-index: 5;
   padding: 1px 2px;
-  margin: 0 -2px; /* negative margin keeps text aligned with the body edge */
+  margin: 0 -2px;
   transition: background 0.15s, box-shadow 0.15s;
 }
 
@@ -3398,8 +3234,6 @@ body {
   margin: 0 0 2px;
 }
 
-/* Word-like grayed hint inside an empty strip ("Header" / "Footer").
-   --hf-hint is set from JS; .is-empty is kept in sync on every edit. */
 .page-header.editable.is-empty:empty::before,
 .page-footer.editable.is-empty:empty::before,
 .page-header.editable.is-empty > p:only-child::before,
@@ -3420,11 +3254,6 @@ body {
   user-select: none;
 }
 
-/* ===================== Toast (matching Slides design) ===================== */
-/* Always the white glass pill — Slides has no colored toast variants.
-   Success/error meaning is carried by the monochrome SVG icon that JS
-   injects (16px, #111 ink, 10px gap before the message), exactly like
-   Slides' showToast + _toastIcon pattern. */
 .toast {
   position: fixed;
   bottom: 24px;
@@ -3455,15 +3284,12 @@ body {
   transform: translateX(-50%) translateY(-10px);
 }
 
-/* ===================== Print ===================== */
 @page {
   size: A4;
   margin: 0;
 }
 @media print {
-  /* Hide ALL app chrome — only the paper/page content should print.
-     The navbar (logo, EmeraldSuite, save-indicator), ribbon, status bar,
-     ruler, and all floating panels are hidden. */
+
   .navbar, .topbar, .ribbon-tabs, .ribbon, .statusbar, .document-rulers,
   .toast, .modal-overlay, .focus-bar, .print-preview-bar,
   .draw-toolbar, .symbol-toolbar,
@@ -3483,15 +3309,7 @@ body {
     padding: 0;
   }
   .pages-wrapper { gap: 0; transform: none !important; }
-  /* Browser "Print" (window.print) output — kept overflow-safe so it never
-     emits blank pages. For a pixel-perfect 1:1 A4 copy, use File -> Export ->
-     Export as PDF (jsPDF), which rasterizes each on-screen page at exact A4
-     size and is independent of the print dialog's margin setting.
-     Here each page uses height:auto (no fixed mm height) so the sheet is
-     exactly its content height and can never overflow onto a blank page,
-     regardless of the print dialog's "Default" margins. Width stays at the
-     on-screen value so text wraps as in the editor. break-after separates
-     sheets (except the last page). */
+
   .page {
     width: var(--emu-pw, 794px) !important;
     height: auto !important;
@@ -3513,7 +3331,7 @@ body {
   .page-badge { display: none !important; }
 .emdocs-page-break { display: none !important; }
   .section-break { display: none !important; }
-  /* Header/footer strips print as plain text — no editing frames. */
+
   .page-header, .page-footer {
     box-shadow: none !important;
     background: none !important;
@@ -3522,7 +3340,7 @@ body {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  /* Preserve colors for highlights, equations, etc. */
+
   mark,
   .equation,
   .smartart,
@@ -3533,15 +3351,13 @@ body {
 mark.emdocs-mark { background: transparent !important; color: inherit !important; }
 }
 
-/* ===================== Responsive ===================== */
 @media (max-width: 880px) {
   .topbar-right .btn span { display: none; }
   .topbar-right .btn { padding: 0 8px; }
   .brand-name { display: none; }
   .document-scroll { padding: 16px 8px 32px; }
   .toolbar-stats { display: none; }
-  /* On narrow screens, hide the "Print" text label but keep the icon — matches
-     Slides' behavior of keeping the Present action accessible on mobile. */
+
   .ribbon-tab-action span { display: none; }
   .ribbon-tab-action { padding: 7px 10px; }
   .document-rulers { display: none; }
@@ -3552,7 +3368,7 @@ mark.emdocs-mark { background: transparent !important; color: inherit !important
 @media (max-width: 620px) {
   .doc-title { max-width: 140px; font-size: 13px; padding: 6px 8px; }
   .status-left .sep, .status-left #charCount { display: none; }
-  /* On very narrow screens, hide word/char counters — keep Page info, Ln/Col, zoom %. */
+
   #wordCount, #charCount { display: none; }
   .page-size-label { display: none; }
   .modal { width: calc(100vw - 24px) !important; }
@@ -3560,14 +3376,8 @@ mark.emdocs-mark { background: transparent !important; color: inherit !important
   .ribbon-btn-icon { padding: 7px; min-width: auto; }
 }
 
-/* =========================================================
-   EmeraldSuite: Docs — Feature additions
-   ========================================================= */
-
-/* ---- Cover page presets ---- */
 .cover-presets { display: flex; gap: 8px; flex-wrap: wrap; }
 
-/* ---- Equation editor ---- */
 .equation-presets {
   display: flex;
   gap: 8px;
@@ -3614,7 +3424,6 @@ mark.emdocs-mark { background: transparent !important; color: inherit !important
   line-height: 1.4;
 }
 
-/* Equation rendering in document */
 .equation {
   display: inline-block;
   font-family: 'DM Mono', monospace;
@@ -3627,7 +3436,6 @@ mark.emdocs-mark { background: transparent !important; color: inherit !important
 }
 .equation sup, .equation sub { font-size: 0.7em; }
 
-/* ---- Compare output ---- */
 .compare-out {
   margin-top: 12px;
   padding: 14px;
@@ -3656,7 +3464,6 @@ mark.emdocs-mark { background: transparent !important; color: inherit !important
 }
 .compare-out .diff-empty { color: var(--text-faint); font-style: italic; }
 
-/* ---- Footnotes panel ---- */
 .footnotes-panel {
   position: fixed;
   top: calc(var(--topbar-h) + var(--ribbon-tabs-h) + var(--ribbon-h) + 8px);
@@ -3669,9 +3476,7 @@ mark.emdocs-mark { background: transparent !important; color: inherit !important
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid var(--border-chrome);
   border-radius: var(--radius-lg);
-  /* No box-shadow in the closed state — same off-screen-panel reasoning
-     as the other side panels: off-screen panel + always-on shadow =
-     faint band on the right edge. */
+
   z-index: 40;
   display: flex;
   flex-direction: column;
@@ -3712,7 +3517,6 @@ mark.emdocs-mark { background: transparent !important; color: inherit !important
 }
 .fn-del:hover { color: #b91c1c; border-color: rgba(217, 48, 37, 0.4); }
 
-/* Footnote / endnote markers in document text */
 sup.footnote-ref, sup.endnote-ref {
   color: var(--ui-accent);
   font-weight: 700;
@@ -3723,13 +3527,11 @@ sup.footnote-ref, sup.endnote-ref {
 }
 sup.footnote-ref:hover, sup.endnote-ref:hover { text-decoration: underline; }
 
-/* Imported .docx visual elements (docs.js converter output) */
 .docx-tab { white-space: nowrap; }
 .docx-textbox { clear: both; box-sizing: border-box; overflow: hidden; }
 .docx-textbox p { margin: 2px 0; }
 .docx-textbox img { max-width: 100%; }
 
-/* Footnotes block rendered at the very end of the document */
 .footnotes-section {
   margin-top: 24px;
   padding-top: 12px;
@@ -3740,9 +3542,6 @@ sup.footnote-ref:hover, sup.endnote-ref:hover { text-decoration: underline; }
 .footnotes-section .fn-entry { margin: 4px 0; padding-left: 18px; text-indent: -18px; }
 .footnotes-section .fn-entry .fn-key { color: var(--ui-accent); font-weight: 700; }
 
-/* ---- Draw mode (bottom-docked toolbar, ported from Slides/Notes) ----
-   Accent colors follow the Docs cyan theme; Clear keeps the destructive
-   red and Done keeps the confirm green (Slides/Notes parity). */
 .draw-toolbar {
   display: none;
   position: fixed;
@@ -3909,7 +3708,6 @@ sup.footnote-ref:hover, sup.endnote-ref:hover { text-decoration: underline; }
   color: var(--ui-accent-hover);
 }
 
-/* Draw canvas overlay (covers the document scroll area; persists after Done) */
 .draw-canvas {
   position: absolute;
   top: 0; left: 0;
@@ -3920,11 +3718,6 @@ sup.footnote-ref:hover, sup.endnote-ref:hover { text-decoration: underline; }
 .app.draw-mode .page-content { pointer-events: none; }
 .app.draw-mode .page-badge { pointer-events: none; }
 
-/* ---- Symbol bar (bottom-docked, ported from Slides) ----
-   Same floating pill as the Slides symbolToolbar: grouped symbol buttons
-   in a horizontally scrollable strip + Done. Hover/active accents use the
-   Docs cyan theme (Slides uses orange); Done reuses the green draw-done
-   button so both bottom toolbars match. */
 .symbol-toolbar {
   display: none;
   position: fixed;
@@ -3950,9 +3743,7 @@ sup.footnote-ref:hover, sup.endnote-ref:hover { text-decoration: underline; }
   overflow: auto hidden;
   flex: 1 1 0%;
   padding: 0px 4px;
-  /* No custom scrollbar here — matches Slides: the global
-     style.css ::-webkit-scrollbar design (10px, #c1c1c1 rounded
-     thumb, #f1f1f1 track) applies. */
+
 }
 .symbol-group {
   display: flex;
@@ -4012,7 +3803,6 @@ sup.footnote-ref:hover, sup.endnote-ref:hover { text-decoration: underline; }
   margin: 0px 4px;
 }
 
-/* ---- Bookmark anchors (invisible markers in text) ---- */
 a.emdocs-bookmark {
   display: inline;
   border-bottom: 2px dotted var(--ui-accent-border);
@@ -4031,7 +3821,6 @@ a.emdocs-internal-link {
 }
 a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
 
-/* ---- Cover page styles ---- */
 .cover-page {
   text-align: center;
   padding: 120px 60px 60px;
@@ -4050,7 +3839,6 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
 .cover-page.style-accent .cover-subtitle { font-size: 17px; color: var(--text-muted); margin-bottom: 80px; }
 .cover-page .cover-accent-bar { height: 4px; width: 60px; background: var(--ui-accent); border-radius: 2px; margin: 0 auto 24px; }
 
-/* ---- SmartArt container ---- */
 .smartart {
   display: flex;
   flex-direction: column;
@@ -4077,7 +3865,6 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
 .smartart .sa-arrow { color: var(--text-faint); font-size: 18px; }
 .smartart.hierarchy .sa-node.root { background: var(--ui-accent); color: #fff; border-color: var(--ui-accent); }
 
-/* ---- Section break marker ---- */
 .section-break {
   margin: 12px 0;
   border-top: 1px dashed var(--ui-accent-border);
@@ -4094,7 +3881,6 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
   padding: 0 8px;
 }
 
-/* ---- Threaded comments ---- */
 .comment-item .comment-thread { margin-left: 18px; border-left: 2px solid var(--border-chrome); padding-left: 10px; margin-top: 6px; }
 .comment-item .comment-reply-row { display: flex; gap: 6px; margin-top: 6px; }
 .comment-item .comment-reply-input { flex: 1; font-size: 12px; padding: 5px 8px; border-radius: 4px; border: 1px solid var(--border-strong); background: var(--bg-toolbar); color: var(--text-base); }
@@ -4102,17 +3888,13 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
 .comment-item .comment-jump { font-size: 11px; color: var(--text-faint); cursor: pointer; text-decoration: underline; }
 .comment-item .comment-jump:hover { color: var(--ui-accent); }
 
-/* ---- Screenshot placeholder ---- */
 .screenshot-img { max-width: 100%; border: 1px solid var(--border-chrome); border-radius: var(--radius-sm); }
 
-/* ---- Refined modal fields spacing for new modals ---- */
 .cover-presets .preset-btn, .equation-presets .eq-preset { min-width: 0; }
 
-/* ---- Focus mode refinement ---- */
 .app.focus-mode .ribbon-tabs, .app.focus-mode .ribbon, .app.focus-mode .document-rulers, .app.focus-mode .statusbar { display: none; }
 .app.focus-mode .document-scroll { padding-top: 40px; }
 
-/* ---- Zen mode (auto-hide chrome) ---- */
 .app.zen-mode .topbar,
 .app.zen-mode .ribbon-tabs,
 .app.zen-mode .ribbon,
@@ -4128,7 +3910,6 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
 .app.zen-mode .document-scroll { padding-top: 60px; transition: padding-top 0.4s; }
 .app.zen-mode.zen-hidden .document-scroll { padding-top: 20px; }
 
-/* Zen mode indicator (small pill that stays visible) */
 .zen-indicator {
   position: fixed;
   top: 12px;
@@ -4154,7 +3935,6 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
   50% { opacity: 0.4; }
 }
 
-/* ---- Accessibility checker ---- */
 .accessibility-results { max-height: 400px; overflow-y: auto; }
 .a11y-issue {
   display: flex;
@@ -4186,7 +3966,6 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
 }
 .a11y-fix:hover { background: var(--ui-accent); color: #fff; }
 
-/* ---- Document inspector ---- */
 .inspector-results { max-height: 360px; overflow-y: auto; }
 .inspector-item {
   display: flex;
@@ -4216,7 +3995,6 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
 
 @keyframes ctxFadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 
-/* ---- Section break dialog ---- */
 .section-orient-grid { display: flex; gap: 10px; }
 .sec-orient-btn {
   flex: 1;
@@ -4243,15 +4021,12 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
 }
 .section-apply-grid { display: flex; flex-direction: column; gap: 6px; }
 
-/* Per-section page geometry: pages tagged with data-section-orient /
-   data-section-margins override the global page size + margins. */
 .page[data-orient="landscape"] {
   width: 1123px;
   height: 794px;
 }
 .page[style*="--sec-mt"] {
-  /* set via JS inline style using CSS custom props:
-     --sec-mt, --sec-mr, --sec-mb, --sec-ml (in px) */
+
   padding-top: var(--sec-mt, var(--page-margin-top));
   padding-right: var(--sec-mr, var(--page-margin-right));
   padding-bottom: var(--sec-mb, var(--page-margin-bottom));
@@ -4261,12 +4036,9 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
   content: "— Section Break (configured) —";
 }
 
-/* ---- Right-click context menu (in-document) ---- */
-/* ---- Tooltip (native title= replacement for ribbon buttons) ---- */
 .ribbon-btn[data-tip] { position: relative; }
  ribbon-btn[data-tip]::after { content: ""; }
 
-/* ---- Contrast checker styles (in accessibility dialog) ---- */
 .a11y-issue.severity-contrast { border-left-color: #f9ab00; }
 .a11y-contrast-preview {
   display: inline-block;
@@ -4277,10 +4049,8 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
   border: 1px solid var(--border-chrome);
 }
 
-/* ---- Footnote: reserve per-page footnote space ---- */
 .page-content.has-footnotes-ref {
-  /* When a page contains a footnote reference, reserve bottom space for
-     the footnote text. Set via JS inline style --fn-reserve. */
+
   padding-bottom: calc(var(--page-margin-bottom) + var(--fn-reserve, 0px));
 }
 .page-footnote-area {
@@ -4299,7 +4069,6 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
 .page-footnote-area .pfa-entry { margin: 2px 0; padding-left: 14px; text-indent: -14px; }
 .page-footnote-area .pfa-key { color: var(--ui-accent); font-weight: 700; }
 
-/* ---- More ribbon polish: select arrow, color tool refinements ---- */
 .select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M2 4l3 3 3-3' fill='none' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -4312,7 +4081,6 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
 .select:hover { border-color: var(--ui-accent-border); }
 .select:focus { outline: none; border-color: var(--ui-accent); box-shadow: 0 0 0 2px var(--ui-accent-ring); }
 
-/* ---- SmartArt picker grid ---- */
 .smartart-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -4348,7 +4116,6 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
 .smartart-name { font-size: 12px; font-weight: 600; color: var(--text-strong); }
 .smartart-desc { font-size: 10px; color: var(--text-faint); }
 
-/* SmartArt preview mini-render */
 .sa-mini { display: flex; align-items: center; gap: 4px; font-size: 9px; }
 .sa-mini .sa-m-node {
   padding: 3px 7px;
@@ -4377,7 +4144,6 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
 .sa-mini.pyramid .sa-m-node:nth-child(3) { width: 40%; opacity: 0.7; }
 .sa-mini.pyramid .sa-m-node:nth-child(4) { width: 30%; opacity: 0.55; }
 
-/* ---- Rich tooltips (CSS-only, JS-driven) ---- */
 .rich-tip {
   position: fixed;
   background: rgba(20, 24, 28, 0.95);
@@ -4412,7 +4178,6 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
   white-space: normal;
 }
 
-/* ---- Autosave polish: animated saving indicator ---- */
 .autosave.saving::before {
   background: #e0a800;
   animation: autosaveSpin 0.8s linear infinite;
@@ -4430,7 +4195,6 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
   background: transparent !important;
 }
 
-/* ---- Word count live pulse ---- */
 .toolbar-stats {
   cursor: pointer;
   padding: 3px 10px;
@@ -4439,9 +4203,6 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
 }
 .toolbar-stats:hover { background: var(--ui-accent-soft); }
 
-/* ---- Ribbon group hover: group label stays neutral like Slides ---- */
-
-/* ---- Topbar: separator refinement ---- */
 .topbar-sep {
   width: 1px;
   height: 24px;
@@ -4450,16 +4211,6 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
   flex-shrink: 0;
 }
 
-/* ---- Round 5 polish ---- */
-
-/* Focus-visible rings for keyboard accessibility
-   NOTE: status-bar items (zoom %, lang, page-size-label) are intentionally
-   excluded from the blue focus ring so that clicking them with a mouse does
-   not leave a blue outline lingering on the bar. Keyboard users still get a
-   visible focus affordance via the browser default :focus ring, which we
-   also neutralize for these specific controls below. */
-/* Keyboard focus matches slides/notes: browser-default focus ring flush to the
-   control (outline-offset 0px), NOT a custom colored/thick ring. */
 .ribbon-btn:focus-visible,
 .topbar-action:focus-visible,
 .btn:focus-visible,
@@ -4468,8 +4219,6 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
   outline-offset: 0px;
 }
 
-/* Status-bar items: no blue focus ring on click OR keyboard focus,
-   to avoid the "weird blue line" lingering under A4. */
 .page-size-label:focus-visible {
   outline: none;
 }
@@ -4478,7 +4227,6 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
   box-shadow: none;
 }
 
-/* Topbar action hover refinement */
 .topbar-action {
   transition: background 0.18s var(--ease-fluid), color 0.18s var(--ease-fluid), transform 0.18s var(--ease-fluid);
 }
@@ -4489,9 +4237,6 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
 }
 .topbar-action:active { transform: translateY(0) scale(0.94); }
 
-/* Page badge polish block removed — badges disabled globally (see base rule) */
-
-/* Find & Replace history dropdown */
 .find-history {
   position: absolute;
   top: 100%;
@@ -4517,7 +4262,6 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
 .find-history-item:last-child { border-bottom: none; }
 .find-history-item:hover { background: var(--ui-accent-soft); color: var(--ui-accent); }
 
-/* Equation preview — bigger, math-like */
 .equation-preview {
   font-family: 'DM Mono', 'Courier Prime', monospace;
   font-size: 20px;
@@ -4528,19 +4272,16 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
 }
 .equation sup, .equation sub { font-size: 0.65em; }
 
-/* Equation presets wrap nicely */
 .equation-presets {
   max-height: 120px;
   overflow-y: auto;
 }
 
-/* Page selection ring (when clicking a page in print preview) */
 .page.selected {
   outline: 2px solid var(--ui-accent);
   outline-offset: 4px;
 }
 
-/* Smooth page entrance animation (staggered) */
 .page:nth-child(1) { animation-delay: 0s; }
 .page:nth-child(2) { animation-delay: 0.05s; }
 .page:nth-child(3) { animation-delay: 0.1s; }
@@ -4548,10 +4289,8 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
 .page:nth-child(5) { animation-delay: 0.2s; }
 .page:nth-child(n+6) { animation-delay: 0.25s; }
 
-/* Status bar polish — neutralized (floating-pill look from the base rule wins) */
 .statusbar button:hover { color: inherit; }
 
-/* Toolbar stats live update pulse */
 .toolbar-stats.updated {
   animation: statsPulse 0.4s ease-out;
 }
@@ -4560,26 +4299,21 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
   100% { color: inherit; transform: scale(1); }
 }
 
-/* Ribbon content max-width for large screens */
 .ribbon-content {
   max-width: 1900px;
   margin: 0 auto;
 }
 
-/* Better ribbon-content padding (matching slides: 12px) */
 .ribbon-content {
   padding: 12px;
 }
 
-/* Modal head gradient (subtle) — removed to match Slides clean white header */
 .modal-head {
   background: transparent;
 }
 
-/* Cover page preview text alignment fix */
 .cover-page .cover-title { word-break: break-word; }
 
-/* More equation preset button polish */
 .eq-preset {
   font-size: 13px;
   padding: 6px 10px;
@@ -4592,9 +4326,6 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
   box-shadow: var(--shadow-sm);
 }
 
-/* ---- Document area + ruler overlay (matching Slides) ---- */
-/* Non-scrolling wrapper that pins the rulers while the document scrolls
-   beneath them. */
 .document-area {
   position: relative;
   flex: 1;
@@ -4615,8 +4346,6 @@ a.emdocs-internal-link:hover { text-decoration-color: var(--ui-accent); }
   min-width: 0;
 }
 
-/* Ruler overlay — purely visual, mirrors Slides' editor-rulers.
-   Hidden until toggled via Show > Ruler (body.show-rulers). */
 .document-rulers {
   display: none;
   position: absolute;
@@ -4706,9 +4435,6 @@ body.show-rulers .document-rulers {
   transform-origin: left top;
 }
 
-/* ---- More micro-interactions ---- */
-
-/* Better focus for text color tools */
 .color-tool {
   border-radius: var(--radius-sm);
   transition: box-shadow 0.15s;
@@ -4717,25 +4443,21 @@ body.show-rulers .document-rulers {
   box-shadow: 0 0 0 2px var(--ui-accent-ring);
 }
 
-/* Table cell hover (in document) */
 .page-content td:hover, .page-content th:hover {
   background: var(--ui-accent-soft);
 }
 
-/* Image resize handle refinement */
 .page-content img[data-resizing] {
   outline: 2px solid var(--ui-accent);
   outline-offset: 2px;
 }
 
-/* Selection highlight refinement */
 .page-content ::selection {
   background: var(--paper-selection);
   text-decoration: underline;
   text-decoration-color: rgba(35, 154, 77, 0.3);
 }
 
-/* Dropdown menu animation */
 .dropdown-menu {
   animation: dropdownIn 0.18s var(--ease-bouncy);
   transform-origin: top right;
@@ -4745,9 +4467,6 @@ body.show-rulers .document-rulers {
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-/* ---- Round 7 polish ---- */
-
-/* Active outline heading */
 .outline-item.active-heading {
   background: rgba(8, 145, 178, 0.1);
   border-color: rgba(8, 145, 178, 0.2);
@@ -4760,7 +4479,6 @@ body.show-rulers .document-rulers {
   color: #fff;
 }
 
-/* Figure + figcaption styling */
 .page-content figure {
   margin: 12px 0;
   text-align: center;
@@ -4777,11 +4495,6 @@ body.show-rulers .document-rulers {
   text-align: center;
 }
 
-/* Milestone toasts now reuse the standard Slides-style white pill —
-   the 🎉 gradient variant was removed so every toast looks identical
-   to the Slides app (icon + message, monochrome). */
-
-/* Topbar brand refinement */
 .brand-mark {
   background: linear-gradient(135deg, var(--ui-accent), var(--ui-accent-hover));
   box-shadow: 0 2px 8px rgba(35, 154, 77, 0.3);
@@ -4791,14 +4504,12 @@ body.show-rulers .document-rulers {
   transform: rotate(-8deg) scale(1.05);
 }
 
-/* Empty state illustration */
 .page-content:empty::before,
 .page-content > p:only-child:empty::before {
   color: var(--text-faint);
   opacity: 0.5;
 }
 
-/* Page transition (when switching pages via nav) */
 .page.flash {
   animation: pageFlash 0.6s ease-out;
 }
@@ -4807,7 +4518,6 @@ body.show-rulers .document-rulers {
   100% { box-shadow: var(--paper-shadow); }
 }
 
-/* Better heading anchor links */
 a.emdocs-internal-link {
   position: relative;
   padding: 0 2px;
@@ -4831,7 +4541,6 @@ a.emdocs-internal-link:hover::after {
   opacity: 0.7;
 }
 
-/* Bookmark anchor pulse on jump */
 a.emdocs-bookmark.flash {
   animation: bookmarkFlash 0.8s ease-out;
 }
@@ -4840,7 +4549,6 @@ a.emdocs-bookmark.flash {
   100% { background: var(--ui-accent-soft); transform: scale(1); }
 }
 
-/* Heading flash on outline jump */
 .page-content h1.flash, .page-content h2.flash, .page-content h3.flash, .page-content h4.flash {
   animation: headingFlash 0.8s ease-out;
 }
@@ -4849,9 +4557,6 @@ a.emdocs-bookmark.flash {
   100% { background: transparent; }
 }
 
-/* ---- Round 8: color themes + clipboard history ---- */
-
-/* Color theme grid */
 .color-theme-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -4894,7 +4599,6 @@ a.emdocs-bookmark.flash {
 }
 .ct-name { font-weight: 600; }
 
-/* Clipboard history list */
 .clipboard-history-list {
   max-height: 320px;
   overflow-y: auto;
@@ -4933,17 +4637,11 @@ a.emdocs-bookmark.flash {
   background: var(--bg-toolbar);
 }
 
-/* Status bar page-size quick switcher — REMOVED.
-   The A4 label is informational only; the clickable chip and its blue
-   quick-switch menu are fully disabled. */
 .status-page-size {
   display: none !important;
   pointer-events: none !important;
 }
 
-/* ---- Round 10 polish ---- */
-
-/* Drag-over state for image drop */
 .document-scroll.drag-over {
   background-color: color-mix(in srgb, var(--ui-accent) 8%, var(--bg-doc-canvas));
   outline: 3px dashed var(--ui-accent);
@@ -4971,7 +4669,6 @@ a.emdocs-bookmark.flash {
   50% { transform: translate(-50%, -50%) scale(1.05); }
 }
 
-/* Document statistics export button */
 .stats-export-btn {
   display: inline-flex;
   align-items: center;
@@ -4993,7 +4690,6 @@ a.emdocs-bookmark.flash {
   box-shadow: var(--shadow-md);
 }
 
-/* Print-only stats overlay */
 @media print {
   .stats-printable {
     display: block !important;
@@ -5012,7 +4708,6 @@ a.emdocs-bookmark.flash {
 }
 .stats-printable { display: none; }
 
-/* Ribbon button active pulse (when toggled on) */
 .ribbon-btn.active.pulse {
   animation: btnPulse 0.6s ease-out;
 }
@@ -5021,7 +4716,6 @@ a.emdocs-bookmark.flash {
   100% { box-shadow: 0 0 0 8px transparent; }
 }
 
-/* Page hover subtle lift */
 .page {
   transition: box-shadow 0.3s, transform 0.3s;
 }
@@ -5029,7 +4723,6 @@ a.emdocs-bookmark.flash {
   transform: translateY(-1px);
 }
 
-/* Better disabled button styling (Notes/Slides parity) */
 .btn[disabled], .ribbon-btn[disabled], .ms-dropdown-btn[disabled] {
   opacity: 0.35;
   cursor: not-allowed;
@@ -5042,7 +4735,6 @@ a.emdocs-bookmark.flash {
   color: rgba(44, 62, 80, 0.8);
 }
 
-/* Word count goal bar — gradient fill */
 .goal-bar-fill {
   background: linear-gradient(90deg, var(--ui-accent), var(--ring));
   transition: width 0.4s var(--ease-fluid);
@@ -5057,13 +4749,11 @@ a.emdocs-bookmark.flash {
   100% { background-position: 200% 0; }
 }
 
-/* Session timer hover — (version-count badge removed from status bar) */
 .session-timer:hover {
   color: var(--ui-accent);
   background: var(--ui-accent-soft);
 }
 
-/* Find & Replace match count badge */
 .match-count {
   background: var(--ui-accent-soft);
   color: var(--ui-accent);
@@ -5074,23 +4764,16 @@ a.emdocs-bookmark.flash {
   border: 1px solid var(--ui-accent-border);
 }
 
-/* ---- Round 11 polish ---- */
-
-/* Caret position display in status bar — same style as other statbar-items.
-   (Removed the old mono-font / 11px / different-color override so it visually
-   matches "Page X of Y" and "NN words" etc.) */
 #caretPos {
-  /* inherits from .statbar-item: 12px DM Sans, color rgb(100,116,139), padding 0 12px */
+
   font-variant-numeric: tabular-nums;
 }
 
-/* Relative autosave time */
 .autosave-time {
   color: var(--text-faint);
   font-size: 10px;
 }
 
-/* Keyboard shortcut overlay (large, centered) */
 .shortcut-overlay {
   position: fixed;
   inset: 0;
@@ -5142,7 +4825,6 @@ a.emdocs-bookmark.flash {
   border-top: 1px solid var(--border-chrome);
 }
 
-/* Word frequency export list */
 .word-freq-export {
   margin-top: 12px;
   padding: 10px 14px;
@@ -5157,9 +4839,6 @@ a.emdocs-bookmark.flash {
   white-space: pre-wrap;
 }
 
-/* ===================== Table Design (contextual ribbon tab) ===================== */
-/* Table Style Options render as Slides "Timing › Start"-style pill toggles:
-   recessed container, white pill + accent ring when pressed (aria-pressed). */
 .td-pill-toggle {
   display: inline-grid;
   grid-template-columns: repeat(3, minmax(max-content, auto));
@@ -5207,8 +4886,6 @@ a.emdocs-bookmark.flash {
   position: relative;
 }
 
-/* Inline strip — Slides Design "Themes" pattern: a scrollable row of
-   92×52 preview cards followed by a "More" card with a corner chevron. */
 .td-gallery-strip {
   display: flex;
   gap: 4px;
@@ -5223,7 +4900,6 @@ a.emdocs-bookmark.flash {
   display: none;
 }
 
-/* One style preview card — a real mini <table> painted by EMTableStyles. */
 .td-style-thumb {
   width: 92px;
   height: 52px;
@@ -5263,8 +4939,6 @@ a.emdocs-bookmark.flash {
   font-size: 0;
 }
 
-/* "More" card — Slides .more-thumb: icon over label, ▼ in the corner that
-   flips + takes the accent while the gallery is open. */
 .td-more {
   width: 60px;
   height: 52px;
@@ -5288,9 +4962,7 @@ a.emdocs-bookmark.flash {
   justify-content: center;
   gap: 2px;
 }
-/* Same chevron as every ribbon dropdown button (.ms-dropdown-btn::after):
-   10px "▼" from the symbol-font stack, vertically centred on the right
-   edge, flipping 180° while the gallery is open. */
+
 .td-more::after {
   content: "▼";
   position: absolute;
@@ -5342,8 +5014,6 @@ a.emdocs-bookmark.flash {
   white-space: nowrap;
 }
 
-/* Gallery popup — Slides .theme-gallery-menu: uppercase header + 3-col grid
-   of 16:9 preview cards with a name under each. */
 .td-style-menu {
   position: absolute;
   top: calc(100% + 8px);
@@ -5412,7 +5082,6 @@ a.emdocs-bookmark.flash {
   white-space: nowrap;
 }
 
-/* ===================== MS Dropdowns (ported from slides.css — 1:1) ===================== */
 .ms-dropdown {
   position: relative;
   display: inline-block;
@@ -5563,8 +5232,6 @@ a.emdocs-bookmark.flash {
   pointer-events: none !important;
 }
 
-/* ===================== Image Format tab — steppers & color menu =====================
-   Ported from slides.css (tr-timing / tr-num) with the app's cyan accent. */
 .tr-timing-panel {
   display: flex;
   flex-flow: row;
@@ -5712,17 +5379,6 @@ a.emdocs-bookmark.flash {
   box-shadow: none;
 }
 
-/* =====================================================================
-   SLIDES PARITY LOCK — navbar & ribbon tab strip geometry
-   These !important rules pin the chrome geometry to be identical with the
-   Slides app no matter what:
-     • stylesheet load order (e.g. style.css accidentally loaded after
-       docs.css — its .navbar { height: 4rem } would otherwise win),
-     • an older cached sheet still being served,
-     • font fallback metrics (line-height is pinned, not "normal").
-   Reference geometry (measured on the Slides app @ 100% zoom):
-     navbar 0–72px (4.5rem) · tab strip 72–104px (32px) · tab labels 79–100px
-   ===================================================================== */
 .app > .navbar,
 header.navbar,
 .navbar {
@@ -5736,15 +5392,7 @@ header.navbar,
 .navbar .nav-container {
   height: 100% !important;
 }
-/* =====================================================================
-   BUILD 2026-08-26.11 — MULTI-DOCUMENT / WELCOME SCREEN / FILE MODAL
-   ===================================================================== */
 
-/* ===================== No active document (welcome state) =====================
-   body.no-active-doc is the class the page starts with on initial load.
-   CSS uses it to hide the ribbon, document area and status bar, leaving the
-   welcome screen as the only visible surface (same pattern as Slides'
-   body.no-active-note). */
 body.no-active-doc .ribbon-tabs,
 body.no-active-doc .ribbon,
 body.no-active-doc .document-scroll,
@@ -5756,7 +5404,7 @@ body.no-active-doc .print-preview-bar {
 }
 
 .welcome-screen {
-  display: none; /* JS toggles between flex (welcome) and none (editor) */
+  display: none;
   align-items: stretch;
   justify-content: center;
   flex: 1 1 0%;
@@ -5810,7 +5458,6 @@ body.no-active-doc .print-preview-bar {
   100% { opacity: 0.9; transform: scale(1) translateY(0); }
 }
 
-/* Heading sized like Slides (no explicit override — browser-default h3) */
 .welcome-header-top h3 {
   margin: 0;
   color: rgba(30, 41, 59, 0.95);
@@ -5841,7 +5488,7 @@ body.no-active-doc .print-preview-bar {
 .section-title h3 { font-size: 18px; font-weight: 700; }
 
 .create-doc-btn {
-  /* Flat button matching Slides' .create-note-btn (hover lifts -2px + darkens) */
+
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -5870,7 +5517,7 @@ body.no-active-doc .print-preview-bar {
 .create-doc-btn svg { width: 18px; height: 18px; }
 
 .create-doc-btn--secondary {
-  /* Matches Slides' .welcome-import-btn secondary style */
+
   background: rgba(255, 255, 255, 0.9);
   color: #374151;
   border: 1px solid rgba(0, 0, 0, 0.1);
@@ -5884,9 +5531,6 @@ body.no-active-doc .print-preview-bar {
   box-shadow: rgba(8, 145, 178, 0.15) 0 4px 12px;
 }
 
-/* ===================== Document cards grid =====================
-   Same sizing as the Slides welcome screen (.notes-list-display +
-   .presentation-card): 3-column grid, 20px gap, 16/9 thumb. */
 .doc-list-display {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -5941,7 +5585,7 @@ body.no-active-doc .print-preview-bar {
 }
 
 .document-card-thumb::before {
-  /* Mini "paper" sheet behind the snippet */
+
   content: "";
   position: absolute;
   top: 14px;
@@ -6003,10 +5647,8 @@ body.no-active-doc .print-preview-bar {
   font-family: var(--font-ui);
 }
 
-/* Empty state — content-height like Slides' .no-notes-container, so the
-   image sits right under the section title instead of floating mid-page */
 .no-docs-container {
-  display: none; /* JS toggles to flex */
+  display: none;
   flex-direction: column;
   align-items: center;
   gap: 16px;
@@ -6015,14 +5657,12 @@ body.no-active-doc .print-preview-bar {
 }
 
 .no-docs-hint {
-  /* 16px — matches Slides/Notes "Create your first …" hint. Their
-     .no-notes-container p (0,1,1) overrides .no-notes-hint (0,1,0) to 16px. */
+
   font-size: 16px;
   color: rgba(44, 62, 80, 0.5) !important;
   margin: 0;
 }
 
-/* ===================== File modal (Slides-style overlay) ===================== */
 .file-overlay {
   position: fixed;
   inset: 0;
@@ -6034,7 +5674,7 @@ body.no-active-doc .print-preview-bar {
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.25s, visibility 0.25s;
-  z-index: 95000; /* below docs modals (100000) so Statistics/Versions/Inspector/Delete open on top */
+  z-index: 95000;
   padding: 20px;
 }
 
@@ -6176,7 +5816,6 @@ body.no-active-doc .print-preview-bar {
 .file-overlay-action-btn--danger svg { color: rgb(220, 53, 69); }
 .file-overlay-action-btn--danger:hover svg { color: rgb(200, 35, 51); }
 
-/* ===================== Delete-document dialog (byte-matched to Slides/Notes) ===================== */
 .delete-modal {
   position: fixed;
   top: 0;
@@ -6188,7 +5827,7 @@ body.no-active-doc .print-preview-bar {
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 100000; /* above the File overlay (95000) */
+  z-index: 100000;
   opacity: 0;
   visibility: hidden;
   transition: 0.3s;
@@ -6303,7 +5942,6 @@ body.no-active-doc .print-preview-bar {
   box-shadow: rgba(255, 107, 107, 0.4) 0 4px 12px;
 }
 
-/* ===================== Responsive (same breakpoints as Slides) ===================== */
 @media (max-width: 1400px) {
   .doc-list-display { grid-template-columns: repeat(2, 1fr); }
 }
@@ -6322,11 +5960,6 @@ body.no-active-doc .print-preview-bar {
   .file-overlay-body { max-height: 78vh; }
 }
 
-/* =====================================================================
-   BUILD 2026-08-26.12 — STYLES GROUP / FOOTNOTE+ENDNOTE MODALS
-   ===================================================================== */
-
-/* Modal textareas match .field inputs */
 .field textarea {
   width: 100%;
   padding: 10px 12px;
@@ -6348,14 +5981,12 @@ body.no-active-doc .print-preview-bar {
   background: rgba(255, 255, 255, 0.95);
 }
 
-/* Footnote/endnote textareas match Slides modal min/max height behavior */
 #footnoteText,
 #endnoteText {
   min-height: 72px;
   max-height: 40vh;
 }
 
-/* End-of-document endnotes section (mirrors .footnotes-section) */
 .endnotes-section {
   margin-top: 24px;
   padding-top: 12px;
@@ -6365,7 +5996,6 @@ body.no-active-doc .print-preview-bar {
 .endnotes-section .fn-entry { margin: 4px 0; padding-left: 18px; text-indent: -18px; }
 .endnotes-section .fn-entry .fn-key { color: var(--ui-accent); font-weight: 700; }
 
-/* Styles group — heading buttons with live type previews */
 .style-btn .style-preview {
   display: block;
   line-height: 1.15;
@@ -6378,18 +6008,6 @@ body.no-active-doc .print-preview-bar {
 .style-preview--h3    { font-size: 11.5px; font-weight: 600; font-family: var(--font-ui); }
 .style-preview--p     { font-size: 12px; font-weight: 400; font-family: var(--font-ui); }
 
-/* =====================================================================
-   APPENDED FEATURES — everything ABOVE this line is the original
-   docs.css, byte-identical to the owner-supplied file (nothing modified).
-   This section adds ONLY the styles required by the current docs.html /
-   docs.js for features this file never had:
-     1. Statistics modal layout (.modal-stats ...)
-     2. Comments: pins, bubbles, floating popup (Slides-style)
-     3. Find & Replace / Go-To bar (bottom-right) + custom Go-to dropdown
-   Deleting this whole section only unstyles those features.
-   ===================================================================== */
-
-/* Document Statistics only — wider so sections fit side by side (shorter modal) */
 .modal-stats { width: 940px; max-width: 94%; }
 .modal-stats .modal-body {
   display: grid;
@@ -6401,12 +6019,6 @@ body.no-active-doc .print-preview-bar {
 .modal-stats .stats-grid { grid-column: 1 / -1; }
 .modal-stats .stats-grid { grid-template-columns: repeat(3, 1fr); }
 
-/* ===================== Comments (Slides-style pins + popup) =====================
-   No sidebar. A commented text range is wrapped in a .comment-anchor span and
-   a small speech-bubble pin (sup.comment-ref, non-editable, one virtual caret
-   character like footnote refs) sits right after it. Clicking the pin opens a
-   floating .comment-popup card — same interaction model as the Slides app,
-   with the Docs teal accent. */
 .page-content .comment-anchor {
   background: var(--ui-accent-soft);
   border-bottom: 1px solid var(--ui-accent-border);
@@ -6446,8 +6058,6 @@ sup.comment-ref .comment-bubble {
   transition: transform 0.12s, background 0.15s;
 }
 
-/* Author initial lives in a pseudo-element (data-initial attribute) so it
-   never enters innerText — word count and caret math stay untouched. */
 sup.comment-ref .comment-bubble::before {
   content: attr(data-initial);
   transform: rotate(45deg);
@@ -6572,10 +6182,6 @@ sup.comment-ref.resolved .comment-bubble {
 .comment-resolve-btn:hover { background: var(--ui-accent-selected); }
 .comment-delete-btn { background: rgba(220, 38, 38, 0.08); color: #dc2626; }
 
-/* ===================== Find & Replace / Go To bar (bottom-right) =====================
-   Same compact design as the Notes app's findReplaceBar, with the Docs teal
-   accent: rounded card pinned to the bottom-right corner, slide-in animation,
-   find row with prev/next + live count, replace row, Go To row, options. */
 #findBar {
   position: fixed;
   right: 18px;
@@ -6646,7 +6252,6 @@ sup.comment-ref.resolved .comment-bubble {
 #findBar .fr-input:focus { border-color: var(--ui-accent); }
 #findBar .fr-input.fr-no-match { border-color: #ef4444; background: #fff5f5; }
 
-/* Go To type — custom dropdown (replaces the native <select>) */
 #findBar .fr-select-wrap {
   position: relative;
   flex: 1.2;
@@ -6789,8 +6394,6 @@ sup.comment-ref.resolved .comment-bubble {
 
 #findBar .fr-opt-label input { cursor: pointer; accent-color: var(--ui-accent); }
 
-/* ---- Added floating UI: hide in print (original @media print block left
-   untouched above — this separate rule keeps it valid) ---- */
 @media print {
   #findBar,
   #findBar .fr-select-menu,

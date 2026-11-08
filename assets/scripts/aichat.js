@@ -31,9 +31,7 @@ const DISPLAY_MODEL = "EmeraldCore";
     }
   });
 })();
-/* Frontend model registry. Order = capability descending. The `tier` string
-   is shown as a small badge in the dropdown so the hierarchy is visible at a
-   glance. ids MUST match the `publicId` field in worker.js MODELS. */
+
 const MODELS = [
   { id: "astra",     name: "EmeraldCore Astra",     short: "Astra",     tier: "v4.2", desc: "Frontier flagship — ultra-deep reasoning, autonomous multi-step tasks, cross-domain synthesis." },
   { id: "ruby",      name: "EmeraldCore Ruby",      short: "Ruby",      tier: "v4.2", desc: "Multimodal precision — vision, data science, scientific analysis, structured output." },
@@ -44,8 +42,7 @@ const MODELS = [
   { id: "starlight", name: "EmeraldCore Starlight", short: "Starlight", tier: "v3",   desc: "Balanced everyday chat and quick tasks." },
   { id: "cream",     name: "EmeraldCore Cream",     short: "Cream",     tier: "v2",   desc: "Fast, lightweight answers for simple questions." }
 ];
-/* Primary models shown directly in the dropdown. Everything else is tucked
-   behind the \"Other Models\" hover trigger to keep the panel scannable. */
+
 const PRIMARY_MODEL_IDS = ["astra", "ruby", "gamma"];
 const OTHER_MODEL_IDS = ["diamond", "gold", "kappa", "starlight", "cream"];
 const MODEL_DEFAULT_ID = "auto";
@@ -60,11 +57,7 @@ function setSelectedModelId(id) {
   const s = loadSettings();
   saveSettingsObj({ ...s, modelId: id });
 }
-/* ── Thinking mode ─────────────────────────────────────────────
-   When enabled, the worker turns on Gemini's thinkingConfig
-   (thinkingBudget: -1 = dynamic) and appends a step-by-step thinking
-   hint to the system prompt. Persisted in settings.thinking (boolean).
-   Default: off, so simple questions stay fast. */
+
 function isThinkingEnabled() {
   const s = loadSettings();
   return !!(s.thinking ?? s.reasoning);
@@ -89,7 +82,7 @@ function refreshThinkingToggleUI() {
 }
 const SEARCH_PROXY_URL = "https://emeraldnetwork-aichatsearch.iceemerald.workers.dev";
 const IMAGE_WORKER_URL = "https://emeraldnetwork-aichatimagegen.iceemerald.workers.dev";
-const memoryStorageFallback = /* @__PURE__ */ new Map();
+const memoryStorageFallback =  new Map();
 const S = {
   get: (k) => {
     if (window.EmeraldIDBStorage) {
@@ -129,7 +122,7 @@ async function migrateChatStorageToIndexedDB() {
       window.EmeraldIDBStorage.migrateLocalJSON(OB_KEY)
     ]);
   } catch (err) {
-    // Migration failure shouldn't crash init — log so it's not invisible.
+
     console.warn("migrateChatStorageToIndexedDB failed:", err);
   }
 }
@@ -161,11 +154,9 @@ function loadSettings() {
 async function initTheme() {
   await migrateChatStorageToIndexedDB();
   applyTheme(loadSettings().theme || "system");
-  // Bugfix: sync thinking toggle UI from persisted settings on page load/reload.
-  // Without this, the button shows "off" even when settings.thinking is true.
+
   refreshThinkingToggleUI();
-  // Ensure conversation is loaded from storage on page reload,
-  // even if the AI was in the middle of streaming.
+
   restoreConversationOnReload();
 }
 function saveSettingsObj(o) {
@@ -202,16 +193,16 @@ let chatStorageSyncReady = false;
 function setupChatStorageSync() {
   if (chatStorageSyncReady || !window.EmeraldIDBStorage?.subscribe) return;
   chatStorageSyncReady = true;
-  const watchedKeys = /* @__PURE__ */ new Set([CONV_KEY, LIB_KEY, SETTINGS_KEY, MEMORY_KEY, OB_KEY]);
+  const watchedKeys =  new Set([CONV_KEY, LIB_KEY, SETTINGS_KEY, MEMORY_KEY, OB_KEY]);
   window.EmeraldIDBStorage.subscribe(({ key }) => {
     if (!watchedKeys.has(key)) return;
-    // Keep the Settings storage meter in sync while it is open.
+
     if (document.getElementById("settingsModal")?.classList.contains("open")) {
       _refreshStorageMeter();
     }
     if (key === SETTINGS_KEY) {
       applyTheme(loadSettings().theme || "system");
-      // Bugfix: also sync thinking toggle UI when settings change (e.g. cross-tab).
+
       refreshThinkingToggleUI();
     }
     if (key === CONV_KEY) {
@@ -250,8 +241,8 @@ function buildFileParts(files) {
   const parts = [];
   const unreadable = [];
   const INLINE_PREFIXES = ["image/", "audio/", "video/", "text/"];
-  const INLINE_EXACT = /* @__PURE__ */ new Set(["application/pdf", "application/json", "application/xml", "application/x-yaml", "application/x-sh"]);
-  const TEXT_EXTS = /* @__PURE__ */ new Set([
+  const INLINE_EXACT =  new Set(["application/pdf", "application/json", "application/xml", "application/x-yaml", "application/x-sh"]);
+  const TEXT_EXTS =  new Set([
     "txt",
     "md",
     "markdown",
@@ -405,16 +396,14 @@ function getUserName() {
 }
 function getUserInitials() {
   const n = loadSettings().userName || "You";
-  // Use regex split so consecutive spaces / leading-trailing whitespace don't
-  // produce "undefined" in the initials (e.g. "Foo  Bar" used to yield "Fu").
+
   return (n.match(/\b\w/g) || ["U"]).join("").slice(0, 2).toUpperCase() || "U";
 }
 let _toastTimer;
 function showToast(msg, type = "default") {
   const el = document.getElementById("custom-toast") || document.getElementById("aiToast");
   if (!el) return;
-  // innerHTML only receives DOMPurify output; the fallback path uses textContent
-  // (a safe sink) so no tainted string ever reaches an HTML sink.
+
   if (typeof DOMPurify !== "undefined") {
     el.innerHTML = DOMPurify.sanitize(String(msg || ""), { FORCE_BODY: true });
   } else {
@@ -547,8 +536,7 @@ async function ctxCopyText() {
   }
   const ok = await safeCopy(selectedText);
   if (ok) {
-    // `escHtml` / `truncate` were never defined in this codebase — use the
-    // real `escapeHtml` helper and inline the truncation.
+
     const preview = escapeHtml(selectedText.length > 100 ? selectedText.slice(0, 100) + "…" : selectedText);
     showToast(`${_aiSvgCopy} Copied: "${preview}"`);
   } else {
@@ -781,7 +769,7 @@ function setupMarked() {
   function _blockquoteRenderer(token) {
     let body = "";
     if (token && typeof token === "object") {
-      // marked v18: token.tokens contains parsed child tokens — render recursively
+
       if (Array.isArray(token.tokens) && this.parser) {
         body = this.parser.parse(token.tokens);
       } else {
@@ -813,20 +801,7 @@ function setupMarked() {
     marked.setOptions({ renderer, breaks: true, gfm: true });
   }
 }
-// ── Text colour + highlight: the Docs app is the reference ───────
-//
-// Docs already had the two formatting operations a user reaches for when
-// they select text and want it to stand out: exec("foreColor") for text
-// colour and exec("hiliteColor") for a highlight behind it, both driven
-// by the two named swatch lists in docs.html. The chat had no equivalent
-// — the model improvised hex codes, and the only colour vocabulary it had
-// was the private \color rewrite further down — so a colour could mean
-// one thing in a reply and something else in a document.
-//
-// The two lists below are docs.html's swatches verbatim, and they are now
-// the only colour vocabulary in the chat: prose colour, highlight and
-// KaTeX \textcolor all resolve through _mdResolveColor(), so "red" is the
-// same red in a chat bubble as on a Docs page.
+
 const _MD_TEXT_COLORS = {
   black: "#000000",
   "dark gray": "#333333",
@@ -855,78 +830,33 @@ const _MD_HILITE_COLORS = {
   peach: "#FFDAB9",
   clear: "transparent"
 };
-// "Clear" and its aliases all mean the same thing: no highlight at all.
+
 _MD_HILITE_COLORS.none = "transparent";
 _MD_HILITE_COLORS.transparent = "transparent";
 function _mdColorKey(raw) {
   return String(raw ?? "").trim().toLowerCase().replace(/[\s_-]+/g, " ");
 }
-/* Resolve a colour against one of the swatch lists above. Hex is
-   accepted because the Docs ribbon's own colour input takes arbitrary hex,
-   so a hex the user typed there works here too. Anything else returns
-   null — the caller then drops the styling and keeps the text, because
-   guessing at an unknown colour is exactly the "custom, not detected"
-   behaviour this replaces. */
+
 function _mdResolveColor(raw, palette) {
   const v = _mdColorKey(raw);
   if (!v) return null;
   if (Object.prototype.hasOwnProperty.call(palette, v)) return palette[v];
   return /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/.test(v) ? v : null;
 }
-/* KaTeX knows CSS colour names but not the swatch names above ("light
-   blue" has a space, "pale green" isn't a CSS keyword), so a \textcolor
-   written with a swatch name is mapped to its hex first — one vocabulary,
-   one rendering. Both swatch lists are consulted, because unlike prose
-   colour an unresolved name here is not a colour that quietly vanishes but
-   a formula KaTeX cannot typeset at all. Anything unresolved is passed
-   through untouched so KaTeX's own names keep working. */
+
 function _mdLatexColor(raw) {
   return _mdResolveColor(raw, _MD_TEXT_COLORS) ||
     _mdResolveColor(raw, _MD_HILITE_COLORS) ||
     String(raw ?? "").trim();
 }
 
-// Preprocess LaTeX source to convert \color{X}... into \textcolor{X}{...}
-// (the two-argument form KaTeX renders reliably even in nested contexts).
-//
-// The model produces THREE variants of \color usage that we must handle:
-//
-//   (A) \color{X}{Y}      — TWO-ARG, INVALID LaTeX. The model treats \color
-//                           as if it were \textcolor. NOT standard LaTeX
-//                           (in real LaTeX, \color{X} sets the color for the
-//                           rest of the group; the following {Y} is a
-//                           separate group). KaTeX accepts this but it is
-//                           brittle. We convert it to \textcolor{X}{Y}.
-//
-//   (B) \color{X}content  — ONE-ARG SWITCH (the real LaTeX form). Sets color
-//                           for the rest of the current group. We find the
-//                           enclosing {...} group and wrap its content in
-//                           \textcolor{X}{...}.
-//                           e.g.  e^{\color{red}i\pi}  →  e^{\textcolor{red}{i\pi}}
-//
-//   (C) \textcolor{X}{Y}  — already correct. Leave alone.
-//
-// Pass 1 handles (A). Pass 2 handles (B). Existing \textcolor is untouched.
 function _preprocessLatexColor(src) {
   if (!src || src.indexOf('\\color{') === -1) return src;
   let result = src;
 
-  // ── Pass 1: \color{X}{Y} (two-arg malformed) → \textcolor{X}{Y}
-  // Match \color{X} immediately followed by { (with optional whitespace).
-  // Replace only the \color{X} part — leave the {Y} part intact so the
-  // closing brace of Y stays balanced. Effect: \color{X}{Y} → \textcolor{X}{Y}.
-  // We must NOT touch \textcolor{X}{Y} (already correct). The regex below
-  // only matches \color{ (not \textcolor{) because of the negative lookbehind
-  // for "text" before the backslash.
   result = result.replace(/(?<!\\text)\\color\{([^}]+)\}(\s*)\{/g,
     (full, color, ws) => '\\textcolor{' + _mdLatexColor(color) + '}' + ws + '{');
 
-  // ── Pass 2: \color{X}content (one-arg switch) → \textcolor{X}{content}
-  // Now any remaining \color{X} is the switch form (NOT immediately followed
-  // by a { group of its own). Find the enclosing {...} group and wrap its
-  // content in \textcolor{X}{...}.
-  //   e.g.  e^{\color{red}i\pi}  →  e^{\textcolor{red}{i\pi}}
-  //   e.g.  {\color{blue}a + b}  →  {\textcolor{blue}{a + b}}
   const re = /\\color\{([^}]+)\}/g;
   let match;
   const replacements = [];
@@ -934,14 +864,11 @@ function _preprocessLatexColor(src) {
     const start = match.index;
     const afterColor = start + match[0].length;
     const color = _mdLatexColor(match[1]);
-    // Skip if immediately followed by { — that was Pass 1's job.
-    // (Pass 1 already converted those, but be defensive in case the regex
-    // missed something — e.g. whitespace edge cases.)
+
     let nextNonWs = afterColor;
     while (nextNonWs < result.length && /\s/.test(result[nextNonWs])) nextNonWs++;
     if (result[nextNonWs] === '{') continue;
 
-    // Find the enclosing { by scanning backwards
     let depth = 0, braceStart = -1;
     for (let k = start - 1; k >= 0; k--) {
       if (result[k] === '}') depth++;
@@ -951,7 +878,7 @@ function _preprocessLatexColor(src) {
       }
     }
     if (braceStart === -1) continue;
-    // Find the matching } for braceStart by scanning forwards
+
     depth = 1;
     let braceEnd = -1;
     for (let k = afterColor; k < result.length; k++) {
@@ -973,13 +900,6 @@ function _preprocessLatexColor(src) {
   return result;
 }
 
-// When the model hallucinates and outputs individual characters separated by
-// newlines (e.g. "N\ni\nl\na\ni\nk\ne"), marked with breaks:true renders
-// each \n as <br>, producing a char-by-char display. Detect runs of 3+
-// consecutive lines that each contain a single non-whitespace character and
-// collapse them back into a single word. The model often then repeats the
-// full word on the following line — when the collapsed word exactly prefixes
-// that next line, drop the collapsed duplicate.
 function _collapseCharByCharRuns(text) {
   const lines = text.split('\n');
   const result = [];
@@ -992,11 +912,7 @@ function _collapseCharByCharRuns(text) {
       if (run.length >= 3) {
         const joined = run.join('');
         const next = lines[i].trim();
-        // The model frequently emits a char-by-char copy of the NEXT line,
-        // sometimes with a single leading symbol (e.g. "*Rumus:" duplicate,
-        // or ")tidak..." where ")R..." was broken apart). Dedup when the run
-        // is exactly the next line, or the next line's content after one
-        // leading symbol (index 0 or 1).
+
         const leadIdx = next.indexOf(joined);
         if (!(leadIdx === 0 || leadIdx === 1)) {
           result.push(joined);
@@ -1013,12 +929,6 @@ function _collapseCharByCharRuns(text) {
   return result.join('\n');
 }
 
-// ── Collapsible dropdown (the UI the model emits) ─────────────
-// One <dropdown> becomes one card. Several in a single answer are
-// independent — the model decides how many to use and the user opens
-// whichever they want, so nothing here closes a sibling.
-// title: model-authored, may carry inline markdown (bold, `code`).
-// body:  model-authored markdown, rendered recursively.
 function aiDropdownHTML(title, body, open, iconName) {
   const label = _aiSafeLabel(title, "Details");
   const icon = aiSVGIcon(iconName);
@@ -1038,23 +948,8 @@ function toggleAiDropdown(headerEl) {
   headerEl.setAttribute("aria-expanded", isOpen ? "true" : "false");
 }
 
-// ── Card group (the model chooses the layout) ───────────────
-// <cards layout="…"> wraps any number of <card> blocks. The model
-// picks the column layout; every card may carry a title and an accent
-// colour. Bodies are full markdown rendered by renderMarkdown, so a
-// card can itself contain a <dropdown>.
 const _AI_CARD_ACCENTS = ["green", "blue", "amber", "red", "purple"];
 
-// ── Icon registry ────────────────────────────────────────────
-// The model never emits SVG (that would be a markup-injection hole
-// and unreadable in a chat log) and never uses emoji — it emits
-// <icon name="bolt"/> and we look the name up here. Only the listed
-// names resolve, and only registry markup is ever emitted, so the
-// name is never interpolated into the output.
-//
-// 24x24, stroke-based, matching the icon language already used
-// everywhere else in this file (fill:none, stroke:currentColor,
-// width 2, round caps/joins).
 const _AI_ICONS = {
   "info": '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
   "warning": '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
@@ -1101,16 +996,6 @@ const _AI_ICONS = {
   "sparkles": '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/><path d="M18.5 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2z"/>'
 };
 
-// Resolve a name to markup, or "" when it is not in the registry.
-// An unknown name renders nothing rather than echoing the tag back
-// at the user, so a typo disappears instead of showing as raw text.
-//
-// data-ai-icon carries the name onto the SVG. That is what makes an icon
-// REVERSIBLE: the same renderMarkdown runs over document content, where an
-// inline SVG is a picture — you cannot retype it, the ribbon cannot colour
-// it, and deleting it leaves an empty shell. _esNormaliseAiRichText() reads
-// this attribute back and swaps the SVG for the character Docs' own Symbols
-// bar would have inserted. Harmless on screen; nothing renders it.
 function aiSVGIcon(name) {
   const body = _AI_ICONS[String(name || "").trim().toLowerCase()];
   if (!body) return "";
@@ -1121,24 +1006,10 @@ function _aiIconAttr(attrs) {
   return aiSVGIcon(_aiTagAttr(attrs, "icon"));
 }
 
-// ── Charts (bar / line / pie / flowchart) ────────────────────
-// The model emits JSON; we draw it as inline SVG. No chart library is
-// loaded on this page, and pulling one in would be heavier than the
-// whole rest of the feature set — so the ~200 lines below are the
-// chart engine.
-//
-// Everything here is defensive by construction: the JSON is model
-// output, so every number is coerced and finite-checked, every string
-// is length-capped and XML-escaped, and every array is sliced to a
-// hard ceiling. A malformed spec renders nothing rather than throwing
-// inside renderMarkdown (which runs ~25x per streamed response).
 const _CHART_MAX = { labels: 24, series: 6, points: 60, nodes: 30, edges: 60 };
-// Increments per flowchart so each <defs> marker id is unique.
+
 let _aiChartSeq = 0;
 
-// Tolerant parse, mirroring the three-attempt strategy _extractQuiz
-// already uses: raw, then repair trailing commas / quotes / unquoted
-// keys, then give up and render nothing.
 function _chartParseJSON(raw) {
   const s = String(raw || "");
   try { return JSON.parse(s); } catch {}
@@ -1162,8 +1033,6 @@ function _chartStr(v, max) {
 function _chartColor(i) { return `var(--chart-${(i % 6) + 1})`; }
 function _chartKeyCls(i) { return `k${(i % 6) + 1}`; }
 
-// Axis top: round 1.2 -> 2, 3400 -> 5000, so gridlines land on numbers
-// people actually read. Negative maxima fall back to the raw max.
 function _chartNiceMax(v) {
   if (!(v > 0)) return 1;
   const mag = Math.pow(10, Math.floor(Math.log10(v)));
@@ -1178,8 +1047,7 @@ function _chartFmt(n) {
   if (a >= 1e3) return (n / 1e3).toFixed(a >= 1e4 ? 0 : 1).replace(/\.0$/, "") + "k";
   return String(Math.round(n * 100) / 100);
 }
-// Greedy word wrap for SVG labels, which have no text engine we can
-// rely on for automatic wrapping. Ellipsises past maxLines.
+
 function _chartWrap(text, per, maxLines) {
   const words = String(text || "").split(/\s+/).filter(Boolean);
   const lines = [];
@@ -1196,7 +1064,6 @@ function _chartWrap(text, per, maxLines) {
   return out;
 }
 
-// Shared x/y frame for the cartesian charts (bar + line).
 function _chartFrame(opts) {
   const { w, h, padL, padR, padT, padB, max, ticks } = opts;
   const plotW = w - padL - padR;
@@ -1223,7 +1090,7 @@ function _chartCartesian(spec, kind) {
     data: (Array.isArray(s && s.data) ? s.data : []).slice(0, _CHART_MAX.points).map(_chartNum)
   })).filter((s) => s.data.some((v) => v !== null));
   if (!series.length) {
-    // Flat shorthand: {"labels":[…],"data":[…]} with no series array.
+
     const flat = (Array.isArray(spec.data) ? spec.data : []).slice(0, _CHART_MAX.points).map(_chartNum);
     if (!flat.some((v) => v !== null)) return "";
     series = [{ name: _chartStr(spec.name, 30) || "Value", data: flat }];
@@ -1235,10 +1102,6 @@ function _chartCartesian(spec, kind) {
   const min = low < 0 ? low : 0;
   const max = _chartNiceMax(peak || 1);
 
-  // Fixed canvas rather than one that shrinks to the label count: CSS
-  // renders these at width:100%, so a narrow viewBox gets UPSCALED to
-  // the full bubble and the 11px tick labels end up at 20px. A fixed
-  // canvas plus max-width = natural size keeps the drawing 1:1.
   const W = 680, H = 250, padL = 54, padR = 16, padT = 14, padB = 42;
   const f = _chartFrame({ w: W, h: H, padL, padR, padT, padB, max: max - min, ticks: 4 });
   const y = (v) => min < 0
@@ -1321,8 +1184,7 @@ function _chartPie(spec) {
   pairs.forEach((p, i) => {
     const frac = p.v / total;
     const a1 = a0 + frac * Math.PI * 2;
-    // A full-circle slice cannot be drawn as an arc (start === end), so
-    // a 100% pie falls back to two half arcs.
+
     const full = frac >= 0.9999;
     const end = full ? a0 + Math.PI * 2 - 0.0001 : a1;
     const large = end - a0 > Math.PI ? 1 : 0;
@@ -1355,9 +1217,6 @@ function _chartPie(spec) {
   return { svg: g, legend };
 }
 
-// Longest-path levelling so edges always point downwards; a cycle in
-// the model's graph would otherwise never settle, hence the bounded
-// iteration count.
 function _chartLevels(nodes, edges) {
   const level = new Map(nodes.map((n) => [n.id, 0]));
   for (let pass = 0; pass < nodes.length; pass++) {
@@ -1420,15 +1279,9 @@ function _chartFlow(spec) {
     cursorY += meta.h + VGAP;
   }
 
-  // Natural size, capped at natural size when rendered: CSS scales these
-  // to width:100%, and a flowchart has a deliberately small viewBox, so
-  // without the cap a two-node graph was blown up ~2x and the 12px
-  // labels and boxes read as overlapping. The marker id is per-instance
-  // because several flowcharts can share one message and duplicate ids
-  // are invalid (and would make every arrow resolve to the first def).
   const markerId = `aiChartArrow${_aiChartSeq++}`;
   let g = `<svg class="ai-chart-svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="max-width:${W}px" role="img">`;
-  // defs gives every arrow the same head without repeating the path.
+
   g += `<defs><marker id="${markerId}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" fill="var(--chart-axis)"/></marker></defs>`;
 
   for (const e of edges) {
@@ -1441,8 +1294,7 @@ function _chartFlow(spec) {
       g += `<path d="M ${sx} ${sy} V ${my} H ${tx} V ${ty - 7}" fill="none" stroke="var(--chart-axis)" stroke-width="1.8" marker-end="url(#${markerId})"/>`;
       if (e.label) g += `<text x="${((sx + tx) / 2).toFixed(1)}" y="${(my - 6).toFixed(1)}" text-anchor="middle" class="ai-chart-edgelabel">${escapeHtml(e.label)}</text>`;
     } else {
-      // Same-level edge: bulge out to the right so it does not cut
-      // straight through the boxes in between.
+
       const mid = (sy + ty) / 2;
       const bulge = Math.min(W - 8, Math.max(a.x + a.w, b.x + b.w) + 24);
       g += `<path d="M ${a.x + a.w} ${sy} C ${bulge} ${sy} ${bulge} ${ty} ${b.x + b.w} ${ty}" fill="none" stroke="var(--chart-axis)" stroke-width="1.8" marker-end="url(#${markerId})"/>`;
@@ -1469,8 +1321,6 @@ function _chartFlow(spec) {
   return { svg: g, legend: "" };
 }
 
-// Single entry point. Returns "" for anything unusable so the caller
-// can simply drop the block.
 function aiChartSVG(type, title, rawJSON) {
   const spec = _chartParseJSON(rawJSON);
   if (!spec || typeof spec !== "object") return "";
@@ -1487,16 +1337,13 @@ function aiChartSVG(type, title, rawJSON) {
   return `<div class="ai-chart" data-type="${type === "flowchart" || type === "pie" || type === "line" ? type : "bar"}">${head ? `<div class="ai-chart-title">${escapeHtml(head)}</div>` : ""}<div class="ai-chart-plot">${built.svg}</div>${built.legend || ""}</div>`;
 }
 
-// Read one attribute out of a raw tag's attribute string. Quote-aware,
-// so a value containing ">" (title="a > b") still parses.
 function _aiTagAttr(attrs, name) {
   const s = String(attrs || "");
   return (s.match(new RegExp("\\b" + name + "\\s*=\\s*\"([^\"]*)\"", "i")) ||
     s.match(new RegExp("\\b" + name + "\\s*=\\s*'([^']*)'", "i")) || [])[1] || "";
 }
 function _aiSafeLabel(raw, fallback) {
-  // Model-authored, lands in innerHTML — must be sanitized. Strip our
-  // own tags so a title can never recursively build another card/dropdown.
+
   const clean = String(raw || "").trim()
     .replace(/<\/?(dropdown|details|summary|cards|card|icon)\b[^>]*>/gi, "");
   return _mdInline(renderMarkdown(clean)) || fallback || "";
@@ -1523,8 +1370,7 @@ function aiCardsHTML(layout, groupTitle, inner, groupIconName) {
     return "\n";
   });
   rest = rest.replace(/<\/?card\b[^>]*>/gi, "");
-  // No <card> children at all: keep the prose rather than emit an
-  // empty grid, so a half-formed block still shows what it carried.
+
   if (!cards.length) {
     const loose = renderMarkdown(rest).trim();
     return loose ? `<div class="ai-cards" data-layout="${lay}"><div class="ai-card"><div class="ai-card-body md-content">${loose}</div></div></div>` : "";
@@ -1536,62 +1382,27 @@ function aiCardsHTML(layout, groupTitle, inner, groupIconName) {
   return `${head}<div class="ai-cards" data-layout="${lay}">${cards.map((c) => _aiCardOne(c.a, c.b)).join("")}</div>`;
 }
 
-// ── Payload tag matching (quiz / es-app / es-edit) ───────────
-// These tags are matched TOLERANTLY on purpose. The literal
-// "<es-app>" only ever matches that exact spelling, so when the model
-// wrote <es-app type="panel">, <es-app > or <ES-APP> nothing matched,
-// the strip in renderMarkdown did nothing, and the ENTIRE JSON payload
-// was rendered into the message as a wall of text. Tolerating
-// attributes, whitespace before ">", and casing costs nothing and
-// removes that whole failure class.
 const _TAGS = [
   { name: "quiz", open: "<quiz" },
   { name: "es-app", open: "<es-app" },
   { name: "es-edit", open: "<es-edit" },
   { name: "suggestions", open: "<suggestions" },
 ];
-// Match either the full block (payload included) or, while streaming,
-// an unterminated opening tag through to the end of the text.
+
 function _tagBlockRe(tag, global) {
   return new RegExp(`${tag.open}(?:\\s[^>]*)?>[\\s\\S]*?(?:</${tag.name}\\s*>|$)`, global ? "gi" : "i");
 }
-// The opening tag on its own — used to find where a block starts so the
-// visible text can be split around it.
+
 function _tagOpenRe(tag) {
   return new RegExp(`${tag.open}(?:\\s[^>]*)?>`, "i");
 }
 const _TAG_QUIZ = _TAGS[0], _TAG_APP = _TAGS[1], _TAG_EDIT = _TAGS[2], _TAG_SUGGEST = _TAGS[3];
 
-// ── Text colour + highlight spans (the model emits these) ─────
-//
-// The model's two Docs-parity tags: <color name="red">…</color> and
-// <highlight color="Yellow">…</highlight>. Both are lifted to
-// placeholders before marked runs — so DOMPurify never sees the raw tag —
-// and re-injected after it, exactly like the dropdowns and cards below.
-//
-// ORDER MATTERS: this runs BEFORE the dropdown/card pass, because a run may
-// wrap one of those blocks and a <dropdown> captured into ddBody first would
-// be a bare AIDROPDOWNnAIDROPDOWN token by the time the colour run was read
-// back — resolved against the wrong array, block gone. Lifting the colour
-// run first keeps its body as ordinary markdown, so the recursive
-// renderMarkdown() that renders it finds the block intact.
-//
-// The stash is GLOBAL and consume-once, unlike the per-call arrays beside
-// it, because a <color> inside a <dropdown>/<card> body is lifted by that
-// block's own recursive renderMarkdown() rather than by this one. A
-// per-call index would then be written against one array and read out of
-// another, and the text would silently vanish. A globally unique token
-// cannot be misread, and deleting the entry on use means it resolves exactly
-// once no matter which pass reaches it first.
 const _mdTint = (window._mdTint = window._mdTint || {});
 const _mdFence = (window._mdFence = window._mdFence || {});
 function _mdLiftTints(src) {
   if (!/<(?:color|highlight)\b/i.test(src)) return src;
-  // Code fences are MASKED, not split out. A run may legitimately wrap a
-  // code span — "use <color name=red>`npm run dev`</color>" — and splitting
-  // on the fence would cut that run in half and drop the colour. The mask
-  // is undone before the body is handed on (see the AIMDTINT injector), so
-  // the recursive renderMarkdown() lifts the fence itself.
+
   let work = src.replace(/(```[\s\S]*?```|`[^`\n]+`)/g, (m) => {
     const key = "f" + (window._mdFenceSeq = (window._mdFenceSeq || 0) + 1);
     _mdFence[key] = m;
@@ -1606,10 +1417,7 @@ function _mdLiftTints(src) {
       const closeIdx = work.toLowerCase().indexOf(close, m.index + m[0].length);
       if (closeIdx === -1) continue;
       const inner = work.slice(m.index + m[0].length, closeIdx);
-      // Only the OUTERMOST tag of a run is lifted here. If the body still
-      // holds a <color>/<highlight>, the recursive renderMarkdown() we
-      // hand that body to lifts that one instead — so nesting resolves
-      // inside-out and no span is ever wrapped twice.
+
       if (/<(color|highlight)\b/i.test(inner)) continue;
       hit = { name, attrs: m[2], inner, start: m.index, end: closeIdx + close.length };
       break;
@@ -1625,13 +1433,7 @@ function _mdLiftTints(src) {
     return fence ?? "";
   });
 }
-/* A colour/highlight run is INLINE, so its body must not arrive wrapped in
-   a <p>: a paragraph inside the span the run becomes is invalid nesting and
-   the parser hoists it straight back out, which snaps the sentence in half
-   mid-word. renderMarkdown() block-wraps everything it returns, so exactly
-   one wrapper is peeled — and only when the body really is a single
-   paragraph. Block markup of its own (a list, a table, a card) is left
-   alone: that case renders beside the run rather than inside it. */
+
 function _mdTintBody(body) {
   const m = /^\s*<p>([\s\S]*)<\/p>\s*$/.exec(body);
   if (!m) return body;
@@ -1641,41 +1443,14 @@ function _mdTintBody(body) {
 function renderMarkdown(raw) {
   if (typeof marked === "undefined") return escapeHtml(raw);
   let text = raw;
-  // Payload tags are removed WHOLLY — payload included — so a block
-  // that never becomes a card can never dump its JSON into the reply.
+
   text = text.replace(_tagBlockRe(_TAG_QUIZ, true), "");
   text = text.replace(_tagBlockRe(_TAG_APP, true), "");
   text = text.replace(_tagBlockRe(_TAG_EDIT, true), "");
   text = text.replace(_tagBlockRe(_TAG_SUGGEST, true), "");
-  // ── Text colour + highlight runs ──────────────────────────
-  // Lifted first, ahead of every other block-level tag below, so a run
-  // that wraps one of those blocks keeps its body as ordinary markdown.
+
   text = _mdLiftTints(text);
-  // ── Collapsible dropdowns + card groups + icons ─────────────
-  // The model may wrap any part of its answer in a collapsible
-  // section, a group of cards, or drop an <icon name="…"/> anywhere
-  // in its own markdown. Four syntaxes are accepted (see the
-  // [COLLAPSIBLE DROPDOWNS] / [AI CARDS] / [ICONS] harness in the
-  // system prompt):
-  //   <dropdown title="How it works"> …markdown… </dropdown>
-  //   <details><summary>How it works</summary>…</details>
-  //   <cards layout="grid-2"><card title="…">…</card></cards>
-  //   <icon name="bolt"/>            (inline, anywhere in prose)
-  // Only COMPLETE blocks are lifted out.
-  //
-  // ONE combined regex handles code fences alongside the tags, and
-  // alternation order + leftmost-match is what makes both directions
-  // correct in a single pass:
-  //   • a <dropdown> inside a fence is sample text — the fence starts
-  //     earlier, so alternative 1 wins and the tag is left alone;
-  //   • a fence inside a <dropdown> body — the tag starts earlier, so
-  //     its alternative wins and the fence is captured into the body.
-  // Splitting fences out first would break the second case (a fence
-  // before the closing tag would strand the open tag).
-  // Bodies are rendered by a recursive renderMarkdown() call, which
-  // owns its own placeholder arrays, so no index collisions. Because
-  // each block is re-rendered recursively, cards and dropdowns nest
-  // freely (a card body may hold a dropdown).
+
   const dropdownBlocks = [];
   const cardBlocks = [];
   const iconBlocks = [];
@@ -1689,8 +1464,7 @@ function renderMarkdown(raw) {
     return `AICARDS${i}AICARDS`;
   };
   const _stashIcon = (name) => `AIICON${iconBlocks.push(name) - 1}AIICON`;
-  // <chart type="bar"> and <flowchart> both carry a JSON payload; the
-  // alias is accepted so the model can reach for either name.
+
   const _stashChart = (kind, attrs, body) => `AICHART${chartBlocks.push({ kind, attrs, body }) - 1}AICHART`;
   text = text.replace(
     /(```[\s\S]*?```|`[^`\n]+`)|<details\b[^>]*>([\s\S]*?)<\/details>|<dropdown\b((?:"[^"]*"|'[^']*'|[^>"'])*)>([\s\S]*?)<\/dropdown>|<cards\b((?:"[^"]*"|'[^']*'|[^>"'])*)>([\s\S]*?)<\/cards>|<icon\b((?:"[^"]*"|'[^']*'|[^>"'])*)\/?>|<flowchart\b[^>]*>([\s\S]*?)<\/flowchart>|<chart\b[^>]*>([\s\S]*?)<\/chart>/gi,
@@ -1709,26 +1483,12 @@ function renderMarkdown(raw) {
         const kind = _chartStr(_aiTagAttr(a, "type"), 12).toLowerCase();
         return _stashChart(kind, a, chartBody);
       }
-      // The open tag is matched quote-aware above, not with [^>]*: a
-      // title may legitimately contain ">" ("Why x > y matters") and a
-      // naive [^>]* would stop inside it and swallow the body.
+
       const title = _aiTagAttr(ddAttrs, "title");
       return _stashDropdown(title, ddBody, /(^|\s)open(\s|=|$)/i.test(ddAttrs), _aiTagAttr(ddAttrs, "icon"));
     }
   );
-  // Leftovers: an unterminated tag (still streaming), a self-closing
-  // stray, or a lone closing tag. Drop them entirely rather than let
-  // raw markup flash at the user — same treatment as <quiz>/<es-app>.
-  // Applied per non-fence segment only: the "…through end of text"
-  // rule would otherwise start inside a fence and swallow its closing
-  // backticks, taking the whole code block with it.
-  //
-  // A colour/highlight run contributes only its LONE closing tag here.
-  // An unclosed opening tag is deliberately left alone: the lift declined
-  // it, and the "…through end of text" rule would swallow every remaining
-  // sentence of a still-streaming reply to remove a tag that renders as
-  // nothing anyway. The browser drops the unknown element and keeps the
-  // text, which is the right trade.
+
   const _cleanStrayTags = (s) => s
     .replace(/<dropdown\b(?:(?:"[^"]*"|'[^']*'|[^>"'])*)>[\s\S]*$/gi, "")
     .replace(/<details\b[^>]*>[\s\S]*$/gi, "")
@@ -1736,28 +1496,22 @@ function renderMarkdown(raw) {
     .replace(/<(chart|flowchart)\b[^>]*>[\s\S]*$/gi, "")
     .replace(/<\/?(dropdown|details|summary|cards|card|icon|chart|flowchart)\b[^>]*>/gi, "")
     .replace(/<\/?(color|highlight)\b[^>]*>/gi, "");
-  // split() with a capturing group interleaves: even indexes are prose,
-  // odd indexes are the fences.
+
   text = text
     .split(/(```[\s\S]*?```|`[^`\n]+`)/)
     .map((part, i) => (i % 2
-      // Inside a fence our tags are sample text, but DOMPurify would
-      // strip them as unknown elements — and since <icon/> has no text
-      // content of its own, showing it as a sample would render an EMPTY
-      // code block. Escape only our own tag openings so they display
-      // literally; every other tag in a fence keeps today's behaviour.
+
       ? part.replace(/<(dropdown|details|summary|cards|card|icon|chart|flowchart)\b/gi, "&lt;$1")
       : _cleanStrayTags(part)))
     .join("");
-  // Convert [IMAGE: url] tags to inline image HTML before markdown processing.
-  // This ensures images render inline in the chat like ChatGPT, not as raw text.
+
   const webImageBlocks = [];
   text = text.replace(/\[IMAGE:\s*([^\]]+)\]/gi, (_, url) => {
     const cleanUrl = url.trim();
     const i = webImageBlocks.push({ type: 'url', value: cleanUrl }) - 1;
     return `WEBIMAGE${i}WEBIMAGE`;
   });
-  // Also convert [IMAGE_SEARCH: query] tags - these will be processed client-side
+
   text = text.replace(/\[IMAGE_SEARCH:\s*([^\]]+)\]/gi, (_, query) => {
     const cleanQuery = query.trim();
     const i = webImageBlocks.push({ type: 'search', value: cleanQuery }) - 1;
@@ -1773,80 +1527,37 @@ function renderMarkdown(raw) {
     const i = mathBlocks.push({ type: "block", src: m }) - 1;
     return `MATHBLOCK${i}MATHBLOCK`;
   });
-  // Also support \[...\] block math delimiters (some models use these)
+
   text = text.replace(/\\\[([\s\S]+?)\\\]/g, (_, m) => {
     const i = mathBlocks.push({ type: "block", src: m }) - 1;
     return `MATHBLOCK${i}MATHBLOCK`;
   });
-  // Inline math: $...$
-  // CRITICAL: The naive regex /\$([^$\n]+?)\$/g treats ANY pair of $
-  // signs as math delimiters. When the output contains currency amounts
-  // (e.g. "$62,932.68 USD. Euler's identity is $e^{i\pi}$."), the regex
-  // matches from the first $ to the second $, swallowing the prose between
-  // them into a single "math" block. KaTeX fails to parse prose as math,
-  // and with throwOnError:false it falls back to raw markup — the
-  // "raw LaTeX" / "mashed words" bug.
-  //
-  // Fix: use an exec-based loop with content validation. When a match is
-  // rejected (not valid math), we advance past only the opening $, so the
-  // closing $ can serve as the opening $ of the next potential math block.
-  // This correctly handles "$currency. Math is $e^{i\pi}$." — the first
-  // pair is rejected (prose), and the second pair is accepted (real math).
+
   {
     const _mathRe = /\$([^$]+?)\$/gs;
     let _mm, _lastEnd = 0, _result = '';
     while ((_mm = _mathRe.exec(text)) !== null) {
       const _fullStart = _mm.index;
       const _inner = _mm[1];
-      // Reject prose/currency between $ signs:
-      //  - sentence boundary ("$62,932.68 USD. Euler's identity is $")
-      //  - blank-line paragraph break
-      //  - currency-like content: thousands-grouped numbers ("1,234" /
-      //    "5,000 for the whole trip"), decimals ("12.50"), or long pure
-      //    digit/comma strings ("62,932"). Short item lists ("0, 1, atau 2")
-      //    and real math ("0{,}1|...|1\times 10^{-3}") are NOT currency and
-      //    must be rendered as math.
-      //  - PROSE smuggled between stray $ signs (e.g. a long sentence that
-      //    happens to start with "$-203,7" and end with "-155$"). Math never
-      //    contains double quotes, and real inline math rarely has >=3
-      //    multi-letter words or >=3 single-character lines (the latter is
-      //    the model's char-by-char hallucination, like "$0, 1,\na\nt\na\nu
-      //    \natau2$"). Such spans are left literal so Markdown + the
-      //    char-run collapse handle them as ordinary text.
-      // The 's' flag lets math span newlines — the model frequently wraps
-      // multi-line expressions in $...$ (and hallucinates single-char line
-      // runs), which previously leaked as literal "$...$" text.
+
       const _hasLaTeX = /\\[a-zA-Z]/.test(_inner);
-      // The final "long pure number" guard must reject GARBAGE, not math.
-      // The old shape check (/^[^\d]*\d[\d,]*$/) matches any span that ENDS
-      // in a number — the arbitrary non-digit PREFIX lets formulas like
-      // "E = mc^2" through, so they were misclassified as currency and their
-      // $ pair rejected. That then let the next $ swallow the prose between
-      // two inline math spans: "$E = mc^2$, where $c \approx...$" became
-      // "$E = mc^2 <math>,where </math>c \approx...$". Only treat a span as
-      // a bare number when stripping thousands separators / whitespace leaves
-      // a pure digit string (with an optional leading sign) — letters/symbols
-      // mean it is a formula, not a currency amount.
+
       const _compactNum = _inner.replace(/[,\s]/g, "");
       const _isCurrency = !_hasLaTeX && (
         /(?:^|\D)\d{1,3}(?:,\d{3})+(?:\.\d+)?/.test(_inner) ||
         /\d\.\d/.test(_inner) ||
         (/^[^\d]*\d[\d,]*$/.test(_inner) && /^-?[\d.]+$/.test(_compactNum) && _compactNum.length >= 5)
       );
-      // Char-by-char hallucination: >=3 single-character lines inside a
-      // $...$ span means the model broke a sentence apart (e.g. "R\nu\nm\nu\n
-      // s\n:\n"). Real math never has that, so reject EVEN IF LaTeX commands
-      // are present — the span is contaminated prose, not a formula.
+
       const _soloChars = _inner.split("\n").filter((l) => l.trim().length === 1 && /\S/.test(l)).length;
       const _isProse = /["“”]/.test(_inner) || _soloChars >= 3 || (!_hasLaTeX && (_inner.match(/[a-zA-Z]{2,}/g) || []).length >= 3);
       if (/\.\s/.test(_inner) || /\n\s*\n/.test(_inner) || _isCurrency || _isProse) {
-        // Not valid math — keep the opening $ and content as literal text,
-        // but let the closing $ be re-scanned as a potential opening $
+
         _result += text.slice(_lastEnd, _fullStart + 1 + _inner.length);
-        _lastEnd = _fullStart + 1 + _inner.length; // position of closing $
+        _lastEnd = _fullStart + 1 + _inner.length;
         _mathRe.lastIndex = _lastEnd;
       } else {
-        // Valid math — replace with placeholder (consume both $ signs)
+
         _result += text.slice(_lastEnd, _fullStart);
         const i = mathBlocks.push({ type: "inline", src: _inner }) - 1;
         _result += `MATHINLINE${i}MATHINLINE`;
@@ -1857,9 +1568,7 @@ function renderMarkdown(raw) {
     _result += text.slice(_lastEnd);
     text = _result;
   }
-  // Also support \(...\) inline math delimiters (some models use these).
-  // Use a tempered greedy token to allow backslashes inside the content
-  // (e.g. \(e^{i\pi}\)) — the old regex [^\\\n]+? stopped at the first \.
+
   text = text.replace(/\\\(((?:(?!\\\))[\s\S])+?)\\\)/g, (_, m) => {
     const i = mathBlocks.push({ type: "inline", src: m }) - 1;
     return `MATHINLINE${i}MATHINLINE`;
@@ -1870,55 +1579,36 @@ function renderMarkdown(raw) {
   if (typeof DOMPurify !== "undefined") {
     html = DOMPurify.sanitize(html, { ADD_ATTR: ["target", "loading", "referrerpolicy", "data-web-img"] });
   }
-  // Re-insert web image HTML after DOMPurify (img is allowed by default)
+
   html = html.replace(/WEBIMAGE(\d+)WEBIMAGE/g, (_, i) => {
     const imgData = webImageBlocks[+i];
     if (!imgData) return '';
     if (imgData.type === 'search') {
-      // [IMAGE_SEARCH: query] - show loading placeholder, will be filled by JS
+
       const safeQuery = escapeHtmlAttr(imgData.value);
       return `<div class="web-image-result web-image-searching" data-img-search="${safeQuery}"><div class="web-image-search-spinner"></div><span class="web-image-search-text">Searching for "${safeQuery}"...</span></div>`;
     }
-    // [IMAGE: url] - direct URL
+
     const safeUrl = escapeHtmlAttr(imgData.value);
     return `<div class="web-image-result" data-web-img="1"><img class="web-image" src="${safeUrl}" alt="Image" loading="lazy"></div>`;
   });
-  // Re-insert collapsible dropdowns AFTER sanitization: this markup is
-  // ours (inline onclick, data attrs), so it must never reach DOMPurify.
-  // The alternation also eats the wrapping <p> marked emits around a
-  // block-level placeholder, which would otherwise leave an empty
-  // paragraph either side of the card once the HTML parser splits it.
+
   html = html.replace(/<p>\s*AIDROPDOWN(\d+)AIDROPDOWN\s*<\/p>|AIDROPDOWN(\d+)AIDROPDOWN/g, (m, a, b) => {
     const blk = dropdownBlocks[+(a ?? b)];
     return blk ? aiDropdownHTML(blk.title, blk.body, blk.open, blk.icon) : "";
   });
-  // Card groups, same reasoning as dropdowns: injected after
-  // sanitization because the markup is ours, and the <p> marked wraps a
-  // block-level placeholder in is eaten to avoid empty paragraphs.
+
   html = html.replace(/<p>\s*AICARDS(\d+)AICARDS\s*<\/p>|AICARDS(\d+)AICARDS/g, (m, a, b) => {
     const blk = cardBlocks[+(a ?? b)];
     if (!blk) return "";
     return aiCardsHTML(_aiTagAttr(blk.attrs, "layout"), _aiTagAttr(blk.attrs, "title"), blk.inner, _aiTagAttr(blk.attrs, "icon"));
   });
-  // Colour + highlight, injected after sanitization for the same reason,
-  // and — like <icon/> — INLINE: no <p> is eaten, or the span would tear
-  // its own sentence in half.
-  //
-  // The emitted span is the markup Docs' own execCommand("foreColor") /
-  // exec("hiliteColor") calls leave behind, so a coloured run is the same
-  // construct in a reply as on a page. The body goes back through
-  // renderMarkdown() so markdown inside a coloured run still renders, and
-  // any nested <color>/<highlight> inside it is lifted by that pass.
-  //
-  // A name or hex the shared Docs swatches do not know is dropped and the
-  // text is kept unstyled — the span never falls back to a colour the
-  // model made up.
+
   html = html.replace(/AIMDTINT(t\d+)AIMDTINT/g, (_, key) => {
     const item = _mdTint[key];
     if (!item) return "";
     delete _mdTint[key];
-    // Unmask any fence the run wrapped, so the recursive renderMarkdown()
-    // below lifts that fence as an ordinary code block.
+
     const src = item.body.replace(/\u0003MDTF(f\d+)\u0003/g, (_, k) => {
       const fence = _mdFence[k];
       delete _mdFence[k];
@@ -1934,20 +1624,7 @@ function renderMarkdown(raw) {
     if (!css) return body;
     return `<span class="${isColor ? "md-color" : "md-hl"}" style="${isColor ? "color" : "background-color"}:${css}">${body}</span>`;
   });
-  // Inline <icon/> is different: it sits INSIDE a paragraph, so the
-  // placeholder is replaced on its own — no <p> is eaten, or the icon
-  // would tear its sentence in half.
-  //
-  // Spacing is derived from the REAL neighbours rather than a fixed
-  // margin. The model writes both "<icon/>word" and "word <icon/>", so
-  // one fixed value either collides with the preceding text or doubles
-  // up with a space the source already has. Two modifier classes:
-  //   ai-icon-lead — text abuts it on the left, add space there
-  //   ai-icon-next — text abuts it on the right, add space there
-  // Block boundaries (a <p>/<li>/<br> on one side) mean the icon is at
-  // the START or END of a run, not glued to text, so they suppress the
-  // modifier; an inline closing tag like </strong> does not, because
-  // there the icon really does collide with the text before it.
+
   const EDGE_TAGS = "(p|li|h[1-6]|td|th|div|blockquote|pre|br|ul|ol|table|tbody|thead|tr|dd|dt|section|article|figure|figcaption)";
   const EDGE_BEFORE = new RegExp(`<\\/?${EDGE_TAGS}\\b[^>]*\\/?>$`, "i");
   const EDGE_AFTER = new RegExp(`^<\\/?${EDGE_TAGS}\\b[^>]*\\/?>`, "i");
@@ -1960,9 +1637,7 @@ function renderMarkdown(raw) {
     const next = after && !/^\s/.test(after) && !EDGE_AFTER.test(after) && !/^AIICON\d+AIICON/.test(after) ? " ai-icon-next" : "";
     return svg.replace('class="ai-icon"', `class="ai-icon${lead}${next}"`);
   });
-  // Charts are injected after sanitization for the same reason. Unlike
-  // cards/dropdowns there may be NO <p> around them (a chart often sits
-  // alone between paragraphs), so both shapes are accepted.
+
   html = html.replace(/<p>\s*AICHART(\d+)AICHART\s*<\/p>|AICHART(\d+)AICHART/g, (m, a, b) => {
     const blk = chartBlocks[+(a ?? b)];
     if (!blk) return "";
@@ -1992,20 +1667,12 @@ function _mdInline(raw) {
 function _mdBlock(raw) {
   return renderMarkdown(raw).trim();
 }
-/* Longest a [MEMORY]…[/MEMORY] block may be and still count as memory. The
-   worker tells the model a block "may contain any characters, newlines, and
-   brackets" and must be "SUMMARIZED and condensed", so anything longer than
-   this is the model forgetting the closing tag mid-answer, not a memory. */
+
 const _MEM_BLOCK_MAX = 1200;
 const _MEM_BLOCK_SRC = "\\[MEMORY\\]([\\s\\S]{0," + _MEM_BLOCK_MAX + "}?)\\[\\/MEMORY\\]";
 const _MEM_BLOCK_RE = new RegExp(_MEM_BLOCK_SRC, "g");
 const _MEM_SHORT_RE = /\[MEMORY:\s*([^\]\n]{1,400})\]/g;
 
-/* Is this actually a memory, or is it the model's answer?
-   A real block is a short condensed list. Answer-shaped content — headings, code
-   fences, tables — means the model opened the tag and then kept writing its
-   reply, and that text must never be removed. Checking content shape rather
-   than length is what makes this safe: the swallowed-answer case can be short. */
 function _memBlockIsMemoryish(body) {
   const t = String(body || "").trim();
   if (!t) return false;
@@ -2019,10 +1686,7 @@ function _memBlockIsMemoryish(body) {
 function _extractMemories(text) {
   const out = [];
   const s = String(text || "");
-  // Bounded for the same reason as _stripMemoryTags: an unbounded lazy match
-  // captured the model's whole answer as "memory" whenever it opened a block and
-  // closed it at the end, which both blanked the reply and poisoned the memory
-  // store with the answer text.
+
   for (const bm of s.matchAll(new RegExp(_MEM_BLOCK_SRC, "g"))) {
     const t = bm[1].trim();
     if (t && _memBlockIsMemoryish(t)) out.push({ tag: bm[0], text: t });
@@ -2035,26 +1699,12 @@ function _extractMemories(text) {
   return out;
 }
 
-/* Strips memory tags WITHOUT ever deleting the user's answer.
-   Two bugs lived here, both of which blanked the whole response:
-     · "[MEMORY]…[/MEMORY]" matched lazily across any distance, so a model that
-       opened the block and answered before closing it had its ENTIRE reply
-       swallowed as "memory" — the user saw an empty message and the answer was
-       stored as a memory.
-     · /\s*\[MEMORY(?:\]|:)[^]*$/ deleted from the tag to END OF STRING, which is
-       what truncated the response mid-stream every time a block was opened but
-       not yet closed.
-   Now only well-formed, plausibly-sized blocks are removed; anything else is
-   left in place with just the literal delimiter neutralised. */
 function _stripMemoryTags(text) {
   let s = String(text || "");
-  // A real memory block is removed. If the "block" is actually the model's
-  // answer, keep the body and drop only the delimiters, so nothing the user
-  // wrote or asked for can ever be deleted from the reply.
+
   s = s.replace(_MEM_BLOCK_RE, (_m, body) => (_memBlockIsMemoryish(body) ? " " : String(body)));
   s = s.replace(_MEM_SHORT_RE, " ");
-  // Leftovers: an unterminated or oversized tag. Remove only the tag itself —
-  // never the prose around it.
+
   s = s.replace(/\[\/MEMORY\]/g, "");
   s = s.replace(/\[MEMORY\]/g, "");
   s = s.replace(/\[MEMORY:[^\]\n]{0,400}/g, "");
@@ -2093,9 +1743,7 @@ function _streamDisplayText(raw) {
     return { text: t.slice(0, quizIdx), quizStarted: true, appStarted: false, editStarted: false };
   }
   t = _trimPartial("<quiz");
-  // <suggestions> is always the LAST thing in a reply, so once it opens
-  // the answer is complete — cut there instead of letting the streaming
-  // renderer flash a half-typed JSON array at the user.
+
   t = _trimPartial("<suggestions");
   const suggIdx = t.search(/<suggestions(?:\s[^>]*)?>/i);
   if (suggIdx >= 0) {
@@ -2103,20 +1751,7 @@ function _streamDisplayText(raw) {
   }
   return { text: t, quizStarted: false, appStarted: false, editStarted: false };
 }
-/* ── Per-word streaming reveal ──────────────────────────────────
-   Wraps each whitespace-separated token in the streaming message
-   text in a <span class="stream-word">. Words that are NEW since
-   the last call (index >= previously-wrapped count, tracked on
-   textEl.dataset.streamWords) get the `is-new` modifier, which
-   triggers a blur-in animation DIRECTLY on insertion: the word
-   starts hidden (opacity 0, blurred) and animates to sharp — no
-   show→hide→animate flash. Words that were already shown are
-   left untouched (no `is-new` class) so they don't re-animate
-   every time the streaming innerHTML is rebuilt.
 
-   Skips text inside <pre>/<code>/<script>/<style> where
-   word-wrapping would break formatting. The streaming cursor
-   span (no text content) is naturally skipped by the TreeWalker. */
 const _STREAM_WORD_SKIP = new Set(['PRE', 'CODE', 'SCRIPT', 'STYLE', 'TEXTAREA', 'INPUT']);
 function _wrapStreamWords(textEl) {
   if (!textEl || !textEl.nodeType) return;
@@ -2362,11 +1997,6 @@ function createPreviewSrcdoc(html, css, js) {
     };
   }
   try {
-    // In a sandboxed iframe (no allow-same-origin), accessing the native
-    // localStorage throws SecurityError. The native property is often
-    // non-configurable, so Object.defineProperty alone may silently fail.
-    // Strategy: try delete first, then defineProperty with writable:true,
-    // then verify it took effect, with a final fallback to direct assignment.
     function installStorage(name, shim) {
       try {
         try { delete window[name]; } catch (e) {}
@@ -2557,22 +2187,7 @@ function runCode(btn) {
     showToast(`${_aiSvgError} Failed to open code preview.`);
   }
 }
-// ============================================================================
-// EVENT DELEGATION FOR CODE BLOCK BUTTONS  (fix: DOMPurify strips onclick)
-// ----------------------------------------------------------------------------
-// DOMPurify.sanitize() in renderMarkdown() strips ALL inline event handler
-// attributes (onclick, oninput, ...) from the HTML. The code-block renderer
-// emits <button class="md-copy-btn" onclick="copyCode(this)"> and
-// <button class="md-run-btn" onclick="runCode(this)">, but after DOMPurify
-// runs the onclick is gone — so clicking Copy / Run does nothing.
-//
-// Rather than weakening DOMPurify by adding "onclick" to ADD_ATTR (which
-// would let AI-generated HTML inject arbitrary handlers), we install a
-// single delegated click listener on the document. When a click lands inside
-// a .md-copy-btn or .md-run-btn, we route it to copyCode() / runCode().
-// The inline onclick attributes remain in the renderer output as a fallback
-// for any code path that does NOT pass through DOMPurify.
-// ============================================================================
+
 document.addEventListener("click", function(e) {
   const btn = e.target.closest(".md-copy-btn, .md-run-btn");
   if (!btn) return;
@@ -2614,9 +2229,7 @@ function closeCodePreviewPanel() {
   }, 320);
 }
 window.addEventListener("message", (event) => {
-  // Restrict to the code-preview iframe. Without this check, any frame/ad/
-  // widget on the page could spoof "emerald-code-error" toasts. The sandboxed
-  // iframe has a null origin, so we match by contentWindow reference instead.
+
   const previewFrame = document.querySelector("#codePreviewBody iframe");
   if (previewFrame && event.source !== previewFrame.contentWindow) return;
   if (event.data?.type === "emerald-code-error") {
@@ -2644,20 +2257,7 @@ function moveLibTabIndicator(tabEl) {
   indicator.style.width = indW + "px";
   indicator.style.left = center - indW / 2 + "px";
 }
-/* ── Chat-switch animation ─────────────────────────────────────
-   When the user switches conversations (or returns to the welcome
-   screen), we blur + slide the chat content down + fade it out, swap
-   the inner content while invisible, then unblur + slide it back up.
-   This makes conversation switches feel smooth instead of jarring.
 
-   Guards:
-   - If streaming is in progress, skip the animation (the user is
-     mid-message and a fade would interrupt the stream).
-   - If a switch is already in flight, the second call swaps immediately
-     (no double-animation).
-   - The animation duration is 180ms each way (out → swap → in), so the
-     total perceived switch is ~360ms — fast enough to feel snappy.
-*/
 let _chatSwitchAnimating = false;
 let _chatSwitchPending = null;
 function animateChatSwitch(swapFn) {
@@ -2667,11 +2267,7 @@ function animateChatSwitch(swapFn) {
     return;
   }
   if (_chatSwitchAnimating) {
-    // A switch is already animating — store the latest swap and apply it
-    // when the current animation reaches the swap point.  This prevents
-    // the repeated blur→unblur→blur→unblur cycle when rapidly clicking
-    // through chats: the ongoing fade-out continues, the content is
-    // swapped at the midpoint, and then a single fade-in plays.
+
     _chatSwitchPending = swapFn;
     return;
   }
@@ -2679,9 +2275,7 @@ function animateChatSwitch(swapFn) {
   content.classList.add("is-switching");
   setTimeout(() => {
     try { swapFn(); } finally {
-      // If a pending swap accumulated during the fade-out, apply it now
-      // before the fade-in so the user sees the latest chat, not a
-      // stale intermediate one.
+
       if (_chatSwitchPending) {
         try { _chatSwitchPending(); } catch {}
         _chatSwitchPending = null;
@@ -2713,10 +2307,9 @@ function showWelcome() {
   $("messagesArea").innerHTML = typingIndicatorHTML();
   updateTopbarTitle("");
   if ($("tempChatBtn")) $("tempChatBtn").style.display = "";
-  // Hide the "Temporary" pill on the new-chat/welcome screen; it should
-  // only appear once the user actually starts chatting (showMessages()).
+
   if ($("tempBadge")) $("tempBadge").style.display = "none";
-  // New chat / welcome screen never shows a side panel from another chat.
+
   _hardClosePanels();
     _syncInputBusyUi();
     };
@@ -2730,7 +2323,7 @@ function showMessages() {
   $("welcomeScreen").style.display = "none";
   $("messagesArea").style.display = "flex";
   if ($("tempChatBtn")) $("tempChatBtn").style.display = "none";
-  // Show the "Temporary" pill only once chatting has actually begun.
+
   if ($("tempBadge")) $("tempBadge").style.display = state.isTemp ? "inline" : "none";
 }
 function typingIndicatorHTML() {
@@ -2785,8 +2378,8 @@ function renderRecents() {
   }
   const groups = _categorizeByTime(convs);
   const itemHTML = (c) => `
-    <div class="history-item${state.convId === c.id ? " active" : ""}" 
-         data-conv-id="${escapeHtmlAttr(c.id)}" 
+    <div class="history-item${state.convId === c.id ? " active" : ""}"
+         data-conv-id="${escapeHtmlAttr(c.id)}"
          onclick="loadConversation('${escapeHtmlAttr(c.id)}')">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
       <span class="history-item-text">${escapeHtml(c.title || "Untitled")}</span>
@@ -2798,10 +2391,10 @@ function renderRecents() {
 function loadConversation(id) {
   const conv = getConv(id);
   if (!conv) return;
-  // Skip animation if we're already on this conversation.
+
   if (state.convId === id && !state.isTemp) return;
   _refreshPanelStateSnapshot();
-  // A picked edit source belongs to the conversation it was picked in.
+
   _dropPendingImageEdit();
   state.convId = id;
   state.isTemp = false;
@@ -2810,7 +2403,7 @@ function loadConversation(id) {
     $("messagesArea").innerHTML = typingIndicatorHTML();
     conv.messages.forEach((m) => {
       if (m.role === "user" && !m._silent) appendUserMessageDOM(m.text, m.files || [], m.id || null, m._editBranchRef || null);
-      else if (m.role === "user" && m._silent) { /* skip rendering silent quiz prompt */ }
+      else if (m.role === "user" && m._silent) {  }
       else appendStoredAIMessage(m);
     });
   if (conv._editBranches) {
@@ -2825,8 +2418,7 @@ function loadConversation(id) {
   renderSidebar();
   scrollToBottom();
   _applyPanelStateForConv(id);
-  // If a background stream is still generating for THIS conversation, keep
-  // the typing indicator visible so the user sees it's still answering.
+
   if (state.isStreaming && state.streamConvId === id) {
     const _t = $("typingIndicator");
     if (_t) _t.style.display = "flex";
@@ -2867,7 +2459,7 @@ function fileCardHTML(f) {
   const inner = isImg && f.data ? `<img class="msg-file-thumb" src="${escapeHtmlAttr(f.data)}" alt="">` : fileIcon(f.type || "");
   return `<div class="msg-file-card${isImg ? " msg-file-card--img" : ""}" data-fid="${fid}" onclick="openFilePreview('${fid}')" title="${name}">${inner}<span class="msg-file-name">${name}</span></div>`;
 }
-const _TEXT_PREVIEW_EXTS = /* @__PURE__ */ new Set([
+const _TEXT_PREVIEW_EXTS =  new Set([
   "txt",
   "md",
   "markdown",
@@ -2914,13 +2506,8 @@ const _TEXT_PREVIEW_EXTS = /* @__PURE__ */ new Set([
   "conf",
   "properties"
 ]);
-/* ── Per-chat side-panel memory ──────────────────────────────────────
-   Each conversation remembers which side panel (file/image preview, quiz,
-   or code preview) is open. Switching chats therefore never leaks one
-   chat's panel into another, and returning to a chat restores its own
-   open panel. The memory lives in-page only: it is dropped when the
-   chat is deleted, all chats are cleared, or the page reloads. */
-const _convPanelState = /* @__PURE__ */ Object.create(null);
+
+const _convPanelState =  Object.create(null);
 let _panelStateGuard = false;
 function _activePanelConvId() {
   return (typeof state !== "undefined" && state && state.convId) || null;
@@ -3057,11 +2644,11 @@ function closeFilePreviewPanel() {
   if (!panel || !panel.classList.contains("open")) return;
   _forgetPanelState();
   panel.classList.add("closing");
-  // Release viewer state and pdfjs/PPTX resources retained on window.
+
   const body = $("fpPanelBody");
   if (body) {
     if (body._pptxRO) { try { body._pptxRO.disconnect(); } catch (e) {} body._pptxRO = null; }
-    // Clean up any __pp_* / __pf_* keys we created.
+
     Object.keys(window).forEach((k) => {
       if (/^__(pp|pf)_(pptx|pdf)\d+$/.test(k)) {
         const v = window[k];
@@ -3127,10 +2714,7 @@ async function renderPptxSlides(fileData, body) {
       let bg = "#FFFFFF";
       const bgEl = doc.querySelector("bg solidFill srgbClr") || doc.querySelector("bg solidFill sysClr");
       if (bgEl) {
-        // srgbClr uses `val` (RGB hex); sysClr uses `val` (system color name
-        // like 'windowText') + `lastClr` (resolved RGB hex). The old code
-        // preferred `val` for both, which produced invalid colors like
-        // '#windowText' for sysClr backgrounds.
+
         const tag = bgEl.tagName.toLowerCase();
         const hex = tag === 'sysclr'
           ? (bgEl.getAttribute('lastClr') || bgEl.getAttribute('val'))
@@ -3194,9 +2778,7 @@ async function renderPptxSlides(fileData, body) {
     };
     window[`__pp_${vid}`] = { s: slideHtmls, i: 0, rw: RW, rh: RH, doScale };
     setTimeout(doScale, 0);
-    // Disconnect any previous ResizeObserver on body before installing a new
-    // one — otherwise each PPTX preview stacks a new observer with stale
-    // closures over the old doScale / RW / RH.
+
     if (body._pptxRO) { try { body._pptxRO.disconnect(); } catch (e) {} }
     if (window.ResizeObserver) {
       const ro = new ResizeObserver(() => {
@@ -3351,9 +2933,7 @@ window._pdfGo = async function(vid, dir) {
   const d = window[`__pf_${vid}`];
   if (!d) return;
   d.cur = Math.max(1, Math.min(d.total, d.cur + dir));
-  // _pdfRenderPage can reject (corrupt PDF, page out-of-range). Without a
-  // catch this surfaces as an unhandled rejection since callers ignore the
-  // returned promise. Surface the error to the user instead.
+
   try {
     await _pdfRenderPage(vid, d.cur);
   } catch (err) {
@@ -3500,17 +3080,7 @@ function buildMessageActionsEl(msgId) {
   _actDiv.appendChild(_dislikeBtn);
   return _actDiv;
 }
-/* ── Reply suggestions ───────────────────────────────────────────
-   The model may close a reply with a <suggestions> tag carrying a
-   short JSON array of follow-up questions (see [REPLY SUGGESTIONS]
-   in the worker prompt). They render as a row of chips under the
-   message and ONE CLICK SENDS the question, so a user who doesn't
-   know what to type next never has to type at all.
 
-   Everything here is model-authored, so the label goes in via
-   textContent — never innerHTML — and is length-capped, stripped
-   of markup and control characters, and de-duplicated. A malformed
-   tag simply yields no chips; it can never inject or garble a reply. */
 const _SUGGEST_MAX = 4;
 const _SUGGEST_MAX_LEN = 140;
 const _SUGGEST_BLOCK_RE = /<suggestions(?:\s[^>]*)?>([\s\S]*?)(?:<\/suggestions\s*>|$)/i;
@@ -3532,9 +3102,7 @@ function _extractSuggestions(text) {
   if (!body) return [];
   let items = _chartParseJSON(body);
   if (!Array.isArray(items)) {
-    // JSON failed. A body that still looks like JSON (starts with [ or {) is
-    // malformed, not a line list — parsing it as lines would surface raw
-    // punctuation as a chip, so drop it instead.
+
     if (/^[[{]/.test(body)) return [];
     items = body.split(/\r?\n/);
   }
@@ -3579,42 +3147,28 @@ function buildSuggestionsEl(items) {
   }
   return wrap;
 }
-/* Chips sit ABOVE the like/dislike row — the follow-ups are the
-   primary action on a message, the rating is secondary. */
+
 function insertSuggestionsEl(body, items) {
   const el = buildSuggestionsEl(items);
   if (el) insertBeforeMessageActions(body, el);
   return el;
 }
-// Removes the tag (and its payload) before a reply is fed back to Gemini as
-// conversation history — the chips are UI, never part of what was said.
+
 function _stripSuggestionsTag(text) {
   return String(text || "").replace(_SUGGEST_STRIP_RE, " ");
 }
-/* ── Thinking panel ─────────────────────────────────────────────
-   When thinking mode is enabled, the worker streams Gemini's
-   `thought: true` parts separately (see streamEmeraldBot). We render
-   them inside a collapsible "Thinking" block above the answer text —
-   the same UX Claude / o1 use: a header row with a spinner while
-   thinking, flipping to a checkmark + "Done" once the final answer
-   begins streaming; the body expands during thinking and auto-
-   collapses when done (user can re-expand by clicking the header).
 
-   The block is created lazily (only when the first thinking chunk
-   arrives) so messages without thinking show no empty panel. */
-const _THINKING_EXPAND_MS = 250; // smooth height transition
-// Per-block interval timers for the "Thinking for Xs…" live label.
-// WeakMap so the timer reference dies with the DOM node if it's removed.
+const _THINKING_EXPAND_MS = 250;
+
 const _thinkingTimers = new WeakMap();
 
-// Format an elapsed second count as "12s" or "1m 04s".
 function _fmtThinkingElapsed(sec) {
   if (sec < 60) return `${sec}s`;
   const m = Math.floor(sec / 60);
   const s = sec % 60;
   return `${m}m ${String(s).padStart(2, "0")}s`;
 }
-function _setThinkingLabel(block, verb /* "Thinking" | "Thought" */) {
+function _setThinkingLabel(block, verb ) {
   if (!block) return;
   const label = block.querySelector(".thinking-label");
   if (!label) return;
@@ -3628,9 +3182,7 @@ function _setThinkingLabel(block, verb /* "Thinking" | "Thought" */) {
 }
 
 function thinkingBlockHTML(isDone) {
-  // isDone=true is used when rendering a stored message that already
-  // has completed thinking — label says "Thought for a moment" since
-  // we don't have the original elapsed time persisted.
+
   return `<div class="thinking-block${isDone ? " is-done" : ""}" data-state="${isDone ? "done" : "thinking"}">
     <div class="thinking-header" role="button" tabindex="0" aria-expanded="${isDone ? "false" : "true"}" onclick="toggleThinkingBlock(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleThinkingBlock(this);}">
       <div class="thinking-title">
@@ -3656,9 +3208,9 @@ function createThinkingBlock(aiDiv) {
   } else {
     sender.insertAdjacentElement("afterend", block);
   }
-  // Start expanded while thinking.
+
   block.classList.add("is-expanded");
-  // Live-tick the "Thinking for Xs…" label once per second.
+
   block.dataset.startedAt = String(Date.now());
   _setThinkingLabel(block, "Thinking");
   const timer = setInterval(() => {
@@ -3671,16 +3223,13 @@ function appendThinkingToBlock(block, chunk) {
   if (!block || !chunk) return;
   const textEl = block.querySelector(".thinking-text");
   if (!textEl) return;
-  // Use a dataset accumulator (not textContent) because renderMarkdown
-  // produces HTML — concatenating innerHTML would re-parse partial HTML
-  // and corrupt formatting mid-stream.
+
   let acc = block.dataset.thinkingRaw || "";
   acc += chunk;
   block.dataset.thinkingRaw = acc;
-  // Render markdown incrementally. Keep the user scrolled to bottom of
-  // the thinking panel while it streams (mirrors the answer streaming UX).
+
   textEl.innerHTML = renderMarkdown(acc);
-  // Auto-scroll within the thinking body if the user hasn't scrolled up.
+
   const body = block.querySelector(".thinking-body");
   if (body && _autoScrollSticky) body.scrollTop = body.scrollHeight;
 }
@@ -3688,18 +3237,15 @@ function markThinkingDone(block) {
   if (!block) return;
   block.classList.add("is-done");
   block.dataset.state = "done";
-  // Stop the live timer and freeze the label at "Thought for Xs".
+
   const timer = _thinkingTimers.get(block);
   if (timer) { clearInterval(timer); _thinkingTimers.delete(block); }
   _setThinkingLabel(block, "Thought");
   const header = block.querySelector(".thinking-header");
   if (header) header.setAttribute("aria-expanded", "false");
-  // After thinking completes, auto-collapse (Claude-style). The user can
-  // click to re-expand. Skip auto-collapse if user has already manually
-  // collapsed or expanded (signaled by the `is-user-toggled` class).
+
   if (!block.classList.contains("is-user-toggled")) {
-    // Small delay so the user briefly sees the "Done" state before
-    // the panel collapses.
+
     setTimeout(() => {
       if (!block.classList.contains("is-user-toggled")) {
         block.classList.remove("is-expanded");
@@ -3716,7 +3262,6 @@ function toggleThinkingBlock(headerEl) {
   headerEl.setAttribute("aria-expanded", isExpanded ? "true" : "false");
 }
 
-// ── Searching panel (same design as Thinking, separate UI block) ──────
 const _searchingTimers = new WeakMap();
 
 function _setSearchingLabel(block, verb) {
@@ -3944,20 +3489,15 @@ function appendAIMessageDOM(text, msgId, streaming = false) {
   $("messagesArea").insertBefore(div, typingEl);
   return div;
 }
-// True while a background stream for `streamConvId` is the conversation the
-// user is currently looking at. Used to keep generation running when the user
-// switches to another chat without polluting that other chat's DOM.
+
 function _activeStreamTargetsView(streamConvId) {
   if (!state.isStreaming) return false;
-  // Welcome screen: no conversation is being viewed at all.
+
   if ($("welcomeScreen")?.style?.display !== "none") return false;
   if (state.isTemp) return streamConvId === null;
   return state.convId === streamConvId;
 }
-// Gray-out state for the input box ("Still answering..." placeholder, dimmed
-// + / thinking buttons). Active only while the AI is answering in a chat the
-// user switched AWAY from. When the user is watching the generating chat
-// itself, keep the input completely normal.
+
 function _syncInputBusyUi() {
   const box = document.querySelector(".chat-input-box");
   const ta = $("chatInput");
@@ -3968,8 +3508,7 @@ function _syncInputBusyUi() {
   if (ta.placeholder !== ph) ta.placeholder = ph;
   ta.readOnly = busy;
 }
-// Jump back to the conversation that is currently generating in the
-// background (visible beside the stop button while "Still answering...").
+
 function gotoStreamingChat() {
   const target = state.streamConvId;
   if (!target || state.isTemp) return;
@@ -3979,10 +3518,7 @@ function gotoStreamingChat() {
   }
   loadConversation(target);
 }
-// Always hide the LIVE typing indicator. The element captured when a stream
-// started (`typingEl`) can be detached from the DOM after the conversation
-// view is re-rendered (e.g. user switched chats mid-stream), so hiding that
-// stale reference would leave the "Second bubble — just animation" stuck.
+
 function _hideTypingIndicator() {
   const el = document.getElementById("typingIndicator");
   if (el) el.style.display = "none";
@@ -4001,8 +3537,7 @@ function updateLastMsgActions() {
   const aiMsgs = document.querySelectorAll('[data-ai="1"]');
   aiMsgs.forEach((msg, i) => {
     const actions = msg.querySelector(".message-actions");
-    // Follow-up chips only ever belong to the newest reply — an older
-    // one's suggestions were already answered (or superseded) by it.
+
     const suggestions = msg.querySelector(".msg-suggestions");
     if (i < aiMsgs.length - 1) {
       if (actions) actions.remove();
@@ -4024,7 +3559,7 @@ async function handleSend(opts) {
     if (_silent) showToast(`${_aiSvgWarn} Please wait — the AI is still responding.`);
     return;
   }
-  _autoScrollSticky = true;  // re-enable sticky scroll on new send
+  _autoScrollSticky = true;
   const textarea = $("chatInput");
   const text = _silent ? (opts.silentText || "").trim() : textarea.value.trim();
   const files = _silent ? [] : [...state.attachments];
@@ -4080,7 +3615,6 @@ async function handleSend(opts) {
   const fileParts = buildFileParts(files);
   if (fileParts.length) history[history.length - 1].parts.push(...fileParts);
 
-// EmeraldSuite context is always injected when the turn is about a file.
   _efResetWriteGate();
   if (!_silent) {
     try {
@@ -4132,9 +3666,7 @@ async function handleSend(opts) {
             }
             if (readmeRes.ok) {
               const rm = await readmeRes.json();
-              // atob returns a byte-string, not a UTF-8 string — non-ASCII
-              // READMEs (emoji, accents, CJK) became mojibake. Decode via
-              // TextDecoder so multi-byte sequences are interpreted as UTF-8.
+
               if (rm?.content) {
                 const bin = atob(rm.content.replace(/\n/g, ""));
                 const u8 = new Uint8Array(bin.length);
@@ -4184,9 +3716,7 @@ async function handleSend(opts) {
   let _usedModelId = "";
   let _usedModelName = "";
   const _buildAIDOM = (text, streaming = false) => buildAIBubbleDOM(text, msgId, streaming);
-  // True only while the currently-viewed conversation is the one streaming,
-  // so generation can keep running when the user switches to another chat
-  // without polluting that other chat's DOM.
+
   const _viewingStreamView = () => _activeStreamTargetsView(state.streamConvId);
   const _ensureStreamDom = () => {
     if (!_viewingStreamView()) return false;
@@ -4231,9 +3761,7 @@ async function handleSend(opts) {
   };
   _streamOpts.onThinkingChunk = (chunk) => {
     _markSearchingDoneOnce();
-    // First thinking chunk creates the message bubble early (typing
-    // indicator hides) and the thinking panel — same UX Claude / o1 use
-    // where the "Thinking…" block appears before any answer text streams.
+
     _thinkingText += chunk;
     if (!_ensureStreamDom()) return;
     if (!_thinkingBlock) _thinkingBlock = createThinkingBlock(aiDiv);
@@ -4241,14 +3769,13 @@ async function handleSend(opts) {
     scrollToBottom();
   };
   const _doStream = async (h) => streamEmeraldBot(h, apiKey, (chunk) => {
-    // First non-thought chunk means thinking phase is over → flip the
-    // thinking block to "Done" (auto-collapses shortly after).
+
     _markSearchingDoneOnce();
     _markThinkingDoneOnce();
     fullText += chunk;
     clearTimeout(_saveTimeout);
     _saveTimeout = setTimeout(() => {
-      // Append a partial assistant message so it survives a tab close
+
       const lastUserMsg = conv.messages[conv.messages.length - 1];
       if (lastUserMsg && lastUserMsg.role === "user") {
         conv.messages.push({
@@ -4278,7 +3805,7 @@ async function handleSend(opts) {
     let _streamResult = await _doStream(history);
     let finishReason = _streamResult.finishReason;
     if (_streamResult.groundingMetadata) {
-      // Merge grounding chunks from continuations instead of overwriting
+
       if (_groundingMetadata?.groundingChunks) {
         const existingUris = new Set(_groundingMetadata.groundingChunks.map(c => c?.web?.uri));
         const newChunks = (_streamResult.groundingMetadata.groundingChunks || []).filter(c => !existingUris.has(c?.web?.uri));
@@ -4308,7 +3835,7 @@ async function handleSend(opts) {
       _streamResult = await _doStream(contHistory);
       finishReason = _streamResult.finishReason;
       if (_streamResult.groundingMetadata) {
-      // Merge grounding chunks from continuations instead of overwriting
+
       if (_groundingMetadata?.groundingChunks) {
         const existingUris = new Set(_groundingMetadata.groundingChunks.map(c => c?.web?.uri));
         const newChunks = (_streamResult.groundingMetadata.groundingChunks || []).filter(c => !existingUris.has(c?.web?.uri));
@@ -4321,11 +3848,7 @@ async function handleSend(opts) {
     if (continueEl) continueEl.remove();
   } catch (err) {
     if (err?._jailbreakBlocked) {
-      // Jailbreak attempt detected by the worker. Tear down the current
-      // conversation entirely — delete it from storage, return the user
-      // to the welcome screen, refresh the sidebar so the chat no longer
-      // appears in Recents, and surface a toast explaining what happened.
-      // No assistant message is rendered.
+
       if (continueEl) continueEl.remove();
       _hideTypingIndicator();
       if (state.convId && !state.isTemp) {
@@ -4356,9 +3879,7 @@ async function handleSend(opts) {
     }
   }
   _hideTypingIndicator();
-  // Stream ended — flip the thinking panel to "Done" (if one exists).
-  // Important for the case where the model produced thinking but no
-  // answer text (e.g. error / abort before first answer chunk).
+
   _markSearchingDoneOnce();
   _markThinkingDoneOnce();
   if (!fullText && !aiDiv) {
@@ -4369,9 +3890,7 @@ async function handleSend(opts) {
     textEl.innerHTML = `<span class="md-error">${escapeHtml(aiErrorMessage("generating the response"))}</span>`;
   }
   if (fullText && !aiDiv) {
-    // Stream ran entirely while the user was viewing a different conversation:
-    // no bubble was ever attached to the DOM, yet the response must still be
-    // built (and saved) so it isn't lost when the user comes back.
+
     aiDiv = _viewingStreamView() ? appendAIMessageDOM("", msgId, false) : buildAIBubbleDOM("", msgId, false);
     textEl = aiDiv.querySelector(".message-text");
     textEl.classList.remove("stream-reveal");
@@ -4460,8 +3979,7 @@ async function handleSend(opts) {
     }
     const _groundingSources = extractGroundingSources(_groundingMetadata);
     const _allSources = [..._groundingSources, ..._webSources];
-    // Always render citations (converts [N] to orphan badges when no sources).
-    // Only strip the AI-written "Sources:" list when we have actual source chips.
+
     renderCitations(aiDiv, _allSources);
     if (_allSources.length) _stripSourcesFromHTML(textEl);
     aiDiv.querySelector(".message-body").appendChild(buildMessageActionsEl(msgId));
@@ -4491,9 +4009,7 @@ async function handleSend(opts) {
         fileEdit: _fileEditOutcome || void 0,
         imagePrompt: _imgPromptFinal || void 0,
         imageMode: _imgEditPrompt ? "edit" : (_imgPrompt ? "generate" : void 0),
-        // Persist the thinking text so the collapsible "Thinking" panel
-        // can be re-rendered on page reload. Stored separately from `text`
-        // so buildHistory never sends thinking back to Gemini.
+
         thinking: _thinkingText || void 0,
         sources: _allSources.length ? _allSources.map(s => ({ title: s.title || '', uri: s.uri })) : void 0
       });
@@ -4501,21 +4017,18 @@ async function handleSend(opts) {
       upsertConv(conv);
     } else {
       state.tempHistory.push({ role: "model", parts: [{ text: savedText }] });
-      // Empty-string user parts make the Gemini API reject the next request
-      // with a 400. Use a non-empty placeholder so buildHistory stays valid.
+
       if (quizData) state.tempHistory.push({ role: "user", parts: [{ text: "[User started a quiz — no text message]" }] });
     }
     if (_imgPromptFinal) {
       runImageTags(aiDiv, fullText, state.convId, msgId, { files, userText: text });
     }
-    // Always process [IMAGE_SEARCH:] tags regardless of the image tags above
+
     processImageSearchTags(aiDiv, state.convId, msgId);
-    // Chips last: they anchor to the bottom of the bubble, under every
-    // other part of the answer (citations, images, search results).
+
     if (_suggestions.length) insertSuggestionsEl(aiDiv.querySelector(".message-body"), _suggestions);
   } else if (aiDiv && textEl) {
-    // No text came back (request error / cancellation / empty response).
-    // Persist the error so it survives a page reload instead of vanishing.
+
     const errorText = textEl.querySelector(".md-error")?.textContent || "An error occurred.";
     aiDiv.querySelector(".message-body").appendChild(buildMessageActionsEl(msgId));
     if (conv) {
@@ -4546,15 +4059,11 @@ function buildHistory(conv) {
       text = text.replace(/<quiz(?:\s[^>]*)?>[\s\S]*?<\/quiz\s*>/gi, "[A quiz was provided here]");
       text = text.replace(/<es-app(?:\s[^>]*)?>[\s\S]*?<\/es-app\s*>/gi, "[Content was offered for import to EmeraldSuite]");
       text = text.replace(/<es-edit(?:\s[^>]*)?>[\s\S]*?<\/es-edit\s*>/gi, "[Update was applied to your file in EmeraldSuite]");
-      // The follow-up chips are UI, not conversation. Sending the raw tag back
-      // would show the model its own payload as part of its past answer.
+
       text = _stripSuggestionsTag(text);
       text = _stripMemoryTags(text).replace(/\[GENERATE_IMAGE:\s*[^\]]+\]/g, "").replace(/\[EDIT_IMAGE:\s*[^\]]+\]/g, "").replace(/\[IMAGE:\s*[^\]]+\]/g, "").replace(/\[IMAGE_SEARCH:\s*[^\]]+\]/g, "").trim();
       if (m.imagePrompt) {
-        // Tells the model an image came out of this turn and whether it was an
-        // edit, which is what makes a later "make it darker" act on that same
-        // picture instead of asking for a new one. Context only, never shown in
-        // the chat — keep it short and free of implementation wording.
+
         const _ip = String(m.imagePrompt).replace(/\s+/g, " ").trim();
         text += `\n[${m.imageMode === "edit" ? "Image edited" : "Image generated"}: "${_ip.slice(0, 200)}${_ip.length > 200 ? "…" : ""}"]`;
       }
@@ -4632,8 +4141,7 @@ function buildHistory(conv) {
     }
     return msgs;
   }
-  // Unsaved conversation: same treatment as buildHistory — the chips are UI,
-  // so the model must never see its own <suggestions> payload as past output.
+
   return state.tempHistory.map((m) => (m.role === "model" && m.parts && m.parts[0]
     ? { ...m, parts: [{ ...m.parts[0], text: _stripSuggestionsTag(m.parts[0].text) }] }
     : m));
@@ -4672,7 +4180,7 @@ function stopStreaming() {
 }
 async function regenerateMessage(msgEl) {
   if (state.isStreaming || !state.convId) return;
-  _autoScrollSticky = true;  // re-enable on regen
+  _autoScrollSticky = true;
   const conv = getConv(state.convId);
   if (!conv) return;
   const apiKey = getApiKey();
@@ -4685,9 +4193,7 @@ async function regenerateMessage(msgEl) {
   if (idx < 0) return;
   const currentMsg = conv.messages[idx];
   const regenBranchId = currentMsg._regenBranchRef || msgId;
-  // Branch keys must never be special prototype property names: reading a
-  // "__proto__"/"constructor"/"prototype" key off a plain object would let a
-  // corrupt stored map resolve to Object.prototype/Function.prototype.
+
   if (regenBranchId === "__proto__" || regenBranchId === "constructor" || regenBranchId === "prototype") return;
   conv._regenBranches = conv._regenBranches || Object.create(null);
   if (!conv._regenBranches[regenBranchId]) {
@@ -4704,27 +4210,22 @@ async function regenerateMessage(msgEl) {
   } else if (regenBranch.current >= 0) {
     regenBranch.variants[regenBranch.current] = currentVariant;
   }
-  // Save the tail (messages after the AI response) so regen branch
-  // navigation can restore them.  Without this, navigating back to an
-  // earlier regen variant loses any follow-up messages.
+
   const regenTail = conv.messages.slice(idx + 1).map((m) => ({ ...m }));
   conv.messages = conv.messages.slice(0, idx);
   conv._regenBranches[regenBranchId] = regenBranch;
   upsertConv(conv);
-  // Remove the AI message AND any subsequent DOM elements so orphaned
-  // messages don't linger during the streaming of the new response.
+
   const _allMsgEls = Array.from($("messagesArea").querySelectorAll(".message:not(#typingIndicator)"));
   const _domIdx = _allMsgEls.indexOf(msgEl);
   if (_domIdx >= 0) _allMsgEls.slice(_domIdx).forEach((el) => el.remove());
   else msgEl.remove();
-  // Store the tail on the current regen variant (the one being replaced)
-  // so navigateRegenBranch can restore it when switching back.
+
   if (regenBranch.variants.length > 0 && regenBranch.current >= 0) {
     if (typeof regenBranch.current !== "number") return;
     const curIdx = regenBranch.current;
     if (!Number.isInteger(curIdx) || curIdx < 0 || curIdx >= regenBranch.variants.length) return;
-    // regenBranch.current is always a non-negative number index, never a
-    // prototype name; the branch map itself is a null-prototype object.
+
     const variant = regenBranch.variants[curIdx];
     if (variant) safeSetProp(variant, "_regenTail", regenTail);
   }
@@ -4741,8 +4242,7 @@ async function regenerateMessage(msgEl) {
     }
   }
   const regenUserText = (userMsgIdx >= 0 && conv.messages[userMsgIdx] && conv.messages[userMsgIdx].text) || "";
-  // Original attachments of the prompt being regenerated — these are the source
-  // pixels when that turn asked for an image edit.
+
   const regenFiles = (userMsgIdx >= 0 && conv.messages[userMsgIdx] && conv.messages[userMsgIdx].files) || [];
   _efResetWriteGate();
   try {
@@ -4875,8 +4375,7 @@ textEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.editStarted
     textEl.innerHTML = `<span class="md-error">${escapeHtml(aiErrorMessage("regenerating the response"))}</span>`;
   }
   if (fullText && !aiDiv) {
-    // Regenerated entirely while the user was viewing another conversation:
-    // no bubble was attached, but the response must still be saved.
+
     aiDiv = _streamViewing() ? appendAIMessageDOM("", newId, false) : buildAIBubbleDOM("", newId, false);
     textEl = aiDiv.querySelector(".message-text");
     textEl.classList.remove("stream-reveal");
@@ -5009,8 +4508,7 @@ textEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.editStarted
     }
     if (_suggestions.length) insertSuggestionsEl(aiDiv.querySelector(".message-body"), _suggestions);
   } else if (aiDiv && textEl) {
-    // No text came back (request error / cancellation / empty response).
-    // Persist the error onto the regen branch so it survives a page reload.
+
     const errorText = textEl.querySelector(".md-error")?.textContent || "An error occurred.";
     aiDiv.querySelector(".message-body").appendChild(buildMessageActionsEl(newId));
     const savedMsg = { role: "assistant", text: errorText, id: newId, _regenBranchRef: regenBranchId, isError: true };
@@ -5073,21 +4571,14 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
     throw e;
   }
   if (!res.ok) {
-    // Consume the body for cleanup but NEVER copy its text into the error:
-    // even after worker-side sanitization, frontend classification must rely
-    // on the HTTP status alone so nothing internal can surface in the UI or
-    // the developer console.
+
     await res.text().catch(() => "");
     const e = new Error(`HTTP ${res.status}`);
     e._modelError = true;
     e._httpStatus = res.status;
     throw e;
   }
-  // Jailbreak detection: when the worker flags a request as blocked
-  // (X-Safety-Status: blocked), it sends an EMPTY SSE stream with no
-  // refusal text. We must NOT stream anything to the user — instead we
-  // throw a tagged error so the caller can remove the conversation,
-  // return the user to the welcome screen, and show a toast.
+
   const _safetyStatus = res.headers.get("X-Safety-Status");
   if (_safetyStatus === "blocked") {
     try { await res.body?.cancel(); } catch {}
@@ -5121,18 +4612,12 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
   let buffer = "";
   let finishReason = null;
   let groundingMetadata = null;
-  // 30s was too aggressive for low-bandwidth / congested connections — a
-  // client stream regularily stalls mid-answer and got killed, which users
-  // experience as "the AI randomly stops generating". 60s gives slow links
-  // room to catch up, and the STREAM_INTERRUPTED recovery below resumes the
-  // response whenever a connection is genuinely cut.
+
   const STREAM_IDLE_TIMEOUT = 6e4;
   let timedOut = false;
   let streamedChars = 0;
   let streamDone = false;
-  // Resume only when streamed text is meaningful. A connection that drops or
-  // idles out almost immediately (a few chars) will likely do so again — a
-  // resume would just waste another slow request round-trip.
+
   const MIN_RESUME_TEXT = 20;
   let idleTimer = null;
   const _resetIdle = () => {
@@ -5152,9 +4637,7 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
       try {
         chunk = await reader.read();
       } catch (readErr) {
-        // reader.cancel() (idle timeout) or a torn-down network make the next
-        // read() reject instead of resolving — break out so the recovery logic
-        // below can decide whether to resume the response.
+
         if (timedOut) break;
         throw readErr;
       }
@@ -5175,11 +4658,7 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
           const candidate = json.candidates?.[0];
           if (candidate?.content?.parts) {
             for (const part of candidate.content.parts) {
-              // Gemini tags thinking tokens with `thought: true` when
-              // thinkingConfig.includeThoughts is on (worker.js relays them
-              // unchanged). Route them to a separate onThinkingChunk callback
-              // so the UI can render them inside the collapsible "Thinking"
-              // panel above the answer, instead of mixing them into the answer.
+
               if (part.searchStatus === true) {
                 if (part.text && typeof options.onSearchStatusChunk === "function") {
                   options.onSearchStatusChunk(part.text);
@@ -5208,9 +4687,7 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
   }
   if (timedOut && !finishReason) {
     if (streamedChars >= MIN_RESUME_TEXT) {
-      // A long stall mid-generation (slow/stuttering connection) tripped the
-      // idle timer, but the partial text we already have is valid — resume
-      // it like a MAX_TOKENS continuation instead of erroring and losing it.
+
       return { finishReason: "STREAM_INTERRUPTED", groundingMetadata, modelId: usedModelId };
     }
     const e = new Error(`Response timed out \u2014 the server did not send any data for ${STREAM_IDLE_TIMEOUT / 1e3} seconds.`);
@@ -5219,14 +4696,7 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
     throw e;
   }
   if (!streamDone && !finishReason) {
-    // The connection ended WITHOUT the worker's [DONE] marker or a
-    // finishReason. This is the classic "randomly stops streaming" symptom:
-    // the worker hit Cloudflare's per-request wall-time cap mid-stream, or
-    // the connection dropped while data was still flowing. The partial answer
-    // is valid — flag it so the caller resumes with "continue" up to a few
-    // times instead of silently cutting the response short. Cuts that only
-    // produced a couple of characters are left alone (almost always just a
-    // flaky drop that would repeat).
+
     if (streamedChars >= MIN_RESUME_TEXT) {
       return { finishReason: "STREAM_INTERRUPTED", groundingMetadata, modelId: usedModelId };
     }
@@ -5240,13 +4710,7 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
   }
   return { finishReason, groundingMetadata, modelId: usedModelId };
 }
-// Thin wrapper that streams a response and AUTO-RESUMES it whenever the
-// underlying stream ends on a MAX_TOKENS cap or an interrupted connection
-// (STREAM_INTERRUPTED). Each resume replays what was already generated and
-// asks the model to continue, feeding every round's chunks + thinking into
-// the same callbacks so the UI keeps streaming seamlessly. Used by the
-// regenerate and edit-answer paths, which previously truncated the moment a
-// single stream was cut.
+
 async function streamEmeraldBotResumable(history, _unused, onChunk, options = {}, _extra = {}) {
   const MAX_RESUMES = 4;
   let accFinish = null;
@@ -5279,7 +4743,7 @@ async function streamEmeraldBotResumable(history, _unused, onChunk, options = {}
 function extractGroundingSources(groundingMetadata) {
   if (!groundingMetadata) return [];
   const sources = [];
-  const seen = /* @__PURE__ */ new Set();
+  const seen =  new Set();
   const chunks = groundingMetadata.groundingChunks || [];
   for (const chunk of chunks) {
     const uri = chunk?.web?.uri;
@@ -5288,19 +4752,19 @@ function extractGroundingSources(groundingMetadata) {
       seen.add(uri);
       let displayTitle = title;
       if (!displayTitle || displayTitle === uri || displayTitle.includes("://")) {
-        // Gemini didn't provide a real title — try to extract a readable one from the URL
+
         try {
           const u = new URL(uri);
           const pathSegs = u.pathname.split("/").filter(Boolean);
           if (pathSegs.length) {
-            // Use the last meaningful path segment as title
+
             displayTitle = decodeURIComponent(pathSegs[pathSegs.length - 1]).replace(/[-_]/g, " ");
-            // Clean up common file extensions and numeric IDs
+
             displayTitle = displayTitle.replace(/\.\w{1,5}$/, "").replace(/^\d+[-_]?\s*/, "");
             if (displayTitle.length > 1) displayTitle = displayTitle[0].toUpperCase() + displayTitle.slice(1);
             if (displayTitle.length > 60) displayTitle = displayTitle.slice(0, 57) + "...";
           } else {
-            // No path segments — try hostname as fallback (stripped of www. and TLD)
+
             const host = u.hostname.replace(/^www\./, "");
             const parts = host.split(".");
             if (parts.length > 1) {
@@ -5317,11 +4781,7 @@ function extractGroundingSources(groundingMetadata) {
   }
   return sources;
 }
-/* Client-side image compression that PRESERVES the file's name and type.
-   PNG stays PNG (pixel-lossless via canvas), JPEG stays JPEG (near-lossless
-   high quality), WebP stays WebP. Only dimensions above Gemini's own 3072px
-   downscale cap are reduced, so nothing the model sees is lost. Returns null
-   when the result would be no smaller than the original. */
+
 const ATTACH_IMAGE_MAX_DIM = 3072;
 const ATTACH_IMAGE_SKIP_BELOW = 400 * 1024;
 const ATTACH_JPEG_QUALITY = 0.92;
@@ -5505,9 +4965,7 @@ function renderLibraryModal() {
     if (filter === "archives") return f.type?.includes("zip") || f.type?.includes("pptx") || f.type?.includes("presentation");
     return true;
   });
-  // `validLib.length` is the FILTERED count; comparing it against the TOTAL
-  // stored-lib count made this branch fire on every modal open with a filter.
-  // Compare total-valid against total-stored instead.
+
   const allLib = loadLib().filter((f) => convs.find((c) => c.id === f.convId));
   if (allLib.length !== loadLib().length) {
     saveLib(allLib);
@@ -5552,7 +5010,7 @@ async function _getStorageEstimate() {
       if (typeof est?.usage === "number") usage = est.usage;
       if (typeof est?.quota === "number") quota = est.quota;
     }
-  } catch { /* estimate() unsupported/throttled — fall back to app key sizes */ }
+  } catch {  }
   return { usage, quota };
 }
 function _sumAppKeyBytes() {
@@ -5579,9 +5037,7 @@ async function _refreshStorageMeter() {
   const est = await _getStorageEstimate();
   const app = _sumAppKeyBytes();
   const hasEstimate = typeof est.usage === "number";
-  // navigator.storage.estimate() reports this origin's total browser storage
-  // (IndexedDB holds the chat data), which is the accurate number. When it is
-  // unavailable (e.g. Safari), fall back to the sum of this app's own keys.
+
   const usage = hasEstimate ? est.usage : app.total;
   const quota = typeof est.quota === "number" ? est.quota : 0;
   const pct = quota > 0 ? Math.min(100, (usage / quota) * 100) : 0;
@@ -5657,10 +5113,7 @@ function _refreshSettAvatarUI(name, avatarData) {
   const removeBtn = $("settAvatarRemoveBtn");
   const nameEl = $("settAvatarDisplayName");
   if (nameEl) nameEl.textContent = name || "Your Name";
-  // Avatar data is always data:image/webp;base64,... produced by canvas.toDataURL().
-  // Convert via atob -> Uint8Array -> Blob -> createObjectURL so the value
-  // reaching img.src is a fresh browser-generated blob: URL that is not derived
-  // from the localStorage taint chain CodeQL tracks.
+
   if (avatarData && /^data:image\//.test(avatarData)) {
     if (imgEl) {
       try {
@@ -5673,7 +5126,7 @@ function _refreshSettAvatarUI(name, avatarData) {
           imgEl.src = imgEl._avatarBlobUrl;
           imgEl.style.display = "block";
         }
-      } catch (_) { /* invalid data URL — leave image hidden */ }
+      } catch (_) {  }
     }
     if (initEl) initEl.style.display = "none";
     if (removeBtn) removeBtn.style.display = "inline-block";
@@ -5728,7 +5181,7 @@ async function handleAvatarUpload(input) {
     console.error(err);
     showToast("Failed to process avatar", "error");
   } finally {
-    // Guarantee cleanup even if decoding threw — prevents object-URL leak.
+
     if (objUrl) URL.revokeObjectURL(objUrl);
   }
   input.value = "";
@@ -5751,8 +5204,7 @@ function toggleTempChat() {
   const badge = $("tempBadge");
   if (state.isTemp) {
     btn?.classList.add("active");
-    // Badge stays hidden on the new-chat/welcome screen; it only appears
-    // once the conversation actually starts (see showMessages()).
+
     if (badge) badge.style.display = "none";
     showToast(`${_aiSvgInfo} Temporary chat \u2014 this conversation won't be saved`);
   } else {
@@ -5797,33 +5249,22 @@ function newChat() {
   updateTopbarTitle("");
   renderSidebar();
 }
-/* ── Smart auto-scroll ──────────────────────────────────────────
-   _autoScrollSticky tracks whether the chat should auto-scroll to
-   bottom during streaming.  It starts true.  If the user scrolls UP
-   (away from bottom), it flips to false and scrollToBottom() becomes
-   a no-op.  If the user scrolls back to the very bottom, it flips
-   back to true and auto-scroll resumes.  This gives the user full
-   control: scroll up to read earlier text without being forced down,
-   scroll back to bottom to re-lock onto the latest output. */
+
 let _autoScrollSticky = true;
-/* Threshold in px — if the user is within this distance of the
-   bottom, we consider them "at the bottom" and re-enable sticky. */
+
 const _AUTO_SCROLL_THRESHOLD = 60;
 function _initAutoScrollListener() {
   const cc = $("chatContent");
   if (!cc) return;
   let _userScrolling = false;
-  /* We detect *user-initiated* scrolls by listening to the 'wheel'
-     and 'touchmove' events.  Programmatic scrollTop changes from
-     scrollToBottom() do NOT fire those, so they won't falsely
-     toggle the flag. */
+
   const markUserScroll = () => { _userScrolling = true; };
   cc.addEventListener('wheel', markUserScroll, { passive: true });
   cc.addEventListener('touchmove', markUserScroll, { passive: true });
-  /* On keyboard scroll (PageUp/Down, arrow keys) */
+
   cc.addEventListener('keydown', markUserScroll);
   cc.addEventListener('scroll', () => {
-    if (!_userScrolling) return;  // programmatic scroll — ignore
+    if (!_userScrolling) return;
     _userScrolling = false;
     const atBottom = cc.scrollHeight - cc.scrollTop - cc.clientHeight
                      < _AUTO_SCROLL_THRESHOLD;
@@ -5834,19 +5275,16 @@ function scrollToBottom() {
   if (!_autoScrollSticky) return;
   const cc = $("chatContent");
   if (!cc) return;
-  /* Use smooth scroll so the motion feels natural instead of a
-     hard jump.  Only use instant scroll when the distance is tiny
-     (avoids visible micro-scrolls for 1–2 px differences). */
+
   const distance = cc.scrollHeight - cc.scrollTop - cc.clientHeight;
-  if (distance <= 2) return;  // already there, no-op
+  if (distance <= 2) return;
   if (distance < 80) {
     cc.scrollTop = cc.scrollHeight;
   } else {
     cc.scrollTo({ top: cc.scrollHeight, behavior: 'smooth' });
   }
 }
-/* Force-scroll to bottom (ignores sticky flag).  Used when the user
-   sends a new message — we always want to jump to bottom then. */
+
 function scrollToBottomForce() {
   _autoScrollSticky = true;
   const cc = $("chatContent");
@@ -5868,8 +5306,6 @@ function _escapeAttr(s) {
   return String(s || "").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-/* Build a single dropdown row. The tier is rendered as a right-aligned badge
-   so the capability hierarchy is visible at a glance. Auto has no badge. */
 function _modelDropdownItemHTML(opt, selectedId) {
   const isActive = opt.id === selectedId;
   const tierBadge = opt.tier && opt.tier !== "auto"
@@ -5887,10 +5323,6 @@ function _modelDropdownItemHTML(opt, selectedId) {
     </div>`;
 }
 
-/* Render the dropdown: Auto + 3 primary models always visible; Kappa,
-   Starlight, Cream tucked behind an \"Other Models\" hover/focus trigger
-   that opens a flyout submenu. If the currently-selected model is one of the
-   \"other\" ones, the submenu auto-opens so the active row is visible. */
 function renderModelDropdown() {
   const dd = $("modelDropdown");
   if (!dd) return;
@@ -5918,8 +5350,7 @@ function toggleModelDropdown(e) {
     e.stopPropagation();
     e.preventDefault();
   }
-  // On mobile (< 640px) the inline dropdown is hidden; a full modal picker
-  // is shown instead, matching the settings/library modal pattern.
+
   if (window.matchMedia && window.matchMedia("(max-width: 640px)").matches) {
     openModelModal();
     return;
@@ -6005,24 +5436,13 @@ function escapeHtml(s) {
 function escapeHtmlAttr(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
-// ── URL sanitizers (CodeQL js/xss WriteUrlSink) ──
-// Every value handed back to an <img src> / <a href> sink passes through
-// _uriClean(), whose encodeURIComponent() call is a recognized XSS sanitizer
-// node (CodeQL js/xss and js/xss-through-dom). decodeURIComponent() then
-// restores the original bytes, so no URL is altered — but no storage- or
-// user-sourced taint can survive into the sink. Returns '' on malformed input.
+
 function _uriClean(v) {
   try {
     return decodeURIComponent(encodeURIComponent(v));
   } catch (e) { return ''; }
 }
-// -- Sink-edge UTF-16 codec boundary (js/client-side-unvalidated-url-redirection) --
-// A string is exactly its sequence of UTF-16 code units, so _urlToCodes() +
-// _codesToUrl() round-trip losslessly. Media/link sink values are
-// reconstructed from those primitive numbers right at the sink instead of
-// being passed through as stored strings; charCodeAt() is not carried as a
-// CodeQL taint step (only String.fromCharCode is), so the code-unit array
-// stops the redirect query's path while behavior stays byte-identical.
+
 function _urlToCodes(s) {
   const codes = [];
   for (let i = 0; i < s.length; i++) codes.push(s.charCodeAt(i));
@@ -6033,8 +5453,7 @@ function _codesToUrl(codes) {
   for (let i = 0; i < codes.length; i++) out += String.fromCharCode(codes[i]);
   return out;
 }
-// Schemes are normalized to lowercase first; guarded by startsWith() so no
-// dangerous scheme ever leaves this helper.
+
 function _safeUrlValue(u) {
   let v = String(u ?? '').trim();
   if (!v) return '';
@@ -6051,9 +5470,7 @@ function _safeUrlValue(u) {
   }
   return '';
 }
-// Media destinations: data:-URLs only pass for the requested media type; image
-// payloads are copied into a fresh browser-generated blob: URL so a storage-
-// sourced data URL never reaches an <img> src (CodeQL js/xss-through-dom).
+
 function _safeMediaSrc(u, kind) {
   const k = String(kind || '').toLowerCase();
   const v = _safeUrlValue(u);
@@ -6071,27 +5488,13 @@ function _safeMediaSrc(u, kind) {
   }
   return _codesToUrl(_urlToCodes(_uriClean(v)));
 }
-// Link destinations: only absolute http/https survive; everything else becomes
-// the inert "#" anchor.
+
 function _safeHref(u) {
   const v = _safeUrlValue(u);
   if (v.startsWith('https://') || v.startsWith('http://')) return _codesToUrl(_urlToCodes(_uriClean(v)));
   return '#';
 }
-// Single source of truth for AI-chat error copy. Every user-facing error
-// bubble goes through aiChatErrorText(), which picks the right wording for
-// the failure type instead of showing one generic message for everything:
-//   - error.name === "AbortError"  -> user hit Stop (cancellation)
-//   - _httpStatus === 0            -> network / offline
-//   - _timedOut                    -> server stalled
-//   - 401 / 403 / _serverBlocked   -> the server refused the request
-//   - 429 / quota / rate-limit     -> momentarily at capacity, retry later
-//   - 5xx / server failures        -> server trouble, retry in a moment
-//   - anything else                -> generic "An error occurred while <x>."
-// Backend error text is NEVER passed through to the UI: the raw message can
-// leak quota/billing details, model ids, endpoint URLs, or developer console
-// output. We only inspect it internally (status code + content keywords) to
-// pick friendly copy, then discard it.
+
 function aiErrorMessage(action) {
   return `An error occurred while ${action}. Please try again.`;
 }
@@ -6113,9 +5516,7 @@ function aiChatErrorText(err, action) {
   if (err?._serverBlocked || status === 401 || status === 403) {
     return "The server blocked this request. Please try again.";
   }
-  // 429 / 402 together with quota/rate-limit/billing keywords (quota exceeded,
-  // INSUFFICIENT_QUOTA, rate limit, ...) — friendly retry copy only, never
-  // the backend's plan/billing wording.
+
   if (status === 402 || status === 429 || /quota|insufficient_quota|rate.?limit|RESOURCE_EXHAUSTED|Too Many Requests|billing|payment/i.test(raw)) {
     return "EmeraldBot is at capacity right now \u2014 please wait a moment and try again.";
   }
@@ -6161,8 +5562,7 @@ function _obShowAvatarImg(src) {
   const init2 = $("obAvatarInitials");
   if (!img || !init2) return;
   const safe = _safeMediaSrc(src, "image");
-  // The avatar persists across re-renders, so revoke any blob URL we created
-  // earlier to avoid leaking object URLs on repeated avatar refreshes.
+
   if (img._obAvatarBlobUrl) URL.revokeObjectURL(img._obAvatarBlobUrl);
   img._obAvatarBlobUrl = safe.startsWith("blob:") ? safe : null;
   img.src = safe;
@@ -6192,7 +5592,7 @@ async function _obAvatarUpload(input) {
   } catch (e) {
     showToast("Could not load image", "error");
   } finally {
-    // Guarantee cleanup even if decoding threw — prevents object-URL leak.
+
     if (objUrl) URL.revokeObjectURL(objUrl);
   }
   input.value = "";
@@ -6225,9 +5625,7 @@ function _obMemoryPreview() {
   if (importBtn) {
     importBtn.style.display = "";
   }
-  // `countEl` was referenced but never declared — would throw ReferenceError
-  // on every input event after memories are found. The title above already
-  // shows the count, so the orphan block is removed.
+
 }
 function _obImportMemory() {
   const rawInput = $("obMemoryInput")?.value || "";
@@ -6318,19 +5716,17 @@ async function init() {
   setupContextMenu();
   renderSidebar();
   showWelcome();
-  /* Deep-link: ?chat=<random id> opens that conversation straight away. */
+
   const ownedParam = (() => { try { return new URLSearchParams(location.search).get('chat'); } catch (e) { return null; } })();
   if (ownedParam) {
     const conv = getConv(ownedParam);
     if (conv) loadConversation(ownedParam);
     else history.replaceState({}, document.title, location.pathname);
   } else {
-    // Keep the initial page load on the welcome screen instead of auto-opening
-    // the newest conversation. Users can choose a chat manually when ready.
+
     showWelcome();
   }
-  /* Deep-link: #import=<payload> carries a shared chat in the fragment.
-     Runs after the ?chat= deep-link so a freshly imported chat wins. */
+
   await _shareAutoImportFromHash();
   checkOnboarding();
   try {
@@ -6485,8 +5881,7 @@ function renderQuizWidget(qid, data) {
     let qTextHtml;
     if (type === "fill") {
       const raw = q.q || "";
-      // Normalize common blank markers to "___" so the split works regardless
-      // of whether the AI used ___, ____, [blank], {blank}, or _____.
+
       const normalized = raw
         .replace(/\[blank\]/gi, "___")
         .replace(/\{blank\}/gi, "___")
@@ -6496,16 +5891,10 @@ function renderQuizWidget(qid, data) {
       const inlineInput = `<input type="text" class="quiz-fill-inline" id="${qid}_q${qi}_fill"
         oninput="_quizFillInput('${qid}',${qi},this.value)"
         placeholder="\u2026" autocomplete="off" spellcheck="false" size="14">`;
-      /* A fill question carries a single "answer" string, so only the first
-         blank can be answerable. Emitting one input per blank gave them all
-         the same element id — so getElementById() during grading only ever
-         found the first — and each blank overwrote the same answers[qi] slot,
-         leaving the rest ungraded and still enabled after submit. Extra
-         blanks render as an inert underline instead. */
+
       const staticBlank = `<span class="quiz-fill-static" aria-hidden="true"></span>`;
       let joined = parts.map((p, i) => (p ? _mdInline(renderMarkdown(p)) : "") + (i < parts.length - 1 ? (i === 0 ? inlineInput : staticBlank) : "")).join("");
-      // If the question has no ___ placeholder at all, append an input at the
-      // end so the user actually has something to type into.
+
       if (!hasPlaceholder) {
         joined = _mdInline(renderMarkdown(raw)) + " " + inlineInput;
       }
@@ -6814,8 +6203,7 @@ function _quizApplyGrades(qid) {
   const footer = document.getElementById(`${qid}_submit`);
   if (footer) footer.style.display = "none";
 }
-/* ── Persist quiz state (answers + completion) onto the stored assistant
-   message so answers survive page reloads and chat switches. ───────── */
+
 let _quizPersistTimer = null;
 function _quizPersist(qid) {
   if (!state || !state.convId || state.isTemp) return;
@@ -6843,8 +6231,7 @@ function _quizPersistNow(qid, cid) {
   });
   if (found) upsertConv(conv);
 }
-/* ── Re-render a quiz widget from in-memory state (restores previous
-   selections and, if completed, the graded/explanation view). ─────── */
+
 function _quizRestoreState(qid) {
   const qz = (window._quizzes || {})[qid];
   if (!qz || !qz.data) return;
@@ -6925,8 +6312,7 @@ My answer: "${e.a}"${e.rubric ? `
     prompt += "\nPlease give me feedback.";
   }
   prompt += "\n\n[IMPORTANT: Only provide explanations and essay feedback for the above. Do NOT generate a new quiz. Do NOT generate or edit an image. No <quiz> tags. No [GENERATE_IMAGE:...] or [EDIT_IMAGE:...] tags. Just a plain helpful response.]";
-  // Send silently — no user message bubble, no input box text.
-  // The AI typing indicator appears immediately; the response streams in directly.
+
   handleSend({ silent: true, silentText: prompt });
 };
 function openMemoriesModal() {
@@ -6990,36 +6376,15 @@ function clearAllChats() {
   closeModal("settingsModal");
   showToast("\u2713 All chats & memories cleared");
 }
-/* ══════════════════════════════════════════════════════════════════
-   IMPORT / EXPORT  —  portable share links
-   ------------------------------------------------------------
-   A chat export is a self-contained JSON document holding only the
-   persisted conversation objects (text, quizzes, generated images via
-   msg.imageData, and attachments via msg.files[].data). Nothing about
-   the chat ever reaches a server: the document is deflated and
-   base64url-encoded straight into the URL fragment (#import=…), which
-   browsers never transmit to the server or write to access logs.
 
-   The same document can be saved as a .emeraldcore file for links
-   that get too big for a chat app to carry.
-
-   Import is always ADDITIVE. Existing conversations, files and
-   memories are never touched; incoming conversations get fresh ids
-   and are unshifted onto the top of the Recents list.
-   ══════════════════════════════════════════════════════════════════ */
 const SHARE_APP_TAG = "emeraldbotaichat";
 const SHARE_FORMAT_VERSION = 1;
 const SHARE_HASH_PREFIX = "#import=";
-/* Browsers cap total URL length well before a chat can get long (this is
-   the practical ceiling — the same one EmeraldSuite Notes uses). Past it
-   the fragment can't survive a round trip, so we refuse to build a link
-   and offer the .emeraldcore file instead. */
-const _SHARE_BLOCKED_KEYS = /* @__PURE__ */ new Set(["__proto__", "constructor", "prototype"]);
-/* Payload + link kept around so "Copy Link" and "Download File" both act
-   on the export the user just made. */
+
+const _SHARE_BLOCKED_KEYS =  new Set(["__proto__", "constructor", "prototype"]);
+
 let _shareLastURL = "";
 
-/* ---------- base64url (URL-safe, unpadded) ---------- */
 function _shareBytesToB64Url(bytes) {
   let bin = "";
   const CHUNK = 32768;
@@ -7037,16 +6402,13 @@ function _shareB64UrlToBytes(str) {
   return out;
 }
 
-/* ---------- codec: JSON → 'z'<deflate-raw> | 'r'<raw>, base64url ---------- */
 async function _shareCompress(bytes) {
   if (typeof CompressionStream === "undefined") return null;
   try {
     const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream("deflate-raw"));
     return new Uint8Array(await new Response(stream).arrayBuffer());
   } catch (e) {
-    /* deflate-raw unsupported on this browser — fall back to raw bytes.
-       The marker char tells the reader which form it is looking at, so a
-       link made here still opens anywhere. */
+
     return null;
   }
 }
@@ -7064,8 +6426,7 @@ async function _shareDecompress(bytes) {
 async function _shareEncode(obj) {
   const bytes = new TextEncoder().encode(JSON.stringify(obj));
   const zipped = await _shareCompress(bytes);
-  /* Only keep the compressed form when it actually helps — tiny chats
-     can deflate slightly larger than their raw JSON. */
+
   return zipped && zipped.length < bytes.length
     ? "z" + _shareBytesToB64Url(zipped)
     : "r" + _shareBytesToB64Url(bytes);
@@ -7088,8 +6449,6 @@ async function _shareDecode(encoded) {
   return obj;
 }
 
-/* Accepts a bare payload, a full share URL, or a copy-pasted link that
-   got hard-wrapped with newlines/spaces by a messaging app. */
 function _shareExtractEncoded(raw) {
   let s = String(raw || "").trim();
   const at = s.indexOf(SHARE_HASH_PREFIX);
@@ -7104,11 +6463,8 @@ function _shareBuildURL(encoded) {
   return url.toString();
 }
 
-/* ---------- .emeraldcore file form (JSON + comment header) ---------- */
 function stripJsoncComments(text) {
-  /* Walks character-by-character so comment-like sequences inside string
-     literals are never stripped. Mirrors flowchart.js so a file written
-     there still parses here. */
+
   let out = "";
   let i = 0;
   let inString = false;
@@ -7164,10 +6520,6 @@ function parseShareFile(text) {
   return data;
 }
 
-/* ---------- payload shaping ---------- */
-/* Deep-clones untrusted data, dropping keys that could be used to walk
-   the prototype chain. Reuses safeSetProp so the scrubbed copy is built
-   with the same guard the rest of the app uses. */
 function _shareScrub(value, depth) {
   if (depth > 40) return null;
   if (value === null || typeof value !== "object") return value;
@@ -7197,8 +6549,7 @@ function _shareNormalizeConv(raw) {
       conv.messages.push(m);
     }
   }
-  /* Branch trees (edit-and-resend / regenerate) are keyed by message id,
-     so they travel with the conversation and need no remapping. */
+
   if (raw._editBranches && typeof raw._editBranches === "object") {
     conv._editBranches = raw._editBranches;
   }
@@ -7217,7 +6568,6 @@ function _shareBuildPayload(convIds) {
   };
 }
 
-/* ---------- export ---------- */
 async function shareConversations(ids) {
   const list = Array.isArray(ids) ? ids.filter((id) => typeof id === "string") : [];
   if (!list.length) {
@@ -7243,11 +6593,7 @@ function _showShareModal(url) {
   const el = $("shareModal");
   const input = $("shareLinkInput");
   if (!el || !input) return;
-  /* No length gate here on purpose. Browsers disagree wildly about how
-     long a fragment they will carry — some reject an 8k link that another
-     one opens without complaint, and a link pasted in by hand frequently
-     arrives intact. Rejecting "too long" links up front just locked people
-     out of chats that would have worked. */
+
   _shareLastURL = url;
   input.value = url;
   openModal("shareModal");
@@ -7265,15 +6611,11 @@ async function copyShareLink() {
     closeModal("shareModal");
     return;
   }
-  /* Clipboard blocked (insecure context / denied permission) — the field
-     stays open and selected so it can still be copied by hand. */
+
   showToast("⚠ Copy blocked — select the link and copy manually", "error");
   if (input) { input.focus(); input.select(); }
 }
 
-/* ---------- import ---------- */
-/* Fingerprint of the document itself, so re-opening the same link twice
-   is a no-op instead of creating a second copy of everything. */
 function _shareFingerprint(payload) {
   let text;
   try {
@@ -7299,7 +6641,7 @@ function _shareImportPayload(payload) {
   }
   const fp = _shareFingerprint(payload);
   const existing = loadConvs();
-  /* Never touch what's already here — only ADD. */
+
   if (fp && existing.some((c) => c && c._shareKey === fp)) {
     return { skipped: true, added: 0, firstId: null, titles: [] };
   }
@@ -7324,8 +6666,7 @@ function _shareImportPayload(payload) {
   if (!added.length) {
     throw new Error("That share link doesn't contain any chats with messages.");
   }
-  /* Exports are ordered newest-first, so prepending preserves relative
-     order and matches how upsertConv() files new chats. */
+
   saveConvs(added.concat(existing));
   renderSidebar();
   if (_storeMeterTimer) _refreshStorageMeter();
@@ -7334,7 +6675,7 @@ function _shareImportPayload(payload) {
 async function _shareImportEncoded(encoded) {
   return _shareImportPayload(await _shareDecode(encoded));
 }
-/* Every import path (hash deep-link, pasted link, file picker) ends here. */
+
 function _shareFinishImport(res) {
   closeModal("importModal");
   if (res.firstId) loadConversation(res.firstId);
@@ -7344,9 +6685,7 @@ function _shareReportSkip() {
   closeModal("importModal");
   showToast(`${_aiSvgLink} These chats are already in your history`);
 }
-/* Mirrors EmeraldSuite Notes' post-import confirmation. Built with
-   textContent + createElement so a chat title can never reach an HTML
-   sink. */
+
 function _showImportedModal(res) {
   const el = $("shareImportedModal");
   const msg = $("shareImportedMessage");
@@ -7376,9 +6715,7 @@ async function _shareAutoImportFromHash() {
   try { hash = location.hash || ""; } catch (e) { return; }
   if (hash.indexOf(SHARE_HASH_PREFIX) !== 0) return;
   const encoded = _shareExtractEncoded(hash);
-  /* Drop the payload from the address bar before doing anything else, so
-     a refresh mid-import doesn't re-run it and so the long fragment isn't
-     left sitting in the URL. */
+
   _shareClearHash();
   try {
     const res = await _shareImportEncoded(encoded);
@@ -7440,7 +6777,7 @@ async function importChatsFromInput() {
 }
 function handleShareFileImport(input) {
   const file = input.files && input.files[0];
-  /* Reset immediately so picking the same file twice still fires. */
+
   input.value = "";
   if (!file) return;
   const lower = file.name.toLowerCase();
@@ -7467,7 +6804,7 @@ function handleShareFileImport(input) {
   };
   reader.readAsText(file);
 }
-/* ── Render cached image search results (from IndexedDB) without re-fetching ── */
+
 function _renderCachedImageSearchResults(aiDiv, cacheMap) {
     if (!cacheMap || typeof cacheMap !== 'object') return;
     const placeholders = aiDiv.querySelectorAll(".web-image-searching");
@@ -7541,10 +6878,7 @@ function appendStoredAIMessage(m) {
       <div class="message-sender">EmeraldBot</div>
       <div class="message-text md-content"${_initText ? "" : ' style="display:none"'}>${_initHTML}</div>
     </div>`;
-  // Re-render persisted thinking (collapsed by default — the model has
-  // already finished thinking). Stored separately from `text` so it never
-  // gets sent back to Gemini in buildHistory. `reasoning` is the legacy
-  // field name kept for conversations saved before the rename.
+
   const _storedThinking = m.thinking || m.reasoning;
   if (_storedThinking && typeof _storedThinking === "string" && _storedThinking.trim()) {
     const _rb = document.createElement("div");
@@ -7561,8 +6895,7 @@ function appendStoredAIMessage(m) {
     div.querySelector(".message-sender").insertAdjacentElement("afterend", badge);
   }
   if (quizData) {
-    // CodeQL fix (#52/#56): sanitize qid to safe chars only — prevents
-    // injection via quizData._id or m.id which are user-influenced.
+
     const _rawQid = quizData._id || "quiz_" + (m.id || genId());
     const qid = _rawQid.replace(/[^a-zA-Z0-9_-]/g, "_");
     quizData._id = qid;
@@ -7604,8 +6937,7 @@ function appendStoredAIMessage(m) {
   const _imgDataSafe = m.imageData ? _safeMediaSrc(m.imageData, "image") : '';
   if (m.imageData && _imgDataSafe) {
     const _storedMsgId = m.id || "";
-    // The stored data URL is fetched lazily on click rather than parked in the
-    // DOM, so a long conversation does not hold every picture twice.
+
     const wrapper = buildImageResultEl({
       dataUrl: _imgDataSafe,
       alt: m.imagePrompt ? escapeHtmlAttr(m.imagePrompt.slice(0, 80)) : "",
@@ -7619,25 +6951,21 @@ function appendStoredAIMessage(m) {
     });
     insertBeforeMessageActions(div.querySelector(".message-body"), wrapper);
   }
-  // Persisted follow-up chips, added after every other body part so they
-  // always sit at the very bottom. Older messages are pruned by
-  // updateLastMsgActions() once the caller finishes the batch.
+
   if (!m.isError) insertSuggestionsEl(div.querySelector(".message-body"), m.suggestions || _extractSuggestions(m.text));
   const typingEl = $("typingIndicator");
   $("messagesArea").insertBefore(div, typingEl);
-  // ── Render image search results: use cached results if available (stable on reload) ──
+
   if (m.imageSearchCache && Object.keys(m.imageSearchCache).length) {
     _renderCachedImageSearchResults(div, m.imageSearchCache);
   } else {
-    // First time or no cached results → fetch from API and cache
+
     processImageSearchTags(div, state.convId, m.id);
   }
-  // ── Restore citations from persisted sources ──
+
   if (m.sources && Array.isArray(m.sources) && m.sources.length) {
     renderCitations(div, m.sources);
-    // Mirror the live streaming path: when real sources exist, drop the
-    // raw "Sources"/"Source:" block the model wrote so it doesn't come
-    // back with literal brackets after a reload.
+
     _stripSourcesFromHTML(div.querySelector(".message-text"));
   }
   return div;
@@ -7652,45 +6980,35 @@ function _extractQuiz(text) {
   let parseFailed = false;
   let raw = quizMatch[1];
 
-  // ── Pre-extraction cleanup ──────────────────────────────────────────
-  // Strip markdown code fences the AI might wrap around the JSON
   raw = raw.replace(/^[\s\n]*```(?:json|JSON)?[\s\n]*\n?/i, "");
   raw = raw.replace(/\n?[\s\n]*```[\s\n]*$/i, "");
-  // Strip HTML entities the AI might emit (e.g. &quot; → ")
-  // CodeQL fix (#53): Decode HTML entities the AI might emit (e.g. &quot; → ")
-  // CRITICAL: &amp; MUST be decoded LAST to prevent double-decode (e.g. &amp;lt; → <).
-  // Original code decoded &amp; before &lt; causing double-escaping vulnerability.
+
   raw = raw.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
-  // Strip JS/JSON comments (// and /* */)
+
   raw = raw.replace(/\/\/[^\n]*/g, "");
   raw = raw.replace(/\/\*[\s\S]*?\*\//g, "");
-  // Strip leading/trailing commentary the AI might add around the JSON
-  // Find the first { and last } — everything between is the JSON candidate
+
   const firstBrace = raw.indexOf("{");
   const lastBrace = raw.lastIndexOf("}");
   if (firstBrace >= 0 && lastBrace > firstBrace) {
     raw = raw.slice(firstBrace, lastBrace + 1);
   }
 
-  // ── Parse attempt 1: as-is ──────────────────────────────────────────
   try {
     quizData = JSON.parse(raw);
   } catch (e1) {
-    // ── Parse attempt 2: fix common AI mistakes ───────────────────────
+
     try {
       let fixed = raw
-        .replace(/,\s*([}\]])/g, "$1")                // trailing commas before } or ]
-        .replace(/'/g, '"')                             // single → double quotes
-        .replace(/(?<=[{,])\s*(\w+)\s*:/g, '"$1":')   // unquoted keys after { or , → quoted
-        .replace(/:\s*undefined/g, ':null')            // undefined → null
-        .replace(/:\s*NaN/g, ':0')                     // NaN → 0
-        .replace(/\\(?!["\\/bfnrtu])/g, '\\\\');      // escape stray backslashes
+        .replace(/,\s*([}\]])/g, "$1")
+        .replace(/'/g, '"')
+        .replace(/(?<=[{,])\s*(\w+)\s*:/g, '"$1":')
+        .replace(/:\s*undefined/g, ':null')
+        .replace(/:\s*NaN/g, ':0')
+        .replace(/\\(?!["\\/bfnrtu])/g, '\\\\');
       quizData = JSON.parse(fixed);
     } catch (e2) {
-      // ── Parse attempt 3: aggressive — walk the string character by
-      // character, tracking brace/bracket depth, and extract the longest
-      // valid JSON substring that parses.  This catches cases where the
-      // AI adds extra text INSIDE the braces but outside the structure.
+
       try {
         quizData = _aggressiveJSONExtract(raw);
       } catch (e3) {
@@ -7700,7 +7018,6 @@ function _extractQuiz(text) {
     }
   }
 
-  // ── Normalize: ensure questions array exists and each question has expected shape ──
   if (quizData && Array.isArray(quizData.questions)) {
     quizData.questions = quizData.questions.map((q) => {
       if (typeof q !== "object" || q === null) return q;
@@ -7749,10 +7066,7 @@ function _extractQuiz(text) {
           return isNaN(n2) || n2 < 0 || n2 >= n ? li : n2;
         });
       } else if (rawType === "fill" || rawType === "essay") {
-        /* Must test the lowercased `rawType`, not `norm.type`: the renderer
-           compares `q.type` against "fill"/"essay" exactly, so a mixed-case
-           "Fill" that fell through to the mcq branch below was rendered and
-           graded as a multiple-choice question. */
+
         norm.type = rawType;
         if (typeof norm.answer !== "string") norm.answer = String(norm.answer ?? "");
       } else {
@@ -7770,14 +7084,12 @@ function _extractQuiz(text) {
   return { before, after, quizData, parseFailed };
 }
 
-// Aggressive JSON extraction: tries to find the largest valid JSON object
-// within the raw string by scanning for balanced braces.
 function _aggressiveJSONExtract(raw) {
   const opens = [];
   for (let i = 0; i < raw.length; i++) {
     if (raw[i] === '{') opens.push(i);
   }
-  // Try from outermost { to last }
+
   for (const start of opens) {
     let depth = 0;
     for (let end = start; end < raw.length; end++) {
@@ -7831,19 +7143,13 @@ function quizErrorCardHTML() {
   </div>`;
 }
 
-/* ── EmeraldSuite import (es-app) ─────────────────────────────
-   The AI may end a response with <es-app>{json}</es-app>. The tag is
-   stripped from the visible text and replaced with a card; clicking the
-   card imports the JSON payload into the matching EmeraldSuite app and
-   opens it via ?owned=<id>. Mirrors the quiz-tag machinery above. */
 const _ES_APPS = {
   notes:  { label: "EmeraldNotes",  action: "Open in Notes",  file: "notes.html",  color: "#a21caf", soft: "rgba(162,28,175,0.15)" },
   docs:   { label: "EmeraldDocs",   action: "Open in Docs",   file: "docs.html",   color: "#0891b2", soft: "rgba(8,145,178,0.15)" },
   slides: { label: "EmeraldSlides", action: "Open in Slides", file: "slides.html", color: "#f97316", soft: "rgba(249,115,22,0.15)" },
   sheets: { label: "EmeraldSheets", action: "Open in Sheets", file: "sheets.html", color: "#16a34a", soft: "rgba(22,163,74,0.15)" }
 };
-/* App accent detected from the streaming <es-edit>/<es-app> payload, so the
-   in-progress loading cards and pills get the right per-app color. */
+
 let _esStreamApp = null;
 function _esPeekApp(text) {
   const m = String(text || "").match(/"app"\s*:\s*"([a-z]+)"/i);
@@ -7853,17 +7159,16 @@ function _esAccent(app) {
   return (app && _ES_APPS[app] && _ES_APPS[app].color) || "#0891b2";
 }
 const _ES_ANIM_TYPES = ["appear", "fade", "fly", "zoom", "spin", "bounce"];
-/* slides.js exposes exactly three triggers; "auto" is not one of them. */
+
 const _ES_ANIM_STARTS = ["click", "with", "after"];
-/* SlidesApp.TRANSITIONS (slides.js:3455-3499). */
+
 const _ES_TRANSITIONS = [
   "none", "fade", "push", "wipe", "split", "reveal", "cut", "cover", "uncover", "random-bars", "shape", "blinds",
   "morph", "fade-black", "zoom", "cube", "flip", "gallery", "vortex", "newsflash", "honeycomb", "glitch", "dissolve",
   "checkerboard", "clock", "ripple", "doors", "switch", "curtains", "fracture", "peel-off", "glitter", "comb",
   "pan", "rotate", "orbit", "fly-through", "conveyor"
 ];
-/* SheetsApp font list (slides.html:123-154) — the model may use any string,
-   but these are the ones actually installed in the app's own picker. */
+
 const _ES_FONTS = [
   "DM Sans", "Arial", "Helvetica", "Verdana", "Roboto", "Open Sans", "Lato", "Montserrat", "Poppins",
   "Nunito", "Ubuntu", "Raleway", "Oswald", "Work Sans",
@@ -7871,9 +7176,7 @@ const _ES_FONTS = [
   "Fira Code", "IBM Plex Mono", "Courier New",
   "Dancing Script", "Caveat", "Pacifico", "Lobster", "Permanent Marker"
 ];
-/* sheets.js BORDER_W (sheets.js:2884). These four are the ONLY values the
-   renderer maps to a width — "solid"/"dashed"/"dotted" do not exist and fall
-   back to 1px, so accepting them here would silently lie to the model. */
+
 const _ES_BORDER_STYLES = ["thin", "medium", "thick", "double"];
 const _ES_SHEET_ALIGN_H = ["left", "center", "right"];
 const _ES_SHEET_ALIGN_V = ["top", "middle", "bottom"];
@@ -8006,8 +7309,7 @@ function _esHtml(md) {
   try { if (typeof DOMPurify !== "undefined") return DOMPurify.sanitize(html); } catch (e) {}
   return html;
 }
-/* Sanitise without re-rendering. Used for HTML this file builds itself,
-   where a second markdown pass would mangle the inline markup. */
+
 function _esSanitizeHtml(html) {
   const h = String(html == null ? "" : html);
   try { if (typeof DOMPurify !== "undefined") return DOMPurify.sanitize(h); } catch (e) {}
@@ -8017,58 +7319,16 @@ function _esPlainText(s) {
   return String(s == null ? "" : s).replace(/<[^>]*>/g, " ").replace(/[#*_>`~]/g, " ").replace(/\s+/g, " ").trim();
 }
 
-/* ── AI-authored rich text, normalised to the app's own formatting ───
-   The model reaches for the only vocabulary it has: raw CSS. So a Docs
-   page arrives with runs like
-     <span style="background:#0b1a2b;color:#4cc2ff;padding:8px 14px;
-                 border-radius:6px;font-family:monospace">
-   which paints fine and is the reason a document can look designed and
-   still be uneditable in the only sense that matters — the ribbon has no
-   control for padding or a radius or a shadow, so selecting that text
-   shows the colour button resting and the highlight button resting, and
-   there is nothing to toggle. Word has no such gap: every mark-up a run
-   can carry has a ribbon control behind it.
-
-   Two rules, both applied here at the single point every AI-authored
-   string passes through on its way into storage:
-
-   1. A text run keeps ONLY what a ribbon control can put on one —
-      colour, highlight, font family/size/weight/style, underline. The
-      rest goes. BLOCK elements are untouched, so the <div> code blocks
-      and callouts the model is told to build survive intact.
-   2. A picture the model can see but cannot put in the file — "[Image 1]"
-      and its relatives — is removed along with the caption line that
-      exists only to name it. There is no image behind the reference, so
-      the reference is the whole of what the reader gets. The real route
-      is the add_image op with an https URL or a gen token. */
 const _ES_RIBBON_RUN_PROPS = new Set([
   "color", "background-color", "background", "font", "font-family",
   "font-size", "font-weight", "font-style", "text-decoration",
   "text-decoration-line", "text-decoration-color", "text-decoration-style"
 ]);
-/* A `background` value that is still a highlight once you look: one flat
-   colour. A gradient or an image is decoration the ribbon cannot express
-   and getComputedStyle would not report as a highlight anyway. */
+
 function _esIsFlatPaint(value) {
   return !/gradient|url\s*\(|image-set|repeating|\brepeat\b|\/|\bnone\b/i.test(String(value || ""));
 }
-/* ── Symbols are characters, not pictures ─────────────────────────
-   Docs has a Symbols bar, and every button on it does one thing:
-   document.execCommand("insertText", "★"). A symbol in a document is a
-   CHARACTER — you select it, retype it, recolour it with the ribbon,
-   delete it and it leaves nothing behind.
 
-   The icon tag is the opposite. renderMarkdown turns <icon name="check"/>
-   into an inline <svg>, and the very same function renders document
-   content, so a model reaching for a checkmark in a note or a doc got a
-   picture pasted into the text: unselectable, un-recolourable, and a hole
-   when deleted. That is what the AI's symbols looked like.
-
-   So each icon name is mapped to the character it stands for and the SVG
-   is swapped for it. Where no real glyph exists for a name the fallback is
-   a bullet — still text, still editable, and honest about being a stand-in;
-   the prompt now tells the model to write the character outright, so this
-   table is the safety net rather than the main path. */
 const _ES_ICON_CHARS = {
   "info": "ℹ", "warning": "⚠",
   "check": "✓", "check-circle": "✔",
@@ -8096,12 +7356,8 @@ function _esNormaliseAiRichText(html) {
   try { body = new DOMParser().parseFromString(src, "text/html").body; } catch { return src; }
   if (!body) return src;
 
-  // ── 2. Drop the "[Image 1]" references ────────────────────────
   const IMG_REF = /\[\s*(?:image|img|photo|picture|figure|圖|图|圖片|图片|图像|图象)\s*[#:]?\s*\d*\s*(?:[:：][^\]\n]*)?\]/gi;
-  // A caption that is the WHOLE of its block and only names a picture
-  // ("*Figure 2: the request path*") goes with the reference. Requiring a
-  // colon right after the number is what stops "Figure 3 shows the
-  // results." from being mistaken for one.
+
   const CAPTION_LINE = /^\s{0,3}(?:[*_]\s*)?(?:figure|fig\.?|圖|图)\s*\d+\s*[:：.、][^\n]*$/i;
   const BLOCK = "p,li,h1,h2,h3,h4,h5,h6,td,th,div,blockquote";
   const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT, null);
@@ -8114,44 +7370,33 @@ function _esNormaliseAiRichText(html) {
     if (!v) continue;
     const stripped = v.replace(IMG_REF, "");
     if (stripped !== v) {
-      /* The reference sat between words, so removing it leaves the gap it
-         occupied behind ("Before [Image 1] the" -> "Before  the"). Closed up
-         here rather than left to the renderer, and only in the node that was
-         actually touched — a deliberate double space elsewhere is untouched. */
+
       t.nodeValue = stripped.replace(/[ \t\u00a0]{2,}/g, " ");
       droppedRef = true;
     }
   }
   if (droppedRef) {
-    // Clean up the blocks the references left behind: one that is now empty,
-    // and one that was only ever a caption naming the missing picture.
+
     body.querySelectorAll(BLOCK).forEach((el) => {
-      if (el.querySelector(BLOCK)) return;              // a wrapper, not the holder
-      if (el.querySelector("img,svg,table,input,hr")) return;  // real content
+      if (el.querySelector(BLOCK)) return;
+      if (el.querySelector("img,svg,table,input,hr")) return;
       const raw = (el.textContent || "").trim();
       if (raw.replace(/[*_`~\s]/g, "") === "" || CAPTION_LINE.test(raw)) el.remove();
     });
   }
 
-  // ── 3. Symbols back to characters ─────────────────────────────
-  // Runs before the CSS trim below, which is only about colour anyway.
   const svgs = body.querySelectorAll("svg");
   for (const svg of svgs) {
     const name = String(svg.getAttribute("data-ai-icon") || "").trim().toLowerCase();
     if (name) {
-      /* A recognised icon becomes the character it stands for. */
+
       svg.replaceWith(document.createTextNode(_ES_ICON_CHARS[name] || "•"));
     } else {
-      /* An SVG the model wrote by hand carries no name and has no Docs
-         equivalent — an inline vector can never be typed, coloured or
-         cleanly deleted, which is the whole complaint. Gone rather than
-         left as a picture pretending to be text. Real <img> is untouched: a
-         photograph is legitimately a picture, and the app can resize one. */
+
       svg.remove();
     }
   }
 
-  // ── 1. Trim text runs to what the ribbon can express ───────────
   const runs = body.querySelectorAll("span,font,b,strong,i,em,u,s,strike,sub,sup,code,mark,a,small,big");
   for (const el of runs) {
     const cs = el.style;
@@ -8159,7 +7404,7 @@ function _esNormaliseAiRichText(html) {
     for (let i = cs.length - 1; i >= 0; i--) {
       const prop = cs[i];
       if (_ES_RIBBON_RUN_PROPS.has(prop)) {
-        // Keep `background` only when it is really a highlight.
+
         if (prop === "background" && !_esIsFlatPaint(cs.getPropertyValue(prop))) cs.removeProperty(prop);
         continue;
       }
@@ -8179,19 +7424,12 @@ async function _esImportNotes(data) {
   let arr = await _esStoreGet("emeraldcore.storage.suite.notes");
   arr = Array.isArray(arr) ? arr : [];
   arr.unshift({ id, title: _esPlainText(data.title) || "Imported Note", content: _esNormaliseAiRichText(_esHtml(data.content)), createdAt: now, modifiedAt: now });
-  /* Notes carry a background colour (notes.js updateNoteColor). It was never
-     settable from here, so "make me a yellow note" silently did nothing. */
+
   if (data.color) arr[0].color = String(data.color);
   await _esStoreSet("emeraldcore.storage.suite.notes", arr);
   return id;
 }
-/* A document watermark, as one short line of text drawn behind the page.
-   Normalised here rather than trusted: docs.js renders it with textContent
-   (so no markup can ride in), and it only ever shows as a single centred
-   word — "DRAFT", "CONFIDENTIAL", "DO NOT DISTRIBUTE". A model asking for
-   "watermark: 40px rotated grey text behind every page" gets the word, not
-   the CSS. Empty, "none", "off" and "clear" all mean "remove it", which is
-   the only way to take one off once it is set. */
+
 function _esWatermark(v) {
   if (v == null) return "";
   const s = String(v).replace(/\s+/g, " ").trim();
@@ -8211,9 +7449,7 @@ async function _esImportDoc(data) {
   await _esStoreSet("emeraldcore.storage.suite.docs." + id, {
     id, title, content, savedAt: now,
     theme: data.theme === "dark" ? "dark" : "light",
-    // Header, footer and the notes lists were hard-coded empty here even
-    // though the prompt advertises them, so a document created with a
-    // watermark (or a running header) arrived with neither.
+
     header: data.header != null ? String(data.header) : "",
     footer: data.footer != null ? String(data.footer) : "",
     watermark: _esWatermark(data.watermark),
@@ -8240,9 +7476,7 @@ function _esSplitSlides(data) {
     return { title, content: body };
   });
 }
-/* Shapes the Slides renderer can actually paint (slides.js shapeSVG).
-   A name outside this list would draw an empty SVG, so it is swapped for
-   the nearest sensible default instead of being passed through. */
+
 const _ES_SHAPES = new Set([
   "rect", "rounded", "snipSame", "snipDiagonal", "roundSame", "roundDiagonal",
   "snipRound", "plaque", "chamfer", "frameRect", "crossRect", "ribbon",
@@ -8270,24 +7504,15 @@ function _esNum(v, fallback) {
   return Number.isFinite(n) ? n : fallback;
 }
 function _esCssColor(v, fallback) {
-  /* Only pass through something the browser can paint - a malformed
-     colour silently falls back to inherited black in the canvas and
-     leaves text invisible on a dark background. */
+
   const s = String(v == null ? "" : v).trim();
   if (!s) return fallback;
-  /* The canvas accepts CSS gradients for fill/stroke and backgrounds
-     (slides.js svgPaint:134-142), so rejecting them here meant a gradient
-     the model correctly asked for was thrown away and the shape fell back
-     to the default fill. Characters are still restricted to the gradient
-     syntax so no arbitrary declaration can be smuggled through. */
+
   if (/^(?:repeating-)?(?:linear|radial|conic)-gradient\([a-z0-9\s,.%#()/deg-]+\)$/i.test(s)) return s;
   if (/^(#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})|rgba?\(|hsla?\(|[a-z]+$)/i.test(s)) return s;
   return fallback;
 }
-/* ── Icon library (for AI-authored slide icons) ───────────────────
-   Mirrors slides.js loadIconLibrary so an icon name the model writes can be
-   resolved to its SVG at import time, even though aichat.html does not load
-   the library itself. Cached on window._esIconDb. */
+
 let _esIconDbPromise = null;
 function _esLoadIconDb() {
   if (window._esIconDb && window._esIconDb.length) return Promise.resolve(window._esIconDb);
@@ -8322,9 +7547,6 @@ function _esResolveIconSvg(name) {
   return found ? String(found.svg || '') : '';
 }
 
-
-/* Detect whether a background value reads as dark, so default text can be
-   switched to white for contrast. */
 function _esIsDarkBg(v) {
   const s = String(v == null ? "" : v).trim().toLowerCase();
   if (!s) return false;
@@ -8342,14 +7564,6 @@ function _esIsDarkBg(v) {
   return false;
 }
 
-/* ── Generated images ──────────────────────────────────────────────
-   Images produced by the image worker come back as data URLs and are stored
-   on the conversation message, not in any EmeraldSuite file. Without a way to
-   name one, "generate a logo then put it on slide 1" was impossible: the
-   add_image op only accepted a URL. This keeps the most recent few in
-   session memory so the model can reference them as "generated" / "last" /
-   "gen1", "gen2"… The data URL is written into the file on use, which is the
-   same thing notes.js and docs.js already do for pasted images. */
 const _ES_GEN_IMAGES = [];
 const _ES_GEN_MAX = 6;
 
@@ -8362,26 +7576,22 @@ function _esRegisterGeneratedImage(dataUrl, prompt, mode) {
   while (_ES_GEN_IMAGES.length > _ES_GEN_MAX) _ES_GEN_IMAGES.shift();
 }
 
-/* Resolve a src the model wrote into something a file can store.
-   Returns "" when the reference cannot be honoured, so the caller reports the
-   op as missed rather than writing a broken image element. */
 function _esResolveImageSrc(src, alt) {
   const raw = String(src == null ? "" : src).trim();
   if (!raw) return "";
   if (/^data:image\//i.test(raw) || /^https?:\/\//i.test(raw) || /^\//.test(raw) || /^blob:/i.test(raw)) return raw;
-  // Placeholder that points back at the image the model just made.
+
   const pool = _ES_GEN_IMAGES;
   if (!pool.length) return "";
   let entry = null;
   const m = /^gen\s*(\d+)$/i.exec(raw);
-  /* gen1 is the OLDEST image still kept, genN the newest, so the index maps
-     straight onto the retained window. Out-of-range clamps to the newest. */
+
   if (m) entry = pool[Math.min(pool.length, Math.max(1, Number(m[1]))) - 1] || null;
   else if (/^(last|generated|gen|latest|previous)$/i.test(raw)) entry = pool[pool.length - 1];
   if (!entry) return "";
   return entry.dataUrl;
 }
-/* Human-readable list for the prompt, so the model can pick a real index. */
+
 function _esGenImagesNote() {
   if (!_ES_GEN_IMAGES.length) return "";
   const items = _ES_GEN_IMAGES.slice(-_ES_GEN_MAX).map((g, i) =>
@@ -8391,11 +7601,6 @@ function _esGenImagesNote() {
     ". Use the exact \"gen1\"..\"gen" + _ES_GEN_IMAGES.length + "\" token, or \"last\" for the newest.";
 }
 
-/* Slide background. The app trusts `type` and assigns `value` straight to
-   canvas.style.background (slides.js:1709), so a gradient stored as
-   type:"color" paints as an invalid value and the slide falls back to white.
-   Type has to be derived from the value, exactly as the app's own swatch
-   handler does (slides.js:3193). */
 function _esSlideBg(value) {
   const v = String(value == null ? "" : value).trim();
   if (!v) return { type: "color", value: "#ffffff" };
@@ -8404,9 +7609,6 @@ function _esSlideBg(value) {
   return { type: "color", value: v };
 }
 
-/* Image adjustments (slides.js:1103-1115). Each is skipped at its identity
-   value, which is what the app's own panel does, so an element only carries
-   the keys that actually change something. */
 function _esImageFx(fx) {
   const o = {};
   if (!fx || typeof fx !== "object") return null;
@@ -8423,17 +7625,11 @@ function _esImageFx(fx) {
   return Object.keys(o).length ? o : null;
 }
 
-/* Normalised link target. slides.js routes clicks through safeOpenUrl, which
-   only allows http/https/mailto, so anything else is dropped rather than
-   stored and silently inert. */
 function _esElLink(v) {
   const s = String(v == null ? "" : v).trim();
   return /^(?:https?:|mailto:)/i.test(s) ? s : "";
 }
 
-/* One element in the Slides element model (see slides.js createElementDOM).
-   Text is the fallback because a payload can only ever contain something
-   the app will draw; an unreadable type used to vanish entirely. */
 function _esSlideElement(el, z, fallbackColor) {
   const src = el && typeof el === "object" ? el : {};
   const box = {
@@ -8446,9 +7642,6 @@ function _esSlideElement(el, z, fallbackColor) {
   const type = String(src.type || "text").toLowerCase();
   const link = _esElLink(src.link);
 
-  /* AI-authored icon: resolve the name against the Slides icon library and
-     store it as a shape:"icon" element carrying its own SVG, exactly like
-     the app's own Insert > Icon command. */
   const iconName = src.icon || src.iconName || src.name;
   if (type === "icon" || (type === "shape" && (String(src.shape || "").toLowerCase() === "icon" || iconName && String(src.shape || "").toLowerCase() === "icon"))) {
     const svg = (typeof src.svg === "string" && src.svg.trim()) ? _esSanitizeHtml(src.svg) : _esResolveIconSvg(iconName);
@@ -8467,7 +7660,7 @@ function _esSlideElement(el, z, fallbackColor) {
 
   if (type === "shape") {
     const raw = String(src.shape || "rect").trim();
-    /* Allow shape:"icon" with an icon name even when type is "shape". */
+
     if (raw.toLowerCase() === "icon") {
       const svg = (typeof src.svg === "string" && src.svg.trim()) ? _esSanitizeHtml(src.svg) : _esResolveIconSvg(src.icon || src.iconName || src.name);
       if (svg) {
@@ -8490,8 +7683,7 @@ function _esSlideElement(el, z, fallbackColor) {
       stroke: _esCssColor(src.stroke, "none"),
       strokeWidth: Math.max(0, Math.min(40, _esNum(src.strokeWidth, 0)))
     });
-    /* A raw <svg> body is only honoured for shape:"icon" (slides.js:1826) and
-       is sanitised before use, so it is passed through as-is for that case. */
+
     if (out.shape === "icon" && typeof src.svg === "string" && src.svg.trim()) {
       out.svg = _esSanitizeHtml(src.svg);
     }
@@ -8504,7 +7696,7 @@ function _esSlideElement(el, z, fallbackColor) {
     const out = Object.assign(box, { type, src: srcUrl });
     if (type === "image") {
       out.alt = String(src.alt == null ? "" : src.alt);
-      /* crop is stored as FRACTIONS 0..1, not pixels (slides.js:1841-1850). */
+
       const f = (v) => { const x = Number(v); return Number.isFinite(x) ? Math.max(0, Math.min(0.9, x)) : 0; };
       const crop = { l: f(src.crop && src.crop.l), t: f(src.crop && src.crop.t), r: f(src.crop && src.crop.r), b: f(src.crop && src.crop.b) };
       if (crop.l || crop.t || crop.r || crop.b) out.crop = crop;
@@ -8522,52 +7714,27 @@ function _esSlideElement(el, z, fallbackColor) {
   const raw = src.text != null ? src.text : src.html != null ? src.html : "";
   const out = Object.assign(box, {
     type: "text",
-    /* rawHtml is HTML this file composed itself (the card labels, which
-       carry inline accent colours). It is sanitised but NOT run back
-       through the markdown renderer — that would re-wrap it and can drop
-       the very spans that colour the text. */
+
     html: src.rawHtml != null ? _esSanitizeHtml(src.rawHtml) : _esHtml(raw),
     fontFamily: String(src.fontFamily || "DM Sans"),
     fontSize: Math.max(8, Math.min(48, _esNum(src.fontSize, 24))),
     bold: !!src.bold, italic: !!src.italic, underline: !!src.underline,
     color: _esCssColor(src.color, fallbackColor || "#1a1a1a"),
-    /* Paint behind the text. This is the cheapest way to give a run of
-       text a coloured box without positioning a separate shape.
-       "none"/"" mean no highlight — slides.js reads `el.highlight ||
-       'transparent'`, so a literal "none" would be painted as the CSS
-       keyword and could still resolve to a visible colour. */
+
     highlight: (src.highlight === "none" || src.highlight === "") ? "transparent"
       : _esCssColor(src.highlight, "transparent"),
     textAlign: ["left", "center", "right", "justify"].includes(String(src.textAlign))
       ? String(src.textAlign) : "left",
     listType: src.listType === "ul" || src.listType === "ol" ? src.listType : ""
   });
-  /* Hyperlinks work on text elements too (slides.js:1731, ctrl-click). */
+
   if (link) out.link = link;
   return out;
 }
 
-/* ── Deck auto-design ───────────────────────────────────────────
-   When the model returns the plain shape — {"title": "...", "content":
-   "markdown"} — building it literally produced two text boxes on a
-   white rectangle, which is why generated decks looked like a text
-   dump rather than a designed deck.
-
-   So that shape is now laid out, not dumped. The content is parsed into
-   items and composed into a real layout: a tinted background, an accent
-   bar, coloured headings and the body set into cards, with the palette
-   rotating per slide so a deck reads as one system instead of a stack of
-   unrelated pages.
-
-   A model that DOES send `elements` is left completely alone — this is
-   only the fallback, and it never overrides an explicit design. */
-
 const _ES_CANVAS_W = 960;
 const _ES_CANVAS_H = 540;
 
-/* Palettes are picked per slide. Every one pairs a tinted page with a
-   surface, an ink for body text and an accent strong enough to carry a
-   heading — contrast is fixed here rather than left to the model. */
 const _ES_PALETTES = [
   { bg: "linear-gradient(135deg,#f0fdf4,#dcfce7)", surface: "#ffffff", ink: "#052e16", muted: "#3f6212", accent: "#059669", onAccent: "#ffffff" },
   { bg: "linear-gradient(135deg,#eef2ff,#e0e7ff)", surface: "#ffffff", ink: "#1e1b4b", muted: "#4338ca", accent: "#4f46e5", onAccent: "#ffffff" },
@@ -8583,10 +7750,6 @@ function _esPalette(i) {
   return _ES_PALETTES[Math.abs(_esNum(i, 0)) % _ES_PALETTES.length];
 }
 
-/* Turns the content markdown into discrete items so they can be placed
-   in cards instead of being poured into one overflowing text box.
-   Returns [{ marker, label, text }] — label is a leading bold phrase
-   ("**Latency:** 40ms") split out so it can be coloured on its own. */
 function _esSlideItems(md) {
   const lines = String(md == null ? "" : md).replace(/\r/g, "").split("\n");
   const items = [];
@@ -8601,10 +7764,7 @@ function _esSlideItems(md) {
     const h = line.match(/^\s{0,3}(#{1,6})\s+(.*)$/);
     const b = line.match(/^\s*(?:[-*+•‣▪])\s+(.*)$/);
     const n = line.match(/^\s*(\d{1,2})[.)]\s+(.*)$/);
-    /* "**Revenue:** up 42%" on its own line is a labelled row, not prose
-       that happens to start with a bold word. Left to the paragraph rule
-       below it swallowed the whole list into one card and only the first
-       label was ever coloured. */
+
     const l = line.match(/^\s*\*\*(.+?)\*\*\s*[:：—–-]?\s*(.*)$/);
 
     if (h) { push(); mode = "h"; cur = { marker: "", label: "", text: h[2].trim() }; push(); continue; }
@@ -8614,15 +7774,10 @@ function _esSlideItems(md) {
       cur = { marker: "", label: l[1].trim(), text: (l[2] || "").trim() };
       continue;
     }
-    /* "para" must be flushed too: it was missing here, so a paragraph
-       directly followed by a list item had its `cur` overwritten instead of
-       pushed and its text was lost. (The old `|| mode === "para"` test sat
-       after `mode` had already been reassigned, so it could never be true.) */
+
     if (b) { if (mode === "n" || mode === "ul" || mode === "para") push(); mode = "ul"; if (!cur) cur = { marker: "", label: "", text: "", bullet: true }; cur.bullet = true; cur.text = (cur.text ? cur.text + " " : "") + b[1].trim(); continue; }
     if (n) { if (mode === "ul" || mode === "n" || mode === "para") push(); mode = "n"; cur = { marker: n[1], label: "", text: n[2].trim() }; continue; }
 
-    /* A table row or a fenced block would otherwise be chopped into
-       separate cards that no longer read as the table they came from. */
     if (/^\s*\|.*\|\s*$/.test(line) || /^\s*(```|~~~)/.test(line) || /^\s*([-*_]\s*){3,}$/.test(line)) {
       push(); mode = "raw";
       cur = { marker: "", label: "", text: line.trim() };
@@ -8636,9 +7791,6 @@ function _esSlideItems(md) {
   }
   push();
 
-  /* Split a leading bold phrase into its own label so it can carry the
-     accent colour instead of sitting in the body colour. Also covers a
-     label buried mid-item, e.g. a bullet that opens with one. */
   items.forEach((it) => {
     if (!it.label) {
       const m = it.text.match(/^\*\*(.+?)\*\*\s*[:：—–-]?\s*(.*)$/s);
@@ -8646,22 +7798,18 @@ function _esSlideItems(md) {
     }
     it.label = String(it.label || "").replace(/[:：]\s*$/, "").trim();
     it.text = it.text.replace(/\*\*/g, "").replace(/^#+\s*/, "").trim();
-    /* A label with nothing after it still deserves its own card. */
+
     if (!it.text) it.text = it.label;
   });
   return items.filter((it) => it.text);
 }
 
-/* Escape for the small amount of inline HTML the cards build by hand.
-   Everything else goes through _esHtml + DOMPurify as before. */
 function _esEsc(s) {
   return String(s == null ? "" : s)
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
 
-/* A card: rounded panel, accent marker and the text set inside it.
-   Returned as plain element specs so the normal builder validates them. */
 function _esCard(p, x, y, w, h, text, z, opts) {
   const o = opts || {};
   const padX = o.padX != null ? o.padX : 18;
@@ -8671,10 +7819,9 @@ function _esCard(p, x, y, w, h, text, z, opts) {
     type: "shape", shape: "rounded", x, y, w, h, z,
     fill: p.surface, stroke: p.accent, strokeWidth: o.strokeWidth != null ? o.strokeWidth : 1, opacity: o.opacity != null ? o.opacity : 1
   });
-   /* Modern card: coloured top accent strip */
+
    els.push({ type: "shape", shape: "rect", x: x + 1, y: y + 1, w: w - 2, h: 4, z: z + 1, fill: p.accent, stroke: "none", strokeWidth: 0, opacity: 0.9 });
-  /* Numbered lists get a filled badge, everything else a slim rule —
-     the marker is what makes a column of boxes read as a list. */
+
   if (o.marker) {
     if (o.badge) {
       els.push({ type: "shape", shape: "rounded", x: x + padX, y: y + padY, w: 26, h: 26, z: z + 1, fill: p.accent, stroke: "none", strokeWidth: 0 });
@@ -8684,8 +7831,7 @@ function _esCard(p, x, y, w, h, text, z, opts) {
     }
   }
   const indent = o.marker ? (o.badge ? 26 + 10 : 4 + 10) : 0;
-  /* `text` is the positional argument — reading it off `o` here rendered
-     every card as the literal string "undefined". */
+
   const body = _esHtml(text);
   const rawHtml = o.label
     ? '<p style="margin:0"><strong style="color:' + p.accent + '">' + _esEsc(o.label) + "</strong>" +
@@ -8693,8 +7839,7 @@ function _esCard(p, x, y, w, h, text, z, opts) {
     : body;
   els.push(_esSlideElement({
     rawHtml, x: x + padX + indent, y: y + padY,
-    /* Padding is taken once per side. Subtracting it twice squeezed a
-       three-column card's text down to half its available width. */
+
     w: Math.max(40, w - padX * 2 - indent),
     h: h - padY * 2,
     fontSize: o.fontSize || 15, fontFamily: "DM Sans", color: p.ink, textAlign: "left"
@@ -8702,14 +7847,10 @@ function _esCard(p, x, y, w, h, text, z, opts) {
   return els;
 }
 
-/* Cover / section slide: tinted page, oversized title, accent rule and
-   a couple of soft shapes so it does not read as a blank rectangle. */
 function _esDesignCover(title, subtitle, p, notes) {
   const els = [];
   let z = 1;
-  /* The canvas is overflow:visible, so a shape hanging off the edge
-     would draw over the app chrome rather than bleeding off the page —
-     every decoration stays inside the 960x540 box. */
+
   els.push({ type: "shape", shape: "ellipse", x: 712, y: 44, w: 196, h: 196, z: z++, fill: p.accent, stroke: "none", strokeWidth: 0, opacity: 0.18 });
   els.push({ type: "shape", shape: "ellipse", x: 56, y: 344, w: 120, h: 120, z: z++, fill: p.accent, stroke: "none", strokeWidth: 0, opacity: 0.14 });
   els.push({ type: "shape", shape: "rect", x: 0, y: 0, w: 14, h: _ES_CANVAS_H, z: z++, fill: p.accent, stroke: "none", strokeWidth: 0 });
@@ -8732,8 +7873,6 @@ function _esDesignCover(title, subtitle, p, notes) {
   return { background: _esSlideBg(p.bg), elements: els, notes: String(notes == null ? "" : notes) };
 }
 
-/* Content slide: accent header band, coloured heading, then the parsed
-   body laid out as a grid of cards that reflows with the item count. */
 function _esDesignContent(title, items, p, notes) {
   const els = [];
   let z = 1;
@@ -8762,21 +7901,18 @@ function _esDesignContent(title, items, p, notes) {
   const cardH = Math.round(Math.min(190, (availH - gap * (rows - 1)) / rows));
   const numbered = items.length > 1 && items.every((it) => !!it.marker && /^\d+$/.test(it.marker));
   const bulleted = !numbered && items.length > 1 && items.every((it) => !!it.bullet);
-  /* The badge is a fixed 26px and needs breathing room; long-form text
-       in a narrow column does not. */
+
   const fontSize = cols === 3 ? 14 : n > 4 ? 15 : 16;
 
   items.forEach((it, i) => {
     const col = i % cols;
     const row = Math.floor(i / cols);
-    /* Centre a short final row instead of leaving it hard against the
-       left edge. */
+
     const inRow = Math.min(cols, n - row * cols);
     const rowW = inRow * cardW + (inRow - 1) * gap;
     const x = 64 + Math.round((832 - rowW) / 2) + col * (cardW + gap);
     const y = top + row * (cardH + gap);
-    /* A list without any marker at all is just a stack of boxes; the
-       accent tick or number badge is what makes it read as a list. */
+
     const marker = numbered ? String(Number(it.marker)) : bulleted ? "•" : "";
     const els2 = _esCard(p, x, y, cardW, cardH, it.text, z, {
       label: it.label, marker, badge: numbered, textH: fontSize + 4, fontSize
@@ -8791,8 +7927,7 @@ function _esBuildSlide(s, data, index) {
   const src = s && typeof s === "object" ? s : {};
   const notes = String(src.notes == null ? "" : src.notes);
   const ix = _esNum(index, 0);
-  /* An explicit background/textColor from the model is respected — the
-     auto-design only fills in what was not chosen for it. */
+
   const hasBg = !!(src.background || (data && data.background));
   const hasText = !!(src.textColor || (data && data.textColor));
   const bg = src.background || (data && data.background) || "#ffffff";
@@ -8803,8 +7938,7 @@ function _esBuildSlide(s, data, index) {
   if (Array.isArray(src.elements) && src.elements.length) {
      const defaultInk = (!hasText && _esIsDarkBg(bg)) ? "#ffffff" : textColor;
      els = src.elements.map((el, j) => _esSlideElement(el || {}, j + 1, defaultInk));
-    /* A model-provided element list can still leave the page blank; give
-       it the deck background rather than pure white. */
+
     if (!hasBg) {
       const p = Object.assign({}, _esPalette(ix));
     if (!hasText && _esIsDarkBg(bg)) { textColor = "#ffffff"; }
@@ -8816,17 +7950,14 @@ function _esBuildSlide(s, data, index) {
       }
     }
   } else {
-    /* Plain title/content — design it instead of dumping it as two text
-       boxes on white. */
+
     const p = _esPalette(ix);
     const title = String(src.title == null ? "" : src.title).trim();
     const content = String(src.content == null ? "" : src.content);
     const items = _esSlideItems(content);
     const designed = !!(title || items.length);
     if (designed) {
-      /* A slide with a heading and no body is a cover or a section
-         divider — it gets the oversized treatment wherever it sits in the
-         deck. Anything with body text gets the card layout. */
+
       const isCover = items.length === 0;
       const built = isCover
         ? _esDesignCover(title, title ? "" : (data && data.title) || "", p, notes)
@@ -8841,8 +7972,7 @@ function _esBuildSlide(s, data, index) {
     }
   }
 slide.elements = els;
-  /* Transitions are a first-class slide property (slides.js:3765/3863) and
-     were unreachable from here, so a deck could never carry one. */
+
   if (src.transition && typeof src.transition === "object") {
     const tr = src.transition;
     const ttype = _ES_TRANSITIONS.includes(String(tr.type || "").toLowerCase()) ? String(tr.type).toLowerCase() : "none";
@@ -8862,9 +7992,7 @@ slide.elements = els;
       const targetEl = els[Number.isFinite(t) ? t : 0];
       if (!targetEl) return null;
       const type = _ES_ANIM_TYPES.includes(String(a.type).toLowerCase()) ? String(a.type).toLowerCase() : "fade";
-      /* "auto" was whitelisted here but no consumer in slides.js handles it —
-         it silently fell through to the click branch. Only the three real
-         triggers are accepted. */
+
       const start = _ES_ANIM_STARTS.includes(String(a.start || "").toLowerCase()) ? String(a.start).toLowerCase() : "click";
       const dur = Number(a.duration);
       const delay = Number(a.delay);
@@ -8898,10 +8026,7 @@ function _esColIndex(letter) {
   for (let i = 0; i < s.length; i++) n = n * 26 + (s.charCodeAt(i) - 64);
   return n - 1;
 }
-/* Cell borders. The canonical path is s.border.{t,r,b,l} (singular "border",
-   single-letter keys — sheets.js:607), each side either null or { style, color }.
-   Only thin|medium|thick|double exist; anything else renders as 1px, so an
-   unvalidated "dashed" would look applied while not being so. */
+
 function _esBorderSide(v) {
   if (v == null || v === false) return null;
   if (typeof v === "string") return { style: _ES_BORDER_STYLES.includes(v) ? v : "thin", color: "#4a4a4a" };
@@ -8930,8 +8055,7 @@ function _esCellStyle(st) {
   if (st.wrap) o.wrap = true;
   if (Number.isFinite(+st.fontSize)) o.fontSize = Math.max(1, Math.min(400, +st.fontSize));
   if (st.fontFamily) o.fontFamily = String(st.fontFamily);
-  /* "General" is the app's absence-of-format value and normalises to null
-     (sheets.js:603), so storing it would be a lie. */
+
   if (st.numberFormat && st.numberFormat !== "General") o.numberFormat = String(st.numberFormat);
   const cat = String(st.numFmtCat || "").toLowerCase();
   if (_ES_NUM_CATS.includes(cat)) o.numFmtCat = cat;
@@ -8941,9 +8065,7 @@ function _esCellStyle(st) {
   if (border) o.border = border;
   return Object.keys(o).length ? o : null;
 }
-/* Chart spec → sheets.js chart object (constructor at sheets.js:8752-8766).
-   `range` is A1 notation and is parsed by the app, so it is passed through
-   unchanged after a shape check. */
+
 function _esChart(c, sheetId) {
   if (!c || typeof c !== "object") return null;
   const type = String(c.type || "column").toLowerCase();
@@ -8972,9 +8094,6 @@ function _esChart(c, sheetId) {
   return out;
 }
 
-/* Serialized sheet (sheets.js serializeSheet, :2633-2640). `cells` is a plain
-   object keyed "row,col" (zero-based, sheets.js:47), `merges` is an array of
-   [r1,c1,r2,c2], and axis entries are { s: size px, h: hidden, fh: filtered }. */
 function _esBuildSheetData(data, seed) {
   const src = data && typeof data === "object" ? data : {};
   const id = (seed && seed.id) || _esUid("sh_");
@@ -8982,16 +8101,13 @@ function _esBuildSheetData(data, seed) {
   const rows = {}, cols = {};
   const matrix = Array.isArray(src.rows) ? src.rows : [];
 
-  /* A leading "=" means a formula. These were stored as literal text before,
-     so no AI-authored sheet could ever compute anything. The app keeps the
-     source WITH the leading "=" and strips it when parsing (sheets.js:892). */
   const putCell = (r, c, val, style) => {
     if (val == null || val === "") {
       if (style) cells[r + "," + c] = { v: "", f: null, s: style };
       return;
     }
     if (typeof val === "object" && val !== null) {
-      // { v, f, s } form, for full control.
+
       const f = val.f != null ? String(val.f) : null;
       const v = f ? null : (val.v != null ? val.v : "");
       cells[r + "," + c] = { v: v === undefined ? "" : v, f: (f && !f.startsWith("=")) ? "=" + f : f, s: _esCellStyle(val.s || val.style) };
@@ -9019,9 +8135,6 @@ function _esBuildSheetData(data, seed) {
     });
   });
 
-  /* Alternative cell form: {"A1": value, "B2": {v,f,s}} — cheaper for the
-     model to emit than a full rows matrix when it is only touching a few
-     cells, and what the "set one cell" op path uses. */
   if (src.cells && typeof src.cells === "object" && !Array.isArray(src.cells)) {
     for (const ref in src.cells) {
       const m = /^([A-Za-z]{1,3})(\d{1,7})$/.exec(ref.trim());
@@ -9059,7 +8172,6 @@ function _esBuildSheetData(data, seed) {
   axis(src.columnWidths, cols);
   axis(src.rowHeights, rows);
 
-  /* Merges serialize as [r1,c1,r2,c2] with inclusive bounds. */
   const merges = [];
   const pushMerge = (r1, c1, r2, c2) => {
     const a = Math.min(r1, r2), b = Math.max(r1, r2), x = Math.min(c1, c2), y = Math.max(c1, c2);
@@ -9073,8 +8185,7 @@ if (Array.isArray(src.merges)) {
           else if (m && typeof m === "object") pushMerge(+m.r1 || 0, +m.c1 || 0, +m.r2 || 0, +m.c2 || 0);
         });
       }
-      /* A1-style ranges ("A1:B2") are also accepted. Handled independently of
-         `merges` rather than in an else, so a payload may supply both. */
+
       if (Array.isArray(src.ranges)) {
         src.ranges.forEach((rg) => {
           const m = /^\s*([A-Za-z]{1,3})(\d{1,7})\s*:\s*([A-Za-z]{1,3})(\d{1,7})\s*$/.exec(String(rg || ""));
@@ -9099,8 +8210,6 @@ if (Array.isArray(src.merges)) {
   };
 }
 
-/* Multi-sheet workbooks. `sheets` (array) was ignored before, so a request
-   for a workbook with a Summary and a Detail tab silently produced one tab. */
 function _esBuildWorkbook(data, wbId, now) {
   const src = data && typeof data === "object" ? data : {};
   const title = _esPlainText(src.title) || "Imported Spreadsheet";
@@ -9139,8 +8248,7 @@ async function openEsAppImport(id) {
   const kind = _esAppKind(data);
   if (!kind) return;
   const app = _ES_APPS[kind];
-  // Open the tab synchronously (still inside the click gesture) so popup
-  // blockers allow it; the URL is filled in after the async import writes.
+
   let win = null;
   try { win = window.open("about:blank", "_blank"); } catch (e) { win = null; }
   const closeWin = () => { try { if (win && !win.closed) win.close(); } catch (e) {} };
@@ -9164,63 +8272,14 @@ async function openEsAppImport(id) {
   }
   try { location.href = url; } catch (e) {}
 }
-// Event delegation: .esapp-card[data-esapp] clicks → openEsAppImport
+
 document.addEventListener("click", function(e) {
   const card = e.target.closest(".esapp-card[data-esapp]");
   if (card) openEsAppImport(card.dataset.esapp);
 });
 
-/* ── EmeraldSuite file agent (auto-read + direct edit) ──────────
-   No attachment UI: on every send the user's EmeraldSuite file catalog and
-   the latest contents are auto-read from storage and injected as
-   [EMERALDSUITE FILES] context, so the AI picks the right file itself. When
-   the user asks for a change, the agent responds with <es-edit>{json}</es-edit>
-   (the FULL new file content, including "app" and "id" of the target file);
-   we write it back to the same storage the app reads and show an
-   "Updated File" pill. The open app tab syncs via the storage layer's
-   BroadcastChannel (Sheets via the es-ai agent channel). Creating NEW files
-   stays on the <es-app> import card. */
-
-/* ── Suite context ────────────────────────────────────────────────
-   The [EMERALDSUITE FILES] block is injected ONLY on turns that are actually
-   about the user's EmeraldSuite content. Injecting it on every request made
-   the model carry a private file catalog into unrelated questions, so it kept
-   steering conversations back to notes it had been told nothing about.
-
-   A naive mention gate ("does the message contain a file noun?") is what broke
-   normal follow-ups before: "fix the typo", "make it shorter", "do that again"
-   name no file, so the model got no catalog, could not know a single file id,
-   and its payload came back as "No file changed — you didn't ask for one".
-
-   So the gate is a latch with three levels:
-     · MENTION  — names the suite or a file ("my notes", "the doc", "slide 3")
-                  → tell it everything, and latch.
-     · FOLLOW-UP — no noun, but an action/continuation word ("shorter", "again",
-                  "continue") AND the previous turn was already about a file
-                  → still in that conversation, keep telling it.
-     · UNRELATED — neither → tell it NOTHING about the suite and drop the latch.
-   This is what keeps "fix the typo" working right after a file edit while
-   leaving "what's the capital of France?" completely unaware files exist. */
-
-/* ── Write gate — REMOVED ───────────────────────────────────────
-   There used to be a per-request gate here: _efDetectWriteRequest()
-   regex-tested the user's message for edit verbs, and anything that did not
-   match was labelled read-only, its <es-edit>/<es-app> payload stripped and
-   discarded on arrival.
-
-   It blocked far more than it protected. "go ahead", "do it", "same but blue",
-   "sort the dates" and "fix that typo" all name no file kind, so the regex
-   read them as read-only and the model produced a correct payload that was
-   then thrown away — the user saw the change described and nothing happen.
-   Deciding whether a message implies a change is a judgement call, and a
-   keyword list cannot make one.
-
-   The model now decides, and _efDirective() states the rules it must respect.
-   The safety comes from the payload shape rather than a gate: ops touch only
-   what they name, so a wrong guess damages one element instead of a file. */
 function _efResetWriteGate() {
-  /* Kept as a no-op: the call sites still run before a request, and removing
-     them everywhere would be churn for no behaviour change. */
+
 }
 
 const _EF_WRITE_VERB = /\b(edit|update|rewrite|revise|fix|change|modify|replace|rename|retitle|reword|proofread|correct|improve|expand|shorten|lengthen|reformat|reorder|reorgani[sz]e|organi[sz]e|sort|add|append|prepend|insert|remove|delete|erase|trim|clear|fill|write|save|overwrite|create|draft|compose|generate|apply|convert|translate|continue|finish|complete|tweak|adjust|boost|merge|split|build|make|clean|tidy|polish|redo|revamp|restyle|retheme|redesign|unify|standardi[sz]e|shorter|longer|simpler|clearer|neater|formal|casual|bulleted|bullet\s*point|turn|transform|rephrase|paraphrase|restructure|condense|expand|iterate|iterate\s*on|improve\s*it|start\s*over|overhaul|correct|drop|include|incorporate|add\s+in|throw\s+in)\b/i;
@@ -9228,44 +8287,21 @@ const _EF_NEW_FILE = /\b(new|fresh|another|extra|second)\s+(note|notes|doc|docs|
 const _EF_FILE_REF = /\b(note|notes|doc|docs|document|documents|slide|slides|deck|decks|presentation|presentations|sheet|sheets|spreadsheet|spreadsheets|workbook|workbooks|file|files)\b/i;
 const _EF_WH_QUESTION = /\b(what|why|how|when|where|who|whom|which|whose)\b/i;
 const _EF_DIRECT_ASK = /\b(please|can you|could you|would you|will you|go ahead|do it|do that|make it|try to|try and|i need you to|i want you to|i'?d like you to|help me|now)\b/i;
-/* Advice-seeking, even when it happens to contain a write verb ("should I add
-   more slides?"). Checked first so a trailing question always wins over the
-   verb, otherwise asking for a second opinion grants write permission. */
+
 const _EF_ADVICE_QUESTION = /\b(should i|should we|shall i|would it|do you think|do you reckon|what if|is it (better|worse|worth|possible|a good)|are there (better|any)|worth (it|doing)|any (ideas?|thoughts?|suggestions?|advice)|how would you|how (should|would) i|could you explain|can you explain|can you suggest|help me decide|thoughts on|let me know (if|whether|what))\b/i;
 
-/* ── Does the model get to know the suite exists this turn? ───────────
-   Three levels, described at the "Suite context" banner above. */
 const _EF_SUITE_MENTION = /\b(emeraldsuite|emerald\s+suite|the suite|my suite|suite (file|note|doc|slide|sheet)|catalog|library)\b/i;
 const _EF_FILE_NOUN = /\b(note|notes|doc|docs|document|documents|slide|slides|deck|decks|presentation|presentations|sheet|sheets|spreadsheet|spreadsheets|workbook|workbooks|file|files)\b/i;
-/* Action/continuation words that keep an in-progress file conversation alive
-   without naming a file: "make it shorter", "fix the typo", "again", "continue".
-   The edit verbs are reused from _EF_WRITE_VERB rather than listed twice — a
-   shorter copy silently drifts and follow-ups stop working. _EF_CONTINUE adds
-   the bare continuations that are not edits at all. */
+
 const _EF_CONTINUE = /\b(again|continue|keep going|go on|proceed|next|once more|and then|that one|same|do it|go ahead|yes|please|sure|perfect|great|nice|thanks|thank you)\b/i;
-/* The subset of the above that actually grants permission to write. "thanks!"
-   and "nice" keep the context alive but must never authorise a rewrite, so they
-   are deliberately excluded. */
+
 const _EF_APPROVAL = /\b(again|continue|keep going|go on|proceed|next|once more|and then|that one|same|do it|do that|go ahead|yes|apply it|apply that|save it|make it so|keep at it)\b/i;
-/* A phrase like "make it shorter" or "add a heading" continues a file edit only
-   when its object points BACK at the file. While the latch is on, ordinary chat
-   shares these verbs constantly, and every one dragged the private file catalog
-   along: "translate hello into French", "help me fix my code", "clean up this SQL
-   query". Enumerating the non-file objects does not work — there are always
-   more — so the object is judged structurally instead. A follow-up continues when:
-     · it backs off with a pronoun — "make it shorter", "expand it";
-     · it asks for something NEW to go in — "add a heading", "insert an example";
-     · it is a bare approval — "again", "continue" — which continues by definition;
-     · it is very short — "shorter", "fix the typo" — which continues by context.
-   And anything naming its own object is rejected first: a possessive ("my code")
-   or a demonstrative plus noun ("this SQL query") binds to the current message,
-   not to any file. */
+
 const _EF_ORDINARY_POSSESSIVE = /\b(i|me|my|mine|you|your|yours|we|us|our|ours)\b/i;
 const _EF_DEMONSTRATIVE_NOUN = /\b(this|that|these|those)\s+[a-z]/i;
 const _EF_BACK_REFERENCE = /\b(it|its|them)\b/i;
 const _EF_INDEFINITE_ADD = /\b(add|insert|append|prepend|include)\s+(a|an|another|one more|the rest)\b/i;
-/* Read-only verbs that need the file's actual text to act on. Paired with a
-   referent below so "summarize it" works but "where is Rome?" does not. */
+
 const _EF_ABOUT_CONTENT = /\b(summari[sz]e|summari[sz]ation|recap|proofread|read through|go over|walk me through)\b/i;
 const _EF_REFERENT = /\b(it|its|this|that|these|those|them|the same|the rest)\b/i;
 function _wordCount(t) {
@@ -9276,14 +8312,11 @@ let _efSuiteLatch = false;
 function _suiteContextAllowed(userText) {
   const t = String(userText || "").trim();
   if (!t) return false;
-  // A direct mention always wins, even mid-sentence: "update the doc",
-  // "my slides", "what's in this note?".
+
   if (_EF_SUITE_MENTION.test(t) || _EF_FILE_NOUN.test(t)) { _efSuiteLatch = true; return true; }
-  // No file named. If this message points back at the file we were just working
-  // on, the conversation is still about it and the model keeps its context.
+
   if (_efSuiteLatch) {
-    // It brings its own object ("my code", "this SQL query", "a python script"),
-    // so whatever it means, it is not about a stored file.
+
     if (_EF_ORDINARY_POSSESSIVE.test(t) || _EF_DEMONSTRATIVE_NOUN.test(t)) { _efSuiteLatch = false; return false; }
     const continues = _EF_APPROVAL.test(t) || _EF_BACK_REFERENCE.test(t) ||
       _EF_INDEFINITE_ADD.test(t) || (_wordCount(t) <= 3 && _EF_WRITE_VERB.test(t));
@@ -9291,13 +8324,10 @@ function _suiteContextAllowed(userText) {
       return true;
     }
   }
-  // Anything else: the suite is none of this message's business. Drop the latch
-  // so a later bare "make it shorter" starts from a clean slate rather than
-  // acting on a stale file.
+
   _efSuiteLatch = false;
   return false;
 }
-
 
 function _efLabel(app) { return (_ES_APPS[app] && _ES_APPS[app].label) || app; }
 
@@ -9320,17 +8350,11 @@ async function _efRead(app, id) {
       if (!d || !Array.isArray(d.slides)) return { app, id, title: "", text: "", exists: false };
       const parts = [];
       d.slides.forEach((s, i) => {
-        /* Slides are stored as the element model — { elements: [{ html }] } —
-           with no `title`/`content` of their own, so reading those two
-           properties yielded "Slide N" plus notes and the AI never actually
-           saw the slide's text. Pull the text out of the elements, ordered
-           top-to-bottom then left-to-right, and keep the old properties as a
-           fallback for anything saved before this shape existed. */
+
         const body = _esPlainText(s && s.content);
         let lines;
         if (!body && s && Array.isArray(s.elements)) {
-          /* Reading order: top to bottom, then left to right. z is the paint
-             order, not the layout order, so it must not decide this. */
+
           lines = s.elements
             .filter((el) => el && el.type !== "image")
             .slice()
@@ -9344,8 +8368,6 @@ async function _efRead(app, id) {
         const notes = _esPlainText(s && s.notes);
         parts.push("## Slide " + (i + 1) + " — " + title + (notes ? "  (notes: " + notes + ")" : "") + "\n" + (body || rest));
 
-        /* An element map, so an op can target "element 2 on slide 3" without
-           the model having to re-send the slide to learn its own id. */
         if (s && Array.isArray(s.elements) && s.elements.length) {
           let map = "[elements] ";
           s.elements.forEach((el, ei) => {
@@ -9387,9 +8409,7 @@ async function _efRead(app, id) {
       const data = doc && doc.data;
       if (!data) return { app, id, title: "", text: "", exists: false };
       const sheets = Array.isArray(data.sheets) ? data.sheets : [];
-      /* Name every tab up front — a workbook can hold several and an op that
-         omits "sheet" lands on the active one, so the model has to be able
-         to see them all. */
+
       let head = "[tabs] ";
       sheets.forEach((s, i) => {
         head += (i + 1) + "=" + (s.name || "Sheet") + (s.id === data.activeSheetId ? " (active)" : "") +
@@ -9426,9 +8446,7 @@ function _efSheetToMd(sheet) {
   if (maxC > 19) maxC = 19;
   const val = (r, c) => {
     const m = sheet.cells[r + "," + c]; if (!m) return "";
-    /* A formula cell stores its source in `f` with v:null, so reading only
-       `v` made every computed column read as empty — the model then saw an
-       empty sheet where the real numbers were. */
+
     if (m.f) return String(m.f);
     let v = m.v; if (v === null || v === undefined || typeof v === "object") v = "";
     return String(v);
@@ -9450,16 +8468,8 @@ function _efSheetToMd(sheet) {
   return lines.join("\n");
 }
 
-/* Auto-read every EmeraldSuite file (catalog + latest contents) from storage.
-   Injected only when the user's message is about that content — see
-   _suiteContextAllowed(). userText = the user's own message this turn; it also
-   decides whether the model's file context is injected at all.
-   Returns null when the suite is irrelevant, which is the common case for
-   general chat, so the model stays a normal assistant there. */
 async function _suiteAutoContext(userText) {
-  // The suite is only discussed when the user brings it up. Checked FIRST, before
-  // any storage read: an unrelated question should not even pull the private
-  // catalog out of IndexedDB, let alone put it in front of the model.
+
   if (!_suiteContextAllowed(userText)) return null;
   const items = [];
   const note = async (app, id, title, upd) => {
@@ -9489,14 +8499,7 @@ async function _suiteAutoContext(userText) {
     for (const s of sheets) items.push(await note("sheets", s.id, s.title, s.updatedAt || 0));
   } catch (e) {}
   if (!items.length) {
-    // Nothing in storage yet. The <es-app> create syntax is documented ONLY in
-    // this block and in _efDirective(), so returning null here left the model
-    // with no idea the tag existed: "create a note about X" on an empty suite
-    // got answered in plain text and no file was ever made. Still tell it how
-    // to create one when the turn asked for a change.
-/* No files yet — but the model still needs the create syntax, otherwise
-       "make me a note about X" on an empty suite is answered in plain text
-       and no file is ever made. */
+
     return _efDirective() + "\n[EMERALDSUITE FILES]\nThe user has no files in EmeraldSuite yet.\n" +
       " There is nothing to edit, so CREATE the file with <es-app>{...}</es-app> — no \"id\" is needed." +
       ' Payload shapes: notes {"app":"notes","title":"...","content":"markdown"}; docs {"app":"docs","title":"...","content":"markdown"};' +
@@ -9520,31 +8523,16 @@ async function _suiteAutoContext(userText) {
 block += "\nYou may edit these files whenever it helps — decide for yourself whether this message calls for a change.\n" +
     'PREFER targeted ops: <es-edit>{"app":"the-app","id":"the-file-id","ops":[...]}</es-edit>, which changes only what it names. Use ops for recolouring, resizing, moving, inserting text/shapes/images, adding a chart, setting a border, merging, adding or animating a slide, appending to a note, and so on.\n' +
     'Use {"app":"...","id":"...","content":"full new markdown"} ONLY when the whole file should be replaced, and <es-app>{...}</es-app> to CREATE a brand-new file.\n' +
-/* The catalog above is rebuilt every turn, but the CONVERSATION is not: an
-   id the model was given three messages ago is still sitting in its history,
-   and nothing in the history says whether that file still exists. Without
-   this it cheerfully edits a file the user deleted an hour ago, and the user
-   is told the deletion needed their permission — advice that can only end in
-   the same failure. */
+
 "THE LIST ABOVE IS WHAT EXISTS RIGHT NOW. If the user asks you to change a file you edited earlier in this conversation and its id is NOT in this list, the file has been DELETED since you last saw it. In that case do NOT emit <es-edit> for it and do NOT pretend the change worked: say in one line that the file is gone and offer to create it again, then stop.\n" +
     "But answer in plain text and write nothing when the user only asked a question or wanted a summary, review, comparison or explanation.\n" +
       "Change ONLY what the request calls for, touch no other file, and emit exactly one payload." +
       _esOpsSpec() + _esSlideSpec();
   if (block.length > 26000) block = block.slice(0, 26000) + "\n[...truncated...]";
-  // The directive is prepended, never appended: the catalog above is truncated
-  // for large file sets, and a clipped rules block would silently reopen the
-  // hole where the model edits a file nobody asked it to touch.
+
   return _efDirective() + "\n" + block;
 }
 
-/* Deck design schema, appended wherever a slides payload is described.
-   Without it the model only ever sent {"title","content"}, which is why
-   generated decks came out as unstyled text on white. Kept in one place so
-   the create and edit paths cannot drift apart. */
-/* The feature vocabulary. The model can only pick from what it is told
-   exists, and these are the REAL enums the apps accept — anything else
-   silently degrades to a default with no feedback. Injected ONLY when a
-   write has been authorised, so ordinary chat pays nothing for the tokens. */
 function _esOpsSpec() {
   return (
     "\n[EMERALDSUITE EDIT OPS — prefer these over resending a file]\n" +
@@ -9617,22 +8605,6 @@ function _esSlideSpec() {
     "Images: use real https URLs or generated gen tokens; never invent URLs. Typography: pair a display font (Montserrat, Poppins, DM Serif Display) for titles with a body font (DM Sans, Lato). Aim for 6-12 slides for a normal topic. Prefer the simple {\"title\",\"content\"} form unless a specific custom layout is genuinely needed.";
 }
 
-/* The permission header sent with every EmeraldSuite context block. Kept as its
-   own function so it is built once, up front, and cannot be truncated away. */
-/* What the model is told about writing to files.
-
-   There used to be a hard gate here: the browser regex-tested the user's
-   message for edit verbs, and anything that did not match was told
-   "PERMISSION — DENIED", with the payload discarded on arrival if it wrote
-   anyway. That blocked far more than it protected — "go ahead", "do it" and
-   "make it like that instead" all name no file kind and were read as
-   read-only, so the turn after the model produced a perfectly good payload
-   threw it away. It also decided for the model: whether a message implies a
-   change is a judgement call, and a keyword list cannot make it.
-
-   So the model now decides, and the rules it must respect are stated instead
-   of being pattern-matched. The safety comes from the ops themselves, which
-   touch only what they name — a wrong guess damages one element, not a file. */
 function _efDirective() {
   return "[EMERALDSUITE EDIT PERMISSION — YOU DECIDE] You may create and edit the user's EmeraldSuite files whenever it is genuinely helpful, and you judge for yourself whether this message calls for it. " +
     'Your PREFERRED payload is targeted ops: <es-edit>{"app":"...","id":"...","ops":[...]}</es-edit>, which changes only what it names and leaves the rest of the file untouched. Use that for recolouring, resizing, moving, inserting, adding a chart, setting a border, adding or animating a slide, appending to a note — and also for carrying out a change the user implies rather than states ("go ahead", "do it", "same but blue", "fix that typo", "actually make it a table"). ' +
@@ -9648,17 +8620,6 @@ function _efDirective() {
     _esOpsSpec() + _esSlideSpec();
 }
 
-/* String-aware JSON repair for <es-edit> / <es-app> payloads.
-   The model streams markdown as the value of "content", and markdown is full of
-   things JSON forbids: real newlines inside the string, unescaped quotes, and
-   braces inside code fences. Two earlier bugs made every one of those a hard
-   parse failure — which is why a one-line first edit worked but the 2nd, 3rd and
-   later edits (longer content, a URL, a code block) returned "Edit not applied":
-     · brace matching counted braces INSIDE string values, so it sliced a
-       truncated object,
-     · "//" was stripped as if it were a comment, which cut a markdown URL
-       (https://…) in half mid-line and unbalanced the object.
-   These helpers ignore braces inside strings and escape raw control characters. */
 function _efScanJsonObject(raw) {
   const s = String(raw || "");
   const start = s.indexOf("{");
@@ -9678,14 +8639,7 @@ function _efScanJsonObject(raw) {
   }
   return end < 0 ? s.slice(start) : s.slice(start, end);
 }
-/* One string-aware pass that escapes raw control characters inside string
-   values and drops trailing commas between members — both only EVER while
-   outside a string literal. An earlier version rewrote unquoted keys with
-   .replace(/(?<=[{,])\s*(\w+)\s*:/g, ...), which fired on a code fence inside
-   the file's own markdown: "{x: 1}" became '{"x": 1}', the injected quote ended
-   the enclosing string and the payload no longer parsed. Regular .replace() has
-   no idea which bytes are inside a string, so it corrupted exactly the content
-   that mattered most. */
+
 function _efRepairJson(raw) {
   const s = _efScanJsonObject(raw);
   let out = "", inStr = false, esc = false;
@@ -9704,21 +8658,16 @@ function _efRepairJson(raw) {
     if (ch === ",") {
       let j = i + 1;
       while (j < s.length && /\s/.test(s[j])) j++;
-      if (s[j] === "}" || s[j] === "]") continue;   // trailing comma
+      if (s[j] === "}" || s[j] === "]") continue;
     }
     out += ch;
   }
   return out;
 }
 
-/* Shared payload parser for <es-edit> and <es-app>. Both tags carry markdown in
-   a JSON string, so both failed on the same inputs until they shared this.
-   Returns the parsed object, or null when it genuinely cannot be read. */
 function _efParsePayload(raw) {
   const base = [String(raw || "")];
-  // Entity-decoding is a FALLBACK: applied only after a plain parse fails,
-  // because &quot; inside file content would decode to a raw quote and break an
-  // otherwise-valid payload.
+
   const decoded = base[0]
     .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
@@ -9747,9 +8696,7 @@ function _extractFileEdit(text) {
   let parseFailed = false;
   raw = raw.replace(/^[\s\n]*```(?:json|JSON)?[\s\n]*\n?/i, "");
   raw = raw.replace(/\n?[\s\n]*```[\s\n]*$/i, "");
-  // NOTE: "//" and "/* */" are deliberately NOT stripped. JSON has no comments,
-  // so a "//" in a payload is a URL inside the file's own markdown; deleting it
-  // truncated the user's content mid-line.
+
   edit = _efParsePayload(raw);
   if (!edit) parseFailed = true;
   if (!parseFailed) {
@@ -9781,19 +8728,6 @@ function esEditLoadingCardHTML() {
   </div>`;
 }
 
-/* Patch application for <es-edit>.
-   The worker's system prompt tells the model to switch to compact patches once a
-   file is long — "[EMERALDSUITE LONG FILE EDIT OVERRIDE] ... use compact patches
-   by default" — precisely so a big note/doc does not have to be re-sent whole.
-   This frontend never implemented it, so the very first edit (small enough for a
-   full "content" payload) applied fine and then EVERY later edit came back as
-   "Edit not applied": the payload parsed, but carried only "patches", which the
-   extractor did not recognise as a valid edit at all.
-   Ops: replace, delete, insert_after, insert_before, append, prepend.
-   "text" is the new text; "replace" is accepted as an alias, since the prompt
-   shows one example using {"find":...,"replace":...} and another using "text".
-   Applied to PLAIN TEXT, because "find" is copied verbatim out of
-   [FILE CONTENTS], which is plain text (_efRead runs _esPlainText). */
 function _efApplyPatches(text, patches) {
   let out = String(text || "");
   const list = Array.isArray(patches) ? patches : [];
@@ -9807,7 +8741,7 @@ function _efApplyPatches(text, patches) {
     const find = p.find != null ? String(p.find) : "";
     if (!find) continue;
     const i = out.indexOf(find);
-    if (i < 0) continue;                       // no anchor -> skip, counted as missed
+    if (i < 0) continue;
     const tail = out.slice(i + find.length);
     if (op === "replace") out = out.slice(0, i) + body + tail;
     else if (op === "delete") out = out.slice(0, i) + tail;
@@ -9819,27 +8753,12 @@ function _efApplyPatches(text, patches) {
   return { text: out, applied, missed: list.length - applied };
 }
 
-/* ── Irreversible ops ────────────────────────────────────────────
-   The model now decides for itself whether a message calls for a change,
-   which removes the false negatives the old keyword gate caused. What is
-   left is one real hazard: a misjudgement that DELETES. Adding a shape,
-   recolouring text or moving a box is cheap to notice and trivially undone
-   ("undo that", "put it back"); deleting a slide or clearing cells is not,
-   and the file has no undo stack of its own.
-
-   So only the destructive ops get a floor, and only when the user's message
-   contains no removal signal at all. Everything else — every additive and
-   cosmetic op — is applied unconditionally, which is why "go ahead", "same
-   but blue" and "sort them" keep working. When a destructive op is held back
-   the model is told why, so it can ask rather than silently under-deliver. */
 const _ES_DESTRUCTIVE_OPS = new Set([
   "delete_slide", "delete_el", "delete_animation",
   "delete_sheet", "delete_chart", "clear_cells",
   "delete_html", "replace_html"
 ]);
-/* Wording that genuinely asks for something to go away. Deliberately broad:
-   under-triggering here is what would annoy the user, and over-triggering
-   only allows a delete the user did plausibly ask for. */
+
 const _ES_REMOVE_SIGNAL = /\b(delete|delet(e|ing|ion)|remove|removing|removal|clear|clearing|erase|erasing|drop|dropping|get rid of|prune|purge|wipe|wipe out|cut|cutting|trim|trimming|scrap|scrap(s|ped)?|shorten|shortening|condense|condensing|throw (it |them )?away|no longer (need|want)|without (the|those|them)|discard|take (it |them )?out|lose the|kill the)\b/i;
 
 function _esFilterDestructive(ops, userText) {
@@ -9855,26 +8774,12 @@ function _esFilterDestructive(ops, userText) {
   return { ops: keep, held, asked: false };
 }
 
-/* ══ TARGETED EDIT OPS ═══════════════════════════════════════════════
-   The original contract was "resend the whole file": {"app","id","content"}
-   or a full "slides"/"rows" array. That forces the model to echo a file it
-   only read a truncated copy of, and for slides/sheets it REPLACED the
-   stored model wholesale — so a two-word change discarded every hand-made
-   design, animation, transition, chart and extra tab.
-
-   ops[] changes exactly what it names and leaves everything else byte-for-
-   byte alone. Each op targets by INDEX (1-based, as the model counts) or by
-   the stored id, so "make the title on slide 2 bigger" never needs the
-   caller to re-send the deck.
-
-   Unknown ops are reported, never silently dropped — a model that typo'd
-   should learn it, not believe it edited something. */
 function _esOpIndex(op, alt) {
   const n = Number(op != null ? op : alt);
   if (!Number.isFinite(n)) return -1;
-  return n > 0 ? Math.floor(n) : Math.floor(n) - 1; // 1-based -> 0-based
+  return n > 0 ? Math.floor(n) : Math.floor(n) - 1;
 }
-/* Locate a slide: by id, by 1-based number, or "last"/"first". */
+
 function _esFindSlide(slides, spec) {
   if (!Array.isArray(slides) || !slides.length) return -1;
   const raw = spec == null ? 1 : String(spec).trim();
@@ -9898,8 +8803,7 @@ function _esFindEl(slide, spec) {
   const i = Math.floor(n) - 1;
   return i >= 0 && i < els.length ? i : -1;
 }
-/* Apply a style/geometry patch to a slide element, touching only the keys
-   the caller actually supplied so everything else is preserved. */
+
 function _esPatchElement(el, p) {
   if (!el || !p || typeof p !== "object") return false;
   let touched = false;
@@ -9941,7 +8845,6 @@ function _esPatchElement(el, p) {
   return touched;
 }
 
-/* ── SLIDES ops ───────────────────────────────────────────────────── */
 function _esOpsSlides(slides, ops) {
   let applied = 0;
   const notes = [];
@@ -9996,7 +8899,7 @@ function _esOpsSlides(slides, ops) {
       const copy = JSON.parse(JSON.stringify(src));
       copy.id = _esUid("sld_");
       (copy.elements || []).forEach((e) => { e.id = _esUid("el_"); });
-      // Animation elementIds point at the old ids, so re-point them.
+
       const idMap = {};
       (copy.elements || []).forEach((e, i) => { idMap[(src.elements || [])[i] && (src.elements || [])[i].id] = e.id; });
       (copy.animations || []).forEach((a) => { if (idMap[a.elementId]) a.elementId = idMap[a.elementId]; a.id = _esUid("anm_"); });
@@ -10021,9 +8924,7 @@ function _esOpsSlides(slides, ops) {
     if (kind === "set_slide_bg") {
       const v = op.background != null ? op.background : (op.value != null ? op.value : op.gradient);
       if (v == null) { notes.push("set_slide_bg needs \"background\""); continue; }
-      /* A background may be a generated/web image as well as a colour, and
-         the type is inferred from the resolved value — so resolve the
-         reference first or "gen1" would be stored as a bogus colour. */
+
       const asImage = _esResolveImageSrc(v, op.alt);
       s.background = _esSlideBg(asImage || v);
       applied++;
@@ -10054,8 +8955,7 @@ function _esOpsSlides(slides, ops) {
       continue;
     }
     if (kind === "set_title") {
-      // Titles live inside a text element, not a field, so this replaces the
-      // topmost text box — which is what "rename the title" means here.
+
       const tIdx = _esFindEl(s, op.el);
       if (tIdx < 0) { notes.push("set_title: slide " + (si + 1) + " has no element"); continue; }
       const el = s.elements[tIdx];
@@ -10070,8 +8970,7 @@ function _esOpsSlides(slides, ops) {
       spec.type = kind === "add_text" ? "text" : (kind === "add_shape" ? "shape" : "image");
       if (!spec.z) spec.z = s.elements.reduce((m, e) => Math.max(m, e.z || 1), 0) + 1;
       if (kind === "add_image") {
-        /* Accepts a web URL, a data URL, or a reference to an image this
-           conversation already generated ("gen1", "last", ...). */
+
         const resolvedSrc = _esResolveImageSrc(spec.src != null ? spec.src : spec.url, spec.alt);
         if (!resolvedSrc) {
           notes.push(spec.src ? "add_image: \"" + String(spec.src).slice(0, 40) + "\" is not a usable image source" +
@@ -10113,7 +9012,6 @@ function _esOpsSlides(slides, ops) {
       continue;
     }
 
-    // Element-level ops.
     if (!Array.isArray(s.elements)) s.elements = [];
     if (kind === "delete_el") {
       const i = _esFindEl(s, op.el);
@@ -10161,20 +9059,19 @@ function _esOpsSlides(slides, ops) {
       applied++;
       continue;
     }
-    // set_el / style_el
+
     if (!_esPatchElement(el, op)) { notes.push(kind + " on element " + (i + 1) + " changed nothing (no known fields)"); continue; }
     applied++;
   }
   return { slides, applied, notes };
 }
 
-/* ── SHEETS ops ───────────────────────────────────────────────────── */
 function _esA1(ref) {
   const m = /^\s*([A-Za-z]{1,3})(\d{1,7})\s*$/.exec(String(ref == null ? "" : ref));
   if (!m) return null;
   return { r: parseInt(m[2], 10) - 1, c: _esColIndex(m[1]) };
 }
-/* A range is {r1,c1,r2,c2} inclusive. Accepts "A1:C10" or an array. */
+
 function _esRange(spec) {
   if (Array.isArray(spec) && spec.length >= 4) {
     const r1 = Number(spec[0]), c1 = Number(spec[1]), r2 = Number(spec[2]), c2 = Number(spec[3]);
@@ -10272,10 +9169,7 @@ function _esOpsSheets(wbData, ops) {
         break;
       case "set_border":
         cellOp((r, c, key) => {
-          /* With "clear":true the caller may name NO sides at all — the whole
-             point is "remove these borders". _esBorder() returns null for an
-             empty description, which used to bail out and leave the borders
-             exactly as they were, so a documented clear did nothing. */
+
           const sides = _esBorder(op.border || op);
           if (!sides && op.clear !== true) return false;
           const cur = sh.cells[key] || { v: "", f: null, s: null };
@@ -10400,22 +9294,18 @@ function _esOpsSheets(wbData, ops) {
   return { wbData, applied, notes };
 }
 
-/* ── NOTES / DOCS ops (content-level, targeted) ───────────────────── */
 function _esOpsHtml(ops, get, set) {
   const notes = [];
   let applied = 0;
   let cur = get();
-  /* Every fragment the model supplies is normalised on its way in, so an
-     edit can no more leave behind a run that paints colour and highlight
-     the ribbon has no control for than an import could. */
+
   const rich = (h) => _esNormaliseAiRichText(h);
   for (const op of ops) {
     if (!op || typeof op === "string") { notes.push("skipped a non-object op"); continue; }
     if (typeof op !== "object") { notes.push("skipped a non-object op"); continue; }
     const kind = String(op.op || "").toLowerCase();
     switch (kind) {
-      /* Images in a note/doc are plain <img> in the HTML. Accepts a web URL,
-         a data URL, or a reference to an image this conversation generated. */
+
       case "add_image": {
         const resolved = _esResolveImageSrc(op.src != null ? op.src : op.url, op.alt);
         if (!resolved) {
@@ -10483,18 +9373,14 @@ function _esOpsHtml(ops, get, set) {
 }
 
 async function _efApplyOps(app, id, ops, meta, gate) {
-  /* Every op was a destructive one and the user asked for no removal, so
-     nothing was applied. Say exactly that rather than "no-content", so the
-     badge can tell the user the model held back rather than having failed. */
+
   if (gate && gate.held && gate.held.length && (!Array.isArray(ops) || !ops.length)) {
     return { app, id, ok: false, error: "needs-confirmation", held: gate.held };
   }
   if (!Array.isArray(ops) || !ops.length) return { app, id, ok: false, error: "no-content" };
   const list = ops.filter((o) => o && typeof o === "object");
   if (!list.length) return { app, id, ok: false, error: "no-content" };
-  /* Rename/colour/header live on the PAYLOAD, never on an op. They used to be
-     read by scanning the ops for a "title" key, so an add_chart with a title
-     silently renamed the whole workbook and set_title renamed the note. */
+
   const M_ = (meta && typeof meta === "object") ? meta : {};
   const payloadTitle = _esPlainText(M_.title);
   const now = Date.now();
@@ -10546,10 +9432,7 @@ async function _efApplyOps(app, id, ops, meta, gate) {
       const key = "emeraldcore.storage.suite.docs." + id;
       const prev = await _esStoreGet(key);
       if (!prev) return { app, id, ok: false, error: "not-found" };
-      /* The watermark is drawn OUTSIDE .page-content, so it is a document
-         property rather than content and cannot be set with a *_html op. It
-         is peeled off here and written to the record; everything left is the
-         content work _esOpsHtml already knew how to do. */
+
       let applied = 0;
       const notes = [];
       const rest = [];
@@ -10587,50 +9470,27 @@ async function _efApplyOps(app, id, ops, meta, gate) {
 
 async function _efApplyEdit(fEditRes, msgId, userText) {
   if (!fEditRes) return { ok: false, error: "bad-payload" };
-  // The model emitted a tag but its JSON would not parse. Guessing at unescaped
-  // quotes risks rewriting the file, so this is reported rather than guessed.
+
   if (!fEditRes.edit && fEditRes.parseFailed) return { ok: false, error: "bad-payload" };
   const edit = fEditRes.edit;
   const app = String((edit && edit.app) || "").toLowerCase().trim();
   const id = String((edit && edit.id) || "").trim();
   if (!app || !_ES_APPS[app]) return { ok: false, error: "no-app" };
   if (!id) return { ok: false, error: "no-id" };
-  /* Does the file still exist, and that is settled FIRST — before the
-     destructive-op gate and before anything is written.
-     A file deleted after the model read its catalog left the model holding a
-     perfectly valid id for something that no longer exists. It would emit a
-     delete-flavoured edit for it, the gate would hold that back for want of a
-     removal signal, and the badge would tell the user "that was a deletion, so
-     it needs you to ask for it" — which is about their wording, and has
-     nothing to do with the real problem. Re-asking could never have worked.
 
-     _efRead is the same read the per-turn catalog is built from, so the
-     verdict here can never disagree with the list the model was just shown. */
   try {
     if (!(await _efRead(app, id)).exists) return { ok: false, error: "gone" };
   } catch (e) {
-    // Storage unreachable: fall through and let the app branch report it,
-    // rather than inventing a "deleted" verdict out of a failed read.
+
   }
-/* Targeted ops are preferred over a whole-file rewrite whenever present:
-     they cannot clobber the parts of the file the model did not intend to
-     change, which is the whole point of the agentic path. */
+
 if (Array.isArray(edit.ops) && edit.ops.length) {
       const gated = _esFilterDestructive(edit.ops, userText);
-      /* Pass gated.ops even when EMPTY. Falling back to edit.ops here would
-         undo the backstop precisely when it matters most - a payload made up
-         entirely of deletions would be applied after being held. */
+
       return _efApplyOps(app, id, gated.ops, edit, gated);
     }
   try {
-    // A payload only has to carry the fields it actually changes. _extractFileEdit
-    // already accepts a content-only payload (title may legitimately be absent),
-    // so each branch below resolves title/content against the EXISTING record:
-    // missing field => keep what is there, never rename to a placeholder and
-    // never blank the file. Previously docs/slides bailed out with a bare
-    // { ok:false } (surfacing as "Edit not applied" seconds after the
-    // "Updating file…" card) and notes silently overwrote the title with
-    // "Imported Note" and its body with "".
+
     if (app === "notes") {
       const key = "emeraldcore.storage.suite.notes";
       let arr = await _esStoreGet(key);
@@ -10678,18 +9538,14 @@ if (Array.isArray(edit.ops) && edit.ops.length) {
       } else { content = (prev && prev.content) || "<p><br></p>"; plainText = _esPlainText(content); }
       meta.title = title; meta.updatedAt = now; meta.wordCount = _esWordCount(plainText);
       await _esStoreSet("emeraldcore.storage.suite.docs", idx);
-      /* Header, footer, footnotes, endnotes and comments live outside
-         `content` but were rewritten to empty on EVERY edit, so a single
-         "fix this typo" silently destroyed them. Carry the stored values
-         forward, and let the payload set them explicitly when asked. */
+
       const keepList = (v, fb) => (Array.isArray(v) ? v : fb);
       await _esStoreSet("emeraldcore.storage.suite.docs." + id, {
         id, title, content, savedAt: now,
         theme: edit.theme === "dark" ? "dark" : ((prev && prev.theme) || "light"),
         header: edit.header != null ? String(edit.header) : ((prev && prev.header) || ""),
         footer: edit.footer != null ? String(edit.footer) : ((prev && prev.footer) || ""),
-        // Same treatment as header/footer: carried forward unless the
-        // payload names one, so a "fix this typo" never silently strips it.
+
         watermark: edit.watermark != null ? _esWatermark(edit.watermark) : ((prev && prev.watermark) || ""),
         footnotes: keepList(edit.footnotes, (prev && prev.footnotes) || []),
         endnotes: keepList(edit.endnotes, (prev && prev.endnotes) || []),
@@ -10715,9 +9571,7 @@ if (Array.isArray(edit.ops) && edit.ops.length) {
       if (Array.isArray(edit.slides) && edit.slides.length) slides = edit.slides.map((s, i) => _esBuildSlide(s, edit, i));
       else if (hasBody) slides = _esSplitSlides(edit).map((s, i) => _esBuildSlide(s, edit, i));
       else if (hasPatches) {
-        // The prompt scopes patches to notes/docs. If one arrives for a deck,
-        // apply it to whichever slide holds the anchor rather than rebuilding
-        // the whole presentation — and say so if nothing matched.
+
         let touched = 0;
         for (const s of slides) {
           if (!s) continue;
@@ -10749,14 +9603,12 @@ if (Array.isArray(edit.ops) && edit.ops.length) {
       const title = hasTitle ? _esPlainText(edit.title) : (prevData.title || "Untitled Spreadsheet");
       let sheets;
       if (hasSheetList) {
-        // Full multi-tab rewrite — only when the payload actually lists them.
+
         sheets = edit.sheets
           .map((s, i) => (s && typeof s === "object" ? _esBuildSheetData(s, prevSheets[i] && prevSheets[i].id) : null))
           .filter(Boolean);
       } else if (hasBody) {
-        // Rewrite the targeted tab (default: the first) and carry every other
-        // tab through untouched. This used to write `sheets: [sheet]`, which
-        // deleted the rest of the workbook on any edit.
+
         const targetName = _esPlainText(edit.sheetName || edit.sheet || "").toLowerCase();
         let targetIdx = targetName ? prevSheets.findIndex((s) => String(s.name || "").toLowerCase() === targetName) : 0;
         if (targetIdx < 0) targetIdx = 0;
@@ -10804,16 +9656,14 @@ function renderFileEditBadge(aiDiv, outcome) {
     ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>'
     : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
 let label = ok ? "Updated File" : "Edit not applied";
-  // Some ops applied but a deletion was held back pending an explicit ask.
+
   if (ok && outcome && Array.isArray(outcome.held) && outcome.held.length) {
     b.className = "file-edit-badge";
     label = "Updated File \u2014 held back " + outcome.held.length + " deletion" +
       (outcome.held.length === 1 ? "" : "s") + " for you to confirm";
   }
   if (!ok && outcome) {
-    // "Gone" is checked first: it is the only one of these that is not about
-    // what the model asked for, and every other label would misdirect the
-    // user into re-issuing a request that can never succeed.
+
     if (outcome.error === "gone") label = "File already deleted \u2014 the AI can\u2019t edit it";
     else if (outcome.error === "needs-confirmation") label = "Nothing changed \u2014 that was a deletion, so it needs you to ask for it";
     else if (outcome.error === "not-requested") label = "No file changed";
@@ -10829,8 +9679,6 @@ let label = ok ? "Updated File" : "Edit not applied";
   sender.insertAdjacentElement("afterend", b);
 }
 
-/* Broadcast to the emeraldsuite-agent channel (Sheets pages listen for this
-   via es-ai.js onSync so an open workbook reloads after an AI edit). */
 function _esAgentPostSync(msg) {
   try {
     if (typeof BroadcastChannel === "undefined") return;
@@ -10894,13 +9742,12 @@ function _efSheetsAll() {
   });
 }
 
-// Event delegation: .quiz-card[data-qid] clicks → openQuizPanel
 document.addEventListener("click", function(e) {
   const card = e.target.closest(".quiz-card[data-qid]");
   if (card) openQuizPanel(card.dataset.qid);
 });
 function openQuizPanel(qid) {
-  // CodeQL fix (#57): sanitize qid to safe chars for DOM IDs and inline handlers args
+
   qid = String(qid || "").replace(/[^a-zA-Z0-9_-]/g, "_");
   const qz = (window._quizzes || {})[qid];
   if (!qz) return;
@@ -10976,7 +9823,7 @@ async function copyUserMsgText() {
     ok ? "success" : "error"
   );
 }
-const _editOriginals = /* @__PURE__ */ new Map();
+const _editOriginals =  new Map();
 const MAX_CHAT_BRANCH_VARIANTS = 10;
 function showChatBranchLimitToast(kind) {
   const label = kind === "ai" ? "regenerate this AI answer" : "edit this message";
@@ -11047,10 +9894,7 @@ async function submitUserMsgEdit(msgId) {
     return;
   }
   cancelUserMsgEdit(msgId);
-  // Capture the original attachments BEFORE truncating conv.messages so we can
-  // reattach them to the edited message. Without this, the edited message used
-  // to be saved with `files: []`, silently stripping every attachment the
-  // user originally sent to the AI.
+
   const originalFiles = (() => {
     if (!conv) return [];
     const idx = conv.messages.findIndex((m) => m.id === msgId);
@@ -11097,12 +9941,10 @@ async function submitUserMsgEdit(msgId) {
   scrollToBottom();
   const typingEl = $("typingIndicator");
   typingEl.style.display = "flex";
-  _autoScrollSticky = true;  // re-enable on edit-resend
+  _autoScrollSticky = true;
   scrollToBottom();
   const history = conv ? buildHistory(conv) : [...state.tempHistory];
-  // Re-attach the original files to the latest user turn in history. Without
-  // this, the AI never receives the attachments on resubmit — `buildHistory`
-  // only emits text parts, so the file content was being silently dropped.
+
   if (originalFiles.length && history.length) {
     const last = history[history.length - 1];
     if (last && last.parts && last.parts.length) {
@@ -11110,7 +9952,7 @@ async function submitUserMsgEdit(msgId) {
       if (fileParts.length) last.parts.push(...fileParts);
     }
   }
-// EmeraldSuite context is always injected when the turn is about a file.
+
   _efResetWriteGate();
   try {
     const fileCtx = await _suiteAutoContext(newText);
@@ -11253,8 +10095,7 @@ async function submitUserMsgEdit(msgId) {
     aiTextEl.innerHTML = `<span class="md-error">${escapeHtml(aiErrorMessage("generating the response"))}</span>`;
   }
   if (aiFullText && !aiDiv) {
-    // Edited-and-resent while the user was viewing another conversation:
-    // no bubble was attached, but the response must still be saved.
+
     aiDiv = _streamViewing() ? appendAIMessageDOM("", aiMsgId, false) : buildAIBubbleDOM("", aiMsgId, false);
     aiTextEl = aiDiv.querySelector(".message-text");
     aiTextEl.classList.remove("stream-reveal");
@@ -11385,8 +10226,7 @@ async function submitUserMsgEdit(msgId) {
     }
     if (_suggestions.length) insertSuggestionsEl(aiDiv.querySelector(".message-body"), _suggestions);
   } else if (aiDiv && aiTextEl) {
-    // No text came back (request error / cancellation / empty response).
-    // Persist the error so it survives a page reload instead of vanishing.
+
     const errorText = aiTextEl.querySelector(".md-error")?.textContent || "An error occurred.";
     aiDiv.querySelector(".message-body").appendChild(buildMessageActionsEl(aiMsgId));
     if (conv) {
@@ -11411,8 +10251,7 @@ function navigateBranch(originalMsgId, dir) {
   if (state.isStreaming) return;
   if (!state.convId) return;
   const conv = getConv(state.convId);
-  // Branch keys are always internal message-id strings generated by the app;
-  // reject the special prototype property names defensively.
+
   if (originalMsgId === "__proto__" || originalMsgId === "constructor" || originalMsgId === "prototype") return;
   if (!conv?._editBranches?.[originalMsgId]) return;
   const branchInfo = conv._editBranches[originalMsgId];
@@ -11447,7 +10286,7 @@ function _renderConversationMessages(conv) {
   $("messagesArea").innerHTML = typingIndicatorHTML();
   conv.messages.forEach((m) => {
     if (m.role === "user" && !m._silent) appendUserMessageDOM(m.text, m.files || [], m.id || null, m._editBranchRef || null);
-    else if (m.role === "user" && m._silent) { /* skip rendering silent quiz prompt */ }
+    else if (m.role === "user" && m._silent) {  }
     else appendStoredAIMessage(m);
   });
   if (conv._editBranches) {
@@ -11540,9 +10379,7 @@ function navigateRegenBranch(branchId, dir) {
   if (state.isStreaming || !state.convId) return;
   const conv = getConv(state.convId);
   if (!conv) return;
-  // Branch keys are always internal message-id strings generated by the app.
-  // Reject the special prototype property names so a corrupt/stored map can
-  // never resolve to Object.prototype or Function.prototype.
+
   if (branchId === "__proto__" || branchId === "constructor" || branchId === "prototype") return;
   const branch = conv?._regenBranches?.[branchId];
   if (!branch) return;
@@ -11552,14 +10389,14 @@ function navigateRegenBranch(branchId, dir) {
   let msgIdx = conv.messages.findIndex((m) => m._regenBranchRef === branchId);
   if (msgIdx < 0) msgIdx = conv.messages.findIndex((m) => m.id === branchId);
   if (msgIdx < 0) return;
-  // Save the current variant (including the tail of messages after it)
+
   const curTail = conv.messages.slice(msgIdx + 1).map((m) => ({ ...m }));
   branch.variants[branch.current] = { ...conv.messages[msgIdx], _regenBranchRef: branchId, _regenTail: curTail };
-  // Switch to the new variant
+
   branch.current = newIdx;
   const target = branch.variants[newIdx];
   const targetTail = (target._regenTail || []).map((m) => ({ ...m }));
-  // Replace the AI message and restore the target variant's tail
+
   conv.messages = [
     ...conv.messages.slice(0, msgIdx),
     { ...target, id: genId(), _regenBranchRef: branchId },
@@ -11627,7 +10464,7 @@ function extractUrls(text) {
     } catch {
     }
   }
-  return [.../* @__PURE__ */ new Set([...full, ...bare])];
+  return [... new Set([...full, ...bare])];
 }
 function togglePreviewConsole() {
   const body = document.getElementById("codePreviewBody");
@@ -11786,26 +10623,26 @@ ${(dp.content || "").slice(0, 3e3)}
   }
   return { contextText, sources };
 }
-/* Strip AI-written "Sources:" section from rendered HTML when grounding pills exist */
+
 function _stripSourcesFromHTML(textEl) {
   if (!textEl) return;
-  // Look for the last <strong>/<b> containing "Sources" followed by a list or paragraph
+
   const strongs = textEl.querySelectorAll("strong, b");
   for (let i = strongs.length - 1; i >= 0; i--) {
     const txt = strongs[i].textContent.trim().replace(/[\s:：]/g, "").toLowerCase();
     if (txt === "sources" || txt === "source" || txt === "references" || txt === "reference") {
-      // Found a "Sources" header — remove it and everything after it
+
       let node = strongs[i];
-      // Check if it's inside a heading (h1-h6) or paragraph
+
       const parent = node.closest("h1,h2,h3,h4,h5,h6,p,li");
       const removeStart = parent || node;
-      // Remove removeStart and all following siblings
+
       while (removeStart.nextSibling) removeStart.nextSibling.remove();
       removeStart.remove();
       return;
     }
   }
-  // Also check for "Sources:" as plain text in an <ol> or <ul>
+
   const lists = textEl.querySelectorAll("ol, ul");
   for (let i = lists.length - 1; i >= 0; i--) {
     const prev = lists[i].previousElementSibling;
@@ -11818,10 +10655,7 @@ function _stripSourcesFromHTML(textEl) {
       }
     }
   }
-  // Handle a trailing "From:" / "From" header that introduces a link list
-  // (e.g. "From: [Title](url)"). Only strip when the region after the
-  // header actually contains a link, so prose like "From the start…" that
-  // happens to be bolded is never cut off.
+
   for (let i = strongs.length - 1; i >= 0; i--) {
     const txt = strongs[i].textContent.trim().replace(/[\s:：]/g, "").toLowerCase();
     if (txt !== "from") continue;
@@ -11854,22 +10688,19 @@ function _stripSourcesFromHTML(textEl) {
 }
 
 function renderCitations(aiDiv, sources) {
-  // Always process [N] patterns — even without sources, convert them to
-  // orphan badges so they're not left as raw "[1]" plain text.
+
   if (!sources) sources = [];
   const body = aiDiv?.querySelector(".message-body");
   if (!body) return;
 
-  // ── Step 1: Convert inline [1], [2], [1][2] citations to clickable superscript badges ──
   const mdContent = body.querySelector(".md-content") || body;
   if (mdContent) {
-    // Walk text nodes to replace [N] patterns without breaking HTML
-    // Skip text nodes inside <code> and <pre> elements — those should stay as-is
+
     const walker = document.createTreeWalker(mdContent, NodeFilter.SHOW_TEXT, null, false);
     const textNodes = [];
     while (walker.nextNode()) {
       const n = walker.currentNode;
-      // Skip if inside a <code> or <pre> tag
+
       let p = n.parentElement;
       let skip = false;
       while (p && p !== mdContent) {
@@ -11880,42 +10711,40 @@ function renderCitations(aiDiv, sources) {
     }
 
     for (const node of textNodes) {
-      // Match [N], [N,M], [N-M] where N is 1-99 — also handle clustered like [1][2]
-      // First pass: expand compound citations like [1,2] → [1][2] and [1-3] → [1][2][3]
+
       let expanded = node.nodeValue.replace(/\[(\d{1,2})\s*,\s*(\d{1,2})\]/g, '[$1][$2]');
       expanded = expanded.replace(/\[(\d{1,2})\s*-\s*(\d{1,2})\]/g, (_, start, end) => {
         let out = '';
         for (let n = parseInt(start); n <= Math.min(parseInt(end), 99); n++) out += `[${n}]`;
         return out;
       });
-      // Second pass: convert each [N] to a marker
+
       const replaced = expanded.replace(/\[(\d{1,2})\]/g, (match, numStr) => {
         const idx = parseInt(numStr, 10) - 1;
         if (idx >= 0 && idx < sources.length && sources[idx]?.uri) {
-          return `\x01CITE${idx}\x01`;  // Has source → clickable link
+          return `\x01CITE${idx}\x01`;
         }
-        return `\x01ORPHAN${numStr}\x01`;  // No source → styled badge (not clickable)
+        return `\x01ORPHAN${numStr}\x01`;
       });
       if (replaced !== node.nodeValue) {
-        // Split into parts: text + <a> citations
-        // Split on both CITE and ORPHAN markers
+
         const parts = replaced.split(/\x01(?:CITE|ORPHAN)(\d+)\x01/);
         const types = [];
-        // Track which marker type each split came from
+
         const markerRe = /\x01(CITE|ORPHAN)(\d+)\x01/g;
         let m;
         while ((m = markerRe.exec(replaced)) !== null) types.push({ type: m[1], idx: parseInt(m[2], 10), pos: m.index });
         const frag = document.createDocumentFragment();
         for (let i = 0; i < parts.length; i++) {
           if (i % 2 === 0) {
-            // Text part
+
             if (parts[i]) frag.appendChild(document.createTextNode(parts[i]));
           } else {
-            // Marker part (odd indices are the captured group from split)
+
             const markerIdx = Math.floor(i / 2);
             const marker = markerIdx < types.length ? types[markerIdx] : null;
             if (marker && marker.type === "CITE") {
-              // Has source → clickable link
+
               const src = sources[marker.idx];
               if (src?.uri) {
                 const citeLink = document.createElement("a");
@@ -11927,7 +10756,7 @@ function renderCitations(aiDiv, sources) {
                 frag.appendChild(citeLink);
               }
             } else {
-              // No source → styled badge (not clickable)
+
               const badge = document.createElement("span");
               badge.className = "esb-inline-cite esb-cite-orphan";
               badge.textContent = String(parseInt(parts[i], 10));
@@ -11940,13 +10769,10 @@ function renderCitations(aiDiv, sources) {
     }
   }
 
-  // ── Step 2: Build source chips at the bottom ──
   const wrap = document.createElement("div");
   wrap.className = "esb-citations";
-  const seen = /* @__PURE__ */ new Set();
-  // Hosts that should never appear as citation chips: search-engine-internal
-  // navigation and known fake/spam domains (e.g. "unknownlink.com",
-  // "vertexaigoogle.com").
+  const seen =  new Set();
+
   const _JUNK_HOST_RE = /(^|\.)bing\.com$|(^|\.)duckduckgo\.com$|(^|\.)(unknownlink|vertexaigoogle|aigoogle|makingcouldthisbeup)(\.|$)/i;
   const _JUNK_TITLE_RE = /https?:\/\/(?!\/)|unknownlink|vertexaigoogle|aigoogle/i;
   sources.forEach((s) => {
@@ -11964,28 +10790,27 @@ function renderCitations(aiDiv, sources) {
       host = new URL(s.uri).hostname.replace(/^www\./, "");
     } catch {}
     if (!host || _JUNK_HOST_RE.test(host)) return;
-    // Build chip text: "domain" or "domain › Title"
+
     let displayTitle = s.title || "";
     if (displayTitle && displayTitle.includes("://")) {
-      // Title is actually a URL — strip it
+
       displayTitle = "";
     }
     if (displayTitle && _JUNK_TITLE_RE.test(displayTitle)) {
-      // Spam/brand-impersonation title — show the link directly, not
-      // "junktitle › realdomain".
+
       displayTitle = "";
     }
-    // If title is just the domain repeated (e.g. "example.com" for example.com url), skip it
+
     if (displayTitle && host && (displayTitle === host || displayTitle === "www." + host)) {
       displayTitle = "";
     }
-    // Truncate very long titles
+
     if (displayTitle.length > 60) displayTitle = displayTitle.slice(0, 57) + "...";
     let chipText = host || "Source";
     if (displayTitle && displayTitle !== host) {
       chipText = host + " \u203A " + displayTitle;
     }
-    // Tooltip shows full title+URL on hover (useful when chip text is truncated)
+
     a.title = (displayTitle || host) + "\n" + s.uri;
     a.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>${escapeHtml(chipText)}`;
     wrap.appendChild(a);
@@ -12004,19 +10829,6 @@ function detectAspectRatio(prompt) {
   return "1:1";
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   IMAGE EDITING (true image-to-image)
-
-   The image model (FLUX.2 klein) accepts up to 4 reference images as real
-   binary input. That is what makes editing an EDIT: the uploaded pixels are
-   handed to the model and only the requested change is applied. Anything that
-   merely rewrites the picture as text is still text-to-image, which is exactly
-   why the source image is always resolved and sent with the request.
-
-   Upstream hard limit: every reference image must be 512x512 or smaller, so
-   anything larger is downscaled here before the request goes out.
-   ══════════════════════════════════════════════════════════════════ */
-
 const IMG_EDIT_MAX_DIM = 512;
 const IMG_EDIT_MAX_SOURCES = 4;
 const IMG_EDIT_LONG_SIDE = 1024;
@@ -12024,9 +10836,7 @@ const IMG_DIM_MULTIPLE = 16;
 const IMG_DIM_MIN = 256;
 const IMG_DIM_MAX = 1920;
 
-// Image the user explicitly picked via the "Edit" button on a rendered image.
-// Consumed by the next image request, then cleared.
-let _pendingImageEdit = null; // { dataUrl, name }
+let _pendingImageEdit = null;
 
 function _setPendingImageEdit(dataUrl, name) {
   if (!dataUrl || !/^data:image\//i.test(dataUrl)) return;
@@ -12052,9 +10862,6 @@ function _snapImgDim(n) {
   return Math.min(IMG_DIM_MAX, Math.max(IMG_DIM_MIN, v));
 }
 
-/* For an edit the output shape follows the source image; for a fresh generation
-   it follows the prompt. Both keep the long side at 1024 so the request stays in
-   the model's first-megapixel pricing tier. */
 function dimsForEditSource(w, h) {
   const sw = Number(w);
   const sh = Number(h);
@@ -12097,9 +10904,6 @@ function _loadImageEl(src) {
   });
 }
 
-/* Downscale a data URL so neither side exceeds maxDim. Returns the original
-   untouched when it already fits. JPEG in → JPEG out (keeps the payload
-   small); anything else re-encodes as PNG. */
 async function fitImageForEditing(src, maxDim) {
   const cap = maxDim || IMG_EDIT_MAX_DIM;
   let im;
@@ -12133,7 +10937,6 @@ async function fitImageForEditing(src, maxDim) {
   return { dataUrl: out, width: tw, height: th, resized: true };
 }
 
-/* Every data-URL image inside an attachment list, in order. */
 function imageDataUrlsFromFiles(files) {
   const out = [];
   for (const f of files || []) {
@@ -12142,9 +10945,6 @@ function imageDataUrlsFromFiles(files) {
   return out;
 }
 
-/* Most recent image in a conversation — a previously generated result first,
-   then any attachment. This is what makes "make it darker" work right after the
-   AI produced a picture, with nothing attached to the follow-up. */
 function latestImageDataInConv(convId, excludeMsgId) {
   if (!convId) return null;
   const conv = getConv(convId);
@@ -12159,14 +10959,9 @@ function latestImageDataInConv(convId, excludeMsgId) {
   return null;
 }
 
-/* "…this image", "…remove the hat", "…make it brighter" — wording that means
-   "change the picture I gave you", not "draw me something new". */
 const IMG_REF_RE = /\b(this|that|the|these|those|attached|uploaded|my|it)\s+(image|images|picture|pictures|photo|photos|pic|pics|art|screenshot|logo|drawing|render)\b|\b(image|picture|photo|pic|screenshot)\s+(above|attached|uploaded|i\s+(sent|uploaded|shared|attached)|you\s+can\s+see|we\s+can\s+see)\b/i;
 const IMG_EDIT_VERB_RE = /\b(edit|editing|edits|modify|modifying|change|changing|adjust|adjusting|remove|removing|delete|deleting|erase|erasing|replace|replacing|retouch|retouching|restyle|restyling|recolor|recolour|transform|transforming|convert|converting|enhance|enhancing|improve|improving|upscale|downscale|sharpen|blur|crop|extend|lighten|darker|brighter|brighten|darken|clean\s+(\w+\s+)?up|fix\s+the|repaint|re-?paint|paint\s+over|stylize|stylise)\b/i;
-/* Weaker edit wording ("add a hat", "turn this into a watercolor"). Too vague to
-   trust on its own, but runImageTags only converts to an edit when real source
-   pixels are available — otherwise it stays a plain generation. So a false
-   positive here costs nothing while a missed one silently drops the reference. */
+
 const IMG_WEAK_EDIT_RE = /\b(add|adding|put|insert|place|apply|give)\b|\b(turn|turns|turning|convert)\b[\s\S]{0,24}?\b(into|to|as|in)\b|\b(this|that|it)\s+(into|to|as)\b/i;
 function looksLikeImageEditRequest(text) {
   const t = String(text || "");
@@ -12174,11 +10969,6 @@ function looksLikeImageEditRequest(text) {
   return IMG_REF_RE.test(t) || IMG_EDIT_VERB_RE.test(t) || IMG_WEAK_EDIT_RE.test(t);
 }
 
-/* Where the pixels for an edit come from, in priority order:
-   1. images attached to the current message
-   2. the image whose "Edit" button the user pressed
-   3. the most recent image already in this conversation
-   Only consulted when an edit was actually requested. */
 function resolveImageEditSources(opts) {
   const o = opts || {};
   const picked = [];
@@ -12209,8 +10999,6 @@ function stripImageTags(text) {
     .trim();
 }
 
-/* Single entry point used by all three streaming paths (send / regenerate /
-   edit-and-resend) so edit routing can never drift between them. */
 function runImageTags(aiDiv, rawText, convId, msgId, opts) {
   const o = opts || {};
   const { genPrompt, editPrompt } = extractImageTags(rawText);
@@ -12224,8 +11012,6 @@ function runImageTags(aiDiv, rawText, convId, msgId, opts) {
     });
   }
 
-  // The model asked for a fresh image. If the user was actually talking about a
-  // picture they handed over, honour that instead of inventing a lookalike.
   const shouldBeEdit = imageDataUrlsFromFiles(o.files).length > 0 || looksLikeImageEditRequest(o.userText);
   if (shouldBeEdit) {
     const resolved = resolveImageEditSources(Object.assign({}, o, { convId, msgId }));
@@ -12252,10 +11038,7 @@ function _imgGenErrorInto(body, message) {
 }
 
 const IMG_EDIT_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
-/* Shared shell for a rendered image: <img>, download link and edit button.
-   Edited and generated images look identical on purpose — nothing marks an
-   image as an edit. `resolveDataUrl` is lazy so the persisted-render path can
-   pull the data URL out of storage on click instead of duplicating it in the DOM. */
+
 function buildImageResultEl({ dataUrl, displaySrc, alt, downloadName, resolveDataUrl }) {
   const wrapper = document.createElement("div");
   wrapper.className = "img-gen-result";
@@ -12305,9 +11088,6 @@ function buildImageResultEl({ dataUrl, displaySrc, alt, downloadName, resolveDat
   return wrapper;
 }
 
-/* Pending-edit indicator above the composer. It gets its own host element so
-   renderAttachmentPreviews() — which owns (and wipes) #attachPreview — can never
-   tear it out from under the user. */
 function renderPendingImageEditChip() {
   const preview = $("attachPreview");
   let host = document.getElementById("imgEditChipHost");
@@ -12368,9 +11148,6 @@ async function processImageGenTag(aiDiv, prompt, convId, msgId, opts) {
   insertBeforeMessageActions(body, loadEl);
   scrollToBottom();
 
-  /* An edit was asked for but there is nothing to edit. Say so instead of
-     quietly generating a lookalike — that silent substitution is the bug this
-     whole path exists to fix. */
   if (isEdit) {
     const resolved = Array.isArray(o.sources) && o.sources.length
       ? { sources: o.sources }
@@ -12428,8 +11205,6 @@ async function processImageGenTag(aiDiv, prompt, convId, msgId, opts) {
   });
 }
 
-/* The image worker keeps raw upstream error bodies private, but a few of its 4xx
-   bodies are written for the user and safe to surface. */
 function _imageWorkerErrorText(err, isEdit, detail) {
   const status = err && err._httpStatus;
   if (status === 413) return "That image is too large to edit. Please use one no bigger than 512\u00D7512.";
@@ -12459,8 +11234,7 @@ async function _runImageRequest({ reqBody, prompt, aiDiv, body, loadEl, convId, 
     }
     const imageModelId = res.headers.get("X-Model-Used") || "";
     const imageModelName = imageModelId ? imageModelId.split("/").pop() : "";
-    // Trust the server's own verdict: it only reports i2i when reference
-    // pixels actually reached the model.
+
     const modeUsed = (res.headers.get("X-Mode-Used") || "").toLowerCase();
     const wasEdit = isEdit || modeUsed === "i2i";
     if (imageModelId) {
@@ -12469,8 +11243,7 @@ async function _runImageRequest({ reqBody, prompt, aiDiv, body, loadEl, convId, 
     }
     const blob = await res.blob();
     const dataUrl = await blobToDataURL(blob);
-    /* Make it referenceable by a later "add_image" op so the model can put
-       what it just generated straight into a slide, note or doc. */
+
     _esRegisterGeneratedImage(dataUrl, prompt, wasEdit ? "edit" : "generate");
     const ct = blob.type || "";
     const ext = ct.includes("jpeg") || ct.includes("jpg") ? "jpg" : ct.includes("png") ? "png" : "png";
@@ -12530,13 +11303,10 @@ function processWebImageTags(aiDiv, displayText) {
   return cleanText;
 }
 
-
-/* ── Image Search: Fetch real images from the image search API ── */
 async function processImageSearchTags(aiDiv, convId, msgId) {
   const searchingEls = aiDiv?.querySelectorAll(".web-image-searching");
   if (!searchingEls || !searchingEls.length) return;
 
-  // Process all image searches in parallel, each placeholder independently
   const results = await Promise.allSettled(Array.from(searchingEls).map(async (el) => {
     const query = el.dataset.imgSearch;
     if (!query) return { el, img: null };
@@ -12554,19 +11324,15 @@ async function processImageSearchTags(aiDiv, convId, msgId) {
     }
   }));
 
-  // Collect successful and failed results
   const good = results.filter(r => r.status === 'fulfilled' && r.value?.img).map(r => r.value);
   const bad = results.filter(r => r.status === 'fulfilled' && !r.value?.img).map(r => r.value?.el).filter(Boolean);
 
-  // Mark failed — each stays in place with error state (visible placeholder)
   for (const el of bad) {
     el.classList.remove("web-image-searching");
     el.classList.add("web-image-failed");
   }
   if (!good.length) return;
 
-  // ── Place each image inline at its own placeholder position ──
-  // No gallery grouping — each [IMAGE_SEARCH:] tag gets its own image right where it appears
   for (const { el, img, query } of good) {
     el.classList.remove("web-image-searching");
     el.classList.add("web-image-loaded");
@@ -12575,8 +11341,6 @@ async function processImageSearchTags(aiDiv, convId, msgId) {
   }
   scrollToBottom();
 
-  // ── Persist image search results to IndexedDB so they survive reload ──
-  // Store results indexed by query so each can be matched back to its placeholder on reload
   if (convId && msgId) {
     try {
       const convArr = loadConvs();
@@ -12599,7 +11363,7 @@ if (convObj) {
     }
   }
 }
-/* ── Web Image Preview (right-side panel) + load/error delegation ── */
+
 function _openImagePreviewPanel(src, name) {
   if (typeof closeCodePreviewPanel === "function") closeCodePreviewPanel();
   if (typeof closeQuizPanel === "function") closeQuizPanel();
@@ -12612,20 +11376,18 @@ function _openImagePreviewPanel(src, name) {
   if (typeof _fpZoom !== "undefined") { _fpZoom = 1; }
   if (typeof _fpUpdateZoomLabel === "function") _fpUpdateZoomLabel();
   if (typeof _fpCurrentFid !== "undefined") { _fpCurrentFid = null; }
-  // CodeQL fix (#54): src and name are user-influenced strings that must be
-  // escaped before insertion into HTML to prevent DOM text reinterpreted as HTML.
+
   body.innerHTML = '<div class="fp-img-wrap"><img src="' + escapeHtmlAttr(src) + '" alt="' + escapeHtmlAttr(name || "Image") + '" id="fpImgEl" style="transform-origin:top center; max-width:100%; border-radius:8px;"></div>';
   panel.classList.add("open");
   if (typeof _fpApplyZoom === "function") _fpApplyZoom();
 }
-/* Image load/error event delegation using data-web-img attribute.
-   This avoids inline on* handlers that DOMPurify strips. */
+
 document.addEventListener("load", function(e) {
   if (e.target && e.target.classList && e.target.classList.contains("web-image")) {
     const parent = e.target.parentNode;
     if (parent) parent.classList.add("web-image-loaded");
   }
-}, true);  /* capture phase to catch load before it bubbles */
+}, true);
 document.addEventListener("error", function(e) {
   if (e.target && e.target.classList && e.target.classList.contains("web-image")) {
     const parent = e.target.parentNode;
@@ -12634,23 +11396,23 @@ document.addEventListener("error", function(e) {
       parent.classList.add("web-image-failed");
     }
   }
-}, true);  /* capture phase */
-/* Click handler: open image in right-side preview panel, or retry failed images */
+}, true);
+
 document.addEventListener("click", function(e) {
-  /* Retry failed web images on click */
+
   const failedResult = e.target.closest(".web-image-result.web-image-failed");
   if (failedResult) {
     e.preventDefault();
     const img = failedResult.querySelector(".web-image");
     if (img && img.src) {
-      /* Retry loading the same URL */
+
       failedResult.classList.remove("web-image-failed");
       failedResult.classList.add("web-image-loaded");
       const retrySrc = img.src;
       img.src = "";
       img.src = retrySrc;
     } else if (failedResult.dataset.imgSearch) {
-      /* Retry image search for this query */
+
       const query = failedResult.dataset.imgSearch;
       failedResult.classList.remove("web-image-failed");
       failedResult.classList.add("web-image-searching");
@@ -12661,7 +11423,7 @@ document.addEventListener("click", function(e) {
     }
     return;
   }
-  /* Click on the image itself, or on the error/result container */
+
   const webResult = e.target.closest(".web-image-result");
   if (webResult) {
     const img = webResult.querySelector(".web-image");
@@ -12671,13 +11433,13 @@ document.addEventListener("click", function(e) {
       return;
     }
   }
-  /* Also handle generated images */
+
   const genImg = e.target.closest(".img-gen-image");
   if (genImg && genImg.src) {
     e.preventDefault();
     _openImagePreviewPanel(genImg.src, "Generated Image");
   }
-  /* Also handle img-gen-result container */
+
   const genResult = e.target.closest(".img-gen-result");
   if (genResult) {
     const img = genResult.querySelector(".img-gen-image");

@@ -1,7 +1,5 @@
-/* ── EmeraldSuite ⇄ EmeraldBot AI link (shared by the app pages) ──────────
-   Provides the "Ask AI" entry point used by Notes/Docs/Slides/Sheets:
-   it mounts a small fixed button that opens the AI chat with the currently
-   open file attached, so the agent can read + edit that file directly. */
+
+
 (function () {
     'use strict';
 
@@ -14,8 +12,6 @@
         sheets: { label: 'EmeraldSheets', file: 'sheets.html', color: '#16a34a' }
     };
 
-    /* Open the chat page with a file attached. Relative to the app pages,
-       which live at the site root alongside aichat.html. */
     function openSuiteAI(app, id) {
         if (!app || !id) return;
         try {
@@ -25,8 +21,6 @@
         }
     }
 
-    /* Mount the floating "Ask AI" button. opts = { app, getId, label }.
-       The button hides itself while no file is open (getId → null). */
     function mountButton(opts) {
         if (!opts || !opts.app) return;
         try {
@@ -48,12 +42,9 @@
             });
             document.body.appendChild(btn);
             opts.__btn = btn;
-        } catch (e) { /* non-blocking */ }
+        } catch (e) {  }
     }
 
-    /* Cross-tab broadcast used by the AI chat to tell pages "this file was
-       just edited by the agent". Sheets (which has its own IndexedDB and no
-       storage-layer broadcast) listens for these. */
     function postSync(msg) {
         try {
             if (typeof BroadcastChannel === 'undefined') return;

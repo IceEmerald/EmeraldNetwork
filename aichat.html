@@ -17,7 +17,6 @@
     <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeMobileSidebar()"></div>
     <div id="custom-toast" class="custom-toast"></div>
 
-    <!-- ─── Sidebar ─────────────────────────────── -->
     <aside class="sidebar" id="sidebar">
 
         <div class="sidebar-top">
@@ -77,28 +76,23 @@
 
     </aside>
 
-    <!-- ─── Main ──────────────────────────────── -->
     <main class="chat-main" id="chatMain">
 
-        <!-- Topbar -->
         <div class="chat-topbar">
             <button class="mobile-hamburger" id="mobileMenuBtn" onclick="openMobileSidebar()" title="Menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg></button>
 
-            <!-- Model Selector (top-left, ChatGPT-style) -->
             <div class="model-selector" id="modelSelector">
                 <button class="model-selector-btn" id="modelSelectorBtn" type="button" onclick="toggleModelDropdown(event)" title="Switch model">
                     <span class="model-selector-name" id="modelSelectorName">EmeraldCore</span>
                     <svg class="model-selector-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                 </button>
                 <div class="model-dropdown" id="modelDropdown" role="menu" aria-label="Model selector">
-                    <!-- Populated by JS: renderModelDropdown() -->
+
                 </div>
             </div>
 
-
             <div style="display:flex;align-items:center;gap:6px;margin-left:auto;">
-                <!-- Call timer. Sits where Temporary Chat normally does,
-                     which is hidden while a live chat is on screen. -->
+
                 <span class="live-timer" id="liveTimer">00:00</span>
                 <span class="temp-badge" id="tempBadge" style="display: none;">Temporary</span>
                 <button class="icon-btn" id="tempChatBtn" title="Temporary chat" onclick="toggleTempChat()" style="display: none;">
@@ -112,10 +106,8 @@
             </div>
         </div>
 
-        <!-- Chat Content -->
         <div class="chat-content" id="chatContent">
 
-            <!-- Welcome Screen -->
             <div class="welcome-screen" id="welcomeScreen" style="display: flex;">
                 <img src="/assets/images/favicon.webp" alt="EmeraldNetwork" style="max-width: 80px; max-height: 80px;">
                 <div class="welcome-text-group">
@@ -156,7 +148,6 @@
                 </div>
             </div>
 
-            <!-- Messages area (populated by JS) -->
             <div class="messages-area" id="messagesArea" style="display: none;">
               <div class="message" id="typingIndicator" style="display:none;">
                 <div class="message-avatar ai"><img src="/assets/images/favicon.webp" alt="EmeraldBot"></div>
@@ -170,26 +161,12 @@
 
         </div>
 
-        <!-- ─── Live Chat View ───────────────────────
-             Takes over the main screen (not the sidebar) while a live
-             session runs. Swapped in by adding `.live-active` to
-             #chatMain; .chat-content is hidden at the same time. -->
         <div class="live-view" id="liveView" aria-live="polite">
 
-            <!-- The orb only appears once a session is actually running. -->
             <div class="live-stage" id="liveStage" hidden>
                 <canvas class="live-orb" id="liveOrb" width="440" height="440"></canvas>
             </div>
 
-            <!-- ─── Camera / screen preview ─────────────────────
-                 Picture-in-picture of whatever the model can see.
-
-                 The <video> is not decoration: it is the element the
-                 frame grabber samples, so the preview on screen and the
-                 JPEG frames on the wire are guaranteed to be the same
-                 image. Hidden until a source is actually being sent —
-                 the model never has a view into the camera unless the
-                 user pressed a button for it. -->
             <div class="live-video-panel" id="liveVideoPanel" data-source="off" hidden>
                 <video class="live-video-el" id="liveVideoEl" autoplay muted playsinline></video>
                 <div class="live-video-badge">
@@ -198,14 +175,6 @@
                 </div>
             </div>
 
-            <!-- Transcript reuses the regular .message markup, so a live
-                 conversation and a typed one look identical.
-
-                 The inner .live-scroll wrapper does the scrolling, exactly
-                 as .chat-content does for text chat. Without it the
-                 transcript itself carried the scrollbar, which made the
-                 message column 10px narrower than text chat's and drew the
-                 bar over the content instead of beside it. -->
             <div class="live-scroll">
             <div class="live-transcript" id="liveTranscript">
                 <div class="live-blank" id="liveBlank">
@@ -218,11 +187,11 @@
             </div>
 
         </div>
-         
+
         <div class="chat-input-wrap">
             <div class="chat-input-box">
                         <div>
-                <!-- File attachment preview -->
+
                 <div class="attach-preview" id="attachPreview" style="display:none;"></div>
                 <div class="input-container">
                     <button class="input-attach-btn" title="Attach file" onclick="document.getElementById('fileInput').click()">
@@ -246,22 +215,6 @@
             </div>
             </div>
 
-            <!-- ─── Loading shine ────────────────────────
-                 The paint behind a waiting control's shine: one
-                 gradient, read twice — as the stroke of the icon and,
-                 through background-clip, as the label's own fill. The
-                 three stop colours are tokens in aichat.css so both
-                 halves are lit from one source.
-
-                 The gradient has no animation of its own. A band of
-                 light has to cross the icon and the label as a single
-                 sweep, and the two are painted by different things that
-                 CSS cannot give one shared coordinate space — so
-                 aichat-livevoice.js walks the band across the button and
-                 writes each half's offset from the same number. Left in
-                 the layout at zero size rather than display:none,
-                 because a gradient inside a display:none subtree does
-                 not paint. ──────────────────────────────────────────── -->
             <svg class="live-sweep-defs" width="0" height="0" aria-hidden="true" focusable="false">
                 <defs>
                     <linearGradient id="liveSweepGrad" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="24" y2="0">
@@ -274,11 +227,6 @@
                 </defs>
             </svg>
 
-            <!-- ─── Live Controls ──────────────────────
-                 Occupies the same slot and shell as the normal composer
-                 so the bar appears to morph in place. Sibling of the
-                 composer box above, inside .chat-input-wrap. Hidden
-                 unless #chatMain has .live-active. -->
             <div class="chat-input-box live-controls" id="liveControls">
                 <div class="input-container live-controls-row">
                     <button class="live-ctl-btn live-ctl-start" id="lvStartBtn" onclick="startLiveSession()" title="Start live chat">
@@ -290,24 +238,6 @@
                         <span class="live-ctl-label">Start live chat</span>
                     </button>
 
-                    <!-- A speaker with sound waves, crossed out when muted.
-
-                         The mute is the user's own microphone and never the
-                         AI's, so the wording on the button and its tooltip
-                         both say microphone — that is what the control
-                         does. The glyph is a volume icon because that is
-                         what "your voice is not going out" looks like, and
-                         because the AI's audio is genuinely still playing
-                         while this is pressed: a glyph that looked struck
-                         through would be a claim about the speakers, and
-                         the speakers are the one thing it does not touch.
-
-                         The slash runs corner to corner across the whole
-                         mark rather than being a small cross over the
-                         waves, which at 18px read as a speck sitting on
-                         top of the icon instead of as a strike through
-                         it. The waves are dropped in the muted state so
-                         nothing pokes out past the end of the slash. -->
                     <button class="live-ctl-btn" id="lvMuteBtn" onclick="toggleLiveMute()" title="Mute microphone" aria-label="Mute microphone" aria-pressed="false" disabled>
                         <svg class="live-ctl-icon" id="lvMuteIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
@@ -321,19 +251,6 @@
                         <span class="live-ctl-label" id="lvMuteLabel">Mute</span>
                     </button>
 
-                    <!-- Opens the live typing bar, which replaces this whole
-                         row. A live call is spoken end to end, which is no
-                         use to anyone whose keyboard is faster than their
-                         voice — or who is in a meeting and cannot open the
-                         microphone at all. The bar is the same one the text
-                         chat uses, with the send button on the right.
-
-                         It lives here rather than under the transcript
-                         because the controls row is where the user's hands
-                         already are: the orb is the thing being addressed,
-                         and putting the keyboard control anywhere else
-                         splits the two halves of the same conversation
-                         across opposite ends of the screen. -->
                     <button class="live-ctl-btn" id="lvTypeBtn" onclick="toggleLiveTyping()" title="Type instead of speaking" aria-pressed="false" disabled>
                         <svg class="live-ctl-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <polyline points="4 7 4 4 20 4 20 7"></polyline>
@@ -343,22 +260,6 @@
                         <span class="live-ctl-label" id="lvTypeLabel">Type</span>
                     </button>
 
-                    <!-- The typing bar. Replaces the controls row rather than
-                         sitting beside it — the row's height is what the bar
-                         occupies, so opening it does not push the transcript
-                         and the orb up the screen mid-call. It is a SIBLING
-                         of the row and carries .input-container too, so the
-                         box the user is looking at does not change furniture
-                         when it becomes writable.
-
-                         The leading "+" is the attach button from the text
-                         chat, kept in the same slot so the two composers are
-                         the same shape. In a live call it would have nothing
-                         to attach to: the model takes audio, video and text,
-                         and a file is none of those — sendText sends a
-                         string, so an attachment would have to be read out or
-                         dropped. So the slot is closed with an X that puts
-                         the controls back instead. -->
                     <button class="live-ctl-btn" id="lvCamBtn" onclick="toggleLiveCamera()" title="Share camera" aria-pressed="false" disabled>
                         <svg class="live-ctl-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M23 7l-7 5 7 5V7z"></path>
@@ -367,12 +268,6 @@
                         <span class="live-ctl-label" id="lvCamLabel">Camera</span>
                     </button>
 
-                    <!-- Front/back camera. Only mounted while the camera
-                         is actually running, and only where there is a
-                         second lens to switch to — a desktop with one
-                         webcam never shows it. Kept beside the camera
-                         toggle it belongs to, so the two read as one
-                         control. -->
                     <button class="live-ctl-btn" id="lvFlipBtn" onclick="flipLiveCamera()"
                             title="Switch to back camera" aria-label="Switch to back camera" hidden disabled>
                         <svg class="live-ctl-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -391,10 +286,6 @@
                         <span class="live-ctl-label" id="lvScreenLabel">Screen</span>
                     </button>
 
-                    <!-- Hidden until a call is actually running — there is nothing to end
-                         before then. setPhase owns the visibility from here on, so the
-                         inline style only covers the first paint before the script
-                         runs and would otherwise flash the button. -->
                     <button class="live-ctl-btn live-ctl-end" id="lvEndBtn" onclick="endLiveVoice()" title="End live chat" disabled style="display:none;">
                         <svg class="live-ctl-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M2.5 6.5A16 16 0 0 1 12 4a16 16 0 0 1 9.5 2.5"></path>
@@ -406,26 +297,6 @@
                     </button>
                 </div>
 
-                <!-- The typing bar. A sibling of the controls row, not a
-                     child of it: the two swap places, so the row is hidden
-                     when this shows and the composer keeps one height — the
-                     transcript and the orb do not move up the screen the
-                     moment the user starts typing.
-
-                     .input-container is the same shell the controls row is
-                     drawn in, so the box does not change furniture when it
-                     becomes writable. That is also why no rule restates the
-                     background, border or radius: the composer already has
-                     them, and restating them is what leaves a borrowed
-                     composer property stuck in the wrong theme.
-
-                     The leading "+" is the attach button from the text chat,
-                     kept in the same slot so the two composers are the same
-                     shape. In a live call it would have nothing to attach
-                     to: the model takes audio, video and text, and a file is
-                     none of those — sendText sends a string, so an
-                     attachment would have to be read out or dropped. So the
-                     slot is closed with an X that puts the controls back. -->
                 <div class="input-container live-typebar" id="lvTypeBar" hidden>
                     <button class="live-typebar-close" id="lvTypeCloseBtn" type="button" title="Close typing" aria-label="Close typing" onclick="closeLiveTyping()">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -442,15 +313,13 @@
                 <p class="input-footer-note">EmeraldBot may produce inaccurate information. Verify important details.</p>
             </div>
         </div>
-        <!-- Spacer for centering input on welcome screen (height set by JS) -->
+
         <div class="chat-input-spacer" id="chatInputSpacer"></div>
 
     </main>
 
-    <!-- ─── Toast ──────────────────────────────── -->
     <div id="aiToast" class="ai-toast">Settings saved</div>
 
-    <!-- ─── Context Menu ───────────────────────── -->
     <div id="aiContextMenu" class="rightclick-menu ai-context-menu" style="display: none; left: 214px; top: 252px;">
       <div class="context-title">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
@@ -465,14 +334,13 @@
         Delete
       </a></div>
 
-    <!-- ─── Settings Modal ─────────────────────── -->
     <div class="ai-modal-overlay" id="settingsModal" onclick="if(event.target===this)closeModal('settingsModal')">
         <div class="ai-modal ai-modal--settings">
             <div class="sett-header">
                 <span class="sett-title">Settings</span>
             </div>
             <div class="sett-scroll">
-                <!-- Avatar -->
+
                 <div class="sett-section">
                     <div class="sett-section-label">Profile</div>
                     <div class="sett-avatar-row">
@@ -494,7 +362,7 @@
                         <input type="text" id="settName" class="sett-input" placeholder="e.g. IceEmerald" maxlength="32">
                     </div>
                 </div>
-                <!-- Appearance -->
+
                 <div class="sett-section">
                     <div class="sett-section-label">Appearance</div>
                     <div class="sett-theme-row" id="settThemeRow">
@@ -513,9 +381,9 @@
                     </div>
                 </div>
             </div>
-            <!-- Data section -->
+
             <div class="sett-scroll-extra">
-                <!-- Storage -->
+
                 <div class="sett-section">
                     <div class="sett-section-label">Storage</div>
                     <div class="sett-store-meter">
@@ -544,7 +412,6 @@
         </div>
     </div>
 
-    <!-- ─── Rename Modal ────────────────────────── -->
     <div class="ai-modal-overlay" id="renameModal" onclick="if(event.target===this)closeModal('renameModal')">
         <div class="ai-modal ai-modal--sm ai-modal--centered">
             <div class="ai-modal-body ai-modal-body--centered">
@@ -563,7 +430,6 @@
         </div>
     </div>
 
-    <!-- ─── Delete Confirm Modal ────────────────── -->
     <div class="ai-modal-overlay" id="deleteModal" onclick="if(event.target===this)closeModal('deleteModal')">
         <div class="ai-modal ai-modal--sm ai-modal--centered">
             <div class="ai-modal-body ai-modal-body--centered">
@@ -580,7 +446,6 @@
         </div>
     </div>
 
-    <!-- ─── Library Modal ──────────────────────── -->
     <div class="ai-modal-overlay" id="libraryModal" onclick="if(event.target===this)closeModal('libraryModal')">
         <div class="ai-modal ai-modal--lg ai-modal--centered">
             <button class="ai-modal-close ai-modal-close--abs" onclick="closeModal('libraryModal')">×</button>
@@ -601,7 +466,6 @@
         </div>
     </div>
 
-    <!-- ─── Search Modal ───────────────────────── -->
     <div class="ai-modal-overlay" id="searchModal" onclick="if(event.target===this)closeModal('searchModal')">
         <div class="ai-modal ai-modal--lg ai-modal--centered">
             <button class="ai-modal-close ai-modal-close--abs" onclick="closeModal('searchModal')">×</button>
@@ -618,7 +482,6 @@
         </div>
     </div>
 
-    <!-- ─── Model Picker Modal (mobile) ─────────── -->
     <div class="ai-modal-overlay" id="modelModal" onclick="if(event.target===this)closeModelModal()">
         <div class="ai-modal ai-modal--model">
             <div class="ai-modal-header ai-modal-header--clean">
@@ -629,7 +492,6 @@
         </div>
     </div>
 
-    <!-- ─── Scripts ────────────────────────────── -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" integrity="sha384-F/bZzf7p3Joyp5psL90p/p89AZJsndkSoGwRpXcZhleCWhd8SnRuoYo4d0yirjJp" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked@18.0.5/lib/marked.umd.js" integrity="sha384-ZD0fTOwPMHi7zM6WTVIWJR21I07lq0ccnqz3J6WMvQKG9thh4y7TA1QE6PJu0Af8" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js" integrity="sha384-hIoBPJpTUs74ddyc4bFZSM1TVlQDA60VBbJS0oA934VSz82sBx1X7kSx2ATBDIyd" crossorigin="anonymous"></script>
@@ -640,9 +502,6 @@
     <script src="/assets/scripts/aichat.js?v=1"></script>
     <script src="/assets/scripts/aichat-livevoice.js"></script>
 
-
-    <!-- ─── File Preview Modal ──────────────────── -->
-    <!-- File Preview Side Panel -->
     <div class="file-preview-panel" id="filePreviewPanel">
         <div class="fp-panel-header">
             <span id="fpPanelTitle" class="fp-panel-title">Preview</span>
@@ -658,7 +517,6 @@
         <div id="fpPanelBody" class="fp-panel-body"></div>
     </div>
 
-    <!-- Code Preview Side Panel -->
     <div class="code-preview-panel" id="codePreviewPanel">
         <div class="fp-panel-header">
             <span id="codePreviewTitle" class="fp-panel-title">Code Preview</span>
@@ -674,7 +532,6 @@
         <div id="codePreviewBody" class="code-preview-body"></div>
     </div>
 
-    <!-- ─── Memories Modal ──────────────────────── -->
     <div class="ai-modal-overlay" id="memoriesModal" onclick="if(event.target===this)closeModal('memoriesModal')">
         <div class="ai-modal ai-modal--memories">
             <div class="ai-modal-header ai-modal-header--clean">
@@ -692,7 +549,6 @@
         </div>
     </div>
 
-    <!-- ─── Clear All Chats Confirm ─────────────── -->
     <div class="ai-modal-overlay" id="clearChatsModal" onclick="if(event.target===this)closeModal('clearChatsModal')">
         <div class="ai-modal ai-modal--sm ai-modal--centered">
             <div class="ai-modal-body ai-modal-body--centered">
@@ -709,8 +565,6 @@
         </div>
     </div>
 
-
-    <!-- ─── Share Chat Modal ──────────────────── -->
     <div class="ai-modal-overlay" id="shareModal" onclick="if(event.target===this)closeModal('shareModal')">
         <div class="ai-modal ai-modal--lg ai-modal--centered">
             <div class="ai-modal-body ai-modal-body--centered">
@@ -730,7 +584,6 @@
         </div>
     </div>
 
-    <!-- ─── Import Chat Modal ─────────────────── -->
     <div class="ai-modal-overlay" id="importModal" onclick="if(event.target===this)closeModal('importModal')">
         <div class="ai-modal ai-modal--lg ai-modal--centered">
             <div class="ai-modal-body ai-modal-body--centered">
@@ -757,7 +610,6 @@
         </div>
     </div>
 
-    <!-- ─── Import Confirmation ───────────────── -->
     <div class="ai-modal-overlay" id="shareImportedModal" onclick="if(event.target===this)closeModal('shareImportedModal')">
         <div class="ai-modal ai-modal--sm ai-modal--centered">
             <div class="ai-modal-body ai-modal-body--centered">
@@ -773,8 +625,6 @@
         </div>
     </div>
 
-
-    <!-- ─── Quiz Side Panel ──────────────────────── -->
     <div class="quiz-panel" id="quizPanel">
         <div class="fp-panel-header">
             <span id="quizPanelTitle" class="fp-panel-title">Quiz</span>
@@ -786,14 +636,10 @@
         <div class="quiz-panel-body" id="quizPanelBody"></div>
     </div>
 
-
-    <!-- ─── Onboarding (Full-Screen) ─────────────────── -->
     <div class="ob-overlay" id="obOverlay">
 
-      <!-- Right step panel -->
       <div class="ob-right">
 
-        <!-- Progress dots -->
         <div class="ob-dots">
           <div class="ob-dot ob-dot--active" id="obDot0"></div>
           <div class="ob-dot" id="obDot1"></div>
@@ -801,14 +647,12 @@
           <div class="ob-dot" id="obDot3"></div>
         </div>
 
-        <!-- ── Step 0: Welcome, Name, Avatar ── -->
         <div class="ob-step ob-step--active" id="obStep0">
           <div class="ob-step-head">
             <h2 class="ob-heading">Welcome to EmeraldBot!</h2>
             <p class="ob-sub">Tell us a bit about yourself to personalize your experience.</p>
           </div>
 
-          <!-- Avatar picker -->
           <div class="ob-avatar-wrap" onclick="document.getElementById('obAvatarInput').click()" title="Click to upload photo">
             <div class="ob-avatar-circle" id="obAvatarCircle">
               <img class="ob-avatar-img" id="obAvatarImg" src="" alt="" style="display:none;">
@@ -833,14 +677,13 @@
           </button>
         </div>
 
-          <!-- ── Step 1: Features ── -->
           <div class="ob-step" id="obStep1">
             <div class="ob-step-head">
               <h2 class="ob-heading">Capabilities</h2>
               <p class="ob-sub">EmeraldBot provides the following core functions:</p>
             </div>
             <div class="ob-features">
-              <!-- Chat & Answers -->
+
               <div class="ob-feat">
                 <div class="ob-feat-icon">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
@@ -850,7 +693,7 @@
                   <div class="ob-feat-desc">Ask questions, brainstorm ideas, and get instant answers.</div>
                 </div>
               </div>
-              <!-- Attach Files -->
+
               <div class="ob-feat">
                 <div class="ob-feat-icon">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
@@ -860,7 +703,7 @@
                   <div class="ob-feat-desc">Upload documents, images, or data for analysis.</div>
                 </div>
               </div>
-              <!-- Code Things -->
+
               <div class="ob-feat">
                 <div class="ob-feat-icon">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
@@ -870,10 +713,10 @@
                   <div class="ob-feat-desc">Write, debug, and understand code snippets across languages.</div>
                 </div>
               </div>
-              <!-- Quiz -->
+
               <div class="ob-feat">
                 <div class="ob-feat-icon">
-                  <!-- New Help/Quiz Help Circle Icon -->
+
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
                 </div>
                 <div class="ob-feat-text">
@@ -891,7 +734,6 @@
             </div>
           </div>
 
-        <!-- ── Step 2: Import Memory ── -->
         <div class="ob-step" id="obStep2">
           <div class="ob-step-head">
             <h2 class="ob-heading">Import your memories</h2>
@@ -917,7 +759,6 @@
           </div>
         </div>
 
-        <!-- ── Step 3: Theme + Go ── -->
         <div class="ob-step" id="obStep3">
           <div class="ob-step-head">
             <h2 class="ob-heading">Pick your look</h2>

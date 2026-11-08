@@ -1,25 +1,5 @@
-// ============================================================
-// FlowCode — EmeraldStudio
-// Visual flowchart programming environment.
-// All original logic preserved; UI updated to match the
-// EmeraldNetwork / EmeraldSuite design system.
-//
-// Updates in this revision:
-//  • Double-click on a shape opens its property dialog (single-click only selects)
-//  • Terminal dialog uses Start/End selectable buttons (no typing)
-//  • Flowgorithm strict-mode: variables MUST be Declared before Assign/Input
-//  • Declare now supports comma-separated names: "x, y, z : Integer"
-//    (Flowgorithm-compatible multi-variable declaration)
-//  • Branching shapes (If/While/For/Do): TRUE exits LEFT, FALSE exits RIGHT
-//  • New "Code" panel at bottom-left shows generated pseudo-code
-//  • Panel restack logic updated for the new bottom-right layout
-//  • SVG-based shape outlines for decision / loop / for / do /
-//    breakpoint — borders are no longer clipped by clip-path
-// ============================================================
 
-// ============================================================
-// STATE
-// ============================================================
+
 const State = {
   shapes: new Map(),
   selectedId: null,
@@ -36,23 +16,9 @@ const State = {
 
 const VALID_TYPES = ['Integer', 'Real', 'String', 'Boolean'];
 
-// ============================================================
-// PERSISTENT STORAGE (IndexedDB via window.EmeraldIDBStorage)
-// ------------------------------------------------------------
-// The flowchart is automatically saved to IndexedDB on every
-// meaningful state change (create / delete / move / connect /
-// edit / pan / speed). On page load, the saved flowchart is
-// restored so the user never loses their work.
-//
-// The storage layer itself lives in idb-storage.js and exposes
-// a synchronous in-memory cache backed by IndexedDB. We use:
-//   • getJSON(key)      — async read (after ready())
-//   • setJSONSync(k, v) — sync write to cache + queued IDB write
-//   • ready()           — promise that resolves once IDB is open
-// ============================================================
 const STORAGE_KEY = 'flowcode:current-program';
-let _persistenceReady = false;     // false until init() has loaded (or confirmed absent) saved state
-let _persistDebounceTimer = null;  // shared timer for drag/pan/speed debounced saves
+let _persistenceReady = false;
+let _persistDebounceTimer = null;
 let _remoteRefreshPending = false;
 
 function serializeState() {
@@ -95,7 +61,7 @@ function deserializeState(data) {
     State.speed = data.speed;
     const slider = $('#speed-slider');
     if (slider) {
-      // Invert the slider formula: speed = 500 - (v/100)*495  →  v = (500 - speed) / 495 * 100
+
       const v = Math.round((500 - data.speed) / 495 * 100);
       slider.value = String(clamp(v, 1, 100));
       const disp = $('#speed-display');
@@ -107,8 +73,8 @@ function deserializeState(data) {
 }
 
 function persistState() {
-  if (!_persistenceReady) return;            // don't overwrite stored state before we've loaded it
-  if (!window.EmeraldIDBStorage) return;     // storage layer unavailable — fail silently
+  if (!_persistenceReady) return;
+  if (!window.EmeraldIDBStorage) return;
   try {
     EmeraldIDBStorage.setJSONSync(STORAGE_KEY, serializeState());
   } catch (err) {
@@ -133,8 +99,7 @@ async function applyPendingRemoteState() {
 async function loadPersistedState() {
   if (!window.EmeraldIDBStorage) return false;
   await EmeraldIDBStorage.ready();
-  // Do not migrate an old unscoped browser save into the signed-in account.
-  // Flowcharts are now stored and restored only within the current account.
+
   const data = await EmeraldIDBStorage.getJSON(STORAGE_KEY, null, { allowLegacy: false });
   if (!data) return false;
   return deserializeState(data);
@@ -155,9 +120,6 @@ const DIALOG_INFO = {
   breakpoint:{ title: 'Breakpoint Properties', desc: 'A Breakpoint pauses execution when reached. Use it for debugging.' },
 };
 
-// ============================================================
-// UTILITY
-// ============================================================
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
 function uid() { return 's' + (State.nextId++); }
@@ -168,14 +130,7 @@ function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;'
 function toast(iconKey, msg, type = '') {
   const el = $('#toast');
   if (!el) return;
-  // SECURITY (CodeQL js/xss-through-dom): the icon SVG is selected from the
-  // _fcSvg constant table by an explicit switch on a string-literal key
-  // passed by every caller. The value assigned to innerHTML is therefore
-  // always one of a fixed set of developer-controlled constant strings —
-  // never anything derived from the user-contaminated `msg` parameter.
-  // The text portion (`msg`) is rendered via textContent, which auto-escapes
-  // HTML meta-characters, so even if `msg` echoes user input (e.g. an invalid
-  // variable name in a validation error) it cannot break out of the text node.
+
   let iconSvg = null;
   switch (iconKey) {
     case 'edit':    iconSvg = _fcSvg.edit; break;
@@ -195,30 +150,21 @@ function toast(iconKey, msg, type = '') {
   el.replaceChildren();
   if (iconSvg) {
     const iconSpan = document.createElement('span');
-    iconSpan.innerHTML = iconSvg; // safe: constant from _fcSvg table
+    iconSpan.innerHTML = iconSvg;
     el.appendChild(iconSpan);
   }
   const textSpan = document.createElement('span');
-  textSpan.textContent = msg;     // safe: textContent escapes HTML
+  textSpan.textContent = msg;
   el.appendChild(textSpan);
-  // Set className with 'show' included directly (like aichat's
-  // showToast). This keeps the toast visible when a new message
-  // replaces an old one — no flicker, no reflow trick needed.
-  // The `type` arg is kept for API compatibility but has NO visual
-  // effect (aichat / index toasts are always white bg + black text;
-  // the icon in the message carries the success/error signal).
+
   el.className = 'fc-toast show' + (type ? ' ' + type : '');
   clearTimeout(el._t);
   el._t = setTimeout(() => el.classList.remove('show'), 5000);
 }
 
-// ============================================================
-// SHAPE MANAGEMENT
-// ============================================================
 function createShape(type, x, y) {
   const id = uid();
-  // Use ?? (not ||) so an explicit 0 coordinate is respected —
-  // `x || 200` would silently snap a shape placed at 0 to 200.
+
   const shape = { id, type, x: x ?? 200, y: y ?? 100, text: '', data: null, next: null, alt: null };
   shape.data = defaultDataForType(type);
   shape.text = getDisplayText(shape);
@@ -244,10 +190,6 @@ function defaultDataForType(type) {
   }
 }
 
-// Returns the list of variable names for a Declare shape.
-// Accepts both the new `names: [...]` array format and the legacy
-// `name: "x"` single-string format so older saved flowcharts keep
-// working without migration.
 function getDeclareNames(d) {
   if (Array.isArray(d.names) && d.names.length) return d.names.filter(n => n);
   if (typeof d.name === 'string' && d.name) return [d.name];
@@ -280,9 +222,7 @@ function migrateShape(shape) {
   switch (shape.type) {
     case 'terminal': shape.data = { text }; break;
     case 'declare': {
-      // Parse both single-name ("x : Integer") and comma-separated
-      // multi-name ("x, y, z : Integer") forms. Each name may
-      // optionally carry an array size: "a[5], b[10] : Integer".
+
       const m = text.match(/^([a-zA-Z_]\w*(?:\s*\[\s*\d+\s*\])?(?:\s*,\s*[a-zA-Z_]\w*(?:\s*\[\s*\d+\s*\])?)*)\s*(?:as|:)\s*(\w+)/i);
       if (m) {
         const parts = m[1].split(',').map(s => s.trim()).filter(Boolean);
@@ -338,21 +278,14 @@ function findStartShape() {
   return null;
 }
 
-// ============================================================
-// RENDERING
-// ============================================================
 function renderAll() {
   renderShapes();
   renderConnections();
   renderVariables();
-  // renderAll is called after every structural mutation (create,
-  // delete, edit, insert, duplicate, new/load program, reset), so
-  // it's the single best hook point for persisting state.
+
   persistState();
 }
 
-// Shape types that use SVG for their outline (because CSS clip-path
-// clips the border, leaving the outline cut off).
 const SVG_SHAPE_TYPES = ['decision', 'loop', 'for', 'do', 'breakpoint'];
 
 function renderShapes() {
@@ -371,8 +304,7 @@ function renderShapes() {
     const sz = getShapeSize(shape);
 
     if (SVG_SHAPE_TYPES.includes(shape.type)) {
-      // Set explicit dimensions and render an SVG outline so the
-      // border follows the shape's polygon (not clipped like clip-path).
+
       el.style.width = sz.w + 'px';
       el.style.height = sz.h + 'px';
       el.appendChild(buildShapeSvg(shape, sz));
@@ -380,7 +312,7 @@ function renderShapes() {
       const textEl = document.createElement('div');
       textEl.className = 'shape-text';
       textEl.textContent = getDisplayText(shape);
-      // Allow text to wrap nicely for narrower shapes
+
       if (shape.type === 'decision') { textEl.style.padding = '0 28px'; }
       else if (shape.type === 'loop' || shape.type === 'for' || shape.type === 'do') { textEl.style.padding = '0 18px'; }
       else if (shape.type === 'breakpoint') { textEl.style.padding = '0 6px'; textEl.style.fontSize = '10px'; textEl.style.fontWeight = '700'; }
@@ -394,15 +326,13 @@ function renderShapes() {
 
     if (shape.type !== 'terminal' && shape.type !== 'comment' && shape.type !== 'breakpoint') {
       if (['decision','loop','for','do'].includes(shape.type)) {
-        // Branching shapes: TRUE exits LEFT, FALSE exits RIGHT.
-        // (User-requested layout — both labels on left/right, not
-        // bottom/right. Matches a horizontal-branch flowchart style.)
+
         const hl = document.createElement('div'); hl.className = 'shape-handle handle-left'; hl.dataset.port = 'next'; el.appendChild(hl);
         const lblT = document.createElement('div'); lblT.className = 'label'; lblT.textContent = 'T'; hl.appendChild(lblT);
         const hr = document.createElement('div'); hr.className = 'shape-handle handle-right'; hr.dataset.port = 'alt'; el.appendChild(hr);
         const lbl = document.createElement('div'); lbl.className = 'label'; lbl.textContent = 'F'; hr.appendChild(lbl);
       } else {
-        // Non-branching shapes: single downward (bottom) exit.
+
         const hb = document.createElement('div'); hb.className = 'shape-handle handle-bottom'; hb.dataset.port = 'next'; el.appendChild(hb);
       }
     } else if (shape.type === 'terminal') {
@@ -413,8 +343,6 @@ function renderShapes() {
   });
 }
 
-// Build the SVG outline for a clip-path-based shape.
-// Returns an <svg> element with a polygon path.
 function buildShapeSvg(shape, sz) {
   const svgNS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(svgNS, 'svg');
@@ -423,7 +351,6 @@ function buildShapeSvg(shape, sz) {
   svg.setAttribute('height', sz.h);
   svg.setAttribute('viewBox', '0 0 ' + sz.w + ' ' + sz.h);
 
-  // Inset by 1px so the stroke is not clipped by the SVG viewport
   const inset = 1.5;
   let points = '';
   let fill = '';
@@ -432,7 +359,7 @@ function buildShapeSvg(shape, sz) {
 
   switch (shape.type) {
     case 'decision':
-      // Diamond
+
       points = (sz.w/2) + ',' + inset + ' ' +
                (sz.w - inset) + ',' + (sz.h/2) + ' ' +
                (sz.w/2) + ',' + (sz.h - inset) + ' ' +
@@ -443,7 +370,7 @@ function buildShapeSvg(shape, sz) {
     case 'loop':
     case 'for':
     case 'do':
-      // Hexagon (pointed left/right)
+
       points = (sz.w * 0.12) + ',' + inset + ' ' +
                (sz.w * 0.88) + ',' + inset + ' ' +
                (sz.w - inset) + ',' + (sz.h/2) + ' ' +
@@ -454,7 +381,7 @@ function buildShapeSvg(shape, sz) {
       stroke = 'var(--shape-loop-bd)';
       break;
     case 'breakpoint':
-      // Octagon
+
       points = (sz.w * 0.3) + ',' + inset + ' ' +
                (sz.w * 0.7) + ',' + inset + ' ' +
                (sz.w - inset) + ',' + (sz.h * 0.3) + ' ' +
@@ -531,22 +458,18 @@ function getPortPos(shape, port) {
 }
 
 function makePath(x1, y1, x2, y2) {
-  // Smart L-shape router. Picks the dominant axis (the one with the
-  // larger absolute delta) and routes the line as a vertical-then-
-  // horizontal (or horizontal-then-vertical) L with a single rounded
-  // corner. Falls back to a straight line when one axis is ~0.
+
   const dx = x2 - x1, dy = y2 - y1;
   const adx = Math.abs(dx), ady = Math.abs(dy);
 
-  // Pure vertical or near-vertical: straight line.
   if (adx < 3) return 'M ' + x1 + ' ' + y1 + ' L ' + x2 + ' ' + y2;
-  // Pure horizontal or near-horizontal: straight line.
+
   if (ady < 3) return 'M ' + x1 + ' ' + y1 + ' L ' + x2 + ' ' + y2;
 
   const r = Math.min(8, adx / 2, ady / 2, 12);
 
   if (ady >= adx) {
-    // Vertical-dominant: go down/up first, then turn horizontally.
+
     const midY = y1 + dy / 2;
     const sy = dy > 0 ? 1 : -1;
     const sx = dx > 0 ? 1 : -1;
@@ -557,9 +480,7 @@ function makePath(x1, y1, x2, y2) {
       ' Q ' + x2 + ' ' + midY + ' ' + x2 + ' ' + (midY + sy * r) +
       ' L ' + x2 + ' ' + y2;
   } else {
-    // Horizontal-dominant: go left/right first, then turn vertically.
-    // This is the path used by the True branch exiting the LEFT side
-    // of a decision diamond and connecting to a shape below-right.
+
     const midX = x1 + dx / 2;
     const sx = dx > 0 ? 1 : -1;
     const sy = dy > 0 ? 1 : -1;
@@ -599,8 +520,7 @@ function drawConnection(svg, fromShape, portName, toId, label) {
   svg.appendChild(path);
 
   if (['decision','loop','for','do'].includes(fromShape.type) && label) {
-    // Place the label 25% along the line, near the diamond's exit
-    // point, so it doesn't drift to the middle of a long L-shape.
+
     const tPos = 0.25;
     const lblX = start.x + (end.x - start.x) * tPos;
     const lblY = start.y + (end.y - start.y) * tPos;
@@ -663,9 +583,6 @@ function renderVariables() {
   State.changedVars.clear();
 }
 
-// ============================================================
-// CANVAS INTERACTION
-// ============================================================
 let dragInfo = null;
 let panInfo = null;
 State.pan = { x: 0, y: 0 };
@@ -705,7 +622,7 @@ function setCanvasZoom(nextZoom, anchorClientX, anchorClientY) {
 }
 
 $('#canvas-wrap').addEventListener('mousedown', (e) => {
-  // Ignore clicks on floating UI panels
+
   if (e.target.closest('.fc-ribbon, .fc-palette, .fc-panel, .fc-brand-pill, .fc-file-bar')) return;
   if (State.spaceHeld || e.button === 1) {
     panInfo = { startX: e.clientX, startY: e.clientY, panX: State.pan.x, panY: State.pan.y };
@@ -739,13 +656,7 @@ $('#canvas-wrap').addEventListener('mousedown', (e) => {
       startY: e.clientY,
       moved: false,
     };
-    // CRITICAL: only rebuild the shapes layer when the selection
-    // actually changed. If we rebuild on every mousedown, the second
-    // click of a double-click lands on a brand-new DOM element and
-    // the browser never fires a `dblclick` event — so the Edit
-    // Properties modal would never open. Skipping renderShapes() here
-    // when the shape was already selected lets the browser recognize
-    // the two clicks as a single dblclick on the same element.
+
     if (!wasSelected) renderShapes();
   } else {
     if (State.selectedId) { State.selectedId = null; renderShapes(); }
@@ -757,11 +668,11 @@ document.addEventListener('mousemove', (e) => {
     State.pan.x = panInfo.panX + (e.clientX - panInfo.startX);
     State.pan.y = panInfo.panY + (e.clientY - panInfo.startY);
     applyPan();
-    persistStateDebounced(500);   // save the new pan position (debounced — fires once at end of drag)
+    persistStateDebounced(500);
     return;
   }
   if (dragInfo) {
-    // Detect drag — if movement exceeds a small threshold, mark as moved
+
     if (Math.abs(e.clientX - dragInfo.startX) > 4 || Math.abs(e.clientY - dragInfo.startY) > 4) {
       dragInfo.moved = true;
     }
@@ -773,7 +684,7 @@ document.addEventListener('mousemove', (e) => {
       const el = document.querySelector('.shape[data-id="' + dragInfo.id + '"]');
       if (el) { el.style.left = shape.x + 'px'; el.style.top = shape.y + 'px'; }
       renderConnections();
-      if (dragInfo.moved) persistStateDebounced(500);   // save the new shape position (debounced)
+      if (dragInfo.moved) persistStateDebounced(500);
     }
   }
   if (State.connecting) {
@@ -818,62 +729,32 @@ document.addEventListener('mouseup', (e) => {
     State.connecting = null;
     document.body.classList.remove('connecting-mode');
     renderConnections();
-    persistState();   // a new connection was just established — persist it
+    persistState();
   }
-  if (dragInfo && dragInfo.moved) persistState();   // shape was dragged to a new position — persist it
+  if (dragInfo && dragInfo.moved) persistState();
   dragInfo = null;
   applyPendingRemoteState().catch(() => {});
 });
 
-// Double-click opens the Edit Properties dialog — exactly the same
-// flow as right-click → "Edit Properties". Single-click only selects
-// the shape (mousedown handler above) so its connection handles remain
-// available. This matches Flowgorithm, where one click selects a block
-// and a double-click (or Enter) is required to edit it.
 $('#canvas-wrap').addEventListener('dblclick', (e) => {
-  // Ignore double-clicks that originate on floating UI panels.
+
   if (e.target.closest('.fc-ribbon, .fc-palette, .fc-panel, .fc-brand-pill, .fc-file-bar')) return;
-  // Ignore double-clicks on connection handles — those are for dragging
-  // connections, not for opening properties.
+
   if (e.target.closest('.shape-handle')) return;
   const target = e.target.closest('.shape');
   if (!target) return;
-  // Mirror the right-click → Edit Properties flow exactly:
-  //   1. Select the shape (so the green selection ring shows)
-  //   2. Re-render so the selection is visible
-  //   3. Open the property dialog
-  // This is the same sequence performed by handleContextAction('edit', id).
+
   e.preventDefault();
   State.selectedId = target.dataset.id;
   renderShapes();
   openPropertyDialog(target.dataset.id);
 });
 
-// Safety net: prevent ANY single-click path from opening the property
-// dialog. The dblclick listener above is the ONLY sanctioned entry point
-// for opening a property modal via the mouse. (Keyboard Enter on a
-// selected shape still works — see the keydown handler.)
-
-// ============================================================
-// GLOBAL RIGHT-CLICK CONTEXT MENU
-// ------------------------------------------------------------
-// Mirrors the AIChat pattern: EVERY right-click on the flowchart
-// shows a contextual menu. The contents depend on the target —
-//   • SHAPE       → Edit / Duplicate / Disconnect / Delete
-//   • CONNECTION  → Insert <shape> Here / Disconnect
-//   • CANVAS      → Add <shape> Here / Copy Page Link / Clear
-// — but every variant uses the same flat structure as AIChat's
-// MESSAGE / CHATS menus: one title row + plain <a> items, no
-// dividers, no per-item icons, no shortcut hints.
-// ============================================================
 document.addEventListener('contextmenu', (e) => {
-  // Allow native menus inside text-editing fields so users can
-  // still use the browser's copy/paste/spell-check etc.
+
   const tag = e.target.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
-  // Skip when a property/help/error modal is open — right-clicking
-  // inside a dialog shouldn't trigger the canvas menu underneath.
   if (e.target.closest('.modal-overlay')) return;
 
   e.preventDefault();
@@ -891,21 +772,11 @@ document.addEventListener('contextmenu', (e) => {
       connHit.dataset.from, connHit.dataset.port, connHit.dataset.to
     );
   } else {
-    // Blank canvas, ribbon, palette, panels, brand pill, file bar,
-    // or anywhere else — fall through to the CANVAS tools menu so
-    // every right-click on the page produces a contextual menu.
+
     showCanvasContextMenu(e.clientX, e.clientY);
   }
 });
 
-// ============================================================
-// INSERT SHAPE ON LINE CLICK  (left-click on a connection line)
-// ------------------------------------------------------------
-// Kept for backward compatibility with the documented "click a
-// connection line to insert a shape in between" UX. Now uses the
-// same .rightclick-menu design system as the right-click menus so
-// the visual language is consistent across both entry points.
-// ============================================================
 function showInsertMenu(x, y, fromId, port, toId) {
   const fromShape = getShape(fromId);
   const toShape = getShape(toId);
@@ -944,7 +815,6 @@ function showInsertMenu(x, y, fromId, port, toId) {
   });
 }
 
-// Palette
 $$('.palette-item').forEach(item => {
   item.addEventListener('click', () => {
     const type = item.dataset.type;
@@ -961,11 +831,6 @@ $$('.palette-item').forEach(item => {
   });
 });
 
-// ============================================================
-// BOTTOM-RIGHT PANEL DOCK — minimize / maximize toggle
-// The dock order and layout are controlled by CSS; JavaScript only
-// toggles the state class and never changes panel geometry or position.
-// ============================================================
 $$('.panel-toggle').forEach(btn => {
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -976,7 +841,6 @@ $$('.panel-toggle').forEach(btn => {
   });
 });
 
-// Don't allow palette drops onto any floating panel
 $('#canvas-wrap').addEventListener('dragover', (e) => {
   if (e.target.closest('.fc-ribbon, .fc-palette, .fc-panel, .fc-brand-pill, .fc-file-bar')) return;
   e.preventDefault();
@@ -993,7 +857,6 @@ $('#canvas-wrap').addEventListener('drop', (e) => {
   renderAll();
 });
 
-// Keyboard
 document.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
   if (e.code === 'Space') {
@@ -1028,11 +891,6 @@ window.addEventListener('blur', () => {
   panInfo = null;
 });
 
-// ============================================================
-// CONTEXT MENU
-// ============================================================
-// CONTEXT MENU
-// ============================================================
 function positionContextMenu(menu, x, y) {
   menu.style.display = 'block';
   const menuWidth = menu.offsetWidth || 240;
@@ -1049,19 +907,6 @@ function positionContextMenu(menu, x, y) {
   menu.style.top = top + 'px';
 }
 
-// ============================================================
-// CONTEXT MENU BUILDERS
-// ------------------------------------------------------------
-// Each builder produces a menu using the .rightclick-menu design
-// system (.context-title header + <a> items + .ctx-divider
-// separators + .ctx-danger for destructive actions), matching
-// the AIChat context-menu pattern exactly. The category title
-// (SHAPE / CONNECTION / CANVAS) is the equivalent of AIChat's
-// TOOLS / MESSAGE / CHATS header — same look, same role.
-// ============================================================
-
-// Shared SVG icons (12-13px, matches AIChat context-menu icon size).
-// Vertical-align trick keeps the icon centered on the text baseline.
 const _fcSvg = {
   edit:   '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:7px;opacity:0.7"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
   dup:    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:7px;opacity:0.7"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
@@ -1070,20 +915,15 @@ const _fcSvg = {
   add:    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:7px;opacity:0.7"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
   link:   '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:7px;opacity:0.7"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
   info:   '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:7px;opacity:0.7"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>',
-  // Category-title icons (12px, no margin — they sit in the title row)
+
   shape:  '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;display:inline-block"><rect x="3" y="8" width="18" height="8" rx="2"/></svg>',
   conn:   '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;display:inline-block"><path d="M9 17H7a5 5 0 0 1 0-10h2"/><path d="M15 7h2a5 5 0 0 1 0 10h-2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>',
   canvas: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;display:inline-block"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>',
-  // Toast-only icons (13px, slightly higher opacity for visibility)
+
   check: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:7px;opacity:0.8"><path d="M20 6L9 17l-5-5"/></svg>',
   warn:  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:7px;opacity:0.8"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
 };
 
-// ---------- SHAPE ----------
-// Right-click on a flowchart shape. Matches the AIChat MESSAGE /
-// CHATS menu structure exactly: one title row with an icon, then
-// plain <a> items — no dividers, no per-item icons, no shortcut
-// hints. Destructive items get .ctx-danger (red).
 function showShapeContextMenu(x, y, shapeId) {
   const menu = $('#context-menu');
   const shape = getShape(shapeId);
@@ -1093,8 +933,6 @@ function showShapeContextMenu(x, y, shapeId) {
   html += '<a data-action="edit">Edit Properties</a>';
   html += '<a data-action="duplicate">Duplicate</a>';
 
-  // Disconnect options — only on connectable shapes that actually
-  // have an outgoing edge on the relevant port.
   if (shape.type !== 'terminal' && shape.type !== 'comment' && shape.type !== 'breakpoint') {
     if (shape.next) {
       html += '<a data-action="disconnect-next">Disconnect True</a>';
@@ -1118,17 +956,12 @@ function showShapeContextMenu(x, y, shapeId) {
   });
 }
 
-// ---------- CONNECTION ----------
-// Right-click on a connection line. Same flat structure as the
-// SHAPE menu: title row + plain <a> items + divider + danger item.
 function showConnectionContextMenu(x, y, fromId, port, toId) {
   const menu = $('#context-menu');
   const fromShape = getShape(fromId);
   const toShape = getShape(toId);
   if (!fromShape || !toShape) return;
 
-  // Midpoint in canvas-space — where the newly inserted shape
-  // will land. Mirrors the calculation in showInsertMenu.
   const fromPos = getPortPos(fromShape, port);
   const toPos = getPortPos(toShape, 'in');
   const midX = (fromPos.x + toPos.x) / 2 - 70;
@@ -1154,9 +987,6 @@ function showConnectionContextMenu(x, y, fromId, port, toId) {
   menu.innerHTML = html;
   positionContextMenu(menu, x, y);
 
-  // Insert-shape handlers — splice a new shape into the connection
-  // by repointing the from-port to the new shape, and the new
-  // shape's `next` to the original target.
   menu.querySelectorAll('a[data-type]').forEach(a => {
     a.addEventListener('click', (ev) => {
       ev.preventDefault();
@@ -1171,8 +1001,6 @@ function showConnectionContextMenu(x, y, fromId, port, toId) {
     });
   });
 
-  // Disconnect handler — nulls the relevant port on the source
-  // shape, which removes the line on the next render pass.
   const disc = menu.querySelector('a[data-action="disconnect"]');
   if (disc) {
     disc.addEventListener('click', (ev) => {
@@ -1187,14 +1015,9 @@ function showConnectionContextMenu(x, y, fromId, port, toId) {
   }
 }
 
-// ---------- CANVAS ----------
-// Right-click on blank canvas or any floating panel. The TOOLS
-// equivalent from AIChat — generic fallback menu. Same flat
-// structure: title + plain <a> items + dividers + danger item.
 function showCanvasContextMenu(x, y) {
   const menu = $('#context-menu');
 
-  // Canvas-space coordinates for "Add ... Here" actions.
   const pt = canvasPointFromClient(x, y);
   const cx = pt.x - 65;
   const cy = pt.y - 22;
@@ -1218,7 +1041,6 @@ function showCanvasContextMenu(x, y) {
   html += '<a data-action="copy-link">Copy Page Link</a>';
   html += '<a data-action="show-info">Show Canvas Info</a>';
 
-  // Only show "Clear Canvas" if there's actually something to clear.
   if (State.shapes.size > 0) {
     html += '<a class="ctx-danger" data-action="clear">Clear Canvas</a>';
   }
@@ -1226,9 +1048,6 @@ function showCanvasContextMenu(x, y) {
   menu.innerHTML = html;
   positionContextMenu(menu, x, y);
 
-  // Add-shape handlers — create the shape at the click position and
-  // open its property dialog (except for Comment / Breakpoint which
-  // don't have one).
   menu.querySelectorAll('a[data-type]').forEach(a => {
     a.addEventListener('click', (ev) => {
       ev.preventDefault();
@@ -1242,7 +1061,6 @@ function showCanvasContextMenu(x, y) {
     });
   });
 
-  // Tool-action handlers (Copy Page Link / Show Canvas Info / Clear)
   menu.querySelectorAll('a[data-action]').forEach(a => {
     a.addEventListener('click', async (ev) => {
       ev.preventDefault();
@@ -1300,9 +1118,6 @@ function handleContextAction(action, id) {
   }
 }
 
-// ============================================================
-// PROPERTY DIALOGS
-// ============================================================
 function renderShapeIcon(type) {
   const icons = {
     terminal: '<div class="icon-shape" style="background:#fff8db;border:2px solid #d4a017;border-radius:20px;">Start</div>',
@@ -1367,7 +1182,6 @@ function openPropertyDialog(shapeId) {
   }
 }
 
-// Terminal dialog — Start/End selectable buttons (no typing required)
 function openTerminalDialog(shape) {
   const d = shape.data;
   const dlg = createDialogShell(shape);
@@ -1393,7 +1207,7 @@ function openTerminalDialog(shape) {
       selectedValue = btn.dataset.value;
     };
   });
-  // Allow double-click to confirm
+
   dlg.body.querySelectorAll('.terminal-type-btn').forEach(btn => {
     btn.ondblclick = () => {
       selectedValue = btn.dataset.value;
@@ -1436,17 +1250,17 @@ function openDeclareDialog(shape) {
   dlg.okBtn.onclick = () => {
     const raw = nameInput.value.trim();
     if (!raw) { toast('warn', ' Please enter at least one variable name', 'error'); return; }
-    // Split on commas, trim each token, drop empties.
+
     const names = raw.split(',').map(s => s.trim()).filter(Boolean);
     if (names.length === 0) { toast('warn', ' Please enter at least one variable name', 'error'); return; }
-    // Validate each name (legal identifier: letter/_ then word chars).
+
     for (const n of names) {
       if (!/^[a-zA-Z_]\w*$/.test(n)) {
         toast('warn', ' Invalid variable name: "' + n + '". Use letters, digits, _; cannot start with a digit.', 'error');
         return;
       }
     }
-    // Reject duplicates (case-insensitive, matching Flowgorithm).
+
     const lowered = names.map(n => n.toLowerCase());
     if (new Set(lowered).size !== lowered.length) {
       const seen = {};
@@ -1456,7 +1270,7 @@ function openDeclareDialog(shape) {
       return;
     }
     d.names = names;
-    delete d.name; // drop legacy single-name field
+    delete d.name;
     d.dataType = dlg.body.querySelector('#f-type').value;
     d.isArray = arrayCheck.checked;
     d.arraySize = parseInt(dlg.body.querySelector('#f-size').value, 10) || 1;
@@ -1631,15 +1445,8 @@ function openBreakpointDialog(shape) {
   dlg.overlay.addEventListener('click', (e) => { if (e.target === dlg.overlay) dlg.close(); });
 }
 
-// ============================================================
-// EXPRESSION EVALUATOR
-// ============================================================
-// Built-in functions mirror Flowgorithm's standard library.
-// Flowgorithm is case-insensitive for function names — we honor
-// that by lowercasing every call site before evaluation (see
-// evalExpression). The keys here MUST be lowercase.
 const BUILTINS = {
-  // Math
+
   sqrt:(x)=>Math.sqrt(x), abs:(x)=>Math.abs(x), floor:(x)=>Math.floor(x),
   ceiling:(x)=>Math.ceil(x), round:(x)=>Math.round(x),
   max:(...a)=>Math.max(...a), min:(...a)=>Math.min(...a),
@@ -1649,18 +1456,17 @@ const BUILTINS = {
   log:(x)=>Math.log(x), log10:(x)=>(Math.log10?Math.log10(x):Math.log(x)/Math.LN10),
   logten:(x)=>(Math.log10?Math.log10(x):Math.log(x)/Math.LN10),
   exp:(x)=>Math.exp(x),
-  // Flowgorithm's Random(max) returns an integer in [0, max].
-  // Random(a, b) returns an integer in [a, b] (inclusive).
+
   random:(a,b)=>{ if(b===undefined) return Math.floor(Math.random()*(a+1)); return Math.floor(Math.random()*(b-a+1))+a; },
-  randomseed:(s)=>{ /* no-op: JS has no portable seeded PRNG; seed is accepted for compatibility */ },
-  // String
+  randomseed:(s)=>{  },
+
   length:(s)=>String(s).length,
-  // Flowgorithm: CharAt(s, i) → i-th character of s (0-indexed in our impl).
+
   charat:(s,i)=>String(s)[Math.trunc(Number(i))]||'',
-  // Flowgorithm: Char(n) → character for ASCII code n. (Alias: chr)
+
   char:(n)=>String.fromCharCode(Math.trunc(Number(n))),
   chr:(n)=>String.fromCharCode(Math.trunc(Number(n))),
-  // Flowgorithm: Ascii(c) → ASCII value of first character. (Alias: asc)
+
   ascii:(c)=>String(c).charCodeAt(0),
   asc:(c)=>String(c).charCodeAt(0),
   indexof:(s,sub)=>String(s).indexOf(String(sub)),
@@ -1668,12 +1474,12 @@ const BUILTINS = {
   toupper:(s)=>String(s).toUpperCase(),
   tolower:(s)=>String(s).toLowerCase(),
   trim:(s)=>String(s).trim(),
-  // Conversion
+
   tointeger:(x)=>parseInt(x,10),
   toreal:(x)=>parseFloat(x),
   tostring:(x)=>String(x),
   tofixedstring:(x,d)=>{ const n=Number(x); const dec=Math.max(0,Math.trunc(Number(d)||0)); return isNaN(n)?String(x):n.toFixed(dec); },
-  // Type predicates (Flowgorithm)
+
   isinteger:(x)=>{ if (typeof x==='number') return Number.isInteger(x); if (typeof x==='string') return /^-?\d+$/.test(x.trim()); return false; },
   isreal:(x)=>{ if (typeof x==='number') return !Number.isNaN(x); if (typeof x==='string') return !isNaN(parseFloat(x)) && isFinite(x); return false; },
   isnumber:(x)=>!isNaN(Number(x)),
@@ -1687,9 +1493,7 @@ function translateToJS(expr) {
   js = js.replace(/\u2260/g,'!=').replace(/\u2264/g,'<=').replace(/\u2265/g,'>=').replace(/\u00d7/g,'*').replace(/\u00f7/g,'/');
   js = js.replace(/\^/g,'**');
   js = js.replace(/\bmod\b/gi,'%').replace(/\bdiv\b/gi,'__ID__').replace(/\band\b/gi,'&&').replace(/\bor\b/gi,'||').replace(/\bnot\b/gi,'!').replace(/\bxor\b/gi,'!=');
-  // Flowgorithm: single & is string concatenation. Must run AFTER
-  // `and`→`&&` so we don't clobber the && we just produced. Use
-  // look-arounds to skip && (and &= isn't valid in Flowgorithm).
+
   js = js.replace(/(?<!&)&(?!&)/g, '+');
   js = js.replace(/([\w.\u0000()]+)\s*__ID__\s*([\w.\u0000()]+)/g, 'Math.trunc(($1)/($2))');
   js = js.replace(/__ID__/g,'/');
@@ -1703,16 +1507,9 @@ function evalExpression(expr, vars) {
   if (!expr || !expr.trim()) throw new Error('Empty expression');
   let js = translateToJS(expr);
 
-  // Re-extract string literals so the identifier-rewriting passes below
-  // don't accidentally touch words inside strings (e.g. the "Name" in
-  // the literal "Name: " must NOT be rewritten to match a variable).
   const __strings = [];
   js = js.replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, (m) => { __strings.push(m); return '\u0000S' + __strings.length + '\u0000'; });
 
-  // Flowgorithm is case-insensitive for built-in function names.
-  // Normalize any call site whose name (lowercased) matches a known
-  // builtin to that builtin's lowercase key, so the named-parameter
-  // binding below can find it.
   const lowerBuiltinSet = new Set(Object.keys(BUILTINS));
   const jsKeywords = new Set(['true','false','null','undefined','Math','NaN','Infinity',
     'return','if','else','while','for','do','break','continue','function','var','let',
@@ -1727,32 +1524,25 @@ function evalExpression(expr, vars) {
     return match;
   });
 
-  // Flowgorithm is also case-insensitive for variable names. We
-  // normalize every identifier in the expression to the case it was
-  // declared with, so the named-parameter binding below can find it.
-  // We must skip: builtin function names (already lowercased above),
-  // JS keywords/globals, property access (preceded by '.'), and
-  // function call sites (followed by '(') that aren't builtins.
   const declaredNames = Array.from(vars.keys());
   const caseInsensitiveVars = new Map();
   declaredNames.forEach(n => caseInsensitiveVars.set(n.toLowerCase(), n));
 
   if (caseInsensitiveVars.size > 0) {
     js = js.replace(/\b([A-Za-z_]\w*)\b/g, (match, name, offset, full) => {
-      // Skip JS keywords/globals
+
       if (jsKeywords.has(name)) return match;
-      // Skip builtin function names (already lowercased)
+
       if (lowerBuiltinSet.has(name.toLowerCase())) return match;
-      // Skip property access (preceded by '.')
+
       let i = offset - 1;
       while (i >= 0 && /\s/.test(full[i])) i--;
       if (i >= 0 && full[i] === '.') return match;
-      // Skip function call sites (followed by '(')
+
       let j = offset + name.length;
       while (j < full.length && /\s/.test(full[j])) j++;
       if (j < full.length && full[j] === '(') return match;
-      // If the lowercased name matches a declared variable, rewrite
-      // to the declared case so the named-parameter binding works.
+
       const lower = name.toLowerCase();
       if (caseInsensitiveVars.has(lower)) {
         return caseInsensitiveVars.get(lower);
@@ -1761,7 +1551,6 @@ function evalExpression(expr, vars) {
     });
   }
 
-  // Restore string literals.
   js = js.replace(/\u0000S(\d+)\u0000/g, (_, i) => __strings[parseInt(i,10)-1]);
 
   const builtinNames = Object.keys(BUILTINS);
@@ -1820,9 +1609,6 @@ function formatValue(val) {
   return String(val);
 }
 
-// ============================================================
-// EXECUTION ENGINE
-// ============================================================
 function startExecution() {
   const start = findStartShape();
   if (!start) { logError('No Start terminal found.'); return null; }
@@ -1870,16 +1656,13 @@ async function executeStep() {
         break;
 
       case 'declare': {
-        // Flowgorithm: a Declare statement can declare one or more
-        // variables in a single block, separated by commas:
-        //   x, y, z : Integer
-        // All names share the same data type and array-ness.
+
         const declNames = getDeclareNames(d);
         if (d.isArray) {
           const size = parseInt(d.arraySize, 10);
           const defVal = defaultValueForType(d.dataType);
           declNames.forEach(n => {
-            // Fresh array per name so variables don't share a reference.
+
             const arr = new Array(size).fill(defVal);
             State.variables.set(n, { type: d.dataType, value: arr });
             State.changedVars.add(n);
@@ -1904,10 +1687,7 @@ async function executeStep() {
           arr.value[Math.trunc(index)] = value;
           State.changedVars.add(arrName);
         } else {
-          // Flowgorithm strict-mode: a variable must be Declared
-          // before it can be assigned. Auto-creating variables on
-          // first assignment hides bugs and doesn't match the
-          // Flowgorithm execution model.
+
           const existing = State.variables.get(d.variable);
           if (!existing) {
             throw new Error('Variable "' + d.variable + '" has not been declared. Add a Declare statement first.');
@@ -1920,8 +1700,7 @@ async function executeStep() {
       }
 
       case 'input': {
-        // Flowgorithm strict-mode: a variable must be Declared before
-        // it can be used as an input target. We refuse to auto-create.
+
         const existing = State.variables.get(d.variable);
         if (!existing) {
           throw new Error('Variable "' + d.variable + '" has not been declared. Add a Declare statement first.');
@@ -1938,8 +1717,7 @@ async function executeStep() {
       case 'output': {
         const val = evalExpression(d.expression, State.variables);
         const text = formatValue(val);
-        // Flowgorithm: when "Output a newline after" is unchecked,
-        // the next Output continues on the same console line.
+
         logOutput(text, d.newline !== false);
         State.execution.lastEdge = { from: shape.id, port: 'next' };
         State.execution.currentId = shape.next;
@@ -1961,10 +1739,7 @@ async function executeStep() {
       }
 
       case 'for': {
-        // Flowgorithm: the For loop's control variable must be of
-        // type Integer. If it isn't declared yet, we auto-declare
-        // it (matching Flowgorithm's permissive default). If it is
-        // declared but not Integer, that's a runtime type error.
+
         let forState = State.execution.forStates.get(shape.id);
         if (!forState) {
           const startVal = evalExpression(d.start, State.variables);
@@ -2021,9 +1796,6 @@ async function executeStep() {
   return !State.execution.done;
 }
 
-// ============================================================
-// INPUT MODAL
-// ============================================================
 function promptInput(varName, type) {
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
@@ -2066,13 +1838,6 @@ function promptInput(varName, type) {
   });
 }
 
-// ============================================================
-// CONSOLE
-// ============================================================
-// Track the most recent "open" console line (one that was written
-// without a trailing newline). The next logOutput(false) appends to
-// it instead of creating a new line — mirroring Flowgorithm's
-// "Output a newline after = false" behavior.
 let _openConsoleLine = null;
 
 function logLine(text, cls) {
@@ -2086,9 +1851,7 @@ function logLine(text, cls) {
 }
 
 function logOutput(t, newline) {
-  // newline === true (or undefined) → write the text and close the line.
-  // newline === false → append to the current open line (or open a new
-  //   one if none is open) and keep it open for the next call.
+
   const c = $('#console');
   const wantNewline = newline !== false;
   if (_openConsoleLine && !wantNewline) {
@@ -2114,9 +1877,6 @@ function logInput(t) { logLine('> ' + t, 'console-input'); }
 function logSuccess(t) { logLine(t, 'console-success'); }
 function clearConsole() { $('#console').innerHTML = ''; _openConsoleLine = null; }
 
-// ============================================================
-// RUN / STEP / STOP
-// ============================================================
 async function runProgram() {
   if (State.running) return;
   if (State.execution) State.execution = null;
@@ -2185,25 +1945,13 @@ function resetProgram() {
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function setStatus(state, text) {
-  // Status pill / console status badge were removed from the ribbon,
-  // but the console panel header still has a count. Update the
-  // console-status element if it exists.
+
   const cs = $('#console-status');
   if (cs) cs.textContent = state === 'running' ? 'running' : state === 'paused' ? 'paused' : state === 'error' ? 'error' : 'idle';
 }
 
-// ============================================================
-// .emeraldcore FILE FORMAT (JSONC — JSON with comments)
-// ------------------------------------------------------------
-// Exports use the .emeraldcore extension. The format is plain
-// JSON but allows // line comments and /* block comments */
-// outside of string literals, so users can annotate their
-// saved flowcharts by hand. Imports ONLY accept .emeraldcore.
-// ============================================================
 function stripJsoncComments(text) {
-  // Walk the string character-by-character so we never strip
-  // comment-like sequences (// or /*) that appear inside string
-  // literals. Handles escape sequences inside strings.
+
   let out = '';
   let i = 0;
   let inString = false;
@@ -2215,7 +1963,7 @@ function stripJsoncComments(text) {
     if (inString) {
       out += ch;
       if (ch === '\\') {
-        // Escaped character — copy the next char verbatim
+
         if (i + 1 < len) { out += next; i += 2; continue; }
       }
       if (ch === stringDelim) inString = false;
@@ -2230,12 +1978,12 @@ function stripJsoncComments(text) {
       continue;
     }
     if (ch === '/' && next === '/') {
-      // Line comment — skip to end of line (but keep the newline)
+
       while (i < len && text[i] !== '\n') i++;
       continue;
     }
     if (ch === '/' && next === '*') {
-      // Block comment — skip to closing */
+
       i += 2;
       while (i < len && !(text[i] === '*' && text[i + 1] === '/')) i++;
       i += 2;
@@ -2291,12 +2039,6 @@ function serializeEmeraldCore(data) {
   return header + JSON.stringify(data, null, 2);
 }
 
-// ============================================================
-// CUSTOM MODALS — error & confirm
-// ------------------------------------------------------------
-// Replaces native alert() / confirm() with modals that match
-// the existing prop-dialog design (same header, footer, buttons).
-// ============================================================
 function showErrorModal(title, message) {
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
@@ -2364,12 +2106,11 @@ function saveProgram() {
     const a = document.createElement('a');
     a.href = url;
     a.download = 'flowchart.emeraldcore';
-    // Append to DOM before clicking — some browsers refuse to
-    // trigger a download for a detached <a> element.
+
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    // Give the browser a tick to start the download before revoking.
+
     setTimeout(() => URL.revokeObjectURL(url), 200);
     toast('check', ' Flowchart exported as .emeraldcore', 'success');
     try { window.EmeraldHistory.action('Exported flowchart as .emeraldcore'); } catch (_) {}
@@ -2645,13 +2386,12 @@ function exportFlowchartPng() {
 
 function loadProgram() {
   const input = $('#file-input');
-  // Set the handler BEFORE opening the picker so the change
-  // event is never missed (click() returns synchronously).
+
   input.onchange = (e) => {
     const file = e.target.files[0];
-    e.target.value = '';   // reset so the same file can be re-picked later
+    e.target.value = '';
     if (!file) return;
-    // Only .emeraldcore files are accepted on import.
+
     if (!file.name.toLowerCase().endsWith('.emeraldcore')) {
       showErrorModal('Unsupported File', 'Only .emeraldcore files can be imported. Please select a file with the .emeraldcore extension.');
       return;
@@ -2682,23 +2422,12 @@ function loadProgram() {
   input.click();
 }
 
-// Creates the starter flowchart: Start → Output "Hello" → End.
-// Used both on first open (when no saved state exists) and when
-// the user clicks Clear. Does NOT call renderAll() — the caller
-// is responsible for rendering. Does NOT toast.
-//
-// IMPORTANT: the third terminal MUST be explicitly set to "End".
-// defaultDataForType('terminal') returns { text: 'Start' }, so
-// without this override both terminals would say "Start".
 function createStarterTemplate() {
   State.shapes.clear();
   State.nextId = 1;
   State.selectedId = null;
 
-  // Lay the chain out on a clean vertical axis at the canvas origin.
-  // The whole group is then centered in the viewport by
-  // centerViewOnShapes(), which measures the real rendered boxes.
-  const STEP = 80; // shape height (40) + 40px gap
+  const STEP = 80;
 
   const s = createShape('terminal', 0, 0);
   s.data = { text: 'Start' };
@@ -2707,15 +2436,10 @@ function createStarterTemplate() {
   const e = createShape('terminal', 0, STEP * 2);
   e.data = { text: 'End' };
   s.next = o.id; o.next = e.id;
-  // Refresh display text for all shapes (createShape computed
-  // .text from the default .data, which we then overrode).
+
   State.shapes.forEach(sh => { sh.text = getDisplayText(sh); });
 }
 
-// Pan the viewport so the bounding box of all shapes sits in the
-// middle of the visible canvas. Must run AFTER renderAll() so the
-// shape elements exist and can be measured (getShapeSize() returns
-// nominal sizes that don't always match the CSS-rendered box).
 function centerViewOnShapes() {
   if (State.shapes.size === 0) return;
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -2799,16 +2523,12 @@ function loadArrayExample() {
   toast('check', ' Array example loaded', 'success');
 }
 
-// ============================================================
-// TOOLBAR & MENU
-// ============================================================
 $('#btn-run').onclick = runProgram;
 $('#btn-step').onclick = stepProgram;
 $('#btn-stop').onclick = stopProgram;
 $('#btn-reset').onclick = resetProgram;
 $('#btn-clear-console').onclick = clearConsole;
 
-// Top-right File toolbar (Save / PNG / Open / Clear)
 $('#btn-save').onclick = saveProgram;
 $('#btn-export-png').onclick = exportFlowchartPng;
 $('#btn-open').onclick = loadProgram;
@@ -2830,7 +2550,7 @@ $('#speed-slider').oninput = (e) => {
   const v = parseInt(e.target.value);
   State.speed = Math.round(500 - (v / 100) * 495);
   $('#speed-display').textContent = State.speed + 'ms';
-  persistStateDebounced(300);   // save the new speed (debounced — fires once when slider settles)
+  persistStateDebounced(300);
 };
 $('#speed-slider').dispatchEvent(new Event('input'));
 
@@ -2881,9 +2601,6 @@ function showMenuDropdown(name, x, y) {
   });
 }
 
-// ============================================================
-// HELP MODALS
-// ============================================================
 function buildModalHeader(variant, iconSvg, title) {
   const colors = {
     green:  '#239a4d',
@@ -2991,14 +2708,6 @@ function showAbout() {
   o.addEventListener('click', (e) => { if (e.target === o) o.remove(); });
 }
 
-// ============================================================
-// INIT
-// ------------------------------------------------------------
-// On startup we first try to restore the previously-saved
-// flowchart from IndexedDB. Only after that attempt completes
-// do we enable persistence — this guarantees we never overwrite
-// a saved flowchart with the empty initial state.
-// ============================================================
 async function init() {
   if (window.EmeraldAuth?.ready) await window.EmeraldAuth.ready();
   ensureArrowhead($('#connections'));
@@ -3008,15 +2717,14 @@ async function init() {
   } catch (err) {
     console.warn('[FlowCode] Failed to load persisted state:', err);
   }
-  _persistenceReady = true;   // safe to persist from now on
-  // First-time open (or empty saved state) — show the starter
+  _persistenceReady = true;
+
   const isFreshStart = !loaded || State.shapes.size === 0;
   if (isFreshStart) {
     createStarterTemplate();
   }
   renderAll();
-  // Only recenter for a brand-new canvas — a restored session keeps
-  // whatever pan position the user last scrolled to.
+
   if (isFreshStart) centerViewOnShapes();
   if (window.EmeraldIDBStorage?.subscribe) {
     window.EmeraldIDBStorage.subscribe(async function (change) {
@@ -3025,8 +2733,7 @@ async function init() {
       await applyPendingRemoteState();
     });
   }
-  // Flush any pending debounced write when the user leaves — gives
-  // the IDB transaction the best chance to complete before unload.
+
   window.addEventListener('beforeunload', () => {
     if (_persistDebounceTimer) { clearTimeout(_persistDebounceTimer); _persistDebounceTimer = null; }
     persistState();

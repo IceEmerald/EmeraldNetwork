@@ -1,10 +1,10 @@
- const SENSITIVITY = 0.15; 
- const FRICTION = 0.85;  
- const MIN_VELOCITY = 0.1; 
- let currentScrollY = window.pageYOffset; 
- let velocityY = 0; 
- let isWheeling = false; 
- let animationFrameId = null; 
+ const SENSITIVITY = 0.15;
+ const FRICTION = 0.85;
+ const MIN_VELOCITY = 0.1;
+ let currentScrollY = window.pageYOffset;
+ let velocityY = 0;
+ let isWheeling = false;
+ let animationFrameId = null;
  function smoothScroll() {
      currentScrollY += velocityY;
      velocityY *= FRICTION;
@@ -20,8 +20,7 @@
      }
  }
  window.addEventListener('wheel', function(event) {
-     // Let controls and nested scroll areas (such as menus or text panels)
-     // keep their native wheel behavior. Everything else scrolls the page.
+
      const scrollable = event.target instanceof Element
          ? event.target.closest('[data-native-wheel], textarea, select, [contenteditable="true"], [role="listbox"], [role="menu"]')
          : null;
@@ -55,7 +54,7 @@
      currentScrollY = window.pageYOffset;
  });
  window.addEventListener('resize', () => {
-     currentScrollY = window.pageYOffset; 
+     currentScrollY = window.pageYOffset;
      if (animationFrameId) {
          cancelAnimationFrame(animationFrameId);
          animationFrameId = null;

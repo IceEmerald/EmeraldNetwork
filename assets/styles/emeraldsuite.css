@@ -13,9 +13,7 @@
 
 html {
     scrollbar-gutter: auto;
-    /* Smooth scrolling for the wheel/trackpad and programmatic jumps. NOT set
-       under prefers-reduced-motion below — see the override at the end of
-       this file. */
+
     scroll-behavior: smooth;
 }
 
@@ -25,14 +23,9 @@ html {
 
 html,
 body {
-    /* Explicit #fff, and `background-color` to match style.css:230 which sets
-       `background-color: var(--background)`. Same property, and this file
-       loads second, so it wins — stated literally rather than relying on the
-       shorthand/longhand difference or on load order. */
+
     background-color: #ffffff;
-    /* `contain` (was `none`) keeps the rubber-band overscroll effect — the
-       subtle pull past the top/bottom edge — instead of suppressing it. The
-       white page behind is ours, so nothing external gets exposed. */
+
     overscroll-behavior: contain;
 }
 
@@ -73,7 +66,6 @@ body {
     background: #9d9d9d;
 }
 
-/* ---------------- Navbar (re-used from app pattern) ---------------- */
 .suite-app .navbar {
     border-bottom: 1px solid rgba(0, 0, 0, 0.06);
     background-color: rgba(255, 255, 255, 0.7);
@@ -90,7 +82,6 @@ body {
     gap: 0.85rem;
 }
 
-/* Apps text nav — mirrors index.html's nav-links text style */
 .apps-nav {
     align-items: stretch;
     gap: 0.9rem;
@@ -117,7 +108,6 @@ body {
     color: var(--suite-accent);
 }
 
-/* Apps text nav (mirrors index.html's nav text links) */
 .apps-nav {
     gap: 0.9rem;
 }
@@ -142,8 +132,6 @@ body {
     color: #1b8b43;
 }
 
-
-/* Sync indicator */
 .sync-indicator {
     display: inline-flex;
     align-items: center;
@@ -218,7 +206,6 @@ body {
     }
 }
 
-/* ---------------- App grid ---------------- */
 .apps-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -306,8 +293,6 @@ body {
     text-overflow: ellipsis;
 }
 
-
-/* ---------------- Main ---------------- */
 .suite-main {
     width: 100%;
     max-width: 1100px;
@@ -316,7 +301,6 @@ body {
     flex: 1;
 }
 
-/* Hero */
 .suite-hero {
     padding-top: 30px;
 }
@@ -335,8 +319,6 @@ body {
     color: #111827;
 }
 .suite-greeting span { color: var(--ui-accent); }
-
-
 
 .suite-search {
     position: relative;
@@ -392,7 +374,6 @@ body {
     pointer-events: none;
 }
 
-/* Files section */
 .suite-files {
     margin-top: 28px;
 }
@@ -459,7 +440,6 @@ body {
     outline-offset: 1px;
 }
 
-/* Toolbar actions (count + New + sort + refresh) */
 .toolbar-actions {
     display: flex;
     align-items: center;
@@ -474,7 +454,6 @@ body {
     white-space: nowrap;
 }
 
-/* New dropdown */
 .new-wrap {
     position: relative;
 }
@@ -516,7 +495,6 @@ body {
     transform: rotate(180deg);
 }
 
-/* Sidebar icon for the "New" dropdown */
 .icon-btn {
     display: inline-flex;
     align-items: center;
@@ -543,7 +521,6 @@ body {
     height: 16px;
 }
 
-/* New menu panel */
 .new-menu {
     position: absolute;
     top: calc(100% + 8px);
@@ -625,7 +602,6 @@ body {
     border-color: var(--ui-accent);
 }
 
-/* Files grid */
 .files-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
@@ -694,7 +670,6 @@ body {
     background: var(--c, var(--ui-accent));
 }
 
-/* Card hover actions */
 .card-actions {
     position: absolute;
     top: 8px;
@@ -746,7 +721,6 @@ body {
     height: 15px;
 }
 
-/* Mini previews */
 .mini-wrap {
     position: relative;
     z-index: 1;
@@ -929,7 +903,6 @@ body {
     border-color: var(--border, rgba(33, 115, 70, 0.4));
 }
 
-/* Card body */
 .card-body {
     padding: 12px 14px 13px;
     display: flex;
@@ -964,7 +937,6 @@ body {
     flex-shrink: 0;
 }
 
-/* Empty state */
 .empty-state {
     text-align: center;
     padding: 52px 20px;
@@ -993,7 +965,6 @@ body {
     font-size: 14px;
 }
 
-/* ---------------- File context menu ---------------- */
 .file-menu {
     position: fixed;
     z-index: 10010;
@@ -1108,7 +1079,6 @@ body {
     margin: 4px 6px;
 }
 
-/* ---------------- Modals ---------------- */
 .modal-overlay {
     position: fixed;
     inset: 0;
@@ -1270,7 +1240,6 @@ body {
     transform: translateY(-1px);
 }
 
-/* ---------------- Responsive ---------------- */
 @media (max-width: 860px) {
     .apps-grid {
         grid-template-columns: repeat(2, 1fr);
@@ -1319,9 +1288,7 @@ body {
         transition: none;
     }
 }
-/* ====================================================================
-   MS365-style overhaul (2026): topbar + icon rail + clean cards
-   ==================================================================== */
+
 .suite-app { background: #ffffff; color: #1f1f1f; }
 .su-top {
   position: sticky; top: 0; z-index: 60;
@@ -1329,20 +1296,12 @@ body {
   height: 62px; padding: 0 24px 0 20px;
   background: #faf9f8;
 }
-/* Shadow cast by the main canvas onto the chrome. Both pieces share one light
-   direction: the canvas sits right of the rail and below the bar, so the shadow
-   reaches full strength away from their shared top-left corner and is fully
-   absent at the corner itself. The mask therefore starts at 0 opacity on the
-   corner side and plateaus at full past the fade — no residual tint in the
-   corner, so the bar and rail can't read as two stacked layers. */
+
 .su-top::after {
   content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 9px;
   pointer-events: none;
   background: linear-gradient(to top, rgba(15, 22, 17, .045), rgba(15, 22, 17, 0));
-  /* transparent at x=0 (the corner); the fade is compressed into a narrow band
-     so the shadow arrives quickly instead of smearing across half the bar.
-     The band sits to the right of the rail column so nothing lands on the
-     left edge of the screen. */
+
   -webkit-mask-image: linear-gradient(to right, transparent 0, transparent 60px, rgba(0, 0, 0, .35) 78px, #000 96px);
           mask-image: linear-gradient(to right, transparent 0, transparent 60px, rgba(0, 0, 0, .35) 78px, #000 96px);
 }
@@ -1359,11 +1318,8 @@ body {
 .su-search input::placeholder { color: #8a8886; }
 .su-search kbd { background: #fff; border: 1px solid #edebe9; border-radius: 4px; padding: 0 5px; font: 11px/1.6 var(--font-ui, sans-serif); color: #8a8886; }
 
-/* Clear (×) button — same design as the wiki's search bar.
-   Colours are the ones already used by .su-search kbd / svg, so it reads as
-   part of this control rather than a bolt-on. */
 .su-search input::-webkit-search-cancel-button {
-  display: none;   /* hide the browser's own X so only ours shows */
+  display: none;
 }
 
 .su-search-clear {
@@ -1386,7 +1342,6 @@ body {
   outline-offset: 1px;
 }
 
-/* Once there is text, the / hint steps aside for the × button. */
 .su-search input:not(:placeholder-shown) ~ kbd {
   display: none;
 }
@@ -1410,17 +1365,12 @@ body {
   width: 68px; flex: none; background: #faf9f8;
   display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0;
 }
-/* Right-edge shadow cast by the main canvas onto the rail. Drawn as a gradient
-   layer rather than an inset box-shadow for the same reason as .su-top::after:
-   box-shadow has a hard rectangular end, which showed as a cut. Mask mirrors
-   the bar's — absent at the top (their shared corner), easing in downward,
-   full past the fade. */
+
 .su-rail::after {
   content: ""; position: absolute; top: 0; bottom: 0; right: 0; width: 9px;
   pointer-events: none;
   background: linear-gradient(to left, rgba(15, 22, 17, .035), rgba(15, 22, 17, 0));
-  /* transparent at y=0 (the corner); fade compressed to a narrow band, mirroring
-     the bar's 11% so both arrive at full strength at the same visual rate */
+
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, transparent 6px, rgba(0, 0, 0, .35) 14px, #000 22px);
           mask-image: linear-gradient(to bottom, transparent 0, transparent 6px, rgba(0, 0, 0, .35) 14px, #000 22px);
 }
@@ -1438,7 +1388,6 @@ body {
 .suite-greeting { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; color: #201f1e; margin: 0 0 4px; }
 .suite-subtitle { font-size: 13px; color: #8a8886; margin: 0; }
 
-/* App create cards — like MS365 Create row */
 .apps-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 10px 0 28px; }
 .app-tile {
   display: flex; align-items: center; gap: 12px;
@@ -1454,7 +1403,6 @@ body {
 .app-tile-name { font-size: 14px; font-weight: 700; color: #201f1e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .app-tile-desc { font-size: 11.5px; color: #8a8886; }
 
-/* Files toolbar — filter chips like MS365 */
 .files-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 0 12px; }
 .filter-bar { display: flex; flex-wrap: wrap; gap: 6px; }
 .filter-btn {
@@ -1482,7 +1430,6 @@ body {
 }
 .sort-select:focus, .icon-btn:hover { border-color: var(--ui-accent-border); }
 
-/* File cards — clean MS365 recommended style */
 .files-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
 .file-card { background: #fff; border: 1px solid #edebe9; border-radius: 12px; overflow: hidden; cursor: pointer; transition: box-shadow .15s, border-color .15s, transform .15s; }
 .file-card:hover { box-shadow: 0 6px 22px rgba(0,0,0,.08); border-color: #d8d8d8; transform: translateY(-1px); }
@@ -1498,13 +1445,11 @@ body {
 .card-meta { font-size: 11.5px; color: #8a8886; margin-top: 3px; display: flex; align-items: center; gap: 6px; }
 .card-meta .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--c, #8a8886); flex: none; }
 
-/* Empty state */
 .empty-state { text-align: center; padding: 56px 20px; color: #605e5c; }
 .empty-state img { width: 48px; height: 48px; opacity: .8; margin-bottom: 12px; }
 .empty-state h3 { font-size: 16px; font-weight: 600; color: #201f1e; margin: 0 0 4px; }
 .empty-state p { font-size: 13px; margin: 0 0 16px; color: #8a8886; }
 
-/* New menu */
 .new-menu {
   position: absolute; top: calc(100% + 6px); right: 0; z-index: 70;
   background: #fff; border: 1px solid #edebe9; border-radius: 12px;
@@ -1530,7 +1475,6 @@ body {
   .toolbar-actions { margin-left: 0; width: 100%; }
 }
 
-/* Storage popup */
 .su-storage-btn { width: 34px; height: 34px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
 .su-storage-btn svg { width: 18px; height: 18px; }
 .storage-pop {
@@ -1546,61 +1490,35 @@ body {
 .storage-bar i { display: block; height: 100%; background: var(--ui-accent); border-radius: 999px; transition: width .3s; }
 .storage-note { margin: 0; font-size: 11.5px; color: #8a8886; }
 
-/* Storage popup entrance */
 .storage-pop { animation: suPopIn .16s ease-out; }
 @keyframes suPopIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 
-/* Storage popup close animation */
 .storage-pop.closing { animation: suPopOut .14s ease-in forwards; }
 @keyframes suPopOut { to { opacity: 0; transform: translateY(-6px); } }
 
-/* Active rail item: left green pill. z-index keeps the item (and its pill)
-   above .su-rail::after, which is a positioned overlay on the rail. */
 .rail-item { position: relative; z-index: 1; }
 .rail-item.active::before {
   content: ""; position: absolute; left: -4px; top: 10px; bottom: 10px;
   width: 4px; border-radius: 4px; background: var(--ui-accent);
 }
 
-/* Section titles + polish */
 .su-section-title { font-size: 13px; font-weight: 700; color: #605e5c; text-transform: uppercase; letter-spacing: .06em; margin: 22px 0 10px; }
 .suite-hero .su-section-title { margin-top: 4px; }
 .app-tile { position: relative; }
 .card-thumb { display: flex; align-items: center; justify-content: center; }
 .card-thumb img, .card-thumb svg { width: 44px; height: 44px; opacity: .9; }
 
-/* Author display rules above were overriding the hidden attribute */
 .empty-state[hidden] { display: none; }
 .new-menu[hidden], .file-menu[hidden] { display: none; }
 
-/* Keep the logo square (style.css .logo .icon-primary was stretching it) */
 .su-top .logo .icon-primary { width: 28px; height: 28px; object-fit: contain; margin-bottom: 0; }
 
-/* Storage icon: no filled box */
 .su-storage-btn { background: transparent !important; border: none !important; box-shadow: none; }
 
-/* Search input font fix */
 .su-search input, .su-search input::placeholder { font-family: 'DM Sans', -apple-system, sans-serif; letter-spacing: 0; }
 
-/* Search icon matches placeholder color */
 .su-search svg { color: #8a8886; }
 
-/* ---------------------------------------------------------------------------
-   Time-of-day background
-
-   Two stacked layers so each can move on its own clock:
-     ::before — the colour wash (slow drift/scale)
-     ::after  — the detail (rotating sunburst / drifting clouds / twinkling stars)
-
-   Both cover roughly the top half of the viewport and fade into the white page.
-   The variant comes from [data-daypart] on .suite-app, set by the same
-   daypartFor() call that picks the greeting, so text and art always agree.
-   --------------------------------------------------------------------------- */
-/* `clip`, NOT `hidden`: the sky layers below need to be clipped, but
-   `overflow: hidden` would turn .su-shell into a scroll container, and the
-   sidebar's `position: sticky` resolves against the nearest scrollport —
-   so the rail would stop following the viewport and scroll away with the page.
-   `overflow: clip` clips the same content without creating a scrollport. */
 .su-shell { position: relative; overflow: clip; }
 .su-shell::before,
 .su-shell::after {
@@ -1611,22 +1529,12 @@ body {
   will-change: transform;
 }
 
-/* ---- base wash: afternoon, open white-and-blue sky ----
-   Deliberately STATIC. An earlier version drifted/scaled this layer, which read
-   as the whole page sliding around — all motion now lives in discrete local
-   features (rays, clouds, stars) instead of on the wash.
-
-   The blue is carried well past the old ~.30 wash: the cloud puffs sit on this
-   layer at up to .97 white, so a faint sky left them invisible. A deeper, more
-   saturated gradient (and a stronger hold through the middle of the viewport)
-   gives the white clouds something to read against. It still fades to the white
-   page well above the file list. */
 .su-shell::before {
   background:
     radial-gradient(1100px 760px at 8% -6%, rgba(35, 154, 77, .30), transparent 66%),
     radial-gradient(1200px 820px at 94% 4%, rgba(8, 145, 178, .34), transparent 68%),
     radial-gradient(1400px 900px at 50% -20%, rgba(249, 115, 22, .16), transparent 68%),
-    /* deeper sky at the top, holding well down the viewport before clearing */
+
     linear-gradient(to bottom,
       rgba(126, 183, 235, .62) 0%,
       rgba(160, 206, 245, .52) 34%,
@@ -1634,16 +1542,9 @@ body {
       transparent 92%);
 }
 
-/* ---- detail layer: afternoon clouds ----
-   Each cloud is stacked from many overlapping ellipses: a wide flat base, a
-   row of puffs along the top, and a couple of taller towers. The puffs are
-   deliberately uneven in size and spacing — evenly-sized bumps read as a
-   mechanical pattern, whereas a lopsided pile reads as a cloud.
-   Radial falloff ends at ~52% to hold a defined edge, and each cloud carries
-   a wide thin blue-grey ellipse underneath for the shadow line. */
 .su-shell::after {
   background:
-    /* ── cloud 1 — upper left, the largest ── */
+
     radial-gradient(300px 92px at 14% 12%, rgba(255,255,255,.97), transparent 52%),
     radial-gradient(232px 108px at 6% 11%, rgba(255,255,255,.95), transparent 52%),
     radial-gradient(196px 84px at 19% 10%, rgba(255,255,255,.94), transparent 52%),
@@ -1654,7 +1555,6 @@ body {
     radial-gradient(330px 34px at 16% 19%, rgba(150, 182, 220, .52), transparent 66%),
     radial-gradient(250px 22px at 10% 20%, rgba(150, 182, 220, .34), transparent 68%),
 
-    /* ── cloud 2 — mid right, second largest ── */
     radial-gradient(268px 84px at 63% 24%, rgba(255,255,255,.93), transparent 52%),
     radial-gradient(204px 102px at 54% 23%, rgba(255,255,255,.91), transparent 52%),
     radial-gradient(170px 76px at 70% 22%, rgba(255,255,255,.89), transparent 52%),
@@ -1663,25 +1563,21 @@ body {
     radial-gradient(98px 60px at 79% 27%, rgba(255,255,255,.70), transparent 56%),
     radial-gradient(290px 30px at 64% 29%, rgba(150, 182, 220, .46), transparent 66%),
 
-    /* ── cloud 3 — far right, medium ── */
     radial-gradient(208px 76px at 89% 9%, rgba(255,255,255,.90), transparent 52%),
     radial-gradient(164px 96px at 81% 8%, rgba(255,255,255,.88), transparent 52%),
     radial-gradient(132px 66px at 95% 10%, rgba(255,255,255,.80), transparent 54%),
     radial-gradient(104px 84px at 86% 6%, rgba(255,255,255,.84), transparent 52%),
     radial-gradient(226px 26px at 88% 14%, rgba(150, 182, 220, .42), transparent 66%),
 
-    /* ── cloud 4 — low left, under the greeting, faint ── */
     radial-gradient(186px 58px at 36% 39%, rgba(255,255,255,.64), transparent 54%),
     radial-gradient(148px 70px at 28% 38%, rgba(255,255,255,.60), transparent 54%),
     radial-gradient(114px 52px at 44% 40%, rgba(255,255,255,.52), transparent 56%),
 
-    /* ── cloud 5 — small high wisp, top centre ── */
     radial-gradient(122px 40px at 47% 4%, rgba(255,255,255,.70), transparent 54%),
     radial-gradient(96px 52px at 42% 3%, rgba(255,255,255,.66), transparent 54%);
   animation: suCloudBreathe 15s ease-in-out infinite alternate;
 }
 
-/* ---- morning: warm dawn wash + pure-white godrays ---- */
 [data-daypart="morning"] .su-shell::before {
   background:
     radial-gradient(760px 620px at 90% -4%, rgba(253, 224, 71, .48), transparent 64%),
@@ -1689,15 +1585,7 @@ body {
     radial-gradient(900px 520px at 6% 2%, rgba(251, 191, 36, .18), transparent 66%),
     linear-gradient(to bottom, rgba(255, 236, 179, .40), transparent 58%);
 }
-/* This layer now carries only the sun disc and its bloom — the shafts
-   themselves are .su-ray nodes, because a conic gradient draws wedges that
-   fan outward from the centre, whereas godrays are near-parallel shafts of
-   even width that only splay slightly as they travel. */
-/* Sun disc + bloom, positioned to line up with the .su-rays anchor at 92% so
-   the shafts appear to leave the light source. */
-/* Sun disc + bloom, positioned to line up with the .su-rays anchor at 92% so
-   the shafts appear to leave the light source. Also pure white, so the source
-   and the beams read as one light rather than a warm core with white shafts. */
+
 [data-daypart="morning"] .su-shell::after {
   background:
     radial-gradient(160px 160px at 92% -8%, #fff, transparent 70%),
@@ -1706,17 +1594,11 @@ body {
   opacity: .95;
 }
 
-/* Godray shafts: each is a soft white bar anchored at the sun and rotated to
-   fan toward the centre. Pure white (no tint) at near-full strength, tapered by
-   the gradient and diffused by a heavy blur, shimmered out of sync so they read
-   as light moving through cloud. */
 .su-rays { position: absolute; left: 92%; top: -8%; width: 0; height: 0; }
 .su-ray {
   position: absolute; left: 0; top: 0; width: var(--w, 90px); height: 240vh;
   transform-origin: 0 0; border-radius: 999px;
-  /* Pure white held near-opaque for most of the run, then cut to nothing late
-     so the blur has room to dissolve the tail. The heavy blur is what spreads
-     each shaft into the air; without it they read as flat stripes. */
+
   background: linear-gradient(to bottom,
     #fff 0%,
     rgba(255, 255, 255, .98) 50%,
@@ -1726,50 +1608,34 @@ body {
   animation: suRayShimmer var(--dur, 9s) ease-in-out var(--delay, 0s) infinite alternate;
 }
 
-/* ---- evening: Milky Way band ----
-   Built in three layers to get real depth:
-     ::before — nebula: deep space base, then coloured gas clouds (teal low
-                left, blue centre, magenta right), a warm galactic-core glow,
-                and dark dust lanes laid on top to break the clouds up.
-     ::after  — a fine dust of tiny background stars baked into gradients.
-     .su-sky  — the bright foreground stars + shooting star, as DOM nodes.
-
-   The clouds breathe independently of each other so the whole field never
-   pulses in unison, which is what makes flat CSS skies look cheap. */
 [data-daypart="evening"] .su-shell::before {
   background:
-    /* dark dust lanes — dark on light clouds, so they go last (on top).
-       Kept light so the whole scene reads as a luminous, milky night rather
-       than a heavy black one. */
+
     radial-gradient(300px 90px at 26% 40%, rgba(10, 16, 40, .30), transparent 72%),
     radial-gradient(180px 60px at 52% 22%, rgba(10, 16, 40, .26), transparent 72%),
     radial-gradient(240px 70px at 74% 34%, rgba(10, 16, 40, .28), transparent 72%),
-    /* warm galactic core, sitting on the band */
+
     radial-gradient(460px 220px at 62% 30%, rgba(255, 245, 228, .44), transparent 70%),
     radial-gradient(240px 130px at 60% 31%, rgba(255, 238, 214, .46), transparent 68%),
-    /* magenta / rose gas */
+
     radial-gradient(620px 300px at 78% 26%, rgba(214, 116, 168, .40), transparent 70%),
     radial-gradient(380px 210px at 84% 34%, rgba(238, 142, 182, .32), transparent 70%),
-    /* violet */
+
     radial-gradient(700px 340px at 58% 16%, rgba(134, 100, 196, .38), transparent 70%),
-    /* blue gas */
+
     radial-gradient(820px 400px at 46% 28%, rgba(88, 134, 214, .40), transparent 70%),
     radial-gradient(520px 260px at 34% 34%, rgba(104, 154, 224, .32), transparent 70%),
-    /* teal / cyan, low left like the reference */
+
     radial-gradient(880px 380px at 14% 46%, rgba(58, 172, 178, .40), transparent 70%),
     radial-gradient(560px 280px at 8% 54%, rgba(74, 192, 186, .34), transparent 70%),
     radial-gradient(420px 220px at 22% 56%, rgba(90, 206, 196, .28), transparent 72%),
-    /* deep space base — a soft indigo haze, not near-black. The gas clouds sit on
-       this layer, so the darker the base the more they mute into it. */
+
     radial-gradient(1500px 900px at 50% -10%, rgba(30, 40, 78, .34), transparent 74%),
-    /* Lifted and clearing early: the page returns to white well before the file
-       list, and the whole band reads airy rather than dense. */
+
     linear-gradient(to bottom, rgba(46, 58, 104, .38), rgba(58, 74, 124, .26) 34%, transparent 72%);
   animation: suNebulaBreathe 26s ease-in-out infinite alternate;
 }
 
-/* fine background dust of stars, baked in — cheap, and they sit behind the
-   bright DOM stars so the field reads as having depth */
 [data-daypart="evening"] .su-shell::after {
   background:
     radial-gradient(1px 1px at 12% 8%,  rgba(255,255,255,.70), transparent 60%),
@@ -1789,7 +1655,6 @@ body {
   animation: suNebulaBreathe 34s ease-in-out infinite alternate-reverse;
 }
 
-/* ---- starfield + shooting star (built by JS into #skyLayer) ---- */
 .su-sky {
   display: none;
   position: absolute; left: 0; right: 0; top: 0; height: 62vh;
@@ -1798,10 +1663,9 @@ body {
           mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,.55) 34%, transparent 70%);
 }
 [data-daypart="evening"] .su-sky { display: block; }
-/* Morning uses the same layer for its godrays (stars/shooting star aren't built). */
+
 [data-daypart="morning"] .su-sky { display: block; }
-/* Bright foreground stars. --tint varies the hue per star (white, blue-white,
-   warm) so the field has colour variety instead of uniform dots. */
+
 .su-star {
   position: absolute; border-radius: 50%; background: var(--tint, #fff);
   animation: suTwinkle var(--dur, 4s) ease-in-out var(--delay, 0s) infinite alternate;
@@ -1820,45 +1684,36 @@ body {
   animation: suShoot 13s cubic-bezier(.35, 0, .6, 1) infinite;
 }
 
-/* The scene is light enough now that the greeting's dark text reads on its
-   own; the halo stays as a safety net over the denser mid-band. */
 [data-daypart="evening"] .suite-greeting { text-shadow: 0 1px 12px rgba(255, 255, 255, .25); }
 
 .suite-main > * { position: relative; z-index: 1; }
 
-/* ---- motion: local features only ---- */
-/* Clouds swell and soften out of phase. The floor stays high so they never
-   dissolve — these are meant to read as clouds, not as haze. */
 @keyframes suCloudBreathe {
   from { opacity: .88; }
   to   { opacity: 1; }
 }
-/* The nebula breathes very gently and on a long cycle. Two layers run this with
-   opposite directions (see .su-shell::before / ::after) so they never rise and
-   fall together — that shared phase is what makes a CSS sky look artificial. */
+
 @keyframes suNebulaBreathe {
   from { opacity: .82; }
   to   { opacity: 1; }
 }
-/* One shaft breathing on its own period; --dur/--delay set per ray in JS.
-   The floor stays high so the rays never fully dim out of view. */
+
 @keyframes suRayShimmer {
   from { opacity: .82; }
   to   { opacity: 1; }
 }
-/* One star's own cycle; --delay and --dur are set per element in JS */
+
 @keyframes suTwinkle {
   from { opacity: .15; transform: scale(.75); }
   to   { opacity: 1;   transform: scale(1.2); }
 }
-/* Sits off-stage for most of each cycle, then streaks once */
+
 @keyframes suShoot {
   0%, 58%   { opacity: 0; transform: rotate(26deg) translate3d(0, 0, 0); }
   62%       { opacity: 1; }
   76%, 100% { opacity: 0; transform: rotate(26deg) translate3d(-680px, 380px, 0); }
 }
 
-/* Motion is decorative here — freeze everything when the user asks for it. */
 @media (prefers-reduced-motion: reduce) {
   .su-shell::before,
   .su-shell::after,
@@ -1873,7 +1728,6 @@ body {
   .su-shooting { display: none; }
 }
 
-/* Quick access polish: cleaner toolbar + cards */
 .suite-files { margin-top: 4px; }
 .files-toolbar { padding-bottom: 2px; }
 .filter-btn { box-shadow: 0 1px 2px rgba(0,0,0,.03); }
@@ -1881,14 +1735,6 @@ body {
 .files-grid { gap: 14px; }
 .file-card { border-color: #ececec; }
 
-/* Search focus mode: Recent files + Quick access fade and collapse so the
-   filtered results in "Your files" move up under the cursor. Uses grid-template-rows
-   1fr → 0fr rather than display:none so the height animates smoothly, and the
-   inner wrapper (min-height:0) is what actually clips — animating the outer
-   element's height would fight the padding and margins. */
-/* The blocks aren't hidden while searching — they recede: height collapses so
-   "Your files" moves up, while a blur + fade reads them as out-of-focus
-   background rather than removed content. */
 .collapsible {
   display: grid; grid-template-rows: 1fr;
   transition: grid-template-rows .34s ease, opacity .3s ease,
@@ -1896,9 +1742,7 @@ body {
   min-height: 0;
   transform-origin: 50% 0;
 }
-/* The single child that gets collapsed and clipped. min-height:0 is required —
-   without it the grid item refuses to shrink below its content and the row
-   stays open. */
+
 .collapsible-inner { min-height: 0; overflow: hidden; }
 .suite-main.searching .collapsible {
   grid-template-rows: 0fr;
@@ -1906,12 +1750,11 @@ body {
   filter: blur(7px);
   transform: scale(.985) translateY(-6px);
   pointer-events: none;
-  /* collapse the section spacing too, so nothing is left stranded */
+
   margin-top: 0 !important;
   margin-bottom: 0 !important;
 }
-/* filter is on the wrapper, but the grid track must still clip its child —
-   otherwise the blurred content bleeds past the collapsed height. */
+
 .collapsible-inner > * { transition: opacity .3s ease; }
 .suite-main.searching .collapsible-inner > * { opacity: 0; }
 
@@ -1922,8 +1765,6 @@ body {
   .suite-main.searching .collapsible-inner > * { opacity: 1; }
 }
 
-/* Your files — list rows. Same hooks as .file-card, laid out horizontally:
-   preview, title + meta, edited time. */
 .files-grid { display: block; }
 .file-row {
   display: flex; align-items: center; gap: 14px;
@@ -1939,9 +1780,7 @@ body {
   border-radius: 8px; background: var(--soft, #f3f2f1); overflow: hidden;
   display: flex; align-items: center; justify-content: center;
 }
-/* The mini previews are authored at card size (118x82 note, 132x78 slide,
-   76x96 doc). Scale the whole preview down to fit the 84x56 row thumbnail
-   rather than restyling each variant twice. */
+
 .row-thumb .mini-wrap { transform: scale(.46); transform-origin: center; padding: 0; }
 .row-main { flex: 1; min-width: 0; }
 .row-title { font-size: 14px; font-weight: 600; color: #201f1e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1949,8 +1788,6 @@ body {
 .row-time { flex: none; font-size: 12px; color: #8a8886; }
 @media (max-width: 640px) { .row-time { display: none; } }
 
-/* Recent files — same markup as .file-card, sized up so the three most recent
-   read as the hero row above the full "Your files" grid. */
 .recent-wrap { margin-bottom: 26px; }
 .recent-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .recent-card { background: #fff; border: 1px solid #ececec; border-radius: 14px; overflow: hidden; cursor: pointer; transition: box-shadow .15s, border-color .15s, transform .15s; }
@@ -1969,7 +1806,6 @@ body {
 .card-meta { margin-top: 5px; }
 .sort-select, .icon-btn { height: 34px; }
 
-/* Filter chips as the Slides "Timing > Start" segmented toggle */
 .filter-bar {
   display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 2px;
   background: rgba(0, 0, 0, 0.04); border: 1px solid rgba(0, 0, 0, 0.06);
@@ -1984,7 +1820,6 @@ body {
 .filter-btn.active { background: #fff; color: var(--ui-accent); box-shadow: rgba(0,0,0,.08) 0 1px 2px, rgba(35,154,77,.15) 0 0 0 1px; }
 .filter-btn .fd { width: 14px; height: 14px; }
 
-/* Custom sort dropdown */
 .sort-dd { position: relative; }
 .sort-dd-btn {
   display: inline-flex; align-items: center; gap: 7px; height: 34px;
@@ -2007,8 +1842,7 @@ body {
 }
 .sort-dd-item:hover { background: #f3f2f1; color: #201f1e; }
 .sort-dd-item.active { color: var(--ui-accent); font-weight: 600; background: var(--ui-accent-soft); }
-/* Smooth scrolling is motion the user didn't ask for — turn it off when the
-   OS requests reduced motion, matching every other animation on this page. */
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
 }

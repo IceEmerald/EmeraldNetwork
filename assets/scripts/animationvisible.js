@@ -21,8 +21,6 @@ document.addEventListener('DOMContentLoaded', () => {
   function isGradient(el)    { return el.style.webkitTextFillColor === 'transparent'; }
   function hasChildEls(el)   { return Array.from(el.childNodes).some(n => n.nodeType === 1); }
 
-  /* ── word-split helpers ──────────────────────────────────────────── */
-
   function splitWords(el, baseDelay) {
     if (splitState.get(el) || hasChildEls(el)) return;
     originalHTML.set(el, el.innerHTML);
@@ -57,8 +55,6 @@ document.addEventListener('DOMContentLoaded', () => {
     el.innerHTML = originalHTML.get(el) ?? '';
     splitState.set(el, false);
   }
-
-  /* ── whole-element (block) helpers ───────────────────────────────── */
 
   function initWhole(el) {
     el.style.opacity    = '0';
@@ -140,8 +136,6 @@ document.addEventListener('DOMContentLoaded', () => {
     pendingRafs.set(el, id);
   }
 
-  /* ── child discovery ─────────────────────────────────────────────── */
-
   function findAnimatableKids(container) {
     const result = [];
     function walk(node) {
@@ -157,8 +151,6 @@ document.addEventListener('DOMContentLoaded', () => {
     walk(container);
     return result;
   }
-
-  /* ── per-child animate / reset ───────────────────────────────────── */
 
   function animChild(child, delay) {
     if (isBlockKid.has(child)) {
@@ -196,8 +188,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  /* ── init all animate-on-scroll elements ─────────────────────────── */
-
   const allEls = Array.from(document.querySelectorAll('.animate-on-scroll:not(.no-animation)'));
   const containerKids = new WeakMap();
 
@@ -224,8 +214,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   const toObserve = allEls.filter(el => !managedByContainer.has(el));
-
-  /* ── enter / exit handlers ───────────────────────────────────────── */
 
   function onEnter(el) {
     if (isTextEl(el)) {
@@ -263,8 +251,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  /* ── intersection observer ───────────────────────────────────────── */
-
   if ('IntersectionObserver' in window) {
     const observer = new IntersectionObserver(entries => {
       entries.forEach(entry => {
@@ -276,8 +262,6 @@ document.addEventListener('DOMContentLoaded', () => {
   } else {
     toObserve.forEach(el => setTimeout(() => onEnter(el), 100));
   }
-
-  /* ── smooth scroll for anchor links ─────────────────────────────── */
 
   document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function (e) {

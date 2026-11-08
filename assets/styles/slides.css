@@ -685,7 +685,6 @@ body.no-active-note .ribbon, body.no-active-note .ribbon-tabs {
     box-shadow: 0 0 0 2px var(--ui-accent-soft);
 }
 
-
 .tpl-preview-el {
     pointer-events: none;
     box-sizing: border-box;
@@ -848,7 +847,6 @@ body.no-active-note .ribbon, body.no-active-note .ribbon-tabs {
     font-family: "DM Sans", sans-serif;
     transition: transform 0.18s;
 }
-
 
 .theme-gallery-card:hover .theme-thumb {
     border-color: var(--ui-accent-border);
@@ -3242,8 +3240,6 @@ body.collab-non-owner #exportNoteBtn, body.collab-non-owner #deleteNoteBtn, body
     background: rgb(0, 77, 135);
 }
 
-/* Connection-lost dialog: the Reload button follows the Slides accent
-   (orange) instead of the default modal blue. */
 #disconnectModal .link-modal-btn-create {
     background: var(--ui-accent);
     border-color: var(--ui-accent);
@@ -4296,9 +4292,6 @@ body.no-active-note .ribbon {
     -webkit-user-drag: none;
 }
 
-/* While dragging, promote the element to its own GPU compositor layer so
-   movement (driven via transform) never triggers layout or repaint of the
-   scaled canvas — this is what makes drags smooth. */
 .slide-el-dragging {
     will-change: transform;
     transition: none !important;
@@ -5294,8 +5287,6 @@ body.no-active-note .editor-header, body.no-active-note .editor-content, body.no
         pointer-events: auto !important;
     }
 
-    /* Contextual panels (Shape Format / Image Format) are selection-driven and
-       tabbed, so they must NOT flow into the stacked panel list on small screens. */
     .ribbon-panel[data-panel="shape-format"],
     .ribbon-panel[data-panel="image-format"] {
         display: none !important;
@@ -5424,7 +5415,6 @@ body.no-active-note .editor-header, body.no-active-note .editor-content, body.no
         padding: 0px 6px;
     }
 }
-
 
 .ribbon-tabs-legacy-removed {
     display: none;
@@ -5839,7 +5829,6 @@ body.no-active-note .editor-header, body.no-active-note .editor-content, body.no
     gap: 10px;
 }
 
-
 .anim-reorder-row {
     gap: 4px;
     padding-left: 12px;
@@ -6057,10 +6046,6 @@ body.no-active-note .editor-header, body.no-active-note .editor-content, body.no
     }
 }
 
-/* Side-panel spacing scale — shared with the Docs Outline/Pages/Footnotes
-   panes and the Sheets chart pane:
-     header  8px 16px   body  8px 16px 12px   foot  8px 16px 12px
-   container margin 0 */
 .animation-pane .ap-header {
     padding: 8px 16px;
     gap: 8px;
@@ -7162,11 +7147,6 @@ body.no-active-note .pres-title-wrap, body.no-active-note .pres-title-input {
     opacity: 1;
 }
 
-/* ── Slide Sorter View — smooth, no layout thrash ──
-   The sorter is an overlay: the sidebar fills the viewport on top of the
-   editor, which stays in flow and merely fades out. Only opacity and
-   visibility ever animate, so switching views never triggers flex/grid
-   reflow jitter. */
 body.view-sorter #slidesSidebar {
     position: absolute;
     inset: 0;
@@ -7255,7 +7235,6 @@ body.view-sorter .slide-thumb-number {
     left: 4px;
 }
 
-/* Editor, notes and status bar fade out in place — the sorter overlays them. */
 body.view-sorter .editor-area,
 body.view-sorter .presenter-notes-panel,
 body.view-sorter #editorStatusbar {
@@ -7272,7 +7251,6 @@ body.view-sorter .presenter-notes-panel {
     padding: 0;
 }
 
-/* Base fade helpers so normal <-> sorter swaps are opacity-only fades. */
 .editor-area,
 .presenter-notes-panel,
 #editorStatusbar {
@@ -7411,8 +7389,6 @@ body.view-notes .editor-area {
     flex-wrap: nowrap;
     justify-content: center;
 }
-
-
 
 .icon-cat-btn {
     padding: 5px 14px;
@@ -8754,7 +8730,6 @@ body.view-notes .editor-area {
     box-shadow: rgba(249, 115, 22, 0.1) 0px 0px 0px 3px;
 }
 
-/* ── Comment modal (Docs-style layout, Slides orange accent) ── */
 .comment-modal {
     position: relative;
     background: rgba(255, 255, 255, 0.98);

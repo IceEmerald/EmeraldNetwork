@@ -1,7 +1,4 @@
-/* ==========================================================================
-   EmeraldSheets — client-side spreadsheet application styles
-   Design language: clean, modern desktop productivity suite
-   ========================================================================== */
+
 
 :root {
   --accent: #217346;
@@ -66,9 +63,6 @@ button { cursor: default; }
   -webkit-user-select: none;
 }
 
-/* ==========================================================================
-   Application header
-   ========================================================================== */
 #app-header {
   height: var(--hdr-h);
   background: linear-gradient(180deg, #217346 0%, #1e6a40 100%);
@@ -116,9 +110,6 @@ button { cursor: default; }
 #hdr-undo:hover, #hdr-redo:hover { background: rgba(255,255,255,.15); }
 #hdr-undo:disabled, #hdr-redo:disabled { opacity: .45; }
 
-/* ==========================================================================
-   Ribbon
-   ========================================================================== */
 #ribbon { flex: none; background: var(--paper); border-bottom: 1px solid var(--line); position: relative; z-index: 50; }
 #ribbon-tabs {
   height: var(--ribbon-tabs-h); display: flex; align-items: stretch; padding: 0 8px; gap: 2px;
@@ -182,9 +173,6 @@ button { cursor: default; }
 .rb-color-btn:hover { background: var(--chrome-2); }
 .rb-color-btn .swatch-bar { width: 20px; height: 4px; border-radius: 1px; border: 1px solid rgba(0,0,0,.2); }
 
-/* ==========================================================================
-   Formula row (name box + formula bar)
-   ========================================================================== */
 #formula-row {
   height: var(--formula-h); display: flex; align-items: stretch; background: var(--paper);
   border-bottom: 1px solid var(--line); flex: none; position: relative; z-index: 45;
@@ -221,9 +209,6 @@ button { cursor: default; }
 #formula-row.expanded .expand-grip svg { transform: rotate(180deg); }
 .expand-grip:hover { color: var(--ink-2); }
 
-/* ==========================================================================
-   Grid area
-   ========================================================================== */
 #grid-area { flex: 1; position: relative; overflow: hidden; background: #fbfbfc; min-height: 120px; }
 #grid-canvas { position: absolute; inset: 0; display: block; }
 #cell-editor {
@@ -243,7 +228,6 @@ button { cursor: default; }
   border: 1.5px dashed var(--accent); background: rgba(33,115,70,.06);
 }
 
-/* Floating charts */
 #chart-layer { position: absolute; inset: 0; z-index: 18; pointer-events: none; }
 .chart-frame {
   position: absolute; pointer-events: auto; background: var(--paper);
@@ -264,9 +248,6 @@ button { cursor: default; }
 .chart-resize { position: absolute; right: -3px; bottom: -3px; width: 12px; height: 12px; cursor: nwse-resize; z-index: 5; }
 .chart-resize::after { content: ""; position: absolute; right: 3px; bottom: 3px; width: 6px; height: 6px; border-right: 2px solid var(--accent); border-bottom: 2px solid var(--accent); }
 
-/* ==========================================================================
-   Sheet tabs & status bar (combined bottom bar; chrome skin overrides below)
-   ========================================================================== */
 #sheet-tabs { display: flex; align-items: stretch; overflow: hidden; flex: 1; min-width: 0; position: relative; }
 .sheet-tab .tab-label { overflow: hidden; text-overflow: ellipsis; }
 .sheet-tab .tab-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; display: none; box-shadow: inset 0 0 0 1px rgba(0,0,0,.18); }
@@ -277,9 +258,6 @@ button { cursor: default; }
 #sb-stats b { color: var(--ink-2); font-weight: 600; }
 .sb-sep { width: 1px; height: 14px; background: var(--line-soft); flex: none; }
 
-/* ==========================================================================
-   Menus / popups / context menus
-   ========================================================================== */
 #popup-root { position: absolute; inset: 0; z-index: 90; pointer-events: none; }
 .popup {
   position: absolute; background: var(--paper); border: 1px solid var(--line); border-radius: 4px;
@@ -314,7 +292,7 @@ button { cursor: default; }
   font-size: 12px; border: 1px solid var(--line); background: var(--paper); color: var(--ink-2);
 }
 .style-chip:hover { outline: 2px solid var(--accent); }
-/* ---- Cell Styles gallery (Themes-style thumbnails + More) ---- */
+
 .style-gallery { display: flex; align-items: center; gap: 4px; }
 .style-thumb-row { display: flex; gap: 4px; align-items: center; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 2px 0; }
 .style-thumb-row::-webkit-scrollbar { display: none; }
@@ -362,9 +340,6 @@ button { cursor: default; }
 .popup .filter-row:hover { background: var(--chrome-2); }
 .popup .filter-row .cnt { color: var(--ink-4); font-size: 11px; margin-left: auto; }
 
-/* ==========================================================================
-   Modals
-   ========================================================================== */
 #modal-root { position: fixed; inset: 0; z-index: 100000; pointer-events: none; }
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.32); display: flex; align-items: flex-start; justify-content: center; padding: 6vh 16px 16px; pointer-events: auto; overflow: auto; }
 .modal {
@@ -415,27 +390,21 @@ button { cursor: default; }
 .list-row.selected { background: var(--accent-tint); }
 .list-row .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .list-row .sub { color: var(--ink-4); font-size: 11px; }
-/* ---- Insert Function dialog: search, category rail, function list, detail ---- */
+
 .fn { display: flex; gap: 14px; height: max(200px, min(372px, calc(100vh - 260px))); }
 .fn-side { width: 172px; flex: none; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
 .fn-search { width: 100%; height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); font-size: 12.5px; color: var(--ink); }
 .fn-search::placeholder { color: var(--ink-4); }
 .fn-search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--sel-fill); }
 .fn-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
-/* Gutter math: 1px border + 13px padding puts the capsule at x 10–14 — a roomy 9px
-   off the frame — and the content edge at 14. The row's 7px padding starts the label
-   at 21, so the capsule-to-label gap is 7px, matched on the right (1px border + 6px
-   padding, no row padding). One value to tune the frame gap: .fn-pill/.fn-hov `left`. */
+
 .fn-cats, .fn-list { position: relative; display: flex; flex-direction: column; gap: 1px; padding: 4px 6px 4px 13px; background: var(--paper); border: 1px solid var(--line-soft); border-radius: 8px; overflow-y: auto; }
 .fn-cats { flex: 1; min-height: 0; }
 .fn-list { flex: 1; min-height: 0; }
-/* Active = one vertical capsule per list, accent, parked on the active row. It never
-   reacts to hover. height + translateY are driven from JS. easeOutCubic: quick start,
-   long settle, no overshoot (a control point >1 reads as a bounce). */
+
 .fn-pill { position: absolute; top: 0; left: 9px; width: 4px; height: 18px; border-radius: 999px; background: var(--accent); z-index: 1; pointer-events: none; opacity: 0; will-change: transform; transition: transform .3s cubic-bezier(.32,.72,0,1), height .3s cubic-bezier(.32,.72,0,1), opacity .18s ease; }
 .fn-pill.on { opacity: 1; }
-/* Hover = the same vertical capsule in neutral grey, following the pointer. Identical
-   shape so the gutter reads as one column; only the colour says which is which. */
+
 .fn-hov { position: absolute; top: 0; left: 9px; width: 4px; height: 18px; border-radius: 999px; background: var(--line-strong); z-index: 1; pointer-events: none; opacity: 0; will-change: transform; transition: transform .3s cubic-bezier(.32,.72,0,1), height .3s cubic-bezier(.32,.72,0,1), opacity .18s ease; }
 .fn-hov.on { opacity: 1; }
 .fn-cat { padding: 6px 0 6px 7px; border-radius: 5px; font-size: 12.5px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -449,10 +418,7 @@ button { cursor: default; }
 .fn-name { margin-bottom: 3px; font-size: 13px; font-weight: 600; color: var(--ink); }
 .fn-sig { font-family: Consolas, monospace; font-size: 12px; color: var(--accent-dark); word-break: break-word; }
 .fn-desc { margin-top: 5px; font-size: 12.5px; color: var(--ink-2); }
-/* ---- chart pane (Insert > Charts) ----
-   In-flow sibling of #grid-area, like the Slides animation pane, so opening it
-   shrinks the grid instead of covering cells — which is what lets you drag out a
-   data range on the sheet while the range field is focused. */
+
 #grid-row { flex: 1; display: flex; align-items: stretch; min-height: 0; }
 .chart-pane {
   flex: none; width: 340px; display: flex; flex-direction: column;
@@ -463,17 +429,12 @@ button { cursor: default; }
 .chart-pane[hidden] { display: none; }
 .chart-pane-in { display: flex; flex-direction: column; min-height: 0; height: 100%; animation: cpIn 180ms cubic-bezier(.2, .85, .3, 1); }
 @keyframes cpIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
-/* Side-panel spacing scale — shared with the Slides animation pane and the
-   Docs Outline/Pages/Footnotes panes:
-     header  8px 16px   body  8px 16px 12px   foot  8px 16px 12px
-   container margin 0 */
+
 .cp-head {display: flex;align-items: center;gap: 8px;padding: 8px 16px;}
 .cp-head-text { flex: 1; min-width: 0; }
-/* Typography mirrors the Slides Animation pane (.ap-header) and the Docs
-   Titles pane (.outline-head h3) — 14px/700, same ink, same tracking. */
+
 .cp-title { font-size: 14px; font-weight: 700; letter-spacing: .02em; color: rgba(44, 62, 80, .95); }
-/* Same close-button shape as both: 6px padding, 6px radius, 14px glyph, no
-   fixed hit box, .2s background/colour fade. */
+
 .cp-x { flex: none; width: auto; height: auto; padding: 6px; border: none; border-radius: 6px; background: transparent; color: rgba(44, 62, 80, .5); cursor: pointer; line-height: 1; transition: background .2s, color .2s; display: flex; align-items: center; justify-content: center; }
 .cp-x svg { width: 14px; height: 14px; }
 .cp-x:hover { background: rgba(0, 0, 0, .06); color: rgba(44, 62, 80, .9); }
@@ -489,14 +450,12 @@ button { cursor: default; }
 .chart-type-cell:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-tint-2); }
 .chart-type-cell.active { border-color: var(--accent); background: var(--accent-tint); box-shadow: 0 0 0 1px var(--accent); color: var(--ink); font-weight: 600; }
 .chart-type-cell.active svg { color: var(--accent); }
-/* the grid range preview — paintChart() only reads its ctx, so this is the real
-   chart, not a mock-up */
+
 .ch-preview { position: relative; height: 186px; border: 1px solid var(--line-soft); border-radius: 6px; background: var(--paper); overflow: hidden; }
 .ch-preview canvas { display: block; }
 .ch-preview-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 0 16px; text-align: center; font-size: 11.5px; color: var(--ink-4); pointer-events: none; }
 .ch-preview-hint { margin-top: 8px; }
-/* armed = the range field has focus: the sheet outlines the live range and a drag
-   on the grid re-points it (same striped treatment as a formula reference) */
+
 #ch-range.cp-armed { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-tint-2); }
 .cp-pick-tip { display: flex; align-items: center; gap: 5px; margin-top: 6px; font-size: 11px; color: var(--accent-dark); }
 .cp-pick-tip svg { width: 12px; height: 12px; flex: none; }
@@ -526,13 +485,6 @@ button { cursor: default; }
 .help-table td { padding: 4px 8px; border-bottom: 1px solid var(--line-soft); }
 .help-table td:first-child { font-family: Consolas, monospace; color: var(--accent-dark); white-space: nowrap; width: 170px; }
 
-/* ==========================================================================
-   Find & Replace panel
-   ========================================================================== */
-
-/* ==========================================================================
-   Toasts — white glass pill (Docs/Slides/Notes pattern)
-   ========================================================================== */
 .toast {
   position: fixed;
   bottom: 24px;
@@ -563,15 +515,9 @@ button { cursor: default; }
   transform: translateX(-50%) translateY(-10px);
 }
 
-/* ==========================================================================
-   Clipboard helper & misc
-   ========================================================================== */
 #clip-helper { position: absolute; left: -9999px; top: 0; width: 10px; height: 10px; opacity: 0; }
 .kbd { font-family: Consolas, monospace; background: var(--chrome); border: 1px solid var(--line-soft); border-bottom-width: 2px; border-radius: 3px; padding: 0 5px; font-size: 11px; }
 
-/* ==========================================================================
-   Print
-   ========================================================================== */
 #print-root { display: none; }
 @media print {
   #app, #popup-root, #modal-root, #toast, #clip-helper { display: none !important; }
@@ -585,9 +531,6 @@ button { cursor: default; }
   #print-root .print-chart img { width: 100%; height: 100%; display: block; border: 1px solid #cfd4d1; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
 }
 
-/* ==========================================================================
-   Responsive
-   ========================================================================== */
 @media (max-width: 1100px) {
   .rbtn { min-width: 30px; padding: 4px 5px; }
   #wb-title { width: 160px; }
@@ -605,13 +548,6 @@ button { cursor: default; }
   #app { min-width: 420px; }
 }
 
-/* ==========================================================================
-   Cell notes (comments) — pin + thread popover + editor
-   The pin itself is canvas-drawn (see notePinGeom in sheets.js): hovering only
-   nudges the bubble a little bigger. The 250px thread card (header / body /
-   replies / actions) opens on a LEFT CLICK on the pin and stays until it is
-   dismissed — close button, Escape, a click elsewhere, or moving the selection.
-   ========================================================================== */
 .note-pop {
   position: absolute; z-index: 70; max-width: 264px; background: #fffbea;
   border: 1px solid #e2c886; border-radius: 4px; box-shadow: var(--shadow-2);
@@ -622,13 +558,6 @@ button { cursor: default; }
 .note-pop .note-ts { font-weight: 400; font-size: 10.5px; color: var(--ink-4); }
 .note-pop .note-body { padding: 7px 10px 8px; white-space: pre-wrap; word-break: break-word; color: var(--ink); max-height: 180px; overflow-y: auto; line-height: 1.45; }
 
-/* --- comment thread popover: Docs .comment-popup parity ------------------
-   Same card as Docs' .comment-popup: white, 250px, 8px radius, the soft accent
-   header, avatar circle, body, replies and a Reply / Resolve / Delete row. Docs
-   uses `width: 250px` and no max-width; we keep a max-width so a very long
-   unbreakable token cannot stretch the card past the grid.
-   Every colour here is a solid hex — the tints Docs fakes with rgba() over white
-   are pre-composited, so nothing in the comment UI is ever see-through. */
 .note-pop.note-thread {
   pointer-events: auto; width: 250px; max-width: 250px; padding: 0;
   background: var(--paper, #fff);
@@ -669,9 +598,9 @@ button { cursor: default; }
   word-break: break-word;
 }
 .note-thread .nt-reply .nt-author { font-size: 11.5px; }
-/* Docs .comment-popup-reply .reply-time sits on its own line under the reply. */
+
 .note-thread .nt-reply .nt-ts { display: block; font-size: 9.5px; }
-/* Docs .comment-popup-actions: Reply / Resolve / Delete as small pills. */
+
 .note-thread .nt-actions { display: flex; flex: 0 0 auto; gap: 6px; padding: 6px 10px 8px; }
 .note-thread .nt-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 4px;
@@ -686,20 +615,15 @@ button { cursor: default; }
 .note-thread .nt-resolve-btn.on { background: var(--chrome-2); color: var(--ink-3); }
 .note-thread .nt-delete-btn { background: #fceeee; color: #dc2626; }
 .note-thread .nt-delete-btn:hover { background: #f9dcdc; }
-/* Resolved threads read as done, like Docs' .comment-resolved anchors. */
+
 .note-thread.is-resolved .nt-body, .note-thread .nt-item.is-resolved .nt-body { color: #8a8886; }
 
-
-/* --- ribbon audit buttons (v4) — subtle accent when tracing is active --- */
 .rbtn.on[data-toggle] { background: linear-gradient(180deg, #eef5f0, var(--accent-tint)); box-shadow: inset 0 0 0 1px var(--accent-tint-2); }
 .rbtn.on[data-toggle] svg { stroke: var(--accent-dark); }
 
-/* --- context menu icons: slightly softer at rest, full strength on hover (v4) --- */
 .popup .popup-item .pi-icon svg { opacity: .82; transition: opacity .1s; }
 .popup .popup-item:hover .pi-icon svg, .popup .popup-item:focus .pi-icon svg { opacity: 1; }
 
-/* Comment composer lives in the shared modal; only the field is app-specific.
-   Metrics mirror the Docs/Slides composer so the three read identically. */
 .cmt-body { display: block; }
 .cmt-body .field { display: block; }
 .cmt-text {
@@ -709,8 +633,7 @@ button { cursor: default; }
   background: var(--paper); outline: none;
 }
 .cmt-text:focus { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-tint-2); }
-/* Docs/Slides centre the bubble above the title and float the close button;
-   Sheets' default modal head is a horizontal row, so opt this one in. */
+
 .modal.cmt .modal-head {
   flex-direction: column; align-items: center; justify-content: center;
   padding: 24px 24px 0; border-bottom: none; position: relative;
@@ -764,23 +687,16 @@ button { cursor: default; }
   .define-name-content { grid-template-columns: minmax(0, 1fr); gap: 16px; }
 }
 
-/* ==========================================================================
-   Visual polish layer — chrome refinement & motion
-   ========================================================================== */
-
-/* Header: subtle vertical sheen on the green band */
 #app-header { background: linear-gradient(180deg, #237a4b 0%, var(--accent) 62%, #1d663d 100%); box-shadow: 0 1px 0 rgba(0,0,0,.14), 0 2px 6px rgba(18,68,48,.24); }
 #wb-title { transition: background .15s, border-color .15s; }
 #wb-title:hover { background: rgba(255,255,255,.08); }
 
-/* Ribbon tabs: ink underline grows in */
 .ribbon-tab { position: relative; transition: background .12s, color .12s, opacity .12s; }
 .ribbon-tab::after { content: ""; position: absolute; left: 50%; right: 50%; bottom: 0; height: 2.5px; background: var(--accent); border-radius: 2px 2px 0 0; opacity: 0; transition: left .16s ease-out, right .16s ease-out, opacity .12s; }
 .ribbon-tab:hover::after { left: 10px; right: 10px; opacity: .35; }
 .ribbon-tab.active::after { left: 8px; right: 8px; opacity: 1; }
 #ribbon-body { background: linear-gradient(180deg, var(--paper) 0%, #fbfbfa 100%); }
 
-/* Ribbon buttons: crisp hover with hairline border */
 .rbtn { border-radius: 3px; transition: background .1s, box-shadow .1s; }
 .rbtn:hover { background: #eef4f0; box-shadow: inset 0 0 0 1px var(--accent-tint-2); }
 .rbtn:active { background: var(--accent-tint-2); box-shadow: none; }
@@ -788,9 +704,6 @@ button { cursor: default; }
 .rb-group { position: relative; }
 .rb-group::after { content: ""; position: absolute; right: 0; top: 9px; bottom: 9px; width: 1px; background: linear-gradient(180deg, transparent, var(--line-soft) 20%, var(--line-soft) 80%, transparent); }
 
-/* Ribbon group labels */
-
-/* Popup menus: refined elevation + item motion */
 .popup { border-radius: 5px; box-shadow: var(--shadow-3); animation: popupIn .11s ease-out; transform-origin: top left; }
 @keyframes popupIn { from { opacity: 0; transform: scale(.985) translateY(-2px); } to { opacity: 1; transform: none; } }
 .popup-item { transition: background .08s; }
@@ -798,22 +711,13 @@ button { cursor: default; }
 .popup-item:hover .pi-label { color: var(--accent-darker); }
 .popup-item.checked .pi-check { color: var(--accent); }
 
-/* Sheet tabs: active pill with accent top bar; smooth hover */
 .sheet-tab { position: relative; transition: background .12s, color .12s, box-shadow .12s; }
 .sheet-tab:hover { background: var(--chrome); }
 .sheet-tab.active { background: var(--paper); box-shadow: 0 -1px 0 var(--line) inset, 1px 0 0 var(--line), -1px 0 0 var(--line); }
 .sheet-tab.active::before { content: ""; position: absolute; left: 6px; right: 6px; top: 0; height: 2px; background: var(--accent); border-radius: 0 0 2px 2px; }
-/* The tab colour rides on the real .tab-dot span, never on ::after — ::after is
-   the active underline (below), and a dot rule here would win/loseproperty-by-
-   property against it: the underline keeps left+right but inherits width:8px,
-   collapsing the bar to an 8px stub on coloured tabs. */
 
-/* Drag-and-drop sheet reordering in the tab bar */
 .sheet-tab.dragging { opacity: .45; }
-/* A real child element, not ::before/::after — both of those are already taken
-   by the active accent bar and the tab-colour dot. Kept inside the tab box: 
-   #sheet-tabs is overflow:hidden, so an overhang is clipped at the first and
-   last tab and the indicator fades to a thin sliver there. */
+
 .sheet-tab .drop-mark {
   display: none; position: absolute; top: 1px; bottom: 1px; width: 3px;
   background: var(--accent); border-radius: 2px; z-index: 3;
@@ -824,41 +728,29 @@ button { cursor: default; }
 #add-sheet { transition: background .12s; border-radius: 4px; }
 #add-sheet:hover { background: var(--accent-tint); }
 
-/* Status bar: stats as quiet pills; zoom accent */
 #sb-stats { color: var(--ink-2); }
 #sb-stats b, #sb-stats strong { color: var(--ink); font-weight: 600; }
 #sb-zoom-pct:hover { color: var(--accent-dark); text-decoration: underline; }
 #status-bar { background: linear-gradient(180deg, var(--chrome) 0%, #efeeec 100%); }
 
-/* Modal dialogs: backdrop + entrance motion */
 .modal-overlay { background: rgba(23, 23, 22, .38); backdrop-filter: blur(1.5px); animation: overlayIn .14s ease-out; }
 @keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
 .modal { animation: modalIn .16s cubic-bezier(.2,.9,.3,1.2); }
 @keyframes modalIn { from { opacity: 0; transform: scale(.97) translateY(6px); } to { opacity: 1; transform: none; } }
 .modal > div { box-shadow: var(--shadow-3); }
 
-/* Dialog tab underline slides */
-
-/* Formula row: focus glow */
 #formula-input:focus, #name-box:focus { box-shadow: 0 0 0 1.5px var(--accent-tint-2); }
 
-/* Chart frames */
 .chart-frame { border-radius: 6px; box-shadow: var(--shadow-2); }
 .chart-frame:hover { box-shadow: var(--shadow-3); }
 
-/* Reduced motion respect */
 @media (prefers-reduced-motion: reduce) {
   .toast, .popup, .modal, .modal-overlay, .note-pop { animation: none !important; }
   .ribbon-tab::after { transition: none; }
-  /* open/close now run on transitions rather than a one-shot keyframe */
+
   .ms-dropdown-menu, .ms-dropdown-menu.open, .ms-dropdown-menu.closing { transition: none !important; }
 }
 
-/* ==========================================================================
-   Polish layer v2 — Formula AutoComplete, chart tooltips, detail refinements
-   ========================================================================== */
-
-/* ---- Formula AutoComplete dropdown (in-cell editor + formula bar) ---- */
 #formula-ac {
   position: absolute; z-index: 34; display: none; min-width: 280px; max-width: 420px;
   background: var(--paper); border: 1px solid var(--line); border-radius: 6px;
@@ -887,7 +779,6 @@ button { cursor: default; }
 .fx-ac-item.active .fx-ac-name { color: var(--accent-darker); }
 .fx-ac-item.active + .fx-ac-item { box-shadow: 0 -1px 0 var(--accent-tint-2); }
 
-/* ---- Chart hover tooltip ---- */
 #chart-tip {
   position: fixed; z-index: 200; display: inline-flex; align-items: center; gap: 6px;
   padding: 5px 10px; background: rgba(32, 31, 30, .94); color: #fff;
@@ -901,35 +792,25 @@ button { cursor: default; }
 #chart-tip .ct-series { color: rgba(255,255,255,.72); }
 #chart-tip .ct-value { font-weight: 700; margin-left: 2px; font-variant-numeric: tabular-nums; }
 
-/* ---- Chart frame selection ring ---- */
 .chart-frame.selected { outline: 1.5px solid var(--accent); outline-offset: 0; }
 .chart-frame .chart-head { border-bottom: 1px solid var(--line-soft); }
 
-/* ---- In-cell editor: crisper glow ---- */
 #cell-editor:focus { outline: none; box-shadow: 0 2px 8px rgba(0,0,0,.28), 0 0 0 2px rgba(33,115,70,.18); }
 
-/* ---- Grid empty-corner detail: subtle gradient in the select-all corner ---- */
 .select-all-corner { background: linear-gradient(135deg, var(--chrome-3) 0%, var(--chrome-2) 50%, var(--chrome) 100%); }
 
-/* ---- Ribbon group label refinement ---- */
 .rb-group-label { letter-spacing: .015em; }
 
-/* ---- Dialog headers: accent underline ---- */
 .modal-head, .modal h2, .dlg-title { border-bottom: 1px solid var(--line-soft); }
 .modal .btn.primary { box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 1px 2px rgba(18,68,48,.25); }
 .modal .btn.primary:hover { filter: brightness(1.06); }
 .modal .btn.primary:active { filter: brightness(.97); }
 
-/* ---- Popup separators & section labels ---- */
 .popup-sep { height: 1px; background: var(--line-soft); margin: 4px 8px; }
 
-/* ---- Sheet tab text ---- */
 .sheet-tab { font-weight: 500; }
 .sheet-tab.active { font-weight: 600; }
 
-/* ---- Toast: entry from bottom-right with slide ---- */
-
-/* ---- Focus visibility for a11y on chrome controls ---- */
 .iconbtn:focus-visible, .rbtn:focus-visible, .sheet-tab:focus-visible {
   outline: 2px solid var(--accent-tint-2); outline-offset: 1px;
 }
@@ -939,11 +820,6 @@ button { cursor: default; }
   #formula-ac.open, #chart-tip { animation: none !important; transition: none !important; }
 }
 
-/* ==========================================================================
-   Polish layer v3 — argument tooltip, defined-name badge, sparkline details
-   ========================================================================== */
-
-/* ---- Function argument tooltip ---- */
 #fx-argtip {
   position: absolute; z-index: 35; display: none; max-width: 460px;
   background: #fffef5; border: 1px solid #e0c97f; border-radius: 5px;
@@ -964,7 +840,6 @@ button { cursor: default; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 430px;
 }
 
-/* ---- Defined-name badge in autocomplete ---- */
 .fx-ac-badge {
   display: inline-block; font-size: 8.5px; font-weight: 700; letter-spacing: .05em;
   text-transform: uppercase; color: #7a5b13; background: #fdf3d7;
@@ -973,9 +848,6 @@ button { cursor: default; }
 }
 .fx-ac-item.is-name .fx-ac-name { font-weight: 600; font-style: normal; }
 
-/* ---- Sparkline cell affordance: subtle inset well so minicharts read as data viz ---- */
-
-/* ---- Chart frame head: refined title strip ---- */
 .chart-head {
   background: #fdfdfd;
   border-bottom: 1px solid var(--line-soft);
@@ -994,23 +866,13 @@ button { cursor: default; }
 }
 #sb-zoom-pct:hover { background: var(--accent-tint-2); }
 
-/* ---- Name box dropdown chevron ---- */
 .namebox-dd { color: var(--ink-3); transition: background .1s, color .1s; }
 .namebox-dd:hover { background: var(--chrome-2); color: var(--accent-dark); }
 
-/* ---- Find panel input focus ---- */
-
-/* ---- Dialog form rows: tighter label rhythm ---- */
 .form-row > label { color: var(--ink-2); }
 
-/* ---- List rows (Define Name etc.) hover ---- */
 .list-row:hover { background: var(--chrome); }
 
-/* ==========================================================================
-   POLISH LAYER v5 — chart series editor, find options, badges, micro-detail
-   ========================================================================== */
-
-/* ---- Chart dialog: per-series color + name editor ---- */
 .ch-series-list {
   display: flex; flex-direction: column; gap: 3px;
   max-height: 158px; overflow-y: auto;
@@ -1053,28 +915,17 @@ button { cursor: default; }
 .ch-series-name:disabled { color: var(--ink-4); background: transparent; border-color: transparent; cursor: default; }
 .ch-series-empty { font-size: 11px; color: var(--ink-4); padding: 6px 8px; font-style: italic; }
 
-/* ---- Find panel: option row alignment + notes toggle ---- */
-
-/* ---- Chart frames: subtle head gradient on hover for affordance ---- */
 .chart-frame .chart-head { transition: background .15s ease; }
 .chart-frame:hover .chart-head { background: linear-gradient(180deg, #f7f9f8, #eef3f0); }
 
-/* ---- Modal: series section separator rhythm ---- */
 .form-row .ch-series-list + .hint { margin-top: 2px; }
 
-/* ---- Context menu: disabled items keep icon muted ---- */
 .popup-item.disabled { opacity: .45; }
 
-/* ---- Reduced motion respect ---- */
 @media (prefers-reduced-motion: reduce) {
   .ch-series-row, .ch-series-row input[type="color"], .chart-frame .chart-head { transition: none; }
 }
 
-/* ===================================================================
-   POLISH LAYER v6 — history dialogs + detail refinement
-   =================================================================== */
-
-/* ---- Undo History dialog ---- */
 .hist-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .hist-col { min-width: 0; }
 .hist-col-t {
@@ -1103,7 +954,7 @@ button { cursor: default; }
   border-bottom: 1px solid #f0f2f0;
 }
 .hist-item:last-child { border-bottom: 0; }
-/* timeline rail + dots */
+
 .hist-item::before {
   content: ''; position: absolute; left: 12px; top: 0; bottom: 0;
   width: 1px; background: #e6eae6;
@@ -1127,29 +978,27 @@ button { cursor: default; }
 .hist-empty { font-size: 12px; color: var(--ink-3); font-style: italic; padding: 12px 4px; }
 .hist-note { font-size: 10.5px; color: var(--ink-3); margin-top: 9px; }
 
-/* ---- App-wide detail refinement (v6) ---- */
-/* modal head: accent underline that anchors the dialog title */
 .modal-head { border-bottom: 1px solid var(--line); position: relative; }
 .modal-head::after {
   content: ''; position: absolute; left: 0; bottom: -1px;
   width: 44px; height: 2px; border-radius: 1px;
   background: var(--accent);
 }
-/* modal entrance: subtle lift + fade (skipped for reduced motion users) */
+
 @keyframes modal-in { from { opacity: 0; transform: translateY(7px) scale(.985); } to { opacity: 1; transform: none; } }
 .modal-overlay .modal { animation: modal-in .16s ease-out; }
-/* keyboard chips inside dialogs */
+
 .kbd {
   display: inline-block; padding: 0 5px;
   border: 1px solid var(--line-strong); border-bottom-width: 2px;
   border-radius: 4px; background: #f7f8f7;
   font-family: Consolas, Menlo, monospace; font-size: 11px; color: var(--ink-2);
 }
-/* focus-visible ring for ribbon + popup buttons (keyboard a11y) */
+
 .rb-btn:focus-visible, .popup-item:focus-visible {
   outline: 2px solid var(--accent-tint-2); outline-offset: -1px;
 }
-/* danger button hover consistency */
+
 .btn.danger { background: #fff; color: #a4262c; border-color: #d7a29a; }
 .btn.danger:hover { background: #fdf3f2; }
 
@@ -1160,12 +1009,6 @@ button { cursor: default; }
   .hist-cols { grid-template-columns: 1fr; }
 }
 
-/* ==========================================================================
-   App-wide detail refinement (v7) — history jump, combo series editor,
-   audit status chip, note-match highlight
-   ========================================================================== */
-
-/* ---- Undo History: click-to-jump affordances ---- */
 .hist-hint {
   display: flex; align-items: center; gap: 6px;
   margin-bottom: 10px; padding: 6px 10px;
@@ -1193,7 +1036,6 @@ button { cursor: default; }
 .hist-item.redo:hover { background: #f6f4f9; }
 .hist-item.redo:hover::after { border-color: #8a7aa8; }
 
-/* ---- Chart dialog: per-series type override + reorder ---- */
 .ch-series-row .ch-type-sel {
   flex: 0 0 auto; width: 72px; height: 21px;
   font-size: 10.5px; color: var(--ink-2);
@@ -1221,7 +1063,6 @@ button { cursor: default; }
 .ch-order:disabled { opacity: .35; cursor: default; }
 .ch-series-row.has-type .ch-series-name { flex: 1 1 auto; }
 
-/* ---- Status bar: formula-audit legend chip (click = remove arrows) ---- */
 .sb-audit-chip {
   appearance: none; font: inherit; letter-spacing: inherit;
   background: #eef3f9; color: #2b579a; border: 1px solid #cfdcec;
@@ -1233,7 +1074,6 @@ button { cursor: default; }
 .sb-audit-chip:active { background: #d5e2f1; box-shadow: none; }
 .sb-audit-chip:focus-visible { outline: 2px solid #2b579a; outline-offset: 1px; }
 
-/* ---- Note thread: find-match highlight inside the popover ---- */
 .nt-hl {
   background: #ffe28a; color: inherit;
   border-radius: 2px; padding: 0 1px;
@@ -1241,7 +1081,6 @@ button { cursor: default; }
 }
 mark.nt-hl { color: #4a3a05; }
 
-/* ---- v7 guards ---- */
 @media (prefers-reduced-motion: reduce) {
   .hist-item, .hist-jump, .ch-order, .sb-audit-chip, .ch-series-row .ch-type-sel { transition: none; }
 }
@@ -1251,15 +1090,8 @@ mark.nt-hl { color: #4a3a05; }
   .hist-hint { font-size: 11px; }
 }
 
-/* ==========================================================================
-   Polish layer v8 (Task 19) — find match list, chart labels/axis titles,
-   CF dialog extras, print chart frames, app-wide detail passes
-   ========================================================================== */
-
-/* ---- Find panel: match list ---- */
 @keyframes fpListIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
 
-/* ---- Chart dialog: data labels + axis titles ---- */
 .ch-axis-inputs { display: flex; gap: 6px; }
 .ch-axis-inputs input {
   flex: 1; min-width: 0; height: 27px;
@@ -1270,7 +1102,6 @@ mark.nt-hl { color: #4a3a05; }
 .ch-axis-inputs input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px var(--accent-tint-2); }
  .ch-axis-inputs input[type="text"] { flex: 1; }
 
-/* ---- v8 guards ---- */
 @media (prefers-reduced-motion: reduce) {
    .ch-axis-inputs input { animation: none; transition: none; }
 }
@@ -1278,11 +1109,6 @@ mark.nt-hl { color: #4a3a05; }
     .ch-axis-inputs { flex-direction: column; }
 }
 
-/* ============================================================
-   Polish layer v9 — chart label options
-   ============================================================ */
-
-/* chart dialog: label position + number format row */
 .ch-lbl-inputs { display: flex; gap: 8px; }
 .ch-lbl-inputs select {
   flex: 0 0 118px;
@@ -1319,12 +1145,7 @@ mark.nt-hl { color: #4a3a05; }
   .ch-lbl-inputs { flex-direction: column; }
   .ch-lbl-inputs select { flex: 1 0 auto; }
 }
-/* ==========================================================================
-   Polish layer v10 — interaction & motion: smooth editor, resize tips,
-   selection glide, animated stats, cleaner chrome
-   ========================================================================== */
 
-/* ---- Cell editor: pop-in + smooth width/height while typing ---- */
 #cell-editor {
   border-radius: 3px;
   transition: width .08s ease-out, height .08s ease-out, min-width .08s ease-out,
@@ -1338,7 +1159,6 @@ mark.nt-hl { color: #4a3a05; }
   to   { opacity: 1; transform: scale(1); }
 }
 
-/* ---- Floating size badge while resizing columns/rows ---- */
 #size-tip {
   position: absolute; display: none; z-index: 30; pointer-events: none;
   background: #2b2b28; color: #fff; font-size: 11.5px; line-height: 1;
@@ -1350,7 +1170,6 @@ mark.nt-hl { color: #4a3a05; }
 }
 #size-tip b { color: #7fd7a5; font-weight: 700; }
 
-/* fill tip: matches the size badge, glides between cells and pops in with a green accent */
 #fill-tip {
   background: #2b2b28; border-radius: 4px; padding: 4px 9px; font-size: 11.5px;
   box-shadow: 0 3px 10px rgba(0,0,0,.28); font-variant-numeric: tabular-nums;
@@ -1364,34 +1183,28 @@ mark.nt-hl { color: #4a3a05; }
   to   { opacity: 1; transform: none; }
 }
 
-/* ---- Status bar: tabular numerals so animated stats never jitter ---- */
 #sb-stats { font-variant-numeric: tabular-nums; }
 #sb-stats b { font-weight: 700; color: var(--ink-1); }
 
-/* ---- Sheet switch fade on the grid ---- */
 #grid-area.sheet-fade { animation: sheetFade 150ms ease-out; }
 @keyframes sheetFade { from { opacity: .45; } to { opacity: 1; } }
 
-/* ---- Sheet tabs: hover lift + animated active underline + focus ring ---- */
 .sheet-tab { position: relative; transition: background .12s ease, color .12s ease, box-shadow .12s ease; }
 .sheet-tab:hover { background: rgba(33,115,70,.07); }
 .sheet-tab.active { box-shadow: inset 0 -2px 0 0 var(--accent); }
 .sheet-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 4px 4px 0 0; }
 
-/* ---- Global micro-transitions on controls ---- */
 .btn, .iconbtn, .rb-btn, .sheet-tab, .fn-cat, .fn-item, .menu-item, .popup .item,
 #add-sheet { transition: background .12s ease, color .12s ease,
   border-color .12s ease, box-shadow .12s ease, opacity .12s ease; }
 .btn:active, .iconbtn:active, .rb-btn:active { transform: translateY(0.5px); }
 
-/* ---- Consistent focus-visible rings (keyboard only) ---- */
 .btn:focus-visible, .iconbtn:focus-visible, .rb-btn:focus-visible,
 select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-visible {
   outline: 2px solid var(--accent); outline-offset: 1px;
 }
-#cell-editor:focus-visible, #formula-input:focus-visible { outline: none; }   /* custom glow already */
+#cell-editor:focus-visible, #formula-input:focus-visible { outline: none; }
 
-/* ---- Dialogs & popups: softer entrance ---- */
 .modal { animation: modalIn 150ms cubic-bezier(.2, .9, .3, 1.05); }
 @keyframes modalIn {
   from { opacity: 0; transform: translateY(6px) scale(.985); }
@@ -1405,17 +1218,13 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* ---- Chart frames: crisper elevation, smoother selection ---- */
 .chart-frame { transition: box-shadow .15s ease, border-color .15s ease; }
 .chart-frame.selected { box-shadow: 0 0 0 1.5px var(--accent), 0 6px 18px rgba(0,0,0,.14); }
 
-/* ---- Chart head buttons: always reachable with one click on hover ---- */
 .chart-head .iconbtn { border-radius: 3px; }
 
-/* ---- Insert Function rows: the pill is the selection indicator ---- */
 .fn-cat, .fn-item { cursor: pointer; }
 
-/* ---- Reduced motion: disable the new animations ---- */
 @media (prefers-reduced-motion: reduce) {
   #cell-editor, #cell-editor.ed-pop { animation: none !important; transition: none !important; }
   #grid-area.sheet-fade { animation: none !important; }
@@ -1424,18 +1233,9 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
   .fn-pill { transition: none !important; }
 }
 
-/* ==========================================================================
-   Polish layer v11 — "animations everywhere": exits, entrances, easing
-   ========================================================================== */
-
-/* ---- App boot: gentle fade-up so first paint never flashes ---- */
 #app { animation: appIn 260ms ease-out; }
 @keyframes appIn { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
 
-/* ---- Ribbon tab switch: body content glides in ---- */
-
-
-/* ---- Modal / popup EXIT animations (entrances already existed) ---- */
 .modal-overlay.closing { animation: overlayOut 140ms ease-in forwards; pointer-events: none; }
 @keyframes overlayOut { to { opacity: 0; } }
 .modal-overlay.closing .modal { animation: modalOut 130ms cubic-bezier(.4, 0, .7, .4) forwards; }
@@ -1443,13 +1243,11 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 .popup.closing { animation: popOut 100ms ease-in forwards; }
 @keyframes popOut { to { opacity: 0; transform: translateY(-3px) scale(.985); } }
 
-/* ---- Chart frames: entrance pop + canvas wipe reveal (new charts only) ---- */
 .chart-frame.ch-enter { animation: chIn 300ms cubic-bezier(.2, .85, .3, 1.12); }
 @keyframes chIn { from { opacity: 0; transform: translateY(10px) scale(.965); } to { opacity: 1; transform: none; } }
 .chart-frame.ch-enter .chart-canvas-wrap { animation: chWipe 460ms 90ms cubic-bezier(.25, .7, .3, 1) backwards; }
 @keyframes chWipe { from { clip-path: inset(100% 0 0 0); } to { clip-path: inset(0 0 0 0); } }
 
-/* ---- Zoom % label: accent pulse after an animated zoom ---- */
 #sb-zoom-pct { display: inline-block; }
 #sb-zoom-pct.pulse { animation: zpPulse 480ms ease-out; }
 @keyframes zpPulse {
@@ -1458,13 +1256,11 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
   100% { transform: scale(1); }
 }
 
-/* ---- Popup menu items: check/icon nudge on hover, faster response ---- */
 .popup-item { transition: background .08s linear, color .08s linear; }
 .popup-item .pi-check, .popup-item .pi-icon { transition: transform .12s cubic-bezier(.2, .8, .3, 1.2); }
 .popup-item:hover .pi-check, .popup-item:hover .pi-icon { transform: scale(1.12); }
 .popup-item:active { background: var(--accent-tint-2); }
 
-/* ---- Buttons: consistent press feedback + primary sheen ---- */
 .btn, .iconbtn, .rb-btn, .sheet-tab, #add-sheet { will-change: auto; }
 .btn:active, .iconbtn:active, .rb-btn:active { transform: translateY(0.5px) scale(.985); }
 .btn.primary { transition: background .12s ease, box-shadow .15s ease, transform .1s ease, filter .12s ease; }
@@ -1473,28 +1269,21 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 .iconbtn:not(:disabled):hover { background: var(--chrome-2); }
 .iconbtn:not(:disabled):active { background: var(--chrome-3); transform: scale(.94); }
 
-/* ---- Name box ---- */
 #name-box { transition: border-color .15s ease, box-shadow .15s ease, background .2s ease; }
 
-/* ---- Sheet tabs: new-tab pop ---- */
 .sheet-tab.tab-enter { animation: tabIn 220ms cubic-bezier(.2, .85, .3, 1.15); }
 @keyframes tabIn { from { opacity: 0; transform: translateY(6px) scale(.96); } to { opacity: 1; transform: none; } }
 
-/* ---- Filter / DV chips: soft settle when (re)created ---- */
 @keyframes chipIn { from { opacity: 0; transform: translateY(-2px) scale(.94); } to { opacity: 1; transform: none; } }
 
-/* ---- Modal head: hairline gradient + snappier close button ---- */
 .modal-head { background: linear-gradient(180deg, #fbfbfa, #f7f7f6); }
 .modal-x { transition: background .12s ease, color .12s ease, transform .12s ease; }
 .modal-x:hover { background: var(--chrome-2); color: var(--danger); transform: rotate(90deg); }
 
-/* ---- Find panel + autocomplete: slide-fade coherent with popups ---- */
 @keyframes fpIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 
-/* ---- Formula bar: focus glow smooths in ---- */
 #formula-input { transition: box-shadow .18s ease, border-color .18s ease; }
 
-/* ---- Reduced motion: silence every new animation ---- */
 @media (prefers-reduced-motion: reduce) {
   #app, .ribbon-panel, .modal-overlay.closing, .modal-overlay.closing .modal,
   .popup.closing, .chart-frame.ch-enter, .chart-frame.ch-enter .chart-canvas-wrap,
@@ -1503,13 +1292,6 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
   .popup-item .pi-check, .popup-item .pi-icon, .modal-x { transition: none !important; }
 }
 
-/* =========================================================================
-   Polish layer v12 — drag indicators & floating tips
-   (canvas drag ghosts are drawn in JS: animated green marching dots; these
-   rules animate the DOM badges that accompany those gestures)
-   ========================================================================= */
-
-/* ---- Size + fill badges: glide between cells, pop in, green accent ---- */
 #size-tip, #fill-tip { will-change: left, top; }
 #fill-tip::before {
   content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%;
@@ -1517,27 +1299,18 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
   box-shadow: 0 0 6px rgba(47,158,99,.8);
 }
 
-/* ---- Reduced motion: badges appear instantly, no glide ---- */
 @media (prefers-reduced-motion: reduce) {
   #size-tip, #fill-tip { transition: none !important; animation: none !important; }
 }
 
-/* =========================================================================
-   Polish layer v13 — visual refresh: unified navigation strip, icon
-   harmony, depth refinements, command palette
-   ========================================================================= */
-
-/* ---- New tokens ---- */
 :root {
   --ring: rgba(33, 115, 70, .32);
   --accent-glow: 0 0 0 3px rgba(33, 115, 70, .14);
   --radius-lg: 8px;
 }
 
-/* ---- Softer, layered focus ring ---- */
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 0; box-shadow: var(--accent-glow); }
 
-/* ---- Header: deeper gradient, inner light, pill controls ---- */
 #app-header {
   background: linear-gradient(180deg, #207140 0%, #1b6439 55%, #185c37 100%);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.10), inset 0 -1px 0 rgba(0,0,0,.16);
@@ -1563,11 +1336,9 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 }
 .hdr-sep { width: 1px; height: 18px; background: rgba(255,255,255,.28); margin: 0 5px; flex: none; }
 
-/* ---- Ribbon tab rail ---- */
 #ribbon-tabs { padding: 0 5px; overflow-x: auto; overflow-y: hidden; }
 .rb-tabs-sep { width: 1px; align-self: stretch; margin: 6px 7px; background: var(--line); flex: none; }
 
-/* ---- Ribbon tabs: sliding-grow underline, calmer hover ---- */
 .ribbon-tab {
   padding: 0 13px; flex: none;
   transition: background .12s ease, color .12s ease;
@@ -1580,7 +1351,6 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 }
 @keyframes tabUnderline { from { transform: scaleX(.3); opacity: 0; } to { transform: scaleX(1); opacity: 1; } }
 
-/* ---- Ribbon buttons: faster response, press feedback, alive toggles ---- */
 .rbtn, .rbtn-col, .rb-color-btn, .iconbtn, .rb-select {
   transition: background .12s ease, color .12s ease, box-shadow .12s ease, transform .07s ease, border-color .12s ease;
 }
@@ -1592,7 +1362,6 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 .rb-select:hover { border-color: var(--ink-4); }
 .rb-select:focus { border-color: var(--accent); box-shadow: var(--accent-glow); }
 
-/* ---- Formula row: glow focus, tinted confirm ---- */
 #name-box:focus { border-color: var(--accent); box-shadow: var(--accent-glow); }
 #formula-input:focus { border-color: var(--accent); box-shadow: var(--accent-glow); }
 .fx-btn { transition: background .12s ease, color .12s ease; border-radius: 4px; }
@@ -1601,7 +1370,6 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 #fx-cancel { color: var(--ink-3); }
 #fx-cancel:hover { color: var(--danger); }
 
-/* ---- Sheet tabs: grow-in underline, calmer chrome ---- */
 .sheet-tab { transition: background .12s ease, color .12s ease; }
 .sheet-tab.active::after {
   transform-origin: center;
@@ -1610,7 +1378,6 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 #add-sheet { transition: background .12s ease, color .12s ease, transform .07s ease; }
 #add-sheet:active { transform: scale(.92); }
 
-/* ---- Popups: softer border, rounder corners, roomier items ---- */
 .popup {
   border-radius: var(--radius-lg); border-color: var(--line-soft);
   box-shadow: 0 16px 44px rgba(0,0,0,.17), 0 2.5px 9px rgba(0,0,0,.10), 0 0 0 1px rgba(0,0,0,.028);
@@ -1620,13 +1387,11 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 .popup-item.danger .pi-label, .popup-item.danger .pi-icon svg { color: var(--danger); }
 .popup-item.danger:hover .pi-label, .popup-item.danger:hover .pi-icon svg { color: #b91c1c; }
 
-/* ---- Modals: rounder, deeper shadow, blurred backdrop ---- */
 .modal { border-radius: 10px; box-shadow: 0 24px 64px rgba(0,0,0,.24), 0 4px 14px rgba(0,0,0,.12); }
 .modal-overlay { background: rgba(15, 22, 17, .36); backdrop-filter: blur(1.6px); -webkit-backdrop-filter: blur(1.6px); }
 .modal-foot { border-radius: 0 0 10px 10px; }
 .btn { border-radius: 4px; transition: background .12s ease, border-color .12s ease, box-shadow .12s ease, transform .07s ease; }
 
-/* ---- Command palette (Ctrl+K) ---- */
 .palette-overlay {
   position: fixed; inset: 0; z-index: 300;
   background: rgba(16, 22, 18, .34); backdrop-filter: blur(1.6px); -webkit-backdrop-filter: blur(1.6px);
@@ -1680,16 +1445,11 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 .palette-foot .pal-cmd { width: 12px; height: 12px; vertical-align: -2px; }
 .palette-count { font-variant-numeric: tabular-nums; }
 
-/* ---- Reduced motion: palette + new micro-motions silenced ---- */
 @media (prefers-reduced-motion: reduce) {
   .palette, .palette-overlay, .app-logo, .rbtn svg, .rbtn-col svg,
   .ribbon-tab.active::after, .sheet-tab.active::after { animation: none !important; transition: none !important; }
 }
 
-/* ==========================================================================
-   EmeraldSuite skin — Sheets chrome matched to Notes / Slides / Docs
-   (navbar, ribbon tabs, ribbon card, formula bar, tab bar, status pill)
-   ========================================================================== */
 :root {
   --font-ui: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --accent: #239a4d;
@@ -1717,7 +1477,6 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 }
 #app { font-family: var(--font-ui); background: #f5f5f5; }
 
-/* ---------- Navbar (minimal overrides on top of style.css, identical to Slides/Docs) ---------- */
 .navbar {
   border-bottom: transparent;
   background-color: transparent;
@@ -1725,8 +1484,6 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
   height: 4.5rem;
 }
 
-/* App icon in navbar — matching Slides (.icon-primary renders at 1.75rem = 28px
-   with margin-bottom 0.2rem in the Slides app via style.css) */
 .logo .icon-primary {
   width: 1.75rem;
   height: 1.75rem;
@@ -1738,7 +1495,6 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
   z-index: 3000;
 }
 
-/* Save indicator pill — byte-identical to docs.css / slides.css */
 .save-indicator {
   font-family: revert;
   background: rgba(35, 154, 77, 0.2);
@@ -1772,7 +1528,6 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 
 .save-indicator:disabled { opacity: .55; cursor: default; }
 
-/* ---------- Ribbon tabs (floating strip) ---------- */
 #ribbon { flex: none; position: relative; z-index: 50; background: transparent; border-bottom: none; }
 #ribbon-tabs {
   display: flex;
@@ -1843,7 +1598,7 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 #ribbon-tabs .ribbon-tab[data-tab="file"]:hover::before { opacity: 1; transform: scale(1); }
 #ribbon-tabs .ribbon-tab.active { background: transparent; color: var(--ui-accent); font-weight: 600; }
 #ribbon-tabs .ribbon-tab.active::after { background: var(--ui-accent); opacity: 0; transform: scaleX(0); }
-/* Sliding underline indicator (moves between tabs, like Docs/Slides) */
+
 #ribbon-tabs .ribbon-tab-indicator {
   position: absolute;
   bottom: 0;
@@ -1881,7 +1636,6 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 .ribbon-tab-action:active { transform: translateY(1px); }
 .ribbon-tab-action svg { flex-shrink: 0; width: 14px; height: 14px; }
 
-/* ---------- Ribbon card ---------- */
 #ribbon-body {
   position: relative;
   min-height: 100px;
@@ -1899,7 +1653,6 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
   -webkit-font-smoothing: antialiased;
 }
 
-/* ---- Ribbon panel: one pre-rendered panel per category (mirrors Docs/Slides) ---- */
 .ribbon-panel {
   display: flex;
   align-items: center;
@@ -1967,7 +1720,6 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 .font-controls { display: flex; align-items: center; gap: 2px; flex-wrap: nowrap; }
 .font-controls .ribbon-btn { min-width: 32px; padding: 4px 6px; }
 
-/* ---------- Ribbon buttons (same structure as docs/slides) ---------- */
 .ribbon-btn {
   display: inline-flex;
   flex-direction: column;
@@ -1989,10 +1741,7 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
   cursor: pointer;
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
-  /* opacity is in the list on purpose: the availability rules dim via
-     opacity: .35, and the others reach it through the `all` shorthand
-     (docs.css:627, slides.css:463, notes.css:246). Without it here the
-     gray/un-gray snapped instead of fading. */
+
   transition: background .2s, border-color .2s, color .2s, box-shadow .2s, opacity .2s;
 }
 .ribbon-btn:hover { background: rgba(255, 255, 255, .9); border-color: var(--ui-accent-border); color: rgb(44, 62, 80); box-shadow: rgba(0, 0, 0, .08) 0 2px 6px; }
@@ -2011,17 +1760,7 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 .ribbon-btn-icon svg { width: 16px; height: 16px; }
 .ribbon-btn-icon span { font-size: 12px; }
 .ribbon-btn.tall-narrow { padding: 6px 8px; min-width: 34px; }
-/* Arrange (Home) uses plain .ribbon-btn — no override. Notes/Docs/Slides keep
-   icon-only buttons at the base 60px min-width (docs.css:681-683) and only
-   .ribbon-btn-icon collapses to 28px, which is what .rb-stack used to force here.
-   The label needs no nudge either: with the Merge caret gone the controls row is
-   a plain 34px, so the centred .ribbon-group already leaves the usual 6px gap +
-   4px label margin-bottom above it. */
-/* Split-button caret (Borders, Merge, Delete, Format, AutoSum, Clear, ...).
-   Matched glyph, size, colour and motion to the dropdown caret in
-   .ms-dropdown-btn::after below, so the one ribbon reads as one set: same
-   "▼" (U+25BC) rather than the smaller "▾", same 10px, same
-   rgba(44,62,80,.6), same .2s rotate into the accent when the menu opens. */
+
 .ribbon-btn.split { position: relative; }
 .ribbon-btn.split::after {
   content: "▼";
@@ -2037,19 +1776,11 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 .ribbon-btn.split[aria-expanded="true"]::after { transform: translateY(-50%) rotate(180deg); }
 .ribbon-btn-icon.split::after { margin-top: 0; margin-left: 3px; }
 
-/* Borders split button matches the Text/Highlights dropdown buttons */
 .borders-btn svg { width: 14px; height: 14px; flex: none; margin-right: 4px; color: rgba(44, 62, 80, .6); }
 .borders-btn svg * { stroke-width: 1.5; }
 .borders-btn { min-width: 0 !important; padding-right: 20px; }
 .borders-btn .dropdown-value { flex: 0 0 auto; }
 
-/* ---------- ribbon availability (Notes/Slides/Docs parity) ---
-   updateRibbonAvailability() flips [disabled] on any ribbon control whose
-   precondition isn't met, so it greys out instead of running into a dead end.
-   Same values as docs.css:4896 so all four apps dim identically. Group labels
-   keep full strength — Notes and Slides dim controls only, never the label.
-   .ms-dropdown-btn needs no opacity entry of its own: it already carries the
-   `transition: .2s` shorthand (sheets.css:2136), same as docs.css:5037. */
 .ribbon-btn[disabled], .ms-dropdown-btn[disabled] {
   opacity: .35;
   cursor: not-allowed;
@@ -2078,7 +1809,6 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 .rbtn-col.on { background: rgba(35, 154, 77, .15); color: var(--ui-accent-strong); border-color: var(--ui-accent-border); }
 .rbtn-col svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-/* ---------- MS dropdowns (suite component — same as docs/slides/notes) ---------- */
 .ms-dropdown { position: relative; display: inline-block; }
 .ms-dropdown-btn {
   background: rgba(255, 255, 255, .8);
@@ -2138,16 +1868,10 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
   z-index: 10000;
   display: none;
   overflow: hidden;
-  /* Long menus scroll (overflow-y is set inline by portalMsMenu). Contain the
-     scroll chain, or hitting the end of the list chains the scroll to the
-     document and the "close menus on scroll" handler fires on us. */
+
   overscroll-behavior: contain;
   margin-top: 4px;
-  /* Open/close as transitions, mirroring the .show pattern in style.css, so both
-     directions animate. The previous one-shot dropdownFadeIn keyframe only ever
-     played on open — closing was an instant DOM removal. Shaped like docs.css's
-     dropdownIn (scale .95 + 4px lift) but on a non-overshooting curve, since the
-     bouncy var(--ease-bouncy) read as springy here. */
+
   transform-origin: top left;
   opacity: 0;
   transform: scale(.97) translateY(-4px);
@@ -2161,10 +1885,7 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
   pointer-events: auto;
   transition: opacity .18s ease, transform .18s ease;
 }
-/* Stays in the DOM (and displayed) so the exit transition can actually play.
-   Owns its own display because closeMsMenus drops .open when it starts the exit
-   — without this the element would hit display:none and vanish instead of fading.
-   Inert while it fades so it cannot swallow a click meant for the grid. */
+
 .ms-dropdown-menu.closing {
   display: block;
   opacity: 0;
@@ -2205,7 +1926,6 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 .color-list-menu .ms-dropdown-item { padding: 10px 16px; font-size: 13px; }
 .color-list-menu .ms-dropdown-item .color-preview { box-shadow: none; }
 
-/* ---------- Ribbon custom controls ---------- */
 .rb-color-btn {
   display: inline-flex;
   flex-direction: row;
@@ -2246,10 +1966,8 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 .rb-select:focus { border-color: var(--ui-accent); box-shadow: 0 0 0 3px rgba(35, 154, 77, .14); outline: none; }
 .rb-size { width: 58px; }
 
-/* ---------- Formula row (floating card — mirrors the ribbon card, no switcher) ---------- */
 #formula-row {
-  /* height of the collapsed bar; the side controls are pinned to this band so
-     expanding/collapsing never shifts them — only the chevron rotates. */
+
   --fx-band-h: 36px;
   height: auto;
   min-height: 30px;
@@ -2300,8 +2018,7 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
   font-family: "SF Mono", "DM Mono", Consolas, "Courier New", monospace;
   font-size: 12.5px;
   line-height: 20px;
-  /* 30px box - 2px border - 8px padding = 20px = exactly one line box,
-     so the collapsed text sits centred instead of riding the top edge. */
+
   padding: 4px 8px;
   background: transparent;
   caret-color: var(--ui-accent);
@@ -2314,10 +2031,8 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 .expand-grip { height: var(--fx-band-h); color: var(--ui-faint); }
 .expand-grip:hover { color: var(--ui-ink); }
 
-/* ---------- Grid canvas backdrop (matches the app surface so transparent headers blend in) ---------- */
 #grid-area { flex: 1; position: relative; overflow: hidden; background: #f5f5f5; min-height: 120px; }
 
-/* ---------- Bottom bar: sheet tabs (left half) + count & zoom (right half) ---------- */
 #status-bar {
   position: relative;
   z-index: 40;
@@ -2394,7 +2109,6 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 #add-sheet:active { background: rgba(0, 0, 0, .1); transform: scale(.94); }
 #add-sheet svg { width: 16px; height: 16px; }
 
-/* right half: selection count + zoom % */
 .sb-right { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; flex: 0 1 50%; }
 .statbar-item { padding: 0 4px; }
 #sb-stats { color: var(--ui-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 18vw; }
@@ -2420,9 +2134,6 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
   #ribbon-tabs .ribbon-tab.active::after { transition: none; }
 }
 
-/* ==========================================================================
-   File modal (Docs/Slides-style Backstage overlay)
-   ========================================================================== */
 @keyframes fadeInModal { from { opacity: 0; } to { opacity: 1; } }
 .file-overlay {
   position: fixed;
@@ -2547,11 +2258,6 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 .file-overlay-action-btn--danger:hover svg { color: #c82333; }
 .file-overlay-action-btn[disabled] { opacity: .45; pointer-events: none; }
 
-/* ==========================================================================
-   Docs/Slides-style modal skin (all custom dialogs)
-   Centered card, circular icon badge above title, floating close button,
-   generous 24px padding, centered action buttons, larger form fields.
-   ========================================================================== */
 #modal-root .modal-overlay {
   position: fixed;
   inset: 0;
@@ -2699,26 +2405,16 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 #modal-root .listbox { border-radius: 8px; }
 #modal-root .progressbar { border-radius: 6px; height: 6px; }
 
-/* ==========================================================================
-   WELCOME SCREEN (home / workbook overview) — Docs/Slides-style
-   ========================================================================== */
-/* #grid-row must be hidden, not just #grid-area. #grid-row is `flex: 1`, so as
-   a flex child of #app it claims its share of the height from its own flex
-   basis — hiding only its children left it taking 50% of the viewport and
-   squeezing .welcome-screen (also `flex: 1 1 0%`) into the other half, which
-   clipped the welcome screen in half. Hiding the wrapper also covers the chart
-   pane, which used to stay visible on the welcome screen. */
 body.no-active-wb #ribbon,
 body.no-active-wb #formula-row,
 body.no-active-wb #grid-row,
 body.no-active-wb #status-bar { display: none; }
 
-/* Fade/slide when toggling between the welcome screen and the editor */
 .screen-fade { animation: screenFade .24s ease-out; }
 @keyframes screenFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
 .welcome-screen {
-  display: none; /* JS toggles between flex (welcome) and none (editor) */
+  display: none;
   align-items: stretch;
   justify-content: center;
   flex: 1 1 0%;
@@ -2964,7 +2660,7 @@ body.no-active-wb #status-bar { display: none; }
 }
 
 .no-sheets-container {
-  display: none; /* JS toggles to flex */
+  display: none;
   flex-direction: column;
   align-items: center;
   gap: 16px;
@@ -2998,10 +2694,7 @@ body.no-active-wb #status-bar { display: none; }
   .welcome-content { padding: 24px 16px; }
   .sheet-list-display { grid-template-columns: 1fr; }
 }
-/* ===================== Find & Replace / Go To bar (bottom-right) =====================
-   Same compact design as the Notes app's findReplaceBar, with the Docs teal
-   accent: rounded card pinned to the bottom-right corner, slide-in animation,
-   find row with prev/next + live count, replace row, Go To row, options. */
+
 #findBar {
   position: fixed;
   right: 18px;
@@ -3144,7 +2837,6 @@ body.no-active-wb #status-bar { display: none; }
 }
 
 #findBar .fr-opt-label input { cursor: pointer; accent-color: var(--accent); }
-
 
 @media print {
   #findBar { display: none !important; }

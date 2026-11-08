@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- BUILD 2026-08-26.12 (References tab: custom modals for Footnote/Endnote/Citation replacing prompt/alert; real endnote system with end-of-doc section + panel management; Styles group in Home tab for creating headings (feeds TOC/outline); removed Caption, Cross-ref and Table of Figures features) -->
+
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -33,7 +33,7 @@
   </div>
   <div id="custom-toast" class="custom-toast"></div>
   <div class="app" id="app">
-    <!-- ===================== Print Preview Bar ===================== -->
+
     <div class="print-preview-bar" id="printPreviewBar">
       <div class="pp-info">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
@@ -45,7 +45,6 @@
       </div>
     </div>
 
-    <!-- ===================== Navbar (utilizing style.css) ===================== -->
     <header class="navbar sticky-top">
       <div class="navcontainer nav-container">
         <a href="emeraldsuite" class="logo">
@@ -60,7 +59,6 @@
       </div>
     </header>
 
-    <!-- ===================== Ribbon Tabs ===================== -->
     <div class="ribbon-tabs" id="ribbonTabs">
       <div class="ribbon-tabs-left">
         <button class="ribbon-tab" data-tab="file">File</button>
@@ -82,14 +80,11 @@
       </div>
     </div>
 
-    <!-- ===================== Ribbon ===================== -->
     <div class="ribbon" id="ribbon">
       <div class="ribbon-content">
 
-        <!-- ============ HOME PANEL ============ -->
         <div class="ribbon-panel active" data-panel="home">
 
-          <!-- History -->
           <div class="ribbon-group">
             <div class="group-label">History</div>
             <div class="ribbon-controls">
@@ -104,7 +99,6 @@
             </div>
           </div>
 
-          <!-- Clipboard -->
           <div class="ribbon-group">
             <div class="group-label">Clipboard</div>
             <div class="ribbon-controls">
@@ -123,11 +117,10 @@
             </div>
           </div>
 
-          <!-- Font -->
           <div class="ribbon-group" id="textFormatGroup">
             <div class="group-label">Font</div>
             <div class="ribbon-controls">
-              <!-- hidden native selects kept for JS compatibility (state sync) -->
+
               <select id="fontFamily" class="select" title="Font" hidden>
                 <option value="DM Sans, Arial, sans-serif">DM Sans</option>
                 <option value="Arial, sans-serif">Arial</option>
@@ -237,7 +230,7 @@
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9l8 8m0-8L4 17"/><text x="13" y="9" font-size="8" fill="currentColor" stroke="none" font-weight="700">2</text></svg>
                 </button>
               </div>
-              <!-- hidden native color inputs kept for JS compatibility -->
+
               <input type="color" id="textColor" value="#1a1a1a" hidden />
               <input type="color" id="hiliteColor" value="#fff59d" hidden />
               <div class="ms-dropdown" id="fontColorDropdown">
@@ -284,7 +277,6 @@
             </div>
           </div>
 
-          <!-- Paragraph -->
           <div class="ribbon-group" id="paragraphGroup">
             <div class="group-label">Paragraph</div>
             <div class="ribbon-controls">
@@ -330,7 +322,6 @@
           </div>
         </div>
 
-        <!-- ============ INSERT PANEL ============ -->
         <div class="ribbon-panel" data-panel="insert">
           <div class="ribbon-group">
             <div class="group-label">Links</div>
@@ -440,7 +431,6 @@
           </div>
         </div>
 
-        <!-- ============ LAYOUT PANEL ============ -->
         <div class="ribbon-panel" data-panel="layout">
           <div class="ribbon-group" id="stylesGroup">
             <div class="group-label">Styles</div>
@@ -525,7 +515,6 @@
           </div>
         </div>
 
-        <!-- ============ REVIEW PANEL ============ -->
         <div class="ribbon-panel" data-panel="review">
           <div class="ribbon-group">
             <div class="group-label">Proofing</div>
@@ -568,7 +557,6 @@
           </div>
         </div>
 
-        <!-- ============ VIEW PANEL ============ -->
         <div class="ribbon-panel" data-panel="view">
           <div class="ribbon-group">
             <div class="group-label">Zoom</div>
@@ -619,10 +607,6 @@
           </div>
         </div>
 
-        <!-- FILE tab: no inline panel — clicking it opens the File modal
-             (Backstage-style, matching Slides). Handled in docs.js. -->
-
-        <!-- ============ REFERENCES PANEL ============ -->
         <div class="ribbon-panel" data-panel="references">
           <div class="ribbon-group">
             <div class="group-label">TOC</div>
@@ -674,10 +658,8 @@
           </div>
         </div>
 
-        <!-- ============ IMAGE FORMAT PANEL (contextual — shown when an image is selected) ============ -->
         <div class="ribbon-panel" data-panel="image-format">
 
-          <!-- FILTERS — list-style dropdown -->
           <div class="ribbon-group" id="imageFormatGroup">
             <div class="group-label">Filters</div>
             <div class="ribbon-controls">
@@ -696,7 +678,6 @@
             </div>
           </div>
 
-          <!-- COLOR — steppers -->
           <div class="ribbon-group">
             <div class="group-label">Color</div>
             <div class="tr-timing-panel">
@@ -739,7 +720,6 @@
             </div>
           </div>
 
-          <!-- BORDER — color + width -->
           <div class="ribbon-group" id="imageBorderGroup">
             <div class="group-label">Border</div>
             <div class="ribbon-controls">
@@ -781,7 +761,6 @@
             </div>
           </div>
 
-          <!-- TRANSPARENCY — stepper -->
           <div class="ribbon-group" id="imageOpacityGroup">
             <div class="group-label">Transparency</div>
             <div class="ribbon-controls">
@@ -796,12 +775,10 @@
             </div>
           </div>
 
-        </div><!-- end IMAGE-FORMAT panel -->
+        </div>
 
-        <!-- ============ TABLE DESIGN PANEL (contextual — shown when a table is engaged) ============ -->
         <div class="ribbon-panel" data-panel="table-design">
 
-          <!-- TABLE STYLE OPTIONS — Slides "Timing › Start" pill toggles -->
           <div class="ribbon-group">
             <div class="group-label">Table Style Options</div>
             <div class="ribbon-controls">
@@ -834,7 +811,6 @@
             </div>
           </div>
 
-          <!-- TABLE STYLES — gallery strip + zoomed gallery popup -->
           <div class="ribbon-group td-styles-group">
             <div class="group-label">Table Styles</div>
             <div class="ribbon-controls">
@@ -845,7 +821,6 @@
             </div>
           </div>
 
-          <!-- SHADING — fill for the selection (or whole table) -->
           <div class="ribbon-group">
             <div class="group-label">Shading</div>
             <div class="ribbon-controls">
@@ -876,15 +851,13 @@
             </div>
           </div>
 
-        </div><!-- end TABLE-DESIGN panel -->
+        </div>
 
       </div>
     </div>
 
-    <!-- ===================== Document area (side panels + ruler overlay + scroll) ===================== -->
     <div class="document-area">
 
-      <!-- Pages (thumbnails) panel — in-flow, mirrors Slides' left sidebar -->
       <aside class="thumbnails-panel" id="thumbnailsPanel" aria-hidden="true">
         <div class="outline-head">
           <h3>Pages</h3>
@@ -895,25 +868,21 @@
         <div class="thumbnails-body" id="thumbnailsBody"></div>
       </aside>
 
-      <!-- Center column: ruler overlay + document scroll -->
       <div class="document-col">
-        <!-- Rulers overlay (top + left + corner) - visible when body.show-rulers is set,
-             matching Slides' editor-rulers -->
+
         <div class="document-rulers" id="documentRulers" aria-hidden="true">
           <div class="ruler-corner"></div>
           <div class="ruler-top" id="rulerTop"></div>
           <div class="ruler-left" id="rulerLeft"></div>
         </div>
 
-        <!-- ===================== Document ===================== -->
         <main class="document-scroll" id="documentScroll">
           <div class="pages-wrapper" id="pagesWrapper">
-            <!-- Pages injected by JS -->
+
           </div>
         </main>
       </div>
 
-      <!-- Outline panel — in-flow, mirrors Slides' Animation Pane (right side) -->
       <aside class="outline-panel" id="outlinePanel" aria-hidden="true">
         <div class="outline-head">
           <h3>Outline</h3>
@@ -931,7 +900,6 @@
       </aside>
     </div>
 
-    <!-- ===================== WELCOME SCREEN (home / documents overview) ===================== -->
     <div class="welcome-screen" id="welcomeScreen">
       <aside class="su-rail" aria-label="Suite navigation">
         <a class="rail-item" href="/emeraldsuite" title="Home">
@@ -989,7 +957,6 @@
       </div>
     </div>
 
-    <!-- ===================== Status Bar (Slides-style floating pill) ===================== -->
     <footer class="statusbar">
       <span class="statbar-item page-info" id="pageInfo">Page 1 of 1</span>
       <span class="statbar-sep">|</span>
@@ -1005,8 +972,6 @@
     </footer>
   </div>
 
-  <!-- ===================== Find & Replace Dialog ===================== -->
-  <!-- ===================== Insert Link Dialog ===================== -->
   <div class="modal-overlay" id="linkModal" aria-hidden="true">
     <div class="modal modal-sm" role="dialog" aria-label="Insert link">
       <div class="modal-head">
@@ -1032,10 +997,8 @@
     </div>
   </div>
 
-  <!-- Image insertion opens the OS file picker directly (Slides-style hidden input) -->
   <input type="file" id="insertImageInput" accept="image/*" style="display:none;">
 
-  <!-- ===================== Insert Table Dialog ===================== -->
   <div class="modal-overlay" id="tableModal" aria-hidden="true">
     <div class="modal modal-sm" role="dialog" aria-label="Insert table">
       <div class="modal-head">
@@ -1058,7 +1021,6 @@
     </div>
   </div>
 
-  <!-- ===================== Word Count Dialog ===================== -->
   <div class="modal-overlay" id="wordCountModal" aria-hidden="true">
     <div class="modal modal-stats" role="dialog" aria-label="Document statistics">
       <div class="modal-head">
@@ -1146,8 +1108,6 @@
     </div>
   </div>
 
-  <!-- ===================== Outline Sidebar ===================== -->
-  <!-- ===================== Margins Dialog ===================== -->
   <div class="modal-overlay" id="marginsModal" aria-hidden="true">
     <div class="modal modal-sm" role="dialog" aria-label="Page margins">
       <div class="modal-head">
@@ -1202,7 +1162,6 @@
     </div>
   </div>
 
-  <!-- ===================== Version History Dialog ===================== -->
   <div class="modal-overlay" id="versionsModal" aria-hidden="true">
     <div class="modal" role="dialog" aria-label="Version history">
       <div class="modal-head">
@@ -1223,7 +1182,6 @@
     </div>
   </div>
 
-  <!-- ===================== Templates Dialog ===================== -->
   <div class="modal-overlay" id="templatesModal" aria-hidden="true">
     <div class="modal" role="dialog" aria-label="Templates">
       <div class="modal-head">
@@ -1244,7 +1202,6 @@
     </div>
   </div>
 
-  <!-- ===================== Watermark Dialog ===================== -->
   <div class="modal-overlay" id="watermarkModal" aria-hidden="true">
     <div class="modal modal-sm" role="dialog" aria-label="Watermark">
       <div class="modal-head">
@@ -1275,8 +1232,6 @@
     </div>
   </div>
 
-
-  <!-- ===================== Cover Page Dialog ===================== -->
   <div class="modal-overlay" id="coverPageModal" aria-hidden="true">
     <div class="modal" role="dialog" aria-label="Cover page">
       <div class="modal-head">
@@ -1319,7 +1274,6 @@
     </div>
   </div>
 
-  <!-- ===================== Equation Dialog ===================== -->
   <div class="modal-overlay" id="equationModal" aria-hidden="true">
     <div class="modal" role="dialog" aria-label="Equation editor">
       <div class="modal-head">
@@ -1361,7 +1315,6 @@
     </div>
   </div>
 
-  <!-- ===================== Footnotes Panel ===================== -->
   <aside class="footnotes-panel" id="footnotesPanel" aria-hidden="true">
     <div class="outline-head">
       <h3>Footnotes &amp; Endnotes</h3>
@@ -1378,7 +1331,6 @@
     </div>
   </aside>
 
-  <!-- ===================== Drawing Toolbar (bottom-docked, slides/notes style) ===================== -->
   <div class="draw-toolbar" id="drawToolbar">
     <button class="draw-tool-btn active" id="drawPenBtn" title="Pen">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1431,13 +1383,9 @@
     <button class="draw-tool-btn draw-done-btn" id="drawDoneBtn" title="Done">&check; Done</button>
   </div>
 
-  <!-- ===================== Symbol Bar (bottom-docked, slides style) =====================
-       Ported from the Slides app: floating pill at the bottom with grouped
-       symbols to click-insert. No modal box. Done closes it. -->
-<!-- ===== SYMBOL BAR ===== -->
 <div class="symbol-toolbar" id="symbolToolbar">
     <div class="symbol-bar-scroll" id="symbolBarScroll">
-        <!-- Stars & Misc -->
+
         <div class="symbol-toolbar-divider"></div>
         <div class="symbol-group">
             <span class="symbol-section-label">Stars</span>
@@ -1466,7 +1414,7 @@
             </div>
         </div>
         <div class="symbol-toolbar-divider"></div>
-        <!-- Checkmarks & Hearts -->
+
         <div class="symbol-group">
             <span class="symbol-section-label">Marks</span>
             <div class="symbol-group-row">
@@ -1492,7 +1440,7 @@
             </div>
         </div>
         <div class="symbol-toolbar-divider"></div>
-        <!-- Arrows -->
+
         <div class="symbol-group">
             <span class="symbol-section-label">Arrows</span>
             <div class="symbol-group-row">
@@ -1513,7 +1461,7 @@
             </div>
         </div>
         <div class="symbol-toolbar-divider"></div>
-        <!-- Math -->
+
         <div class="symbol-group">
             <span class="symbol-section-label">Math</span>
             <div class="symbol-group-row">
@@ -1550,7 +1498,7 @@
             </div>
         </div>
         <div class="symbol-toolbar-divider"></div>
-        <!-- Greek -->
+
         <div class="symbol-group">
             <span class="symbol-section-label">Greek</span>
             <div class="symbol-group-row">
@@ -1579,7 +1527,7 @@
             </div>
         </div>
         <div class="symbol-toolbar-divider"></div>
-        <!-- Numbers & Bullets -->
+
         <div class="symbol-group">
             <span class="symbol-section-label">Numbers</span>
             <div class="symbol-group-row">
@@ -1598,7 +1546,7 @@
             </div>
         </div>
         <div class="symbol-toolbar-divider"></div>
-        <!-- Floral & Special -->
+
         <div class="symbol-group">
             <span class="symbol-section-label">Special</span>
             <div class="symbol-group-row">
@@ -1626,7 +1574,6 @@
     <button class="draw-tool-btn draw-done-btn" id="symbolDoneBtn" title="Done">&check; Done</button>
 </div>
 
-  <!-- ===================== Accessibility Checker Dialog ===================== -->
   <div class="modal-overlay" id="accessibilityModal" aria-hidden="true">
     <div class="modal" role="dialog" aria-label="Accessibility checker">
       <div class="modal-head">
@@ -1645,8 +1592,6 @@
     </div>
   </div>
 
-
-  <!-- ===================== SmartArt Dialog ===================== -->
   <div class="modal-overlay" id="smartArtModal" aria-hidden="true">
     <div class="modal" role="dialog" aria-label="Insert SmartArt">
       <div class="modal-head">
@@ -1665,7 +1610,6 @@
     </div>
   </div>
 
-  <!-- ===================== Section Break Dialog ===================== -->
   <div class="modal-overlay" id="sectionBreakModal" aria-hidden="true">
     <div class="modal modal-sm" role="dialog" aria-label="Section break">
       <div class="modal-head">
@@ -1725,7 +1669,6 @@
     </div>
   </div>
 
-  <!-- ===================== Footnote Dialog ===================== -->
   <div class="modal-overlay" id="footnoteModal" aria-hidden="true">
     <div class="modal modal-sm" role="dialog" aria-label="Insert footnote">
       <div class="modal-head">
@@ -1748,7 +1691,6 @@
     </div>
   </div>
 
-  <!-- ===================== Endnote Dialog ===================== -->
   <div class="modal-overlay" id="endnoteModal" aria-hidden="true">
     <div class="modal modal-sm" role="dialog" aria-label="Insert endnote">
       <div class="modal-head">
@@ -1771,7 +1713,6 @@
     </div>
   </div>
 
-  <!-- ===================== Citation Dialog ===================== -->
   <div class="modal-overlay" id="citeModal" aria-hidden="true">
     <div class="modal modal-sm" role="dialog" aria-label="Insert citation">
       <div class="modal-head">
@@ -1794,7 +1735,6 @@
     </div>
   </div>
 
-  <!-- ===================== Delete Document Confirmation (Slides/Notes-style) ===================== -->
   <div class="delete-modal" id="deleteDocModal">
     <div class="delete-modal-content">
       <div class="delete-modal-header">
@@ -1814,24 +1754,23 @@
     </div>
   </div>
 
-  <!-- ===================== File Management Modal (Slides-style centered overlay) ===================== -->
   <div class="file-overlay" id="fileModal">
     <div class="file-overlay-card">
-      <!-- Header -->
+
       <div class="file-overlay-header">
         <span class="file-overlay-header-title">File</span>
         <button class="file-overlay-close-btn" id="fileModalCloseXBtn" title="Close">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
-      <!-- Body -->
+
       <div class="file-overlay-body">
-        <!-- Document name -->
+
         <div class="file-overlay-section">
           <div class="file-overlay-section-label">Name</div>
           <input class="file-overlay-name-input" id="fileModalNameInput" type="text" placeholder="Untitled Document" autocomplete="off" />
         </div>
-        <!-- Actions -->
+
         <div class="file-overlay-section">
           <div class="file-overlay-section-label">Actions</div>
           <div class="file-overlay-actions-row">
@@ -1845,7 +1784,7 @@
             </button>
           </div>
         </div>
-        <!-- Export -->
+
         <div class="file-overlay-section">
           <div class="file-overlay-section-label">Export</div>
           <button class="file-overlay-action-btn" id="fileExportTxtBtn">
@@ -1869,7 +1808,7 @@
             Export as ODT (.odt)
           </button>
         </div>
-        <!-- Tools (Docs-specific) -->
+
         <div class="file-overlay-section">
           <div class="file-overlay-section-label">Tools</div>
           <button class="file-overlay-action-btn" id="fileStatsBtn">
@@ -1885,7 +1824,6 @@
     </div>
   </div>
 
-  <!-- ===================== Find & Replace / Go To bar (bottom-right, Notes-style) ===================== -->
   <div id="findBar" style="display:none;" role="dialog" aria-label="Find and replace">
     <div class="fr-header">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -1933,7 +1871,6 @@
     </div>
   </div>
 
-  <!-- ===================== Comment Composer (Slides-style) ===================== -->
   <div class="modal-overlay" id="commentModal" aria-hidden="true">
     <div class="modal modal-sm" role="dialog" aria-label="New comment">
       <div class="modal-head">
@@ -1954,18 +1891,16 @@
     </div>
   </div>
 
-  <!-- Confetti container -->
   <div class="confetti-container" id="confettiContainer" aria-hidden="true"></div>
 
-  <!-- Toast -->
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js" integrity="sha384-nFoSjZIoH3CCp8W639jJyQkuPHinJ2NHe7on1xvlUA7SuGfJAfvMldrsoAVm6ECz" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
-  <!-- PDF import: rebuilds a .pdf as editable text, tables and artwork. Same build Slides uses. -->
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" integrity="sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e" crossorigin="anonymous"></script>
-  <!-- Floating table toolbar (shown while the caret is inside a table) -->
+
   <div id="tableToolbar">
     <div class="tbl-groups">
       <div class="tbl-group">
@@ -2030,9 +1965,9 @@
   <script src="/assets/scripts/auth-client.js?v=5"></script>
   <script src="/assets/scripts/auth-guard.js"></script>
   <script src="/assets/scripts/tablekit.js"></script>
-  <!-- Shared Word-style table design engine (ribbon + toolbar + importer). -->
+
   <script src="/assets/scripts/tablestyles.js"></script>
-  <!-- DOCX export: packs the live pages into a real Word file (OOXML + ZIP). -->
+
   <script src="/assets/scripts/docxexport.js"></script>
   <script src="/assets/scripts/docs.js?v=2"></script>
   <script src="/assets/scripts/rightclick.js"></script>

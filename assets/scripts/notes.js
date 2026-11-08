@@ -49,9 +49,7 @@ class NotesApp {
         this.collabNoteData = null;
         this.collabNoteId = null;
         this.collabNoteVisible = false;
-        // Mirrors the local "isViewOnly" computed in setEditorForSession so that
-        // every editing entry point (undo/redo, find&replace, execCommand, etc.) can
-        // cheaply check it without re-deriving the rule.
+
         this.isViewOnly = false;
         this.collabSessions = new Map();
         this._activeCollabSessionId = null;
@@ -69,7 +67,7 @@ class NotesApp {
         this.setupTextEditor();
         this.setupDrawing();
         this.setupImageDragDrop();
-        this.initTableKit(); // Word/Docs-like table interactions (assets/scripts/tablekit.js)
+        this.initTableKit();
         this.setupImageInteractions();
         this.setupCanvasDragHandle();
         this.setupStatusBar();
@@ -356,8 +354,7 @@ class NotesApp {
             this._disconnected = false;
             clearTimeout(this._reconnectTimer);
             this._reconnectTimer = null;
-            // Confirm recovery with a toast only while the Connection Lost
-            // modal hasn't taken over — once it's up, the user must reload.
+
             if (!this._disconnectModalEl) this.showToast('Reconnected!', 4000);
         };
         window.addEventListener('offline', onOffline);
@@ -467,13 +464,7 @@ class NotesApp {
         const sessionId = params.get('collab');
         if (sessionId) {
             this.joinCollabSession(sessionId);
-            // NOTE: We intentionally do NOT clear the ?collab= URL here.
-            // The address bar should keep showing ?collab=<sessionId> while
-            // the user is viewing the shared note — that way they can copy
-            // the link from the address bar to re-share it. When the user
-            // later opens a different note, updateOwnedLinkBar() will
-            // automatically replace the URL with ?owned=<id> (or a different
-            // ?collab=<id> if they switch to another shared note).
+
             return;
         }
         let restored = [];
@@ -698,7 +689,7 @@ class NotesApp {
         if (permissionGroup) permissionGroup.style.display = this.collabIsOwner ? '' : 'none';
         if (collaboratorsGroup) collaboratorsGroup.style.display = this.collabIsOwner ? '' : 'none';
         if (closeBtn) closeBtn.style.display = this.collabIsOwner ? 'inline-flex' : 'none';
-        if (copyBtn) copyBtn.style.display = 'inline-flex'; 
+        if (copyBtn) copyBtn.style.display = 'inline-flex';
         shareModal.classList.add('show');
         const cleanup = () => {
             shareModal.classList.remove('show');
@@ -1101,10 +1092,7 @@ class NotesApp {
             const el = document.getElementById(id);
             if (el) el.style.display = visible ? '' : 'none';
         });
-        // Keep the undo/redo buttons visually in sync with the view-only state.
-        // Undo/redo should be enabled for any collaborator with edit permission,
-        // regardless of whether they are the session owner. Only disable when the
-        // session is truly view-only (non-owner + permission === 'view').
+
         this.updateRibbonAvailability();
         this._updateLeaveButtonVisibility();
     }
@@ -1142,16 +1130,14 @@ class NotesApp {
         const textEditor = document.getElementById('textEditor');
         const isViewOnly = !this.collabIsOwner && this.collabPermission === 'view';
         const isNonOwner = !this.collabIsOwner;
-        // Persist the computed view-only flag on the instance so every editing entry
-        // point can read it without re-deriving the rule.
+
         this.isViewOnly = isViewOnly;
         this.collabNoteVisible = true;
         if (titleInput) {
             titleInput.value = noteData.title || 'Untitled Note';
             titleInput.disabled = isViewOnly;
         }
-        // Visually disable undo/redo in view-only mode so the user gets immediate
-        // feedback that those operations are blocked.
+
         this.updateRibbonAvailability();
         if (textEditor) {
             const editorHasFocus = document.activeElement === textEditor;
@@ -1209,10 +1195,7 @@ class NotesApp {
         if (focus && textEditor && (this.collabIsOwner || this.collabPermission === 'edit')) {
             textEditor.focus();
         }
-        // Update the browser address bar to show ?collab=<sessionId> for this
-        // shared note. This makes the URL switch dynamically — e.g. if the
-        // user was previously viewing one of their own notes (?owned=...),
-        // opening a collab note changes the URL to ?collab=... and vice versa.
+
         this.updateOwnedLinkBar(noteData);
     }
     updateCollabNoteTitle(title) {
@@ -1438,7 +1421,7 @@ class NotesApp {
         }
     }
     leaveCollabNote() {
-        if (this.collabIsOwner) return; 
+        if (this.collabIsOwner) return;
         this.removeStoredValue('emeraldcore.storage.suite.notes.collab_non_owner');
         if (this.collabSessionId) {
             this._unregisterSession(this.collabSessionId);
@@ -1647,7 +1630,7 @@ class NotesApp {
     }
     setupSwipeGesture() {
         const app = document.querySelector('.notes-app');
-        const LEFT_EDGE_ZONE = 40; 
+        const LEFT_EDGE_ZONE = 40;
         app.addEventListener('touchstart', (e) => {
             if (!this.isMobile()) return;
             const touch = e.touches[0];
@@ -1687,9 +1670,9 @@ class NotesApp {
             const sidebar = document.querySelector('.sidebar');
             sidebar.style.transition = '';
             sidebar.style.transform = '';
-            const THRESHOLD = 50;         
-            const MAX_VERTICAL = 80;      
-            const MAX_TIME = 600;         
+            const THRESHOLD = 50;
+            const MAX_VERTICAL = 80;
+            const MAX_TIME = 600;
             const isHorizontalSwipe =
                 Math.abs(dx) > THRESHOLD &&
                 Math.abs(dy) < MAX_VERTICAL &&
@@ -2038,7 +2021,7 @@ class NotesApp {
                 e.stopPropagation();
                 e.preventDefault();
                 const value = item.dataset.value;
-                if (value === undefined || value === null || value === '') return; 
+                if (value === undefined || value === null || value === '') return;
                 const label = item.dataset.label || item.textContent.trim();
                 const valueSpan = btn.querySelector('.dropdown-value');
                 if (valueSpan) valueSpan.textContent = label;
@@ -2082,9 +2065,7 @@ class NotesApp {
         const undoBtn = document.getElementById('undoBtn');
         const redoBtn = document.getElementById('redoBtn');
         if (undoBtn) undoBtn.addEventListener('click', () => {
-            // View-only collaborators must not be able to mutate the document,
-            // even locally — `execCommand('undo')` would silently bypass
-            // contentEditable=false in some browsers.
+
             if (this.isViewOnly || undoBtn.disabled) return;
             document.getElementById('textEditor').focus();
             document.execCommand('undo');
@@ -2158,16 +2139,12 @@ class NotesApp {
                 e.preventDefault();
                 this.openFindReplace();
             }
-            // Ctrl+H opens Find & Replace too, but in view-only mode the Replace UI
-            // is hidden — so there's no point opening the bar with a replace intent.
-            // We still allow Ctrl+F in view-only (find-only usage).
+
             if ((e.ctrlKey || e.metaKey) && e.key === 'h' && !this.isViewOnly) {
                 e.preventDefault();
                 this.openFindReplace();
             }
-            // Hard-block Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z in view-only. Some browsers
-            // still fire native undo even when contentEditable is false; this guard
-            // makes the behavior consistent across browsers.
+
             if (this.isViewOnly && (e.ctrlKey || e.metaKey)) {
                 const k = e.key.toLowerCase();
                 if (k === 'z' || k === 'y') {
@@ -2270,11 +2247,7 @@ class NotesApp {
         if (this.savedSelection) {
             const editor = document.getElementById('textEditor');
             if (!editor) return;
-            // Guard against detached ranges: if a collab sync re-rendered the
-            // editor's innerHTML between saveSelection() and restoreSelection(),
-            // the saved range's containers are no longer children of the editor.
-            // addRange() would silently no-op in that case, leaving highlight /
-            // font commands operating on the wrong (possibly collapsed) selection.
+
             const sc = this.savedSelection.startContainer;
             const ec = this.savedSelection.endContainer;
             if (!sc || !ec || !editor.contains(sc) || !editor.contains(ec)) {
@@ -2286,7 +2259,7 @@ class NotesApp {
             try {
                 selection.addRange(this.savedSelection.cloneRange());
             } catch (e) {
-                // Silently ignore — the current browser selection will stand.
+
             }
         }
     }
@@ -2299,9 +2272,7 @@ class NotesApp {
         });
     }
     executeCommand(command, value = null) {
-        // In view-only collab mode the only allowed clipboard action is 'copy'.
-        // 'cut', 'paste', and all formatting commands are blocked so the viewer
-        // cannot mutate the note even locally.
+
         if (this.isViewOnly && command !== 'copy') return;
         document.getElementById('textEditor').focus();
         try {
@@ -2450,18 +2421,13 @@ class NotesApp {
             if (!textColor && element.style && element.style.color)
                 textColor = element.style.color;
             if (!backgroundColor) {
-                // Use getComputedStyle (not just inline style) so the swatch
-                // reflects inherited / computed background colors — e.g. when a
-                // highlight was applied via execCommand('hiliteColor') which may
-                // emit <font style="background-color:..."> or <mark> rather than
-                // a <span> with inline style. This keeps the swatch in sync with
-                // what the user actually sees.
+
                 const bg = styles.backgroundColor;
                 if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
                     backgroundColor = bg;
                 }
             }
-            // Also check <font> tag attributes
+
             if (!textColor && element.tagName && element.tagName.toLowerCase() === 'font' && element.getAttribute('color'))
                 textColor = element.getAttribute('color');
             element = element.parentElement;
@@ -2470,7 +2436,7 @@ class NotesApp {
         if (fontFamilyDropdown && fontFamily) {
             const valueSpan = fontFamilyDropdown.querySelector('.dropdown-value');
             if (valueSpan) {
-                // Try exact match first, then case-insensitive
+
                 let matchingItem = fontFamilyDropdown.querySelector(`[data-value="${fontFamily}"]`);
                 if (!matchingItem) {
                     const lower = fontFamily.toLowerCase();
@@ -2483,7 +2449,7 @@ class NotesApp {
         const fontSizeDropdown = document.getElementById('fontSizeDropdown');
         if (fontSizeDropdown && fontSize) {
             const valueSpan = fontSizeDropdown.querySelector('.dropdown-value');
-            if (valueSpan) valueSpan.textContent = fontSize; // no 'px' suffix
+            if (valueSpan) valueSpan.textContent = fontSize;
         }
         const fontColorDropdown = document.getElementById('fontColorDropdown');
         if (fontColorDropdown && textColor) {
@@ -2504,7 +2470,7 @@ class NotesApp {
             }
         }
     }
-    // ─── Keyboard Shortcuts ──────────────────────────────────────────────────────
+
     handleKeyboardShortcuts(e) {
         if (e.ctrlKey || e.metaKey) {
             switch (e.key.toLowerCase()) {
@@ -2519,11 +2485,7 @@ class NotesApp {
                 case 'u':
                     if (this.isEditorFocused()) { e.preventDefault(); this.executeCommand('underline'); this.updateButtonStates(); }
                     break;
-                // Defense-in-depth: also intercept Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z
-                // here, in addition to the document-level keydown handler in
-                // setupTextEditor(). Some browsers route keystrokes through
-                // different listeners depending on focus; having both guards
-                // guarantees view-only mode never lets undo/redo through.
+
                 case 'z':
                 case 'y':
                     if (this.isViewOnly && this.isEditorFocused()) {
@@ -2536,7 +2498,7 @@ class NotesApp {
     isEditorFocused() {
         return document.getElementById('textEditor').contains(document.activeElement);
     }
-    // ─── Notes CRUD ──────────────────────────────────────────────────────────────
+
     createNewNote() {
         const note = {
             id: this.generateId(),
@@ -2559,7 +2521,7 @@ class NotesApp {
             }
             titleInput.select();
         }, 100);
-        // On mobile, close sidebar after selecting/creating a note
+
         if (this.isMobile()) this.closeMobileSidebar();
     }
     selectNote(noteId) {
@@ -2600,7 +2562,7 @@ class NotesApp {
                 this._hideLeaveButton();
             }
         } else if (this.collabMode && noteId === this.collabNoteId) {
-            // Switching back to the shared note — restore collab view
+
             this.collabNoteVisible = true;
             if (this.collabNoteData) {
                 this.setEditorForSession(this.collabNoteData, false);
@@ -2609,9 +2571,9 @@ class NotesApp {
             }
             this.renderCollabBar(this._activeUsers || {});
         } else if (this.collabMode) {
-            // Switching away from shared note to own note
+
             this.collabNoteVisible = false;
-            // Clear cursor in Firebase so others don't see it
+
             if (this.collabSessionId && this.collabUser) {
                 this._dbPatch(`/sharednotes/${this.collabSessionId}/activeUsers/${this.collabUser.id}`, { cursor: null }).catch(() => {});
             }
@@ -2621,8 +2583,7 @@ class NotesApp {
             if (!this.collabIsOwner) {
                 this._setOwnerOnlyButtonsVisible(true);
                 document.body.classList.remove('collab-non-owner', 'collab-view-only');
-                // Switching from a view-only shared note back to one of our own notes —
-                // the local isViewOnly flag must be reset so editing works again.
+
                 this.isViewOnly = false;
                 this.updateRibbonAvailability();
             }
@@ -2643,11 +2604,7 @@ class NotesApp {
                 dropdownValue.textContent = colorItem ? (colorItem.dataset.label || 'Default') : 'Default';
             }
         }
-        // Update the browser address bar to reflect the currently-open note.
-        // For local notes this sets ?owned=<id>; for collab notes that route
-        // through setEditorForSession() the URL is set there instead. This
-        // call is what makes the URL switch DYNAMICALLY as the user clicks
-        // different notes in the sidebar.
+
         this.updateOwnedLinkBar(note);
         document.querySelectorAll('.note-item').forEach(item => {
             item.classList.toggle('active', item.dataset.noteId === noteId);
@@ -2678,7 +2635,7 @@ class NotesApp {
             const ribbon = document.querySelector('.ribbon');
             if (ribbon) {
                 ribbon.classList.remove('entering');
-                void ribbon.offsetWidth; 
+                void ribbon.offsetWidth;
                 ribbon.classList.add('entering');
             }
         }
@@ -2835,11 +2792,11 @@ class NotesApp {
     }
     getColorClassFromHex(hex) {
         const colorMap = {
-            '#ffe4e1': 0, 
-            '#e6f3ff': 1, 
-            '#e8f5e8': 2, 
-            '#fff9e6': 3, 
-            '#f3e6ff': 4  
+            '#ffe4e1': 0,
+            '#e6f3ff': 1,
+            '#e8f5e8': 2,
+            '#fff9e6': 3,
+            '#f3e6ff': 4
         };
         return colorMap[hex] !== undefined ? colorMap[hex] : -1;
     }
@@ -2874,17 +2831,7 @@ class NotesApp {
             this._setOwnerOnlyButtonsVisible(true);
             this._updateLeaveButtonVisibility();
             this.renderNotesCards();
-            // IMPORTANT: Do NOT clear the URL here. `showWelcomeScreenIfNeeded()`
-            // runs DURING init() (line 78), BEFORE `openOwnedNoteFromUrl()` and
-            // `importNoteFromUrl()` get a chance to read the URL (they run
-            // later in the DOMContentLoaded handler). Clearing the URL here
-            // would silently break ?owned= / ?collab= / ?share= / ?s= links.
-            //
-            // Stale URL cleanup is handled by the specific handlers:
-            //   - ?owned= : openOwnedNoteFromUrl() clears it if the note isn't found
-            //   - ?collab= : checkShareSessionFromURL() clears it after joining
-            //   - ?share= / ?s= : importNoteFromUrl() clears it after importing
-            //   - Any other URL : left alone (e.g. refresh on a non-notes page)
+
         }
         this.updateRibbonAvailability();
     }
@@ -2957,7 +2904,7 @@ class NotesApp {
             this.showToast('Please select an image file.');
             return;
         }
-        const maxSize = 25 * 1024 * 1024; 
+        const maxSize = 25 * 1024 * 1024;
         if (file.size > maxSize) {
             this.showToast('Image too large. Please use images under 25 MB.');
             return;
@@ -3010,11 +2957,7 @@ class NotesApp {
         });
     }
     initTableKit() {
-        // Word/Docs-like table interactions, shared across EmeraldSuite
-        // (assets/scripts/tablekit.js + tablekit.css). Column borders drag-
-        // resize, rows resize, the grab handle moves/selects the table, and
-        // the corner handle scales it. Handles live in a body-level overlay,
-        // so saved note HTML only ever gains real cell size styles.
+
         const editor = document.getElementById('textEditor');
         if (!editor || !window.EMTableKit) return;
         window.EMTableKit.attach({
@@ -3028,7 +2971,7 @@ class NotesApp {
                 else if (ctl.activeCell && document.contains(ctl.activeCell)) ctl.reposition();
             },
             isEditable: () => {
-                // honor view-only (collab) mode and drawing mode
+
                 return !this.isViewOnly && !this.isDrawMode && editor.contentEditable === 'true';
             }
         });
@@ -3324,8 +3267,7 @@ class NotesApp {
             }
             if (label) label.textContent = this._tableDims.rows + ' × ' + this._tableDims.cols;
         };
-        // Docs-style grid-of-boxes picker: hover to highlight a rows×cols area,
-        // click a cell (or press Insert) to create the table with that size.
+
         if (grid) {
             grid.innerHTML = '';
             const MAX = 8;
@@ -3708,13 +3650,7 @@ class NotesApp {
             return decodeURIComponent(encodeURIComponent(v));
         } catch (e) { return ''; }
     }
-    // Sink-edge UTF-16 codec boundary (js/client-side-unvalidated-url-redirection).
-    // A string is exactly its sequence of UTF-16 code units, so _urlToCodes() +
-    // _codesToUrl() round-trip losslessly. Image sink values are reconstructed
-    // from primitive numbers right at the sink instead of being passed through
-    // as stored strings; charCodeAt() is not carried as a CodeQL taint step
-    // (only String.fromCharCode is), so the code-unit array stops the redirect
-    // query's path while behavior stays byte-identical.
+
     _urlToCodes(s) {
         const codes = [];
         for (let i = 0; i < s.length; i++) codes.push(s.charCodeAt(i));
@@ -3725,11 +3661,7 @@ class NotesApp {
         for (let i = 0; i < codes.length; i++) out += String.fromCharCode(codes[i]);
         return out;
     }
-    // Media-image sanitizer (CodeQL js/xss WriteUrlSink). Data:-URLs are
-    // converted to a fresh browser-generated blob: URL so a storage-sourced
-    // payload never reaches an <img> src; every value handed back passes
-    // through _uriClean(), whose encodeURIComponent() call is a recognized
-    // XSS sanitizer node, so no storage/user taint survives into the sink.
+
     _noteSafeImageSrc(u) {
         const v = String(u || '').trim();
         if (!v) return '';
@@ -3758,7 +3690,7 @@ class NotesApp {
             if (editor) {
                 const img = document.createElement('img');
                 const du = String(meta.dataUrl || '').trim();
-                // Only image data-URLs, web/blob URLs and relative paths survive.
+
                 img.src = this._noteSafeImageSrc(du);
                 img.alt = 'drawing';
                 img.style.maxWidth = '100%';
@@ -3886,8 +3818,7 @@ class NotesApp {
             'src', 'alt', 'draggable'
         ];
         try {
-            // innerHTML only receives DOMPurify output; the fallback path uses
-            // textContent (a safe sink) so no tainted string reaches an HTML sink.
+
             const _asBody = document.createElement('div');
             if (typeof DOMPurify !== 'undefined') {
                 _asBody.innerHTML = DOMPurify.sanitize(html || '', { FORCE_BODY: true });
@@ -3950,13 +3881,13 @@ class NotesApp {
         if (animate) {
             menu.classList.add('ms-portal-closing');
             menu.addEventListener('animationend', cleanup);
-            setTimeout(cleanup, 220); 
+            setTimeout(cleanup, 220);
         } else {
             cleanup();
         }
     }
     _openPortal(dropdown, btn, menu) {
-        this._closePortal(false); 
+        this._closePortal(false);
         document.body.appendChild(menu);
         this._portalMenu = menu;
         this._portalDropdown = dropdown;
@@ -4018,7 +3949,7 @@ class NotesApp {
                 item.addEventListener('click', (e) => {
                     e.stopPropagation(); e.preventDefault();
                     const value = item.dataset.value;
-                    if (value === undefined || value === null || value === '') return; 
+                    if (value === undefined || value === null || value === '') return;
                     const label = item.dataset.label || item.textContent;
                     const valueSpan = btn.querySelector('.dropdown-value');
                     const isColorOnlyDropdown = dropdown.id === 'fontColorDropdown' || dropdown.id === 'highlightColorDropdown';
@@ -4134,8 +4065,7 @@ class NotesApp {
                 Array.from(table.rows).forEach((r, ri) => {
                     const cell = document.createElement(ri === 0 ? 'th' : 'td');
                     cell.textContent = ri === 0 ? 'Header' : '';
-                    // fixed-layout tables need an explicit width or the new
-                    // column collapses to zero — inherit the neighbour's
+
                     const ref = r.cells[colIndex];
                     if (ref && ref.style.width) cell.style.width = ref.style.width;
                     r.insertBefore(cell, ref);
@@ -4145,7 +4075,7 @@ class NotesApp {
                     const cell = document.createElement(ri === 0 ? 'th' : 'td');
                     cell.textContent = ri === 0 ? 'Header' : '';
                     const ref = r.cells[colIndex + 1] || r.cells[colIndex];
-                    // same fixed-layout width inheritance
+
                     if (ref && ref.style.width) cell.style.width = ref.style.width;
                     const next = r.cells[colIndex + 1];
                     if (next) r.insertBefore(cell, next); else r.appendChild(cell);
@@ -4155,7 +4085,7 @@ class NotesApp {
                     Array.from(table.rows).forEach(r => { if (r.cells[colIndex]) r.cells[colIndex].remove(); });
                 }
             } else if (action === 'design') {
-                // Word-style Table Design picker (shared EMTableStyles popover)
+
                 const TS = window.EMTableStyles;
                 if (TS) {
                     TS.openDesignPopover({
@@ -4174,9 +4104,7 @@ class NotesApp {
                 toolbar.style.display = 'none'; activeCell = null;
             }
         });
-        // Expose a reposition hook so TableKit can keep the toolbar glued to
-        // the table on zoom / scroll / resize (it is fixed-positioned once
-        // on click and never moved otherwise).
+
         this._tableToolbarCtl = {
             reposition: () => {
                 if (!activeCell || toolbar.style.display === 'none') return;
@@ -4269,13 +4197,7 @@ class NotesApp {
         toggleBtn.style.opacity = '1';
         toggleBtn.style.pointerEvents = 'auto';
     }
-    /* Editor / Zen view mode (Notion-style focus view).
-       Two pills at the very bottom of the sidebar switch between the normal
-       Editor layout and Zen: sidebar, +Notes, hamburger, ribbon, top navbar
-       and statusbar hide; the title becomes a big heading at the top of the
-       content and the color/share/export/delete bar floats bottom-right.
-       A floating copy of the switch (bottom-left) lets you leave Zen, since
-       the sidebar's copy is hidden with it. Escape also exits Zen. */
+
     setupViewMode() {
         const groups = Array.from(document.querySelectorAll('.notes-mode-switch'));
         if (!groups.length) return;
@@ -4297,15 +4219,14 @@ class NotesApp {
             });
             clearTimeout(this._zenUiTimer);
             if (zen) {
-                // Restore the saved "show ribbon" preference for Zen.
+
                 const showRibbon = this.getStoredValue('emeraldcore.storage.suite.notes.zenribbon') === true;
                 document.body.classList.toggle('show-ribbon', showRibbon);
                 if (ribbonToggle) {
                     ribbonToggle.setAttribute('aria-pressed', showRibbon ? 'true' : 'false');
                     ribbonToggle.title = showRibbon ? 'Hide Ribbon' : 'Show Ribbon';
                 }
-                // Staged entrance: chrome collapses first, then the floating
-                // Title/actions bar + exit switch spring in from below.
+
                 document.body.classList.remove('zen-ui-in');
                 this._zenUiTimer = setTimeout(() => document.body.classList.add('zen-ui-in'), 320);
             } else {
@@ -4343,26 +4264,19 @@ class NotesApp {
         const saved = this.getStoredValue(STORAGE_KEY);
         apply(saved === 'zen' ? 'zen' : 'editor');
     }
-    /* The title element is a textarea so long titles wrap onto new lines up
-       to the 70-char cap (an <input> can only show an ellipsis). The title
-       stays a single logical line: Enter is a no-op and any newlines from
-       pasted text collapse to spaces, so wrapping is pure word-wrap. The
-       height autogrows as lines are added — including when the value is set
-       programmatically (note load, import, collab sync), which is why the
-       value setter is wrapped below. */
+
     setupTitleAutogrow() {
         const el = document.getElementById('noteTitle');
         if (!el || el.dataset.autogrowReady) return;
         el.dataset.autogrowReady = '1';
         const resize = () => {
-            /* Only Zen mode grows the title; the base Editor layout keeps a
-               strict single line (style.height cleared, fixed CSS height). */
+
             if (!document.body.classList.contains('notes-zen')) {
                 el.style.height = '';
                 return;
             }
             el.style.height = 'auto';
-            // Force a reflow so scrollHeight reflects the wrapped content.
+
             void el.offsetHeight;
             el.style.height = Math.max(el.scrollHeight, 48) + 'px';
         };
@@ -4565,9 +4479,7 @@ class NotesApp {
             span.style.color = color;
             try {
                 const fragment = range.extractContents();
-                // Strip every existing explicit text color inside the selection
-                // so the chosen color applies to the ENTIRE selection — not just
-                // the part that previously had the default color.
+
                 this._stripInlineFormat(fragment, 'color');
                 span.appendChild(fragment);
                 range.insertNode(span);
@@ -4585,21 +4497,14 @@ class NotesApp {
         const editor = document.getElementById('textEditor');
         if (!editor) return;
         const range = selection.getRangeAt(0);
-        // Bail out if the restored range is outside the editor — this happens
-        // when the saved range got detached (e.g. by a collab sync re-render).
-        // Operating on a stale range would either silently no-op or apply the
-        // highlight to the wrong element, which is the root cause of the
-        // "highlight sometimes doesn't apply correctly" symptom.
+
         if (!editor.contains(range.startContainer) || !editor.contains(range.endContainer)) {
             return;
         }
         const isNone = !color || color === 'transparent' || color === 'none';
         if (range.collapsed) {
             if (!isNone) {
-                // Clean up any prior orphaned temp-formatting span first, so
-                // repeated "pick color with no selection" actions don't stack
-                // up zero-width-space spans that later escape into the saved
-                // note content (another source of "highlight doesn't clear").
+
                 if (this.tempFormattingSpan && this.tempFormattingSpan.parentNode) {
                     this.tempFormattingSpan.parentNode.removeChild(this.tempFormattingSpan);
                     this.tempFormattingSpan = null;
@@ -4624,10 +4529,7 @@ class NotesApp {
                 span.style.backgroundColor = color;
                 try {
                     const fragment = range.extractContents();
-                    // Strip existing background colors inside the selection so
-                    // the highlight applies uniformly to the whole selection —
-                    // including text that already had a text color or a
-                    // different highlight color.
+
                     this._stripInlineFormat(fragment, 'background');
                     span.appendChild(fragment);
                     range.insertNode(span);
@@ -4635,9 +4537,7 @@ class NotesApp {
                     selection.removeAllRanges();
                     selection.addRange(range);
                 } catch (e) {
-                    // Fallback for edge cases (e.g. selection crossing element
-                    // boundaries that extractContents can't serialize). Try
-                    // hiliteColor first, then backColor (Firefox).
+
                     try { document.execCommand('hiliteColor', false, color); }
                     catch (_) { try { document.execCommand('backColor', false, color); } catch (__) {} }
                 }
@@ -4645,25 +4545,12 @@ class NotesApp {
         }
         this.updateNoteContent();
     }
-    /**
-     * Remove inline color (kind === 'color') or background (kind === 'background')
-     * formatting from every element inside an extracted DocumentFragment.
-     *
-     * Without this, wrapping a selection that mixes already-colored text in a new
-     * <span> leaves the nested spans' explicit colors intact, so the new color only
-     * reaches the text that previously had the default color. Walking the fragment
-     * and clearing the conflicting inline style (plus legacy <font color>/<bgcolor>
-     * attributes) first makes the selected color apply to every character.
-     *
-     * Elements that end up with no remaining style/attribute are unwrapped so the
-     * saved note HTML stays clean (no leftover empty <span>/<font> wrappers).
-     */
+
     _stripInlineFormat(root, kind) {
         const elements = [];
         const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
         while (walker.nextNode()) elements.push(walker.currentNode);
-        // Process deepest-first so unwrapping an outer element never invalidates
-        // references to inner ones.
+
         for (let i = elements.length - 1; i >= 0; i--) {
             const el = elements[i];
             if (kind === 'color') {
@@ -4700,36 +4587,21 @@ class NotesApp {
         parent.removeChild(el);
         if (parent.normalize) parent.normalize();
     }
-    /**
-     * Strip background-color from every element that intersects the given range.
-     *
-     * This replaces the previous buggy clear logic which:
-     *   1. Skipped descendant spans entirely when the range's common ancestor
-     *      was the editor itself (i.e. multi-paragraph selections) — causing
-     *      "highlight doesn't clear" when the user selected across paragraphs.
-     *   2. Lost access to descendant spans after unwrapping the ancestor itself.
-     *   3. Only matched <span style="background-color">, ignoring <font> and
-     *      <mark> elements that execCommand fallbacks may have produced.
-     *
-     * The new implementation walks the entire subtree of the range's root
-     * (the editor itself when the selection spans multiple blocks), collects
-     * every element that has any background-color set, and strips it —
-     * unwrapping the element if it has no remaining styling.
-     */
+
     _clearHighlightInRange(editor, range) {
         const unwrapElement = (el) => {
             const parent = el.parentNode;
             if (!parent) return;
-            // Move children out before removing the wrapper.
+
             while (el.firstChild) parent.insertBefore(el.firstChild, el);
             parent.removeChild(el);
-            // Normalize adjacent text nodes that may have been split.
+
             if (parent.normalize) parent.normalize();
         };
         const hasBackgroundColor = (el) => {
             if (!el.style) return false;
             if (el.style.backgroundColor) return true;
-            // Legacy <font bgcolor="..."> from old execCommand output.
+
             if (el.tagName === 'FONT' && el.getAttribute('bgcolor')) return true;
             return false;
         };
@@ -4746,7 +4618,7 @@ class NotesApp {
                 const style = el.getAttribute('style');
                 return (!style || style.trim() === '') && !el.className;
             }
-            // Unwrap legacy <font> tags that have no remaining attributes.
+
             if (el.tagName === 'FONT') {
                 return !el.getAttribute('color') && !el.getAttribute('bgcolor') &&
                        !el.getAttribute('size') && !el.getAttribute('face');
@@ -4758,10 +4630,6 @@ class NotesApp {
             catch (e) { return false; }
         };
 
-        // Step 1: walk up from the range's common ancestor, clearing any
-        // ancestor element that fully contains the range and has a background.
-        // This handles the case where the entire selection sits inside a
-        // single highlighted wrapper.
         let ancestor = range.commonAncestorContainer;
         if (ancestor.nodeType === Node.TEXT_NODE) ancestor = ancestor.parentElement;
         let cur = ancestor;
@@ -4778,10 +4646,6 @@ class NotesApp {
             cur = cur.parentElement;
         }
 
-        // Step 2: collect every descendant of the root that has a background
-        // color AND intersects the range. The root is the editor itself when
-        // the selection spans multiple block elements (the previous code
-        // bailed out in this case — that was the main "doesn't clear" bug).
         ancestor = range.commonAncestorContainer;
         if (ancestor.nodeType === Node.TEXT_NODE) ancestor = ancestor.parentElement;
         const root = (ancestor && editor.contains(ancestor)) ? ancestor : editor;
@@ -4792,11 +4656,7 @@ class NotesApp {
             NodeFilter.SHOW_ELEMENT,
             {
                 acceptNode: (node) => {
-                    // IMPORTANT: use FILTER_SKIP (not FILTER_REJECT) here.
-                    // FILTER_REJECT would skip the node's entire subtree, so
-                    // a <p> without a background-color would cause us to miss
-                    // the highlighted <span> inside it. FILTER_SKIP visits the
-                    // node's children even when the node itself is filtered out.
+
                     if (!hasBackgroundColor(node)) return NodeFilter.FILTER_SKIP;
                     if (!intersectsRange(node)) return NodeFilter.FILTER_SKIP;
                     return NodeFilter.FILTER_ACCEPT;
@@ -4805,11 +4665,9 @@ class NotesApp {
         );
         while (walker.nextNode()) candidates.push(walker.currentNode);
 
-        // Step 3: strip in reverse order (deepest first) so unwrapping an
-        // outer element doesn't invalidate our references to inner ones.
         for (let i = candidates.length - 1; i >= 0; i--) {
             const el = candidates[i];
-            if (!el.parentNode) continue; // already removed by an earlier unwrap
+            if (!el.parentNode) continue;
             stripBackgroundColor(el);
             if (isUnwrappable(el)) unwrapElement(el);
         }
@@ -4903,12 +4761,9 @@ class NotesApp {
             if (!exportModal) return;
             this.saveSelection();
             const MAX_URL_LENGTH = 8215;
-            // The share link parameter was renamed from `s` to `share` for clarity.
-            // Old `?s=` links are still accepted on import for backward compatibility.
+
             const baseUrl = `${window.location.origin}${window.location.pathname}?share=`;
-            // Include the note's color (`cl`) in the export payload so the receiver
-            // sees the same background color the sender chose. Previously the color
-            // was dropped here and hardcoded to white on import.
+
             const token = await compressToUrl(JSON.stringify({
                 t: note.title,
                 c: note.content,
@@ -4967,85 +4822,45 @@ class NotesApp {
             copyBtn.addEventListener('click', handleCopy);
         } catch (error) { console.error('Error encoding note:', error); }
     }
-    /**
-     * Open the user's own note via the `?owned=<id>` URL parameter.
-     *
-     * Unlike `?share=` (which imports a copy of someone else's note) and
-     * `?collab=` (which joins a live collaboration session), `?owned=` is a
-     * purely personal link: it lets the user bookmark or copy-paste a direct
-     * link to one of their own notes from the browser address bar so they
-     * don't have to hunt for it in the sidebar list. If the note id isn't in
-     * the local storage (e.g. the user is on a different device), we fall
-     * back to the welcome screen.
-     *
-     * Returns true if the parameter was present (so the caller knows to skip
-     * the `?share=` import path).
-     */
+
     openOwnedNoteFromUrl() {
         const params = new URLSearchParams(window.location.search);
         const ownedId = params.get('owned');
         if (!ownedId) return false;
-        // Only open notes the user actually owns locally. Collab virtual notes
-        // (note._isCollabNote === true) are not "owned" and must not be opened
-        // through this path — that's what ?collab= is for.
+
         const note = this.notes.find(n => n.id === ownedId && !n._isCollabNote);
         if (note) {
             this.selectNote(ownedId);
-            // selectNote() already re-wrote the address bar with the current
-            // note's ?owned=<id> URL via updateOwnedLinkBar(), so we leave it
-            // intact and DON'T clear it here.
+
         } else {
-            // Note not found locally — clear the stale ?owned= URL (so refresh
-            // doesn't keep re-triggering this path) and show the welcome screen
-            // so the user can pick another note.
+
             this.showWelcomeScreenIfNeeded();
             window.history.replaceState({}, document.title, window.location.pathname);
         }
         return true;
     }
-    /**
-     * Refresh the browser address bar to reflect the currently-open note.
-     * Called from selectNote() (and setEditorForSession() for collab notes)
-     * so the URL auto-updates every time the user opens a different note.
-     *
-     * Behavior:
-     *   - Local note (the user's own)         → `?owned=<noteId>`
-     *   - Collab/shared note (active session) → `?collab=<sessionId>`
-     *   - No active note (welcome screen)     → URL cleared
-     *
-     * The URL switches DYNAMICALLY as the user opens different notes — e.g.
-     * if they're viewing a collab note (?collab=ABC) and then click one of
-     * their own notes in the sidebar, the URL changes to ?owned=<id>. If
-     * they click back to the collab note, it changes back to ?collab=ABC.
-     *
-     * No visible UI bar is rendered — the URL lives only in the address bar.
-     */
+
     updateOwnedLinkBar(note) {
-        // Case 1: We're viewing an active collab/shared note → show ?collab=
+
         if (this.collabMode && this.collabNoteVisible && this.collabSessionId) {
             const collabUrl = `${window.location.origin}${window.location.pathname}?collab=${encodeURIComponent(this.collabSessionId)}`;
             window.history.replaceState({}, document.title, collabUrl);
             return;
         }
-        // Case 2: We're viewing one of the user's own local notes → show ?owned=
+
         if (note && !note._isCollabNote) {
             const ownedUrl = `${window.location.origin}${window.location.pathname}?owned=${encodeURIComponent(note.id)}`;
             window.history.replaceState({}, document.title, ownedUrl);
             return;
         }
-        // Case 3: No active note (or a collab note that isn't currently
-        // visible) → clear the URL so it doesn't show a stale link.
-        // (showWelcomeScreenIfNeeded handles the welcome-screen case; this
-        // branch covers edge cases like switching to a collab note that
-        // failed to load.)
+
         if (window.location.search) {
             window.history.replaceState({}, document.title, window.location.pathname);
         }
     }
     async importNoteFromUrl() {
         const params = new URLSearchParams(window.location.search);
-        // Accept both the new `share` parameter and the legacy `s` parameter
-        // so existing shared links continue to work after the rename.
+
         const token = params.get('share') || params.get('s');
         if (!token) return;
         try {
@@ -5054,17 +4869,13 @@ class NotesApp {
                 id: this.generateId(),
                 title: data.t || 'Untitled',
                 content: data.c || '',
-                // Read the exported color (`cl`) if present, defaulting to white
-                // for legacy links that were generated before color was included.
+
                 color: (typeof data.cl === 'string' && data.cl) ? data.cl : '#ffffff',
                 createdAt: new Date().toISOString(),
                 modifiedAt: new Date().toISOString()
             };
             this.notes.unshift(newNote);
-            // Clear the ?share= / ?s= URL BEFORE calling selectNote(), so
-            // that selectNote() → updateOwnedLinkBar() sets the new note's
-            // ?owned=<id> URL cleanly (without the stale ?share= still in
-            // the address bar confusing things).
+
             window.history.replaceState({}, document.title, window.location.pathname);
             this.selectNote(newNote.id);
             this.renderNotesList();
@@ -5121,10 +4932,7 @@ class NotesApp {
         const bar = document.getElementById('findReplaceBar');
         if (!bar) return;
         bar.style.display = 'block';
-        // In view-only mode, hide the Replace UI so the user can only search
-        // (and copy text via the browser's native selection + Ctrl+C). The
-        // Replace One / Replace All buttons are also disabled in
-        // _frUpdateButtons() as a defense-in-depth measure.
+
         const replaceRow = document.getElementById('frReplaceRow');
         if (replaceRow) {
             replaceRow.style.display = this.isViewOnly ? 'none' : '';
@@ -5254,7 +5062,7 @@ class NotesApp {
     }
 
     _frReplaceAll() {
-        // View-only guard — see _frReplaceOne for rationale.
+
         if (this.isViewOnly) return;
         if (!this._frMatches.length) return;
         const replaceVal = document.getElementById('frReplaceInput')?.value || '';

@@ -1,28 +1,8 @@
-/* ============================================================
-   EMTableStyles — Word-style table DESIGN engine (shared).
-   ============================================================
-   Used by the Docs "Table Design" contextual ribbon, the Notes
-   table toolbar, and the DOCX importer. A table's design lives
-   in three data attributes that survive sanitization:
 
-     data-table-style  preset id ("none", "grid-azure", …)
-     data-table-opts   JSON { header, total, bandedRows,
-                              bandedCols, firstCol, lastCol }
-     data-table-shade  JSON { "r{r}c{c}": "#hex" } manual fills
 
-   applyDesign() repaints the WHOLE table with explicit inline
-   styles (each border side + fill), so the look is stored in the
-   saved DOM exactly the way Word stores direct formatting — the
-   DOCX exporter measures it, and the importer writes the same
-   attributes back. It never touches column widths, floats or
-   user-resized geometry.
-   ============================================================ */
 (function () {
   'use strict';
 
-  /* ---------------- presets ---------------- */
-  /* Accent presets echo Word's "Grid Table" family: colored header,
-     tinted bands, matching borders. "lines" echoes "List Table". */
   var PRESETS = [
     { id: "none", name: "No Style, Table Grid", accent: "#8a8f98",
       kind: "grid", border: "#b6bac2", headerFill: null, headerInk: null,
@@ -71,7 +51,6 @@
     return null;
   }
 
-  /* ---------------- design read / write ---------------- */
   function readDesign(table) {
     var d = { style: "none", opts: Object.assign({}, DEFAULT_OPTS), shade: {} };
     if (!table) return d;
@@ -101,7 +80,6 @@
     }
   }
 
-  /* ---------------- helpers ---------------- */
   function shadeKeyOf(cell, rowIdx, cellIdx) {
     return "r" + rowIdx + "c" + cellIdx;
   }
@@ -114,8 +92,6 @@
     return dr * dr + dg * dg + db * db;
   }
 
-  /* Map an arbitrary accent (e.g. one of Word's theme colors coming from
-     an imported .docx) onto the closest preset we render. */
   function presetForAccent(hex) {
     if (!hex || hex.charAt(0) !== "#") return presetById("none");
     var best = null, bestD = Infinity;
@@ -128,11 +104,6 @@
     return best || presetById("grid-azure");
   }
 
-  /* ---------------- the repaint ---------------- */
-  /* Full inline repaint from the design. Explicitly writes every border
-     side of every cell (either a value or `none`) so app stylesheet
-     defaults can never bleed through. Column widths / float styles from
-     TableKit are left completely alone. */
   function applyDesign(table, design) {
     if (!table) return;
     var d = design || readDesign(table);
@@ -140,7 +111,6 @@
     var rows = table.rows;
     if (!rows || !rows.length) return;
 
-    /* header = real <thead> rows, else the first row when opted in */
     var thead = table.tHead;
     var headerRows = thead ? thead.rows.length :
       (d.opts.header ? 1 : 0);
@@ -158,7 +128,6 @@
         if (cell.tagName !== "TD" && cell.tagName !== "TH") continue;
         var css = "";
 
-        /* borders */
         var bc = p.border;
         if (hasV) {
           css += "border-top:" + (r === 0 ? "1.5" : "1") + "px solid " + bc + ";";
@@ -166,21 +135,20 @@
           css += "border-left:" + bc + ";";
           css += "border-right:" + bc + ";";
         } else {
-          /* list table: horizontal rules only, heavier under the header */
+
           css += "border-top:" + (isHeader ? "2" : "1") + "px solid " + bc + ";";
           css += "border-bottom:" + (r === rows.length - 1 && !isHeader ? "1.5" : "1") + "px solid " + bc + ";";
           css += "border-left:none;";
           css += "border-right:none;";
         }
 
-        /* fills: header, banding, manual shade (in that priority) */
         var fill = null, ink = null, weight = null;
         if (isHeader && p.headerFill && p.headerFill !== "transparent") {
-          fill = p.headerFill;                     // colored header
+          fill = p.headerFill;
           ink = p.headerInk;
           weight = "700";
         } else if (isHeader) {
-          ink = p.kind === "lines" ? p.headerInk : null;  // tinted-text header
+          ink = p.kind === "lines" ? p.headerInk : null;
           weight = "700";
         } else {
           var band = false;
@@ -189,7 +157,7 @@
           if (band && p.bandFill) fill = p.bandFill;
         }
         var manual = d.shade && d.shade[shadeKeyOf(cell, r, c)];
-        if (manual === "") fill = null;              // explicit no-fill
+        if (manual === "") fill = null;
         else if (manual) { fill = manual; }
 
         if (d.opts.firstCol && !isHeader && c === 0) { weight = "600"; }
@@ -199,7 +167,6 @@
         if (ink) css += "color:" + ink + ";";
         if (weight) css += "font-weight:" + weight + ";";
 
-        /* total row: double rule on top */
         if (isTotal) css += "border-top:2px double " + bc + ";";
 
         cell.setAttribute("style", mergeStyle(cell.getAttribute("style"), css));
@@ -208,9 +175,6 @@
     writeDesign(table, d);
   }
 
-  /* applyDesign() writes a complete border/fill/color/weight set; keep the
-     user's other inline properties (width, padding-alignment tweaks) by
-     stripping only the properties we manage from the previous style. */
   var MANAGED_PROPS = /^(border-|background-color|color|font-weight)/;
 
   function mergeStyle(prev, next) {
@@ -224,9 +188,6 @@
     return (keep.length ? keep.join(";") + ";" : "") + next;
   }
 
-  /* ---------------- manual shading (Shading group) ---------------- */
-  /* Applies per-cell fills AND records them in the design so they survive
-     later banding/option repaints. color === null clears the fill. */
   function shadeCells(table, cells, color) {
     if (!table || !cells || !cells.length) return 0;
     var d = readDesign(table);
@@ -255,14 +216,6 @@
     return readDesign(table).shade;
   }
 
-  /* ---------------- floating-toolbar design popover ---------------- */
-  /* A compact Word-style picker used by the Docs/Notes floating table
-     toolbars: preset thumbnails painted with applyDesign() itself, plus a
-     shading row. Styles are injected once so every app gets the same look
-     without its own CSS. */
-  /* Matches the Docs Table Design gallery's visual language: uppercase
-     section header with hairline divider, 3-col grid of 16:9 white preview
-     cards with the style name underneath, and a clean swatch row. */
   var POP_CSS =
     ".emts-pop{position:fixed;z-index:9000;background:rgba(255,255,255,.99);" +
     "border:1px solid rgba(0,0,0,.12);border-radius:14px;box-shadow:0 14px 38px rgba(0,0,0,.18);" +
@@ -316,9 +269,7 @@
       window.removeEventListener("scroll", _emtsPopClose, true);
     }
   }
-  /* Close on scroll — but NOT when the user is scrolling the popover's own
-     scrollable area (it has max-height + overflow), matching the ms-dropdown
-     guard in docs.js. */
+
   function _emtsPopClose(e) {
     if (e && e.target && _emtsPop &&
       (e.target === _emtsPop || _emtsPop.contains(e.target))) return;
@@ -328,7 +279,6 @@
     if (_emtsPop && !_emtsPop.contains(e.target)) closeDesignPopover();
   }
 
-  /* opts: { anchor, table, shadeTargets: [cells] (default: all), onDone } */
   function openDesignPopover(opts) {
     if (!opts || !opts.table || !window.document) return;
     ensurePopStyles();
@@ -347,7 +297,6 @@
       var cellW = document.createElement("div");
       cellW.className = "emts-pop-cell" + (p.id === d.style ? " current" : "");
 
-      /* 16:9 white card carrying a real mini table painted by applyDesign */
       var card = document.createElement("div");
       card.className = "emts-card";
       var th = document.createElement("table");
@@ -394,8 +343,7 @@
     var shadeRow = document.createElement("div");
     shadeRow.className = "emts-shade-row";
     var swatches = ["", "#ffe3e3", "#ffe9c9", "#fff4c2", "#e2f6e3", "#dcf3f5", "#e3ecff", "#ece4fb", "#333a44"];
-    /* Current fill comes from the first target cell (or the first cell of
-       the table), so the popover marks what's actually applied. */
+
     var shadeRef = (opts.shadeTargets && opts.shadeTargets[0]) || allCellsOf(opts.table)[0] || null;
     var currentShade = null;
     if (shadeRef && d.shade) {
@@ -435,8 +383,6 @@
     }, 0);
   }
 
-  /* thumbnails inherit the tiny invisible-mark font from the pop CSS */
-
   function allCellsOf(table) {
     var out = [];
     for (var r = 0; r < table.rows.length; r++) {
@@ -445,15 +391,13 @@
     return out;
   }
 
-  /* ---------------- Word style mapping (import) ---------------- */
-  /* Pick the preset an imported Word table style most resembles. */
   function presetForWord(wordStyle, accentHex) {
     if (!wordStyle) return presetById("none");
     var id = String(wordStyle).toLowerCase();
     if (/listtable|lightlist/.test(id)) {
       var fallback = presetById("lines-azure");
       if (!accentHex || accentHex.charAt(0) !== "#") return fallback;
-      // nearest grid accent mirrored to its "lines" twin, if we have one
+
       var p = presetForAccent(accentHex);
       var twin = presetById(p.id.replace("grid-", "lines-"));
       return twin || fallback;

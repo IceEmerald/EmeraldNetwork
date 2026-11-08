@@ -80,7 +80,6 @@
         syncChannel = new BroadcastChannel('emeraldsuite-sync');
     }
 
-    /* ---------------- small helpers ---------------- */
     function $(id) { return document.getElementById(id); }
 
     function esc(s) {
@@ -136,7 +135,6 @@
 
     function appIcon(type) { return SVG[type] || SVG.doc; }
 
-    /* ---------------- loaders ---------------- */
     async function loadNotes() {
         const s = storage();
         let raw = null;
@@ -148,10 +146,7 @@
                 type: 'notes',
                 id: String(n.id),
                 title: (n.title || '').trim() || 'Untitled note',
-                /* Notes persist their timestamp as modifiedAt (notes.js
-                   createNewNote / importFromUrl), not updatedAt — reading the
-                   wrong key made every note read as "never edited". Fall back
-                   through createdAt, then updatedAt, for older records. */
+
                 updatedAt: toTs(n.modifiedAt || n.createdAt || n.updatedAt),
                 detail: countWords(n.content) + ' words'
             }));
@@ -181,8 +176,7 @@
         return arr
             .filter(m => m && m.id)
             .map(m => {
-                /* The Slides index already stores slideCount per presentation
-                   (slides.js:568), so no extra document fetch is needed. */
+
                 const n = Number(m.slideCount) || 0;
                 return {
                     type: 'slides',
@@ -194,7 +188,6 @@
             });
     }
 
-    /* Sheets use their own IndexedDB (emeraldcore.storage.suite.sheets / workbooks). */
     function openSheetDB() {
         return new Promise((resolve, reject) => {
             if (typeof indexedDB === 'undefined') { reject(new Error('no indexedDB')); return; }
@@ -263,7 +256,6 @@
         }
     }
 
-    /* ---------------- refresh / sync ---------------- */
     function setSyncing(on) {
         state.syncing = on;
         const el = $('syncIndicator');
@@ -300,7 +292,6 @@
         }
     }
 
-    /* ---------------- writers (rename / delete) ---------------- */
     function findIn(arr, id) {
         return arr.find(x => x && String(x.id) === id);
     }
@@ -403,7 +394,6 @@
         return true;
     }
 
-    /* ---------------- opening ---------------- */
     function fileUrl(f) {
         const app = APPS[f.type];
         return app.file + '?owned=' + encodeURIComponent(f.id);
@@ -413,7 +403,6 @@
         location.href = fileUrl(f);
     }
 
-    /* ---------------- rendering ---------------- */
     function visibleFiles() {
         let files = state.files.slice();
         if (state.filters.size && state.filter !== 'all') {
@@ -446,7 +435,7 @@
             return '<div class="mini-wrap"><div class="mini-slide" style="' + style + '">' +
                 '<div class="slide-bar"><i></i></div><div class="slide-body"><i></i><i></i><i></i></div></div></div>';
         }
-        /* sheets */
+
         const cells = (f.mini || []).map(c =>
             '<div class="wb-cell' + (c.hdr ? ' hdr' : '') + (c.filled ? ' filled' : '') + '"></div>'
         ).join('');
@@ -475,9 +464,6 @@
         '</article>';
     }
 
-    /* Row layout for "Your files". Same data-type/data-id hooks as the card so
-       every existing handler (click, keyboard, context menu, card actions)
-       keeps working — only the presentation differs. */
     function rowHTML(f) {
         const app = APPS[f.type];
         const typ = {
@@ -506,10 +492,6 @@
         renderGrid();
     }
 
-    /* Three most-recently-edited files, shown larger than the main grid.
-       Uses updatedAt (the only recency signal the apps persist) rather than a
-       separate "last opened" field, so it stays in sync with the sort the
-       "Recently edited" dropdown already offers. */
     function renderRecent() {
         const grid = $('recentGrid');
         const empty = $('recentEmpty');
@@ -522,8 +504,6 @@
         recent.forEach(f => grid.appendChild(elFromHTML(cardHTML(f, 'recent-card'))));
     }
 
-    /* cardHTML returns a single root element; parse it without pulling in a
-       template helper the file doesn't already use. */
     function elFromHTML(html) {
         const t = document.createElement('template');
         t.innerHTML = html.trim();
@@ -571,7 +551,6 @@
         grid.appendChild(frag);
     }
 
-    /* ---------------- context menu ---------------- */
     const fileMenu = $('fileMenu');
 
     function hideFileMenu() {
@@ -594,7 +573,6 @@
         state.currentFile = f;
     }
 
-    /* ---------------- modals ---------------- */
     let renameTarget = null;
     let deleteTarget = null;
 
@@ -655,7 +633,6 @@
         deleteTarget = null;
     }
 
-    /* ---------------- events ---------------- */
     function bindUI() {
         const grid = $('filesGrid');
 
@@ -680,7 +657,7 @@
                 closeModal('renameOverlay');
                 closeModal('deleteOverlay');
             }
-            /* '/' focuses search (unless typing in an input) */
+
             const tag = (e.target && e.target.tagName) || '';
             if (e.key === '/' && tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') {
                 e.preventDefault();
@@ -708,8 +685,6 @@
             });
         }
 
-        /* Both grids (main + recent) share the same card markup, so the handlers are
-           bound to a common selector rather than one container. */
         const cardGrids = [$('filesGrid'), $('recentGrid')].filter(Boolean);
 
         cardGrids.forEach(g => {
@@ -739,13 +714,9 @@
             });
         });
 
-        /* Single place that knows what a query means, so the × button and
-           typing cannot drift apart. */
         const applySearch = (value) => {
             state.search = value.trim();
-            /* Collapses Recent files + Quick access while there's a query, so
-               "Your files" and its results move up under the cursor. Cleared
-               as soon as the box is empty. */
+
             const main = document.querySelector('.suite-main');
             if (main) main.classList.toggle('searching', !!state.search);
             renderGrid();
@@ -753,8 +724,6 @@
 
         $('searchInput').addEventListener('input', (e) => applySearch(e.target.value));
 
-        /* × inside the search bar. Fires an 'input' event rather than reaching
-           into state itself, so there is one code path, not two. */
         const searchClear = document.querySelector('.su-search-clear');
         if (searchClear) {
             searchClear.addEventListener('click', () => {
@@ -807,7 +776,6 @@
             });
         }
 
-        /* modals */
         $('renameClose').addEventListener('click', () => closeModal('renameOverlay'));
         $('renameCancel').addEventListener('click', () => { closeModal('renameOverlay'); renameTarget = null; });
         $('renameForm').addEventListener('submit', (e) => { e.preventDefault(); commitRename(); });
@@ -815,18 +783,15 @@
         $('deleteCancel').addEventListener('click', () => { closeModal('deleteOverlay'); deleteTarget = null; });
         $('deleteConfirm').addEventListener('click', commitDelete);
 
-        /* overlay click-outside */
         ['renameOverlay', 'deleteOverlay'].forEach(id => {
             $(id).addEventListener('mousedown', (e) => {
                 if (e.target === $(id)) closeModal(id);
             });
         });
 
-        /* sync indicator click = sync now */
         const syncEl = $('syncIndicator');
         if (syncEl) syncEl.addEventListener('click', () => refresh({}));
 
-        /* storage usage popup */
         const sBtn = $('storageBtn'), sPop = $('storagePop');
         if (sBtn && sPop) {
             const fmt = (b) => b == null ? '—' : (b >= 1073741824 ? (b / 1073741824).toFixed(2) + ' GB' : b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : b >= 1024 ? (b / 1024).toFixed(1) + ' KB' : b + ' B');
@@ -863,11 +828,9 @@
         setGreeting();
         bindUI();
 
-        /* auto-refresh when the tab regains focus/visibility */
         window.addEventListener('focus', () => refresh({ silent: true }));
         document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh({ silent: true }); });
 
-        /* cross-tab sync for notes/docs/slides (EmeraldIDBStorage channel) */
         const s = storage();
         if (s && s.subscribe) {
             s.subscribe((change) => {
@@ -877,7 +840,6 @@
             });
         }
 
-        /* cross-tab sync for sheets + everything else */
         if (syncChannel) {
             syncChannel.onmessage = (e) => {
                 if (e.data && e.data.by !== TAB) refresh({ silent: true });
@@ -889,21 +851,11 @@
             if (!document.hidden) refresh({ silent: true });
         });
 
-        /* periodic gentle refresh keeps cards' "edited X ago" fresh */
         setInterval(() => refresh({ silent: true }), 60000);
 
         refresh({});
     }
 
-    /* QA hook — lets the time-of-day theme be checked from the console without
-       touching the machine clock.
-
-         suiteDaypart('morning' | 'afternoon' | 'evening')  → force a theme
-         suiteDaypart()                                       → back to real time
-
-       Re-applies everything setGreeting does (greeting text, [data-daypart],
-       starfield) so a forced theme looks identical to the real one.
-       Pass the quoted string — the bare word would be a ReferenceError. */
     let forcedDaypart = null;
     window.suiteDaypart = function (part) {
         const valid = ['morning', 'afternoon', 'evening'];
@@ -927,8 +879,6 @@
         buildSky(part);
     }
 
-    /* Star colours, weighted the way a real field looks: mostly white, a good
-       share of blue-white giants, a few warm giants. */
     const STAR_TINTS = [
         ['#ffffff', 5],
         ['#e8f1ff', 3],
@@ -952,23 +902,11 @@
         return STAR_TINTS[0][0];
     }
 
-    /* Decorative sky layer for the time-of-day themes.
-
-       evening — a dense Milky Way star field: stars biased onto a diagonal
-       galactic band, plus shooting stars.
-       morning — godray shafts fanning from the sun in the top-right.
-
-       Both are built as nodes rather than extra gradient layers because every
-       element animates on its own clock, which one background cannot do. */
-
-    /* ~70% of stars are placed along the galactic band (a diagonal corridor
-       through the sky), the rest scattered — which is what gives a Milky Way
-       its bright diagonal ridge instead of an even sprinkle. */
     function starPosition() {
         const BAND = 0.7;
         if (Math.random() < BAND) {
             const x = Math.random() * 100;
-            const centre = 46 - x * 0.34;              /* band centre line */
+            const centre = 46 - x * 0.34;
             const spread = 13 + Math.random() * 11;
             return { x: x, y: Math.max(-2, Math.min(58, centre + (Math.random() * 2 - 1) * spread)) };
         }
@@ -994,7 +932,7 @@
             star.style.width = size.toFixed(1) + 'px';
             star.style.height = size.toFixed(1) + 'px';
             star.style.setProperty('--tint', tint);
-            /* halo for the larger stars, derived from the same hue */
+
             if (size >= 3) star.style.setProperty('--glow', hexToRgba(tint, .55));
 
             const pos = starPosition();
@@ -1013,12 +951,6 @@
         sky.appendChild(frag);
     }
 
-    /* Godrays: shafts anchored at the sun (top-right) and rotated to fan down
-       toward the centre. Angles run from just off vertical out to ~72deg, and
-       are placed with a jittered gap rather than an even split — real shafts
-       through cloud are uneven, and even spacing reads as a fan-blade pattern.
-       Width, opacity, blur and shimmer period are all varied per shaft so they
-       never pulse in unison. */
     function buildGodRays(sky) {
         const COUNT = 9;
         const holder = document.createElement('div');
@@ -1029,17 +961,13 @@
             const ray = document.createElement('i');
             ray.className = 'su-ray';
 
-            const gap = 5 + Math.random() * 9;          /* uneven spacing */
+            const gap = 5 + Math.random() * 9;
             angle += i === 0 ? gap : gap;
             ray.style.transform = 'rotate(' + angle.toFixed(1) + 'deg)';
 
-            /* narrow, wide, narrow — gives the fan depth instead of a comb */
             const edge = 1 - Math.abs(i / (COUNT - 1) - 0.5) * 1.5;
             ray.style.setProperty('--w', (40 + Math.random() * 64 * Math.max(.45, edge)).toFixed(0) + 'px');
-            /* Heavy blur so each shaft diffuses into the air around it rather
-               than reading as a hard bar. The range is wide on purpose: a
-               consistent small blur makes nine shafts look like stripes,
-               whereas varied heavy blur layers them into one soft glow. */
+
             ray.style.setProperty('--blur', (12 + Math.random() * 18).toFixed(1) + 'px');
             ray.style.setProperty('--dur', (7 + Math.random() * 7).toFixed(2) + 's');
             ray.style.setProperty('--delay', (Math.random() * 6).toFixed(2) + 's');
@@ -1048,8 +976,6 @@
         sky.appendChild(holder);
     }
 
-    /* Single source of truth for the hour → part mapping, so the greeting text
-       and the [data-daypart] background theme can never disagree. */
     function daypartFor(h) {
         if (h < 12) return 'morning';
         if (h < 18) return 'afternoon';

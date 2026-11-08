@@ -1,4 +1,4 @@
-/* ── Globe canvas — interactive high-quality vector earth ── */
+
 (function () {
     var canvas = document.getElementById('globe-canvas');
     if (!canvas) return;
@@ -6,12 +6,12 @@
     var dpr = window.devicePixelRatio || 1;
     var BREAKPOINT = 720;
 
-    /* ── Rotation state ──────────────────────────────── */
+    
     var angle = -80;
     var tilt = 18;
     var cx, cy, r;
 
-    /* ── Drag / interaction state ────────────────────── */
+    
     var isDragging = false;
     var lastPointerX = 0;
     var lastPointerY = 0;
@@ -30,8 +30,8 @@
     var RESUME_MS = 1000;
     var VEL_STOP = 0.003;
 
-    /* ── Real-earth data (loaded from CDN, falls back to hand-drawn) ── */
-    var landCountries = null;   /* [{ rings: [[[lat,lon],...], ...holes] }] */
+    
+    var landCountries = null;   
     var DATA_URLS = [
         'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json',
         'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json'
@@ -45,7 +45,7 @@
             var x = 0, y = 0, out = [];
             for (var i = 0; i < arc.length; i++) {
                 x += arc[i][0]; y += arc[i][1];
-                out.push([y * sy + ty, x * sx + tx]); /* [lat, lon] */
+                out.push([y * sy + ty, x * sx + tx]); 
             }
             return out;
         });
@@ -95,7 +95,7 @@
     }
     loadEarthData();
 
-    /* ── Fallback: simplified continent outlines ─────── */
+    
     var continents = [
         [[71, -157], [72, -152], [72, -146], [72, -140], [71, -134], [70, -128], [70, -122], [69, -115], [68, -108], [67, -102], [66, -96], [65, -90], [64, -85], [62, -79], [60, -74], [58, -68], [56, -63], [54, -58], [52, -56], [50, -57], [48, -59], [46, -62], [44, -65], [43, -68], [42, -70], [41, -72], [40, -74], [38, -76], [37, -76], [35, -77], [34, -78], [32, -80], [31, -81], [30, -81], [29, -82], [28, -83], [27, -82], [26, -82], [25, -81], [25, -83], [26, -85], [27, -86], [28, -88], [29, -90], [29, -92], [28, -94], [27, -95], [26, -97], [24, -98], [22, -98], [20, -97], [19, -96], [18, -95], [17, -93], [16, -91], [15, -89], [15, -87], [16, -88], [16, -91], [17, -95], [18, -98], [19, -101], [20, -104], [22, -107], [24, -110], [26, -112], [28, -114], [30, -116], [32, -117], [34, -119], [36, -121], [38, -123], [40, -124], [42, -124], [44, -125], [47, -125], [49, -127], [51, -130], [53, -133], [55, -136], [57, -139], [59, -143], [60, -147], [62, -150], [63, -154], [64, -158], [65, -162], [66, -165], [68, -166], [70, -164], [71, -160], [71, -157]],
         [[12, -72], [11, -69], [10, -66], [9, -63], [8, -60], [7, -57], [6, -54], [5, -52], [4, -50], [2, -48], [0, -46], [-1, -44], [-3, -41], [-5, -38], [-7, -35], [-9, -35], [-11, -37], [-13, -39], [-15, -40], [-17, -41], [-19, -42], [-21, -43], [-23, -45], [-25, -47], [-27, -49], [-29, -51], [-31, -53], [-33, -55], [-35, -57], [-37, -59], [-39, -61], [-41, -63], [-43, -64], [-45, -66], [-47, -67], [-49, -68], [-51, -69], [-53, -69], [-54, -68], [-55, -66], [-54, -64], [-53, -66], [-52, -69], [-50, -72], [-48, -74], [-46, -75], [-44, -74], [-42, -73], [-40, -72], [-38, -71], [-36, -70], [-34, -70], [-32, -70], [-30, -70], [-28, -69], [-26, -69], [-24, -70], [-22, -71], [-20, -72], [-18, -73], [-16, -75], [-14, -76], [-12, -77], [-10, -78], [-8, -79], [-6, -80], [-4, -80], [-2, -79], [0, -78], [2, -78], [4, -77], [6, -76], [8, -75], [10, -74], [12, -72]],
@@ -144,7 +144,7 @@
         [18, 0], [19, 12]
     ];
 
-    /* ── 3D projection with tilt ─────────────────────── */
+    
     function project(lat, lon) {
         var latR = lat * Math.PI / 180;
         var lonR = (lon - angle) * Math.PI / 180;
@@ -164,7 +164,7 @@
         return project(p1.lat + t * (p2.lat - p1.lat), p1.lon + t * (p2.lon - p1.lon));
     }
 
-    /* ── Smooth Catmull-Rom path ─────────────────────── */
+    
     function traceSmoothPath(pts) {
         if (pts.length < 2) return;
         if (pts.length === 2) { ctx.moveTo(pts[0].x, pts[0].y); ctx.lineTo(pts[1].x, pts[1].y); return; }
@@ -176,7 +176,7 @@
         }
     }
 
-    /* ── Drawing helpers ─────────────────────────────── */
+    
     function drawGrid() {
         ctx.strokeStyle = 'rgba(60,120,110,0.07)'; ctx.lineWidth = 0.5;
         for (var lat = -60; lat <= 60; lat += 30) { ctx.beginPath(); var s = false; for (var lon = -180; lon <= 180; lon += 3) { var p = project(lat, lon); if (p.z > 0) { if (!s) { ctx.moveTo(p.x, p.y); s = true; } else ctx.lineTo(p.x, p.y); } else s = false; } ctx.stroke(); }
@@ -203,9 +203,9 @@
         }
     }
 
-    /* ── Horizon-aware ring tracing ──────────────────── */
+    
     function keepPt(cur, p) {
-        /* Decimate: skip points closer than ~0.6px to the previous one */
+        
         if (!cur.length) return true;
         var q = cur[cur.length - 1];
         var dx = p.x - q.x, dy = p.y - q.y;
@@ -241,7 +241,7 @@
     }
 
     function fillCountry(polys, evenodd) {
-        /* Build one combined path of visible segments per polygon */
+        
         ctx.beginPath();
         for (var pi = 0; pi < polys.length; pi++) {
             var rings = polys[pi].rings;
@@ -259,10 +259,10 @@
     }
 
     function drawRealEarth() {
-        /* Fill all countries */
+        
         ctx.fillStyle = 'rgba(46,160,92,0.32)';
         for (var c = 0; c < landCountries.length; c++) fillCountry([landCountries[c]], false);
-        /* Country borders + coastline strokes */
+        
         ctx.strokeStyle = 'rgba(21,120,66,0.45)';
         ctx.lineWidth = 0.8;
         ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -305,7 +305,7 @@
         }
     }
 
-    /* ── Pointer handlers ────────────────────────────── */
+    
     function getPointerPos(e) {
         if (e.touches && e.touches.length) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
         return { x: e.clientX, y: e.clientY };
@@ -335,7 +335,7 @@
 
     function preventCtx(e) { e.preventDefault(); }
 
-    /* ── Dynamic touch listener management ───────────── */
+    
     var touchAttached = false;
 
     function attachTouch() {
@@ -356,12 +356,12 @@
         touchAttached = false;
     }
 
-    /* ── Mode switch: called on load + every resize ──── */
+    
     function applyMode() {
         var wasMobile = isMobile;
         isMobile = window.innerWidth < BREAKPOINT;
 
-        /* Crossed the breakpoint — reset drag state */
+        
         if (wasMobile !== isMobile) {
             isDragging = false; velX = 0; velY = 0;
             if (resumeTimer) { clearTimeout(resumeTimer); resumeTimer = null; }
@@ -379,28 +379,28 @@
         }
     }
 
-    /* Mouse — always on (doesn't fire on phones) */
+    
     canvas.addEventListener('mousedown', onPointerDown);
     window.addEventListener('mousemove', onPointerMove);
     window.addEventListener('mouseup', onPointerUp);
 
-    /* Initial mode + live resize */
+    
     applyMode();
     window.addEventListener('resize', applyMode, { passive: true });
 
-    /* ── Main render loop ────────────────────────────── */
+    
     var rafId = null;
     var onScreen = true;
 
     function draw() {
         rafId = null;
-        /* Skip all work when the canvas is hidden (e.g. the account
-           dashboard replaces the login shell) or the tab is inactive. */
+        
+
         if (!onScreen || document.hidden) return;
 
         var w = canvas.offsetWidth, h = canvas.offsetHeight;
 
-        /* Safety: force canvas to fill parent */
+        
         if (canvas.parentElement) {
             var pw = canvas.parentElement.clientWidth, ph = canvas.parentElement.clientHeight;
             if (pw > 0 && ph > 0) {
@@ -426,12 +426,12 @@
         ctx.clearRect(0, 0, w, h);
         cx = w / 2; cy = h / 2; r = Math.min(cx, cy) * 0.97;
 
-        /* Drop shadow */
+        
         var sGrd = ctx.createRadialGradient(cx + 2, cy + 4, r * 0.7, cx + 2, cy + 4, r * 1.25);
         sGrd.addColorStop(0, 'rgba(35,154,77,0.035)'); sGrd.addColorStop(1, 'rgba(35,154,77,0)');
         ctx.beginPath(); ctx.arc(cx + 2, cy + 4, r * 1.25, 0, Math.PI * 2); ctx.fillStyle = sGrd; ctx.fill();
 
-        /* Atmospheric glow */
+        
         for (var gi = 3; gi >= 1; gi--) {
             var gR = r + gi * 10;
             var aG = ctx.createRadialGradient(cx, cy, r - 2, cx, cy, gR);
@@ -439,17 +439,17 @@
             ctx.beginPath(); ctx.arc(cx, cy, gR, 0, Math.PI * 2); ctx.fillStyle = aG; ctx.fill();
         }
 
-        /* Clip to sphere */
+        
         ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
 
-        /* Ocean gradient — soft blue-green, lighter toward the sun */
+        
         var oG = ctx.createRadialGradient(cx - r * 0.35, cy - r * 0.35, r * 0.05, cx, cy, r);
         oG.addColorStop(0, '#eef7f3');
         oG.addColorStop(0.55, '#e2f1ec');
         oG.addColorStop(1, '#cfe6df');
         ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fillStyle = oG; ctx.fill();
 
-        /* Subtle depth tint near the limb (fakes sphere curvature) */
+        
         var lG = ctx.createRadialGradient(cx, cy, r * 0.72, cx, cy, r);
         lG.addColorStop(0, 'rgba(120,170,155,0)');
         lG.addColorStop(1, 'rgba(90,145,130,0.16)');
@@ -458,14 +458,14 @@
         drawGrid(); drawEquator(); drawArcs(); drawContinents(); drawCities();
         ctx.restore();
 
-        /* Specular highlight (sun reflection top-left) */
+        
         var spG = ctx.createRadialGradient(cx - r * 0.42, cy - r * 0.45, 0, cx - r * 0.42, cy - r * 0.45, r * 0.75);
         spG.addColorStop(0, 'rgba(255,255,255,0.35)');
         spG.addColorStop(0.25, 'rgba(255,255,255,0.12)');
         spG.addColorStop(1, 'rgba(255,255,255,0)');
         ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fillStyle = spG; ctx.fill();
 
-        /* 3D shading + limb darkening */
+        
         var shG = ctx.createRadialGradient(cx - r * 0.35, cy - r * 0.35, r * 0.05, cx + r * 0.1, cy + r * 0.1, r * 1.1);
         shG.addColorStop(0, 'rgba(255,255,255,0.06)');
         shG.addColorStop(0.35, 'rgba(255,255,255,0.01)');
@@ -473,11 +473,11 @@
         shG.addColorStop(1, 'rgba(20,50,40,0.12)');
         ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fillStyle = shG; ctx.fill();
 
-        /* Rings */
+        
         ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(35,154,77,0.2)'; ctx.lineWidth = 1.2; ctx.stroke();
         ctx.beginPath(); ctx.arc(cx, cy, r - 0.8, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 0.5; ctx.stroke();
 
-        /* Edge fade */
+        
         var eG = ctx.createRadialGradient(cx, cy, r * 0.55, cx, cy, r);
         eG.addColorStop(0, 'rgba(244,249,245,0)'); eG.addColorStop(1, 'rgba(244,249,245,0.4)');
         ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fillStyle = eG; ctx.fill();
@@ -494,8 +494,8 @@
         if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
     }
 
-    /* Pause when the canvas leaves the viewport or is display:none
-       (IntersectionObserver reports hidden elements as not intersecting). */
+    
+
     if ('IntersectionObserver' in window) {
         new IntersectionObserver(function (entries) {
             onScreen = entries[0].isIntersecting;
@@ -510,7 +510,7 @@
     start();
 })();
 
-/* ── Globe box — responsive sizing (mobile + desktop) ─── */
+
 (function () {
     var section = document.getElementById('globe-section');
     var box = document.getElementById('globe-box');
@@ -523,7 +523,7 @@
         var canvas = box.querySelector('canvas');
 
         if (vw < BREAKPOINT) {
-            /* ── Mobile: fixed square, centered ───────── */
+            
             var size = Math.min(vw - 32, 400);
             box.style.width = size + 'px';
             box.style.height = size + 'px';
@@ -532,7 +532,7 @@
             box.style.borderRadius = '16px';
             box.style.overflow = 'hidden';
         } else {
-            /* ── Desktop: scroll-driven expand ────────── */
+            
             var rect = section.getBoundingClientRect();
             var scroll = -rect.top;
             var progress = Math.max(0, Math.min(1, scroll / vh));
@@ -553,7 +553,7 @@
             box.style.overflow = '';
         }
 
-        /* Always ensure canvas fills the box */
+        
         if (canvas) {
             canvas.style.width = '100%';
             canvas.style.height = '100%';
@@ -566,7 +566,7 @@
     update();
 })();
 
-/* ── NAVBAR: transparent at top, solid when scrolled ──── */
+
 (function () {
     var navbar = document.querySelector('.navbar');
     if (!navbar) return;

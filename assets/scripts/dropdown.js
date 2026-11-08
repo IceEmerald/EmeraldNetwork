@@ -7,6 +7,6 @@ document.querySelectorAll('.dropdown').forEach(dropdown => {
     dropdown.addEventListener('mouseleave', () => {
       hideTimeout = setTimeout(() => {
         dropdown.classList.remove('show');
-      }, 300); 
+      }, 300);
     });
   });

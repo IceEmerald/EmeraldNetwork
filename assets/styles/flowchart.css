@@ -1,16 +1,16 @@
-/* ============================================================
-   FlowCode — EmeraldSuite
-   Design system matches EmeraldNetwork / EmeraldSuite:
-   • DM Sans + DM Mono
-   • Glassmorphism (rgba white + backdrop blur)
-   • Soft borders (rgba 0,0,0,.08)
-   • Emerald green accent (#239a4d / #197138)
-   • Rounded 8–12px panels, soft shadows
-   • Unified 12px spacing system
-   ============================================================ */
+
+
+
+
+
+
+
+
+
+
 
 :root {
-    /* Brand / accents */
+     
     --fc-accent: #239a4d;
     --fc-accent-hover: #197138;
     --fc-accent-soft: rgba(35, 154, 77, 0.1);
@@ -18,25 +18,25 @@
     --fc-accent-border: rgba(35, 154, 77, 0.3);
     --fc-accent-ring: rgba(35, 154, 77, 0.25);
 
-    /* Surfaces */
+     
     --fc-bg: #F2F2F4;
     --fc-surface: rgba(255, 255, 255, 0.96);
     --fc-surface-strong: rgba(255, 255, 255, 0.98);
     --fc-surface-soft: rgba(255, 255, 255, 0.6);
 
-    /* Text */
+     
     --fc-text: #2c3e50;
     --fc-text-strong: #1a1a1a;
     --fc-text-dim: rgba(44, 62, 80, 0.7);
     --fc-text-muted: rgba(44, 62, 80, 0.5);
     --fc-text-faint: rgba(44, 62, 80, 0.4);
 
-    /* Borders */
+     
     --fc-border: rgba(0, 0, 0, 0.08);
     --fc-border-strong: rgba(0, 0, 0, 0.12);
     --fc-border-soft: rgba(0, 0, 0, 0.05);
 
-    /* Semantic shape colors */
+     
     --shape-terminal-bg: #fff8db;
     --shape-terminal-bd: #d4a017;
     --shape-input-bg: #d6ecf5;
@@ -52,7 +52,7 @@
     --shape-breakpoint-bg: #ff6b6b;
     --shape-breakpoint-bd: #c92a2a;
 
-    /* Console palette */
+     
     --console-bg: rgba(255, 255, 255, 0.92);
     --console-out: #2c3e50;
     --console-err: #c92a2a;
@@ -60,26 +60,26 @@
     --console-input: #b48608;
     --console-success: #2a8a44;
 
-    /* Fonts */
+     
     --fc-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --fc-mono: 'DM Mono', 'SF Mono', 'Consolas', 'Monaco', monospace;
 
-    /* Radius */
+     
     --fc-radius: 12px;
     --fc-radius-sm: 8px;
     --fc-radius-xs: 6px;
 
-    /* Unified spacing — every margin is 12px */
+     
     --fc-margin: 14px;
 
-    /* Layout dimensions */
+     
     --fc-brand-h: 46px;
     --fc-palette-w: 240px;
     --fc-right-w: 330px;
     --fc-variable-h: 155px;
     --fc-console-h: 360px;
 
-    /* Smooth easing for all interactions */
+     
     --fc-ease: cubic-bezier(0.16, 1, 0.3, 1);
     --fc-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 }
@@ -151,9 +151,9 @@ select {
     background: rgba(0, 0, 0, 0.28);
 }
 
-/* ============================================================
-   APP CONTAINER
-   ============================================================ */
+
+
+
 .flowchart-app {
     display: block;
     height: 100vh;
@@ -162,9 +162,9 @@ select {
     position: relative;
 }
 
-/* ============================================================
-   TOP-LEFT FLOATING BRAND PILL  (12px from top / left)
-   ============================================================ */
+
+
+
 .fc-brand-pill {
     position: absolute;
     top: var(--fc-margin);
@@ -220,12 +220,12 @@ select {
     .fc-brand-text { font-size: 11px; }
 }
 
-/* ============================================================
-   TOP-RIGHT FLOATING FILE TOOLBAR  (Save / Open / Clear)
-   Mirrors the brand-pill: same glass surface, same radius,
-   same shadow stack, same 12px top margin. The only difference
-   is the inner buttons are icon+label pairs instead of a logo.
-   ============================================================ */
+
+
+
+
+
+
 .fc-file-bar {
     position: absolute;
     top: var(--fc-margin);
@@ -294,7 +294,7 @@ select {
     outline-offset: 2px;
 }
 
-/* Clear button — danger tint (matches ribbon-btn.danger) */
+ 
 .file-btn.danger {
     color: var(--fc-text-dim);
 }
@@ -334,11 +334,11 @@ select {
     .file-bar-divider { height: 18px; margin: 0 1px; }
 }
 
-/* ============================================================
-   FLOATING RIBBON TOOLBAR (bottom-center floating pill)
-   Sits between the bottom-left code panel and bottom-right
-   variables/console panels.
-   ============================================================ */
+
+
+
+
+
 .fc-ribbon {
     position: absolute;
     bottom: var(--fc-margin);
@@ -458,7 +458,7 @@ select {
     flex-shrink: 0;
 }
 
-/* Speed slider */
+ 
 #speed-slider {
     width: 96px;
     height: 6px;
@@ -505,17 +505,17 @@ select {
     text-align: right;
 }
 
-/* ============================================================
-   MAIN LAYOUT  — full-bleed canvas with floating panels
-   ============================================================ */
+
+
+
 .fc-main {
     display: contents;
 }
 
-/* ============================================================
-   PALETTE  (bottom-left floating block palette)
-   Sizes to its content; no excessive whitespace.
-   ============================================================ */
+
+
+
+
 .fc-palette {
     position: absolute;
     top: auto;
@@ -632,7 +632,7 @@ select {
     letter-spacing: 0.01em;
 }
 
-/* Mini shape previews */
+ 
 .mini-terminal {
     background: var(--shape-terminal-bg);
     border: 1.5px solid var(--shape-terminal-bd);
@@ -645,13 +645,13 @@ select {
     border: 1.5px solid var(--shape-terminal-bd);
 }
 
-/* Flowgorithm-style left + top inner lines on Declare mini-icon */
+ 
 .mini-declare {
     position: relative;
     padding-left: 14px;
 }
 
-/* left vertical bar */
+ 
 .mini-declare::before {
     content: '';
     position: absolute;
@@ -663,7 +663,7 @@ select {
     border-radius: 1px;
 }
 
-/* top horizontal bar */
+ 
 .mini-declare::after {
     content: '';
     position: absolute;
@@ -729,9 +729,9 @@ select {
     margin: 3px auto;
 }
 
-/* ============================================================
-   CANVAS  — full-bleed, fills the entire viewport.
-   ============================================================ */
+
+
+
 .fc-canvas-wrap {
     position: absolute;
     inset: 0;
@@ -814,11 +814,11 @@ select {
     pointer-events: none;
 }
 
-/* ============================================================
-   SHAPES  — SVG-based outlines for clip-path shapes
-   (decision, loop, for, do, breakpoint) so the borders
-   are never cut off.
-   ============================================================ */
+
+
+
+
+
 .shape {
     position: absolute;
     cursor: move;
@@ -841,7 +841,7 @@ select {
 }
 
 .shape.selected .shape-svg {
-    /* SVG drop-shadow acts as outline since SVG has no outline */
+     
     filter: drop-shadow(0 0 2px var(--fc-accent));
 }
 
@@ -867,7 +867,7 @@ select {
     50% { filter: drop-shadow(0 0 12px rgba(35, 154, 77, 0.7)); }
 }
 
-/* Shared text styling for SVG-based shapes */
+ 
 .shape-text {
     position: absolute;
     top: 0;
@@ -898,8 +898,8 @@ select {
     transition: filter 0.18s var(--fc-ease);
 }
 
-/* Div-based shape bodies (terminal, declare, process, input, output,
-   call, comment) */
+
+
 .shape-body {
     position: relative;
     display: flex;
@@ -937,12 +937,12 @@ select {
     border-radius: 4px;
 }
 
-/* Flowgorithm-style left + top inner lines on Declare shapes */
+ 
 .shape.declare .shape-body {
     padding-left: 22px;
 }
 
-/* left vertical bar */
+ 
 .shape.declare .shape-body::before {
     content: '';
     position: absolute;
@@ -954,7 +954,7 @@ select {
     border-radius: 1px;
 }
 
-/* top horizontal bar */
+ 
 .shape.declare .shape-body::after {
     content: '';
     position: absolute;
@@ -1016,7 +1016,7 @@ select {
     display: none;
 }
 
-/* Connection handles */
+ 
 .shape-handle {
     position: absolute;
     z-index: 5;
@@ -1086,9 +1086,9 @@ select {
     margin-left: 2px;
 }
 
-/* LEFT handle — used for the TRUE branch of decision/loop/for/do
-   shapes. Mirrors .handle-right but anchored to the left edge and
-   pointing left. */
+
+
+
 .handle-left {
     left: -10px;
     top: 50%;
@@ -1111,7 +1111,7 @@ select {
     margin-right: 2px;
 }
 
-/* T label sits to the LEFT of the left handle. */
+ 
 .handle-left .label {
     right: 22px;
     top: 50%;
@@ -1151,10 +1151,10 @@ select {
     border-radius: 3px;
 }
 
-/* ============================================================
-   FLOATING PANELS — Variables, Console, Code
-   Generic shared panel styling.
-   ============================================================ */
+
+
+
+
 .fc-panel {
     position: static;
     z-index: 40;
@@ -1170,13 +1170,13 @@ select {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    /* Docked panels must not inherit the floating entrance transform:
-       it causes a visible flash whenever their DOM position is touched. */
+    
+
     animation: none;
     transition: height 0.24s ease, max-height 0.24s ease, box-shadow 0.2s ease;
 }
 
-/* Bottom-right dock: panels use normal flow so they always stack without overlap. */
+ 
 .fc-side-panels {
     position: absolute;
     right: var(--fc-margin);
@@ -1207,14 +1207,14 @@ select {
     max-height: var(--fc-console-h);
 }
 
-/* When a panel is minimized, collapse its body */
+ 
 .fc-panel.minimized .panel-body {
     display: none;
 }
 
 .fc-panel.minimized {
-    /* Match the natural panel-header min-height so the collapsed
-       panel is exactly the same size as its title bar — no smaller. */
+    
+
     max-height: 48px !important;
     height: 48px !important;
     box-shadow:
@@ -1231,7 +1231,7 @@ select {
     align-items: center;
 }
 
-/* Panel header (shared) */
+ 
 .panel-header {
     display: flex;
     align-items: center;
@@ -1339,7 +1339,7 @@ select {
     transition: transform 0.3s var(--fc-ease);
 }
 
-/* Expanded points down; minimized points up toward the collapsed panel. */
+ 
 .fc-panel.minimized .panel-toggle .toggle-chev {
     transform: rotate(180deg);
 }
@@ -1355,7 +1355,7 @@ select {
     padding: 0 12px 12px;
 }
 
-/* Variable items */
+ 
 .var-item {
     display: grid;
     grid-template-columns: 70px 60px 1fr;
@@ -1430,7 +1430,7 @@ select {
     line-height: 1.7;
 }
 
-/* Console */
+ 
 #console {
     font-family: var(--fc-mono);
     font-size: 12px;
@@ -1473,9 +1473,9 @@ select {
 #console .console-input   { color: var(--console-input); font-weight: 600; }
 #console .console-success { color: var(--console-success); font-weight: 600; }
 
-/* ============================================================
-   MODAL DIALOGS  (EmeraldSuite style)
-   ============================================================ */
+
+
+
 .modal-overlay {
     position: fixed;
     inset: 0;
@@ -1512,7 +1512,7 @@ select {
     to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* Header */
+ 
 .prop-header {
     text-align: center;
     margin-bottom: 18px;
@@ -1732,7 +1732,7 @@ select {
     flex: 1;
 }
 
-/* Terminal type buttons (Start / End selectable) */
+ 
 .terminal-type-buttons {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -1791,7 +1791,7 @@ select {
     border-color: #fff;
 }
 
-/* Footer */
+ 
 .prop-footer {
     display: flex;
     gap: 10px;
@@ -1846,7 +1846,7 @@ select {
     box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
 }
 
-/* Help-modal body text */
+ 
 .prop-dialog .prop-body p { margin: 0 0 10px 0; }
 .prop-dialog .prop-body p:last-child { margin-bottom: 0; }
 .prop-dialog .prop-body kbd {
@@ -1858,9 +1858,9 @@ select {
     font-size: 11px;
 }
 
-/* ============================================================
-   CONTEXT MENU (Matches .rightclick-menu in index.html & aichat.html)
-   ============================================================ */
+
+
+
 .fc-context-menu,
 .rightclick-menu {
     position: fixed;
@@ -1877,18 +1877,18 @@ select {
     animation: ctxFadeIn 0.2s ease-out;
 }
 
-/* The flowchart page sets html/body { font-size: 14px }, which makes
-   the rem-based sizes inside this menu compute smaller than they do
-   on the AIChat / index pages (which use the browser default 16px
-   root). Pinning #context-menu back to 16px makes 0.9rem / 0.72rem
-   inside the menu render at exactly the same px size as AIChat. */
+
+
+
+
+
 #context-menu {
     font-size: 16px;
-    /* No visible border — matches how the AIChat menu looks on
-       screen (the border in .rightclick-menu is barely visible
-       against AIChat's dark page, so for visual parity on the
-       flowchart's light page we drop it entirely and let the
-       box-shadow carry the depth. */
+    
+
+
+
+
     border: none;
 }
 
@@ -1903,14 +1903,14 @@ select {
     }
 }
 
-/* `.context-section` groups related items under a title — matches
-   the .rightclick-menu structure used on the index page and in AIChat. */
+
+
 .context-section {
     padding: 4px 0;
 }
 
-/* `.context-text` is an optional descriptive line under a title
-   (e.g. showing which shape/connection the menu targets). */
+
+
 .context-text {
     padding: 0 16px 8px;
     font-size: 0.85rem;
@@ -1919,11 +1919,11 @@ select {
     white-space: pre-wrap;
 }
 
-/* Item rows — `display: block` (NOT flex) to match AIChat / index
-   exactly. AIChat's .rightclick-menu a uses display:block with no
-   gap / no align-items, so the text sits flush at the padding edge.
-   The previous flex+gap version reserved space for icons that no
-   longer exist, pushing text 8px too far right. */
+
+
+
+
+
 #context-menu .ctx-item,
 #context-menu a,
 .rightclick-menu a {
@@ -1967,17 +1967,17 @@ select {
     color: #d93025;
 }
 
-/* Separators — kept for the index-page .rightclick-menu, but the
-   flowchart #context-menu no longer emits .ctx-divider elements
-   (AIChat's MESSAGE / CHATS menus don't use them either). */
+
+
+
 .rightclick-menu .ctx-divider {
     height: 1px;
     background: rgba(0, 0, 0, 0.08);
     margin: 4px 0;
 }
 
-/* Category titles. Both `.ctx-title` (legacy flowchart) AND
-   `.context-title` (AIChat) are aliased. */
+
+
 #context-menu .ctx-title,
 #context-menu .context-title,
 .rightclick-menu .context-title {
@@ -1993,16 +1993,16 @@ select {
     pointer-events: none;
 }
 
-/* ============================================================
-   TOAST  (Matches .custom-toast in index.html & aichat.html)
-   ------------------------------------------------------------
-   aichat / index toasts are ALWAYS white background + black text.
-   There is no .custom-toast--success or .custom-toast--error CSS
-   rule — the `type` argument passed to showToast() is a no-op for
-   styling. The visual signal (success vs error) is carried entirely
-   by the SVG icon prefixed to the message (green check, red warn,
-   blue info, etc.), NOT by the toast background.
-   ============================================================ */
+
+
+
+
+
+
+
+
+
+
 .fc-toast,
 .custom-toast {
     position: fixed;
@@ -2029,20 +2029,20 @@ select {
     font-family: var(--fc-sans);
 }
 
-/* Animation: on .show, fade in AND lift up 10px (matches aichat
-   exactly — the toast slides up from its resting position as it
-   appears, and slides back down as it fades out). */
+
+
+
 .fc-toast.show,
 .custom-toast.show {
     opacity: 1;
     transform: translateX(-50%) translateY(-10px);
 }
 
-/* SVG icons inside toast messages (prefixed via innerHTML in
-   the toast() call). The icon colour comes from the SVG's own
-   stroke="currentColor" which inherits the toast's text color
-   (#111 black). Matches the rightclick.js showToast pattern on
-   the index page. */
+
+
+
+
+
 .fc-toast svg,
 .custom-toast svg {
     vertical-align: -2px;
@@ -2054,9 +2054,9 @@ select {
     display: none;
 }
 
-/* ============================================================
-   RESPONSIVE
-   ============================================================ */
+
+
+
 @media (max-width: 1100px) {
     .fc-palette { width: 200px; }
     .fc-panel { width: 270px; }

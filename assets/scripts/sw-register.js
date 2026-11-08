@@ -11,9 +11,7 @@ if ('serviceWorker' in navigator) {
             });
         });
     }).catch(function (err) {
-        // A failed registration (insecure context, unsupported host, bad
-        // MIME type) rejects with no handler, producing an unhandled
-        // rejection on every page load.
+
         console.warn('Service Worker registration failed:', err);
     });
 }

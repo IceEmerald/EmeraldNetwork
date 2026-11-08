@@ -1,11 +1,7 @@
-/* ============================================================
-   EmeraldNetwork — Authentication + Account dashboard (account.html)
-   ============================================================ */
+
 
 (function () {
     'use strict';
-
-    /* ---------------- Mode switching ---------------- */
 
     var currentMode = 'login';
     var forms = {
@@ -243,9 +239,7 @@
 
         if (hasValidSession(session)) {
             var email = resolveSessionEmail(session);
-            /* Only re-render the dashboard when we actually transition into
-               the logged-in view (or switch accounts). Re-rendering on every
-               1s tick would clobber whatever the user is currently typing. */
+
             if (!isLoggedInView || lastRenderedEmail !== email) {
                 isLoggedInView = true;
                 lastRenderedEmail = email;
@@ -264,7 +258,6 @@
         startSessionMonitor();
     }
 
-    /* Delegated mode switch */
     if (switchNote) {
         switchNote.addEventListener('click', function (e) {
             if (loggedInState && loggedInState.hidden === false) return;
@@ -274,8 +267,6 @@
             activateMode(currentMode === 'login' ? 'register' : 'login', true);
         });
     }
-
-    /* ---------------- Toast ---------------- */
 
     var toastTimer;
 
@@ -315,8 +306,6 @@
             toast.classList.remove('show');
         }, 5000);
     }
-
-    /* ---------------- Global confirm modal (suite-style) ---------------- */
 
     var MODAL_ICONS = {
         devices: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>',
@@ -407,8 +396,6 @@
         });
     }
 
-    /* ---------------- Validation helpers ---------------- */
-
     var EMAIL_RE = /^[^\s@]+@[^\s@]+(?:\.[^\s@]{2,})?$/;
 
     function setError(inputId, message) {
@@ -427,8 +414,6 @@
             input.classList.remove('invalid', 'match');
         });
     }
-
-    /* ---------------- Login form ---------------- */
 
     function validateLoginForm() {
         var email = document.getElementById('login-email').value.trim();
@@ -511,8 +496,6 @@
         if (!validateLoginForm()) return;
         submitAuthRequest('login');
     });
-
-    /* ---------------- Register form ---------------- */
 
     function validateRegisterForm() {
         var email = document.getElementById('register-email').value.trim();
@@ -635,8 +618,6 @@
         });
     });
 
-    /* ---------------- Social buttons ---------------- */
-
     function oauthStub(provider, intent) {
         if (!window.EmeraldAuth || !window.EmeraldAuth.beginOAuth) {
             showToast('OAuth is not available yet. Set up the Cloudflare auth worker first.');
@@ -649,14 +630,10 @@
         oauthStub('Google', currentMode === 'register' ? 'register' : 'login');
     });
 
-    /* ---------------- Forgot password ---------------- */
-
     document.getElementById('forgotLink').addEventListener('click', function (e) {
         e.preventDefault();
         showToast('Password reset will arrive with the account backend hookup.');
     });
-
-    /* ---------------- Password show / hide ---------------- */
 
     Array.prototype.slice.call(document.querySelectorAll('.pw-toggle')).forEach(function (toggle) {
         var input = document.getElementById(toggle.dataset.target);
@@ -703,8 +680,6 @@
         });
     }
 
-    /* ---------------- Account dashboard logic ---------------- */
-
     function getDeviceId() {
         var id = null;
         try { id = localStorage.getItem('emerald.device.id'); } catch (_) {}
@@ -729,8 +704,6 @@
         };
     }
 
-    /* Infer the device family from its OS/platform before falling back to
-       generic device-name hints. */
     function deviceKindOf(d) {
         var hay = ((d && d.userAgent) || '') + ' ' + ((d && d.name) || '');
         hay = hay.toLowerCase();
@@ -740,7 +713,6 @@
         return 'laptop';
     }
 
-    /* Keep the overview compact; the full list lives in Manage devices. */
     function renderDeviceRows(devices) {
         var wrap = document.getElementById('overviewDeviceList');
         if (!wrap) return;
@@ -799,8 +771,6 @@
         }
     }
 
-    /* platform strings stored in device records ('MacIntel', 'Win32', …)
-       turned into readable names */
     function friendlyPlatform(name) {
         var n = (name || '').trim();
         if (/^Mac/i.test(n)) return 'Mac';
@@ -830,8 +800,6 @@
         return '';
     }
 
-    /* Layered device artwork with per-instance gradients for both the
-       overview and the Devices section. */
     function msDeviceArt(kind) {
         msDeviceArt.instance = (msDeviceArt.instance || 0) + 1;
         var gradientId = 'deviceArt' + msDeviceArt.instance;
@@ -943,19 +911,11 @@
         }
     }
 
-    /* ---------- Compact profile photos ---------- */
-
-    // The profile object travels inside the whole account snapshot that the
-    // auth worker serves on every sync poll. A raw multi-megabyte data URL
-    // photo balloons every GET and POST into megabytes and blew through the
-    // Cloudflare worker's resource limits (Error 1102), so photos are
-    // resampled to a small JPEG before they are stored or synced.
     function shrinkPhotoDataUrl(dataUrl, maxSize) {
         var limit = maxSize || 256;
         return new Promise(function (resolve) {
             try {
-                // Original uploads may be up to 2 MB; the saved thumbnail is
-                // separately checked against the smaller display/storage cap.
+
                 var safeDataUrl = safePhotoSource(dataUrl, 3 * 1024 * 1024);
                 if (!safeDataUrl) { resolve(null); return; }
                 var img = new Image();
@@ -1145,8 +1105,6 @@
         });
     }
 
-    // Re-encodes an oversized stored photo once and persists the compact
-    // version (also repairs profiles saved before this rule existed).
     async function compactProfilePhoto(email, profile) {
         try {
             if (profile && typeof profile.photo === 'string' && profile.photo.length > 150 * 1024) {
@@ -1225,8 +1183,6 @@
         if (el) el.textContent = value;
     }
 
-    /* --- sliding navigation pill ------------------------------------- */
-
     function moveNavPill(instant) {
         var nav = document.getElementById('dashNav');
         var pill = nav ? nav.querySelector('.dash-nav-pill') : null;
@@ -1236,10 +1192,6 @@
         var navRect = nav.getBoundingClientRect();
         var btnRect = active.getBoundingClientRect();
 
-        /* Same mechanic as wiki's .wiki-nav-pill: the rail's top stays 0 and
-           the whole bar is translated to the active row, so moving between
-           rows reads as one bar sliding, not two bars blinking. The bar is
-           shorter than the row and vertically centred inside it. */
         var railH = Math.max(12, Math.min(Math.round(btnRect.height * 0.58), 20));
         pill.style.transform = 'translate3d(0, ' +
             ((btnRect.top - navRect.top) + (btnRect.height - railH) / 2) + 'px, 0)';
@@ -1269,19 +1221,13 @@
         if (el) el.src = safePhotoSource(value) || defaultAvatarDataUrl();
     }
 
-    /* ---------- network auto-detection ---------------------------------
-       The public IP comes from the user's own network (WiFi/cellular)
-       and is looked up against a free geolocation endpoint to suggest
-       country + region for the profile form. Results are cached for a
-       day so the lookup is not repeated on every render. */
-
     var geoLookupCache = null;
 
     function deriveDefaultName(email) {
         if (!email || email.indexOf('@') === -1) return '';
         var local = email.split('@')[0].trim();
         if (!local) return '';
-        // "john.doe_92" → "John Doe 92"
+
         var words = local.replace(/[._\-]+/g, ' ').trim().split(/\s+/);
         for (var i = 0; i < words.length; i++) {
             words[i] = words[i].charAt(0).toUpperCase() + words[i].slice(1);
@@ -1303,8 +1249,7 @@
                 var geo = await res.json();
                 var countryName = geo.country_name || geo.country || '';
                 var countryCode = geo.country_code || geo.countryCode || '';
-                // endpoints differ: some give "US", some "United States" —
-                // normalise to the proper country name either way
+
                 if (/^[A-Za-z]{2}$/.test(countryName.trim())) {
                     try {
                         countryName = new Intl.DisplayNames(['en'], { type: 'region' })
@@ -1327,22 +1272,16 @@
                     geoLookupCache = { t: Date.now(), data: data };
                     return data;
                 }
-            } catch (_) { /* offline or blocked — try the next endpoint */ }
+            } catch (_) {  }
         }
         return null;
     }
 
-    /* Fill the network-detected country into the (now free-text) field. */
     function applyDetectedCountry(input, countryName) {
         if (!input || !countryName) return false;
         input.value = String(countryName);
         return true;
     }
-
-    /* ---------- dirty-state tracking for the profile form ----------
-       The "Save changes" button stays disabled until one of the fields
-       differs from the last saved snapshot; it is disabled again right
-       after a successful save. */
 
     var savedProfileSnapshot = null;
     var userEditedProfile = false;
@@ -1367,14 +1306,6 @@
             JSON.stringify(profileFormValues()) !== JSON.stringify(savedProfileSnapshot);
         btn.disabled = !changed;
     }
-
-    /* ---------- segmented birthday picker ------------------------------
-       Day = numeric text input, Month = custom dropdown popup,
-       Year = numeric text input. The day is clamped to the number of
-       days that exist in the chosen month + year (leap years included),
-       and the age is shown as soon as the full date is valid. The
-       combined value is mirrored into the hidden #profileBirth input
-       (YYYY-MM-DD), which is what gets saved. */
 
     var BIRTH_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
         'July', 'August', 'September', 'October', 'November', 'December'];
@@ -1445,7 +1376,6 @@
             if (open) refreshMonthOptions(els);
         });
 
-        /* close when clicking anywhere else */
         document.addEventListener('click', function (e) {
             if (els.box.classList.contains('open') && !els.box.contains(e.target)) {
                 closeMonthMenu(els);
@@ -1457,7 +1387,6 @@
             }
         });
 
-        /* digits only, limited length */
         [els.day, els.year].forEach(function (input) {
             input.addEventListener('input', function () {
                 var v = input.value.replace(/\D+/g, '');
@@ -1467,7 +1396,6 @@
             });
         });
 
-        /* day clamps to the real month length on commit (blur/Enter) */
         [els.day, els.year].forEach(function (input) {
             input.addEventListener('change', function () {
                 userEditedProfile = true;
@@ -1490,7 +1418,7 @@
         var m = chosenMonth(els);
         var y = parseInt(els.year.value, 10);
         var max = (m && y) ? daysInMonth(m, y) : 31;
-        if (d > max) els.day.value = String(max);   // e.g. Feb 31 → 29
+        if (d > max) els.day.value = String(max);
         else if (d < 1) els.day.value = '';
     }
 
@@ -1604,11 +1532,6 @@
         moveNavPill(false);
     }
 
-    /* --- section switch, wiki's blur dissolve ----------------------------
-       The content blurs out quickly, swaps at the midpoint and dissolves
-       back in slowly (see .dash-main / .is-switching in the CSS). Rapid
-       clicks remember only the newest target and apply it at the midpoint,
-       exactly like wiki.js's go(). */
     var SWITCH_MS = 180;
     var switchAnimating = false;
     var switchPending = null;
@@ -1633,9 +1556,7 @@
             try {
                 if (next) applySection(next);
             } finally {
-                /* Force a reflow before removing the class, or there is
-                   nothing to transition back from and the content snaps
-                   into focus. */
+
                 void dashMain.offsetWidth;
                 dashMain.classList.remove('is-switching');
                 setTimeout(function () { switchAnimating = false; }, 200);
@@ -1650,7 +1571,7 @@
         ul.innerHTML = '';
         var id = getDeviceId();
         var devices = Array.isArray(list) ? list.slice() : [];
-        // Keep the current device at the top and de-duplicate by id.
+
         var seen = {};
         devices = devices.filter(function (d) {
             if (!d || !d.id || seen[d.id]) return false;
@@ -1744,10 +1665,6 @@
         }
     }
 
-    /* Mirror of aichat's storage counter (_fmtBytes / _getStorageEstimate):
-       the max is the browser/IDB origin quota reported by
-       navigator.storage.estimate(), not a made-up 15 GB. Falls back to the
-       old fixed-quota text when estimate() is unsupported/throttled. */
     function fmtBytes(b) {
         if (!Number.isFinite(b) || b <= 0) return '0 B';
         if (b < 1024) return b + ' B';
@@ -1758,8 +1675,6 @@
         return (v < 10 ? v.toFixed(1) : Math.round(v)) + ' ' + units[u];
     }
 
-    /* Which suite app owns which storage keys. Keys live in the shared
-       `emeraldcore.storage.suite` kv store, qualified as acct:<scope>:<key>. */
     function suiteAppOf(qualifiedKey) {
         var k = qualifiedKey.replace(/^acct:[^:]*:/, '');
         if (k.indexOf('en_chat') === 0 || k.indexOf('en_onboarded') === 0) return 'AI Chat';
@@ -1781,7 +1696,6 @@
         'Other': '#9aa5a0'
     };
 
-    /* Measure every entry in the suite's kv store and size it per app. */
     async function measureSuiteStorage() {
         var agg = {};
         var total = 0;
@@ -1816,9 +1730,6 @@
         return { agg: agg, total: total };
     }
 
-    /* One donut for every .storage-pie on the page (overview + storage
-       section): conic-gradient of app slices out of the quota, free space
-       as the neutral remainder, and a matching legend. */
     function renderStorageDonut(agg, used, quota) {
         var apps = Object.keys(agg).filter(function (k) { return agg[k] > 0; })
             .sort(function (a, b) { return agg[b] - agg[a]; });
@@ -1844,8 +1755,6 @@
             el.textContent = pctUsed.toFixed(1) + '%';
         });
 
-        // Segmented rounded bar (storage section): one colored slice per app
-        // out of the quota, neutral remainder for free space.
         document.querySelectorAll('.storage-bar').forEach(function (bar) {
             bar.innerHTML = '';
             var denom = (quota > 0 && quota > used) ? quota : Math.max(used, 1);
@@ -1869,8 +1778,7 @@
         });
 
         document.querySelectorAll('.storage-legend').forEach(function (legend) {
-            // The overview legend (beside the donut) is name-only; the
-            // storage section keeps the byte values.
+
             var showValue = legend.id === 'storageLegend';
             legend.innerHTML = '';
             apps.forEach(function (k) {
@@ -1907,7 +1815,7 @@
                 var est = await navigator.storage.estimate();
                 if (typeof est.quota === 'number' && est.quota > 0) quota = est.quota;
             }
-        } catch (_) { /* estimate() unsupported/throttled — keep fixed fallback */ }
+        } catch (_) {  }
 
         var text;
         if (quota) {
@@ -1928,17 +1836,12 @@
         setText('storageText', text);
         setText('overviewStorage', text);
 
-        // Simple Microsoft-style summary in the storage section: total used
-        // with the quota beside it, and the percentage above the bar.
         var pctUsed = quota > 0 ? Math.min(100, (used / quota) * 100) : 0;
         setText('storageUsedTotal', fmtBytes(used));
         setText('storageQuotaTotal', '/ ' + fmtBytes(quota));
         setText('storageUseLabel', pctUsed.toFixed(0) + '% used');
     }
 
-    /* overview setup checklist, myaccount.google.com style: one dropdown on
-       the card header (where the done-counter sits); each step row is a
-       plain jump link — no per-step dropdowns. */
     function renderSetupChecklist(profile) {
         var list = document.getElementById('setupList');
         if (!list) return;
@@ -1969,8 +1872,6 @@
 
         var allDone = doneCount === items.length;
 
-        /* one dropdown state, on the whole card, animated with a
-           max-height + opacity slide (border-box layout so 0 is exact) */
         var isOpen = false;
         var setOpen = function (open) {
             isOpen = open;
@@ -1996,7 +1897,6 @@
         setOpen(!allDone);
     }
 
-    /* header avatar button: photo (or initial) + name/email tooltip */
     function updateHeaderUser(name, email, photo) {
         var btn = document.getElementById('dashUserBtn');
         var img = document.getElementById('dashAvatar');
@@ -2047,7 +1947,6 @@
         setText('securityEmail', email);
         renderSetupChecklist(profile);
 
-        /* greeting, time-of-day aware like myaccount.google.com */
         var greetingEl = document.getElementById('overviewGreeting');
         if (greetingEl) {
             var hour = new Date().getHours();
@@ -2055,7 +1954,6 @@
             greetingEl.textContent = part + ', ' + (name.split(' ')[0] || name);
         }
 
-        /* password card visibility */
         var passwordCard = document.getElementById('passwordCard');
         var googleCard = document.getElementById('googleProviderCard');
         if (provider === 'google') {
@@ -2066,8 +1964,6 @@
             if (googleCard) googleCard.hidden = true;
         }
 
-        /* profile form — name derives from the email; city/region/country
-           are prefilled from network (IP) location when still empty */
         var nameInput = document.getElementById('profileName');
         var birthInput = document.getElementById('profileBirth');
         var phoneInput = document.getElementById('profilePhone');
@@ -2087,12 +1983,10 @@
         if (regionInput) regionInput.value = profile.region || '';
         if (countryInput) countryInput.value = profile.country || '';
 
-        /* baseline snapshot for the dirty-state button */
         savedProfileSnapshot = profileFormValues();
         userEditedProfile = false;
         updateSaveButtonState();
 
-        /* network (WiFi/ISP) location suggestion, non-blocking */
         if (cityInput || regionInput || countryInput) {
             detectNetworkLocation().then(function (geo) {
                 if (!geo) return;
@@ -2107,8 +2001,7 @@
                 if (countryInput && !countryInput.value) {
                     applyDetectedCountry(countryInput, geo.country);
                 }
-                /* geo-filled values become the new baseline so the button
-                   only lights up for genuine manual edits */
+
                 if (!userEditedProfile) {
                     savedProfileSnapshot = profileFormValues();
                 }
@@ -2116,7 +2009,6 @@
             });
         }
 
-        /* devices: pull the latest registry from D1 first */
         if (window.EmeraldAuth && typeof window.EmeraldAuth.pollDeviceRegistry === 'function') {
             try { await window.EmeraldAuth.pollDeviceRegistry(); } catch (_) {}
         }
@@ -2132,7 +2024,6 @@
         requestAnimationFrame(function () { moveNavPill(true); });
     }
 
-    /* Sign out of all other devices */
     var signOutAllBtn = document.getElementById('signOutAllDevicesBtn');
     if (signOutAllBtn) {
         signOutAllBtn.addEventListener('click', async function () {
@@ -2177,7 +2068,6 @@
         });
     }
 
-    /* Navigation */
     document.querySelectorAll('.dash-nav-item').forEach(function (btn) {
         btn.addEventListener('click', function () {
             showSection(btn.dataset.section);
@@ -2189,18 +2079,15 @@
         });
     });
 
-    /* clicking the avatar in the navbar jumps to Personal info */
     var dashUserBtn = document.getElementById('dashUserBtn');
     if (dashUserBtn) {
         dashUserBtn.addEventListener('click', function () { showSection('personal'); });
     }
 
-    /* keep the pill glued to the active item on resize */
     window.addEventListener('resize', function () {
         moveNavPill(true);
     });
 
-    /* Profile form */
     var profileForm = document.getElementById('profileForm');
     if (profileForm) {
         profileForm.addEventListener('submit', async function (e) {
@@ -2216,7 +2103,7 @@
             profile.city = document.getElementById('profileCity').value.trim();
             profile.region = document.getElementById('profileRegion').value.trim();
             profile.country = document.getElementById('profileCountry').value;
-            delete profile.language;  // field removed from the profile
+            delete profile.language;
             if (!profile.photo) profile.photo = (await loadProfile(email) || {}).photo || '';
             if (!await saveProfile(email, profile)) {
                 showToast('Could not save your profile. Please try again.');
@@ -2231,7 +2118,6 @@
         });
     }
 
-    /* dirty tracking: any text input change flips the button on */
     ['profileName', 'profilePhone', 'profileCity', 'profileRegion', 'profileCountry'].forEach(function (id) {
         var el = document.getElementById(id);
         if (!el) return;
@@ -2239,7 +2125,6 @@
         el.addEventListener('change', function () { userEditedProfile = true; updateSaveButtonState(); });
     });
 
-    /* Photo */
     var changePhotoBtn = document.getElementById('changePhotoBtn');
     var removePhotoBtn = document.getElementById('removePhotoBtn');
     var photoInput = document.getElementById('photoInput');
@@ -2313,7 +2198,6 @@
         });
     }
 
-    /* Password change */
     var passwordForm = document.getElementById('passwordForm');
     if (passwordForm) {
         passwordForm.addEventListener('submit', async function (e) {
@@ -2369,7 +2253,6 @@
         });
     }
 
-    /* Activity history (Data & privacy) */
     function formatHistoryTime(ts) {
         var date = new Date(ts);
         if (isNaN(date.getTime())) return '';
@@ -2464,11 +2347,6 @@
         } catch (_) {}
     }
 
-    /* Data & privacy */
-
-    // Serialize the account export in the same .emeraldcore style the
-    // Flowchart app uses: a hand-readable comment banner (plain // JSONC
-    // comments outside string literals) followed by pretty-printed JSON.
     function serializeAccountCore(data) {
     var H = '\u2500', V = '\u2502', TL = '\u250C', TR = '\u2510', BL = '\u2514', BR = '\u2518', AR = '\u2192';
     function bar(left, right) { return left + H.repeat(49) + right; }
@@ -2532,12 +2410,11 @@
                 var a = document.createElement('a');
                 a.href = url;
                 a.download = 'account.emeraldcore';
-                // Append to DOM before clicking - some browsers refuse to
-                // trigger a download for a detached <a> element.
+
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
-                // Give the browser a tick to start the download before revoking.
+
                 setTimeout(function () { URL.revokeObjectURL(url); }, 200);
                 showToast('Data exported as .emeraldcore.');
                 recordHistory('Exported account data as .emeraldcore');
@@ -2611,18 +2488,13 @@
         });
     }
 
-    /* Dashboard sign out */
     var dashSignOut = document.getElementById('dashSignOutBtn');
     if (dashSignOut && logoutBtn) {
         dashSignOut.addEventListener('click', function () { logoutBtn.click(); });
     }
 
-    /* ---------------- Footer year ---------------- */
-
     var yearEl = document.getElementById('footerYear');
     if (yearEl) yearEl.textContent = new Date().getFullYear();
-
-    /* ---------------- Star field ---------------- */
 
     var visualStars = document.getElementById('visualStars');
     if (visualStars) {
@@ -2650,8 +2522,6 @@
         }
     }
 
-    /* ---------------- Syncing toast ---------------- */
-
     var syncingToastActive = false;
     function showSyncingToast() {
         if (syncingToastActive) return;
@@ -2667,8 +2537,6 @@
         if (toast) toast.classList.remove('show');
     }
 
-    /* ---------------- Init ---------------- */
-
     var params = new URLSearchParams(window.location.search);
     initBirthdayPicker();
     initGenderPicker();
@@ -2677,10 +2545,6 @@
     refreshSessionView().catch(function () {});
     startSessionMonitor();
 
-    // Kick an immediate sync on load so a signed-in account (e.g. on a new
-    // device) hydrates its data — including activity history — without
-    // waiting for the next polling tick. Show a "Syncing…" toast while it
-    // runs so the user knows data is still loading.
     if (window.EmeraldAuth && typeof window.EmeraldAuth.getSession === 'function') {
         window.EmeraldAuth.getSession().then(function (session) {
             if (!session || !session.user || !session.token) return;
@@ -2695,7 +2559,6 @@
         }).catch(function () {});
     }
 
-    // Immediately sync devices on page load so other devices appear right away
     if (window.EmeraldAuth && typeof window.EmeraldAuth.pollDeviceRegistry === 'function') {
         window.EmeraldAuth.pollDeviceRegistry().catch(function () {});
     }
@@ -2768,8 +2631,6 @@
 
     ready = true;
 })();
-
-/* ---------------- Wiki-style settings search (Ctrl/⌘+K, arrow nav) --------------- */
 
 (function () {
     var input = document.getElementById('dashSearchInput');
@@ -2903,12 +2764,10 @@
         });
     }
 
-    /* click outside closes */
     document.addEventListener('click', function (e) {
         if (!box.contains(e.target) && e.target !== input) hide();
     });
 
-    /* Ctrl/⌘+K focuses the search like the wiki */
     document.addEventListener('keydown', function (e) {
         if ((e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === 'k') {
             input.focus();

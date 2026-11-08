@@ -1,56 +1,11 @@
-/* ============================================================
-   EmeraldSuite DOCX writer — live Docs pages → .docx (OOXML)
-   ============================================================
-   Converts the REAL rendered .page-content DOM into Word's own
-   format, so the exported .docx keeps what the editor measured:
 
-     • Tables (the prime target, kept round-trip-safe with the
-       importer in docs.js):
-         – column widths from the live grid (px→twips, 1px = 15tw)
-         – cell borders / shading / vertical alignment / padding
-         – colspan → gridSpan, rowspan → vMerge restart + continue
-         – rows in <thead> repeat on every Word page (tblHeader)
-         – floating tables keep their "anywhere on the paper"
-           position via w:tblpPr (page-anchored), which the importer
-           reads back into an absolute-positioned table.
-     • Paragraphs: alignment, margins/spacing, first-line indents,
-       line-height (as an "auto" multiplier), shading, borders,
-       keepNext + outlineLvl on h1..h6 so Word's TOC/navigation
-       keeps working.
-     • Runs: font family/size, bold, italic, underline, strike,
-       caps/smallCaps, colors, letter-spacing, sup/sub.
-     • Lists: real Word numbering (numbering.xml), one abstractNum
-       per list instance so numbering restarts where the document
-       restarts, and lists split across pages continue numbering.
-     • Images: data-URL / CORS-fetched sources embedded in
-       word/media + a w:drawing inline picture at its real size.
-     • Hyperlinks as external relationships.
-     • Page breaks: pages are joined with explicit page-break
-       paragraphs (and .emdocs-page-break shards preserved).
-
-   All of it is packed into a ZIP written here (deflate-raw via
-   CompressionStream, stored fallback) — no dependencies.
-
-   Usage:
-     EMDocx.fromPages([pageEl, pageEl, ...], {
-       title, pageW, pageH,
-       margins: { top, right, bottom, left },   // CSS px
-       bg: "#ffffff"
-     }) → Promise<Blob>
-
-   Everything is measured with getComputedStyle()/offsetWidth,
-   which ignore the app's zoom transform, so exports are stable
-   at any zoom level.
-   ============================================================ */
 
 (function () {
   'use strict';
 
-  /* ---------------- namespaces ---------------- */
   var RELS_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
   var W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 
-  /* ---------------- XML helpers ---------------- */
   function esc(s) {
     return String(s == null ? "" : s)
       .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "")
@@ -63,7 +18,6 @@
       .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "");
   }
 
-  /* CSS px → OOXML units. 1px = 1/96in → 15 twips (1440tw/in), 9525 EMU. */
   function tw(px) { return Math.round(px * 15); }
   function halfPt(px) { return Math.max(6, Math.round(px * 1.5)); }
   function emu(px) { return Math.round(px * 9525); }
@@ -94,7 +48,7 @@
       }
       return hex.toUpperCase();
     }
-    return null; // named colors resolved by the browser before we get here
+    return null;
   }
 
   function firstFontFamily(stack) {
@@ -110,7 +64,6 @@
     return null;
   }
 
-  /* ---------------- ZIP writer ---------------- */
   var CRC_TABLE = (function () {
     var t = new Int32Array(256);
     for (var n = 0; n < 256; n++) {
@@ -131,7 +84,6 @@
 
   function strBytes(s) { return new TextEncoder().encode(s); }
 
-  /* deflate-raw through CompressionStream; null when unavailable */
   async function deflateAll(bytes) {
     if (typeof CompressionStream === "undefined") return null;
     try {
@@ -150,7 +102,6 @@
     } catch (e) { return null; }
   }
 
-  /* Fixed DOS timestamp (2026-10-31 00:00) so the archive stays byte-stable. */
   var DOS_DATE = (46 << 9) | (10 << 5) | 31;
 
   async function buildZip(entries) {
@@ -166,16 +117,16 @@
 
       var lh = new DataView(new ArrayBuffer(30));
       lh.setUint32(0, 0x04034b50, true);
-      lh.setUint16(4, 20, true);            // version needed
-      lh.setUint16(6, 0x0800, true);        // flags: UTF-8 names
+      lh.setUint16(4, 20, true);
+      lh.setUint16(6, 0x0800, true);
       lh.setUint16(8, method, true);
-      lh.setUint16(10, 0, true);            // time
+      lh.setUint16(10, 0, true);
       lh.setUint16(12, DOS_DATE, true);
       lh.setUint32(14, crc, true);
       lh.setUint32(18, comp.length, true);
       lh.setUint32(22, raw.length, true);
       lh.setUint16(26, name.length, true);
-      lh.setUint16(28, 0, true);            // extra len
+      lh.setUint16(28, 0, true);
       parts.push(new Uint8Array(lh.buffer), name, comp);
       offset += 30 + name.length + comp.length;
 
@@ -189,8 +140,8 @@
       var ce = central[k];
       var ch = new DataView(new ArrayBuffer(46));
       ch.setUint32(0, 0x02014b50, true);
-      ch.setUint16(4, 20, true);            // version made by
-      ch.setUint16(6, 20, true);            // version needed
+      ch.setUint16(4, 20, true);
+      ch.setUint16(6, 20, true);
       ch.setUint16(8, 0x0800, true);
       ch.setUint16(10, ce.method, true);
       ch.setUint16(12, 0, true);
@@ -199,11 +150,11 @@
       ch.setUint32(20, ce.c, true);
       ch.setUint32(24, ce.u, true);
       ch.setUint16(28, ce.name.length, true);
-      ch.setUint16(30, 0, true);            // extra
-      ch.setUint16(32, 0, true);            // comment
-      ch.setUint16(34, 0, true);            // disk#
-      ch.setUint16(36, 0, true);            // internal attrs
-      ch.setUint32(38, 0, true);            // external attrs
+      ch.setUint16(30, 0, true);
+      ch.setUint16(32, 0, true);
+      ch.setUint16(34, 0, true);
+      ch.setUint16(36, 0, true);
+      ch.setUint32(38, 0, true);
       ch.setUint32(42, ce.at, true);
       parts.push(new Uint8Array(ch.buffer), ce.name);
       offset += 46 + ce.name.length;
@@ -225,7 +176,6 @@
     return outBytes;
   }
 
-  /* ---------------- state ---------------- */
   var MIME_EXT = {
     "image/png": "png", "image/jpeg": "jpg", "image/jpg": "jpg",
     "image/gif": "gif", "image/webp": "webp", "image/svg+xml": "svg",
@@ -243,7 +193,7 @@
       abstractNums: [],
       nums: [],
       listMap: new Map(),
-      lastList: null,          // { tag, numId } while a list run continues
+      lastList: null,
       docPr: 0,
       usedAbstract: false,
       baseFont: base.font || "Georgia",
@@ -259,7 +209,7 @@
   }
 
   function nextRelIn(state, list, type, target, external) {
-    // Returns the id of the FIRST matching existing rel, else registers a new one.
+
     if (!external) {
       for (var i = 0; i < list.length; i++) {
         if (list[i].type === type && list[i].target === target) return list[i].id;
@@ -268,7 +218,6 @@
     return addRel(list, state, type, target, external);
   }
 
-  /* ---------------- media / hyperlinks ---------------- */
   async function imageSource(state, src) {
     try {
       src = String(src || "").trim();
@@ -296,7 +245,7 @@
   }
 
   async function imageRel(state, mime, bytes) {
-    // Content-hash dedup: the same image referenced twice embeds once.
+
     var ckey = mime + "\u0000" + bytes.length + "\u0000" + crc32(bytes);
     if (state.mediaSeen[ckey]) return state.mediaSeen[ckey];
     var ext = MIME_EXT[mime] || "png";
@@ -320,7 +269,6 @@
     return id;
   }
 
-  /* ---------------- run property builders ---------------- */
   function weightIsBold(cssWeight) {
     var v = parseInt(cssWeight, 10);
     if (isFinite(v)) return v >= 600;
@@ -337,7 +285,7 @@
     if (weightIsBold(style.fontWeight)) rPr += "<w:b/>";
     if (style.fontStyle === "italic" || style.fontStyle === "oblique") rPr += "<w:i/>";
     if (style.textTransform === "uppercase" || style.textTransform === "capitalize") rPr += "<w:caps/>";
-    else if (style.textTransform === "lowercase") { /* Word has no lowercase toggle */ }
+    else if (style.textTransform === "lowercase") {  }
     else if (style.fontVariant && /small-caps/i.test(style.fontVariant)) rPr += "<w:smallCaps/>";
     var deco = String(style.textDecorationLine || style.textDecoration || "");
     if (/line-through/i.test(deco)) rPr += "<w:strike/>";
@@ -413,9 +361,6 @@
       "</wp:inline></w:drawing></w:r>";
   }
 
-  /* ---------------- inline content ---------------- */
-  /* skipFn lets callers drop certain children while walking inline content
-     (list items skip their nested lists/blocks, which are emitted after). */
   async function inlineXml(node, state, env, skipFn) {
     var out = "";
     var kids = node.childNodes;
@@ -440,7 +385,6 @@
     return out;
   }
 
-  /* ---------------- paragraph properties ---------------- */
   function spacingXml(state, style, el) {
     var pt = parseFloat(style.marginTop) || 0;
     var pb = parseFloat(style.marginBottom) || 0;
@@ -455,10 +399,6 @@
     return "<w:spacing" + sp + "/>";
   }
 
-  /* Word indents are measured from the text-column edge. At the top level
-     the element's offsetLeft already contains every ancestor indent (list
-     levels, blockquotes, wrapper divs), so it IS the indent. Inside table
-     cells indents restart at the cell margin box instead. */
   function indXml(style, el) {
     if (!el) return "";
     var left = parseFloat(style.marginLeft) || 0;
@@ -504,7 +444,6 @@
     return p ? "<w:pPr>" + p + "</w:pPr>" : "";
   }
 
-  /* ---------------- headings / paragraphs ---------------- */
   async function paragraphXml(el, state, env) {
     var style = window.getComputedStyle(el);
     var runs = await inlineXml(el, state, env);
@@ -513,7 +452,6 @@
     return "<w:p>" + pPr + runs + "</w:p>";
   }
 
-  /* ---------------- lists ---------------- */
   function relRank(depth) {
     var seq = ["decimal", "lowerLetter", "lowerRoman", "decimal", "lowerLetter", "lowerRoman", "decimal", "lowerLetter", "lowerRoman"];
     return seq[depth % seq.length];
@@ -545,9 +483,7 @@
     var prev = state.lastList;
     var nid;
     if (prev && prev.tag === tag && prev.depth === depth) {
-      // Same visual list carried across a page/pagination split: Word restarts
-      // numbering when a NEW numId is used, so the continuation reuses the
-      // previous numId instead of getting its own.
+
       nid = prev.numId;
       state.listMap.set(listEl, nid);
     } else {
@@ -566,8 +502,6 @@
     return nid;
   }
 
-  /* Block children that a list item must NOT swallow into its own paragraph:
-     nested lists / real blocks become their own paragraphs after it. */
   var LI_BLOCK_TAGS = {
     UL: 1, OL: 1, TABLE: 1, P: 1, PRE: 1, BLOCKQUOTE: 1,
     H1: 1, H2: 1, H3: 1, H4: 1, H5: 1, H6: 1
@@ -599,13 +533,11 @@
       pPr += '<w:jc w:val="' + (align === "justify" ? "both" : align) + '"/>';
     }
 
-    // The li's own inline content comes from the LIVE li (so computed styles
-    // resolve) while skipping nested lists and real block children.
     var runs = await inlineXml(li, state, env, function (el) { return LI_BLOCK_TAGS[el.tagName]; });
     if (!runs) runs = '<w:r><w:t xml:space="preserve"></w:t></w:r>';
 
     var out = "<w:p><w:pPr>" + pPr + "</w:pPr>" + runs + "</w:p>";
-    // Nested lists and block children follow as their own paragraphs.
+
     var kids = li.children;
     for (var j = 0; j < kids.length; j++) {
       var t = kids[j].tagName;
@@ -615,7 +547,6 @@
     return out;
   }
 
-  /* ---------------- tables ---------------- */
   function borderColor(side, style) {
     var v = cssColorToHex(style["border" + side + "Color"]) || "auto";
     return v;
@@ -626,7 +557,7 @@
     var wpx = parseFloat(style["border" + side + "Width"]);
     if (!st || st === "none" || st === "hidden" || !(wpx > 0)) return null;
     if (st !== "single" && st !== "solid") {
-      if (st === "dotted" || st === "dashed" || st === "double") { /* keep */ }
+      if (st === "dotted" || st === "dashed" || st === "double") {  }
       else st = "single";
     }
     if (st === "solid") st = "single";
@@ -652,7 +583,6 @@
     var style = window.getComputedStyle(tbl);
     var isFloat = tbl.style && tbl.style.position === "absolute";
 
-    /* grid columns */
     var gridTw = [];
     var seen = [];
     for (var r = 0; r < rows.length; r++) {
@@ -675,9 +605,8 @@
     if (!gridTw.length) gridTw = [tw(tbl.offsetWidth || 200)];
     var totalTw = gridTw.reduce(function (a, b) { return a + (b || 0); }, 0);
 
-    /* vertical merge bookkeeping */
-    var conts = {};      // rowIdx → [ { start, span, tcw } ] sorted later
-    var restarts = {};   // "r:c" → true
+    var conts = {};
+    var restarts = {};
     for (var r2 = 0; r2 < rows.length; r2++) {
       var cells2 = rows[r2].cells, cur = 0;
       for (var c2 = 0; c2 < cells2.length; c2++) {
@@ -702,7 +631,6 @@
       }
     }
 
-    /* table-level borders: sample the boundary cells */
     var tStyle = window.getComputedStyle(tbl);
     var firstRowCell = rows[0].cells[0];
     var lastRowCell = rows[rows.length - 1].cells[0];
@@ -711,7 +639,7 @@
     var ls = lastRowCell ? window.getComputedStyle(lastRowCell) : tStyle;
     sides.top = borderKind(fs, "Top");
     sides.bottom = borderKind(ls, "Bottom");
-    // left/right from the first column of any row / last column
+
     var midCell = rows[Math.min(1, rows.length - 1)].cells[0];
     var midStyle = midCell ? window.getComputedStyle(midCell) : tStyle;
     sides.left = borderKind(midStyle, "Left");
@@ -723,7 +651,6 @@
       sides.insideV = borderKind(window.getComputedStyle(rows[0].cells[1]), "Left");
     }
 
-    /* cell padding → table-level margins (first cell) */
     var padCell = rows[0].cells[0];
     var cellMar = "";
     if (padCell) {
@@ -738,7 +665,6 @@
         "</w:tblCellMar>";
     }
 
-    /* tblPr */
     var tblPr = "";
     if (isFloat) {
       var left3 = parseFloat(tbl.style.left) || 0;
@@ -761,7 +687,6 @@
     }
     if (cellMar) tblPr += cellMar;
 
-    /* rows */
     var bodyXml = "";
     for (var r3 = 0; r3 < rows.length; r3++) {
       bodyXml += await rowXml(rows[r3], state, r3, gridTw, conts[r3], restarts, env);
@@ -776,7 +701,7 @@
     var trPr = "";
     var rh = row.offsetHeight;
     if (rh > 0) trPr += '<w:trHeight w:val="' + tw(rh) + '" w:hRule="atLeast"/>';
-    // A <thead> row repeats on every Word page (CT_TrPr: trHeight, tblHeader).
+
     if (row.parentElement && row.parentElement.tagName === "THEAD") trPr += "<w:tblHeader/>";
     var trPrXml = trPr ? "<w:trPr>" + trPr + "</w:trPr>" : "";
 
@@ -817,7 +742,6 @@
     return "<w:tr>" + trPrXml + out + "</w:tr>";
   }
 
-  /* CT_TcPr order: tcW, gridSpan, vMerge, tcBorders, shd, tcMar, vAlign */
   async function cellXml(cell, state, colStart, gridTw, restarts, rowIdx, span, env) {
     var cs = window.getComputedStyle(cell);
     var tcPr = "";
@@ -851,15 +775,13 @@
     for (var i = 0; i < blocks.length; i++) {
       content += await anyBlockXml(blocks[i], state, env);
     }
-    // A cell must contain at least one paragraph, and a table may not be the
-    // last block in a cell (Word auto-inserts one after it).
+
     var lastIsTable = blocks.length && blocks[blocks.length - 1].tagName === "TABLE";
     if (!blocks.length || lastIsTable) content += EMPTY_P;
 
     return "<w:tc><w:tcPr>" + tcPr + "</w:tcPr>" + content + "</w:tc>";
   }
 
-  /* ---------------- generic block dispatcher ---------------- */
   var EMPTY_P = '<w:p><w:pPr><w:spacing w:after="0"/></w:pPr></w:p>';
   var PAGE_BREAK_P = '<w:p><w:pPr><w:spacing w:after="0"/></w:pPr><w:r><w:br w:type="page"/></w:r></w:p>';
 
@@ -878,7 +800,6 @@
       el.classList.contains("section-break"));
   }
 
-  /* Render one block-level element (or container) as OOXML. */
   async function anyBlockXml(el, state, env) {
     if (!el) return "";
     if (isAppChrome(el)) return "";
@@ -896,8 +817,7 @@
     }
     if (tag === "PRE") return preXml(el, state);
     if (tag === "BLOCKQUOTE") {
-      // Quote boxes keep their look (indent + accent + italic) through the
-      // computed styles of the paragraphs inside them.
+
       var innerQ = "";
       var qKids = el.children;
       for (var i = 0; i < qKids.length; i++) innerQ += await anyBlockXml(qKids[i], state, env);
@@ -960,7 +880,6 @@
       '<w:r><w:t xml:space="preserve"></w:t></w:r></w:p>';
   }
 
-  /* ---------------- package parts ---------------- */
   function sectPrXml(meta) {
     var w = tw(meta.pageW || 794), h = tw(meta.pageH || 1123);
     var orient = w > h ? ' w:orient="landscape"' : "";
@@ -1062,8 +981,7 @@
   }
 
   function settingsXml(meta) {
-    // Only paint Word's page background when the paper really differs from
-    // white (cssColorToHex resolves names/rgba/3-digit hex to 6-digit form).
+
     var hex = cssColorToHex(meta.bg);
     var showBg = hex && hex !== "FFFFFF";
     return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
@@ -1080,7 +998,6 @@
     return "&#x" + code.toString(16) + ";";
   }
 
-  /* CT_Lvl order: start, numFmt, lvlText, lvlJc, pPr, rPr */
   function numberingXml(state) {
     var out = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
       '<w:numbering xmlns:w="' + W_NS + '">';
@@ -1128,7 +1045,6 @@
       "</cp:coreProperties>";
   }
 
-  /* ---------------- page plumbing ---------------- */
   function pageContentOf(page) {
     if (!page) return null;
     if (page.classList && page.classList.contains("page-content")) return page;
@@ -1149,9 +1065,6 @@
     }
   }
 
-  /* ---------------- entry points ---------------- */
-  /* pages: live .page elements (or the .page-content they contain).
-     meta:  { title, pageW, pageH, margins: {top,right,bottom,left}, bg } */
   async function fromPages(pages, meta) {
     if (!document.body) throw new Error("DOCX export needs a live DOM");
     meta = meta || {};
@@ -1189,8 +1102,6 @@
     });
   }
 
-  /* Export an arbitrary HTML fragment by rendering it into a hidden
-     measuring container with the document's content-column width. */
   async function fromHtml(html, meta) {
     if (!document.body) throw new Error("DOCX export needs a live DOM");
     meta = meta || {};

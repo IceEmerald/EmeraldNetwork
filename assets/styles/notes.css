@@ -26,10 +26,10 @@
     }
 .navbar {
     width: 100%;
-    border-bottom: transparent; 
+    border-bottom: transparent;
     background-color: transparent;
-    height: 4.5rem; 
-    position: relative; 
+    height: 4.5rem;
+    position: relative;
 }
     .notes-app {
         visibility: visible !important;
@@ -598,9 +598,7 @@
             transform: translateY(0);
         }
     }
-    /* The title element is a textarea (so Zen mode can wrap it), but in the
-       base Editor layout it stays a strict single line: no wrapping, long
-       text is clipped at the available width until Zen wraps it. */
+
     .note-title {
         border: none;
         font-size: 24px;
@@ -1264,7 +1262,7 @@
             margin-right: 8px;
             margin-bottom: 8px;
             border-radius: 8px;
-            border-radius: 10px; 
+            border-radius: 10px;
         }
         .ribbon-tabs {
             display: none;
@@ -1302,7 +1300,7 @@
             border-radius: 8px;
         }
         .mobile-ribbon-row .ribbon-btn span {
-            display: none; 
+            display: none;
         }
         .mobile-ribbon-divider {
             width: 1px;
@@ -1451,7 +1449,7 @@
             border-radius: 10px;
             width: calc(100% - 16px);
             flex: 1;
-            min-width: 0; 
+            min-width: 0;
         }
         .editor-header {
             padding: 10px 12px;
@@ -2348,7 +2346,7 @@
     .text-editor::-webkit-scrollbar-thumb:hover {
         background: #a8a8a8;
     }
-    /* ── Find & Replace Bar ── */
+
 #findReplaceBar {
     position: fixed;
     bottom: 18px;
@@ -2459,7 +2457,7 @@
         user-select: none;
     }
     .fr-opt-label input { cursor: pointer; accent-color: #7c3aed; }
-    /* Match highlights */
+
     mark.fr-highlight {
         background: #fde68a;
         color: inherit;
@@ -3070,8 +3068,7 @@
             justify-content: center;
         }
     }
-    /* In Zen, the note-color swatch is replaced by a "show ribbon" toggle
-       in the floating bottom bar. */
+
     body.notes-zen #noteColorDropdown,
     body.notes-zen #shareNoteBtn,
     body.notes-zen #exportNoteBtn,
@@ -3082,7 +3079,7 @@
         display: none;
     }
     body.notes-zen .editor-actions .zen-ribbon-toggle {
-        /* neutral toggle, not the red delete affordance */
+
     }
     body.notes-zen .editor-actions .zen-ribbon-toggle:hover {
         background: var(--ui-accent-soft, rgba(16, 185, 129, 0.12));
@@ -3094,11 +3091,6 @@
         color: var(--ui-accent, #a21caf);
     }
 
-    /* ===================== View mode switch (Editor / Zen) ===================== */
-    /* Segmented pill toggle styled after Slides' Animations > TIMING > START
-       pills (.tr-trigger-toggle/.tr-trigger-pill in slides.css). Lives at the
-       very bottom of the sidebar; a floating copy appears bottom-left while
-       Zen is active (the sidebar — and this switch — are hidden in Zen). */
     .notes-mode-switch {
         display: inline-flex;
         background: rgba(0, 0, 0, 0.04);
@@ -3165,14 +3157,6 @@
         pointer-events: none;
     }
 
-    /* ===================== Zen mode (Notion-style focus view) ===================== */
-    /* Sidebar + its header buttons collapse away (same mechanics as the
-       welcome screen's hidden sidebar), the ribbon hides, the statusbar
-       goes quiet, the title becomes a big Notion-style heading at the top
-       of the content, and the title/actions bar floats bottom-right as a
-       pill bar. The top navbar (EmeraldSuite logo, collab avatars and the
-       "All changes saved" indicator) stays visible in both modes. */
-
     body.notes-zen:not(.show-ribbon) .ribbon {
         opacity: 0;
         transform: translateY(-110%);
@@ -3197,7 +3181,7 @@
         background: transparent;
         backdrop-filter: none;
         -webkit-backdrop-filter: none;
-        /* Whole page (title + note) scrolls as one, Notion style. */
+
         overflow-y: auto;
         overflow-x: hidden;
     }
@@ -3239,16 +3223,14 @@
         height: auto;
         white-space: pre-wrap;
         overflow: hidden;
-        /* Long unbreakable titles (70 chars, no spaces) must still wrap. */
+
         overflow-wrap: anywhere;
         word-break: break-all;
-        /* Modern browsers auto-size the textarea to its content natively. */
+
         field-sizing: content;
     }
     body.notes-zen .text-editor {
-        /* Grows with its content so the whole page (title + note) scrolls as
-           one on .editor-area; the scrollbar stays flush with the screen's
-           right edge. The text column is centered via symmetric padding. */
+
         flex: none;
         min-height: 60vh;
         max-width: none;
@@ -3273,12 +3255,12 @@
         backdrop-filter: blur(3px);
         -webkit-backdrop-filter: blur(3px);
         border: 1px solid rgba(0, 0, 0, 0.08);
-        /* Same footprint as the Editor/Zen mode switch. */
+
         border-radius: 9px;
         padding: 3px;
         gap: 3px;
         box-shadow: rgba(0, 0, 0, 0.04) 0px 1px 2px inset;
-        /* Slides in from below once Zen engages (.zen-ui-in added by JS). */
+
         transform: translateY(10px);
         opacity: 0;
         transition: transform 0.25s ease, opacity 0.25s ease;
@@ -3296,8 +3278,7 @@
     body.notes-zen .editor-actions .action-btn,
     body.notes-zen .editor-actions .action-btntwo,
     body.notes-zen .editor-actions .action-btnthree {
-        /* Match the mode pill's proportions: 8px vertical padding + 16px
-           icon ÷ 13px text ≈ 32px tall, 6px inner radius. */
+
         height: auto;
         padding: 8px;
         border-radius: 6px;
@@ -3325,8 +3306,7 @@
         height: auto;
         align-self: stretch;
     }
-    /* The floating bar hugs the bottom edge, so the note-color menu must
-       open upward, and its trigger needs the compact height too. */
+
     body.notes-zen #noteColorDropdown .ms-dropdown-btn {
         height: auto;
         padding: 8px 24px 8px 12px;
@@ -3341,10 +3321,7 @@
         bottom: calc(100% + 4px);
         margin-top: 0;
     }
-    /* Belt-and-braces: every layer of the main area must be see-through in
-       Zen — the rounded panel, the header, the content shell, and the note
-       body itself (its base rgba(255,255,255,.5) wash otherwise still reads
-       as white above the page background). */
+
     body.notes-zen .editor-area,
     body.notes-zen .editor-header,
     body.notes-zen .editor-content,

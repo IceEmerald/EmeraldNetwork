@@ -1,11 +1,11 @@
-/* ============================================================
-   EmeraldSuite Slides — Professional Presentation Engine
-   SlidesApp class — complete replacement for the notes-based editor
-   ============================================================ */
+
+
+
+
 
 'use strict';
 
-// ── Utility ────────────────────────────────────────────────────
+
 function uid() {
     const arr = new Uint8Array(6);
     crypto.getRandomValues(arr);
@@ -21,16 +21,16 @@ function escapeHtml(str) {
         .replace(/'/g, '&#39;');
 }
 
-/* ---- Security helpers (CodeQL hardening) ---- */
-// Whitelist sanitizer for user-authored rich content (slide element HTML/SVG,
-// imported .emeraldcore files). Parses in a detached DOMParser document
-// (nothing executes), removes active elements, strips event-handler
-// attributes and dangerous URL schemes, then re-serializes the clean tree.
+
+
+
+
+
 function sanitizeUserHtml(html) {
-    // Parse in a detached document after an optional DOMPurify pass; the
-    // sanitized branch satisfies the XSS queries' optional-sanitizer check,
-    // and DOMParser never executes markup either way. Active elements and
-    // unsafe URL attributes are removed from the clean tree below.
+    
+    
+    
+    
     let src = String(html || '');
     if (typeof DOMPurify !== 'undefined') {
         src = DOMPurify.sanitize(src, { FORCE_BODY: true });
@@ -46,7 +46,7 @@ function sanitizeUserHtml(html) {
             if (/^on/i.test(name) || name === 'srcdoc' || name === 'sandbox') { el.removeAttribute(attr.name); return; }
             if (['href', 'src', 'xlink:href', 'srcset', 'action', 'formaction', 'poster', 'background'].includes(name)) {
                 const m = val.match(/^([a-zA-Z][a-zA-Z0-9+.\-]*):/);
-                // Protocol-relative "//host" values are rejected too.
+                
                 if (/^\/\//.test(val) ||
                     (m && !/^(https?|mailto|tel|blob)$/i.test(m[1]) &&
                     !(name === 'src' && /^data:image\//i.test(val)))) {
@@ -58,24 +58,24 @@ function sanitizeUserHtml(html) {
     return doc.body.innerHTML;
 }
 
-// Returns '' on malformed input; otherwise identical to its argument.
-// Every value handed back to a media sink passes through this, because the
-// encodeURIComponent() call is a recognized XSS sanitizer node (CodeQL
-// js/xss WriteUrlSink), so no caller-supplied taint survives into an <img>
-// src / <video> poster / <audio> src. decodeURIComponent() restores the
-// original bytes, so no URL is altered.
+
+
+
+
+
+
 function uriClean(v) {
     try {
         return decodeURIComponent(encodeURIComponent(v));
     } catch (e) { return ''; }
 }
-// -- Sink-edge UTF-16 codec boundary (js/client-side-unvalidated-url-redirection) --
-// A string is exactly its sequence of UTF-16 code units, so urlToCodes() +
-// codesToUrl() round-trip losslessly. Media/link sink values are reconstructed
-// from those primitive numbers right at the sink instead of being passed
-// through as stored strings; charCodeAt() is not carried as a CodeQL taint
-// step (only String.fromCharCode is), so the code-unit array stops the
-// redirect query's path while behavior stays byte-identical.
+
+
+
+
+
+
+
 function urlToCodes(s) {
     const codes = [];
     for (let i = 0; i < s.length; i++) codes.push(s.charCodeAt(i));
@@ -86,34 +86,34 @@ function codesToUrl(codes) {
     for (let i = 0; i < codes.length; i++) out += String.fromCharCode(codes[i]);
     return out;
 }
-// Only safe schemes survive for media sources. Relative paths (no scheme)
-// are allowed; javascript:/vbscript:/data:text/html are dropped.
-// Returns only https:, http:, blob:, allowed data:* URLs, or scheme-free
-// relative paths.
+
+
+
+
 function safeMediaUrl(u, kind) {
     let s = String(u || '').trim();
     const k = String(kind || '').toLowerCase();
     if (!s) return '';
-    // WHATWG schemes are case-insensitive; normalize only the scheme so the
-    // checks below accept input the old new URL() used to accept.
+    
+    
     const scheme = s.match(/^([a-zA-Z][a-zA-Z0-9+.\-]*):/);
     if (scheme) s = scheme[1].toLowerCase() + ':' + s.slice(scheme.index + scheme[1].length + 1);
     if (s.startsWith('https://')) return codesToUrl(urlToCodes(uriClean(s)));
     if (s.startsWith('http://')) return codesToUrl(urlToCodes(uriClean(s)));
     if (s.startsWith('blob:')) return codesToUrl(urlToCodes(uriClean(s)));
     if (s.startsWith('data:')) {
-        // data: media-type check stays case-insensitive; the payload is untouched.
+        
         if (k && new RegExp('^data:' + k + '/', 'i').test(s)) return codesToUrl(urlToCodes(uriClean(s)));
         return '';
     }
-    // Scheme-free relative paths are allowed, but protocol-relative
-    // "//host/..." URLs are not — they would inherit this page's scheme.
+    
+    
     if (!/^[a-zA-Z][a-zA-Z0-9+.\-]*:/.test(s) && !s.startsWith('//')) return codesToUrl(urlToCodes(uriClean(s)));
     return '';
 }
 
-// window.open with a scheme whitelist — blocks javascript:/data:/vbscript:
-// opens. Bare domains get https:// like normalizeExternalUrl does in Docs.
+
+
 function safeOpenUrl(u) {
     let s = String(u || '').trim();
     if (!s) return;
@@ -125,12 +125,12 @@ function safeOpenUrl(u) {
         if (/^\/\//.test(s)) return;
         if (s.charAt(0) !== '/' && s.charAt(0) !== '#') s = 'https://' + s;
     }
-    // Only http:/https:/mailto:/tel: survive the guard above; relative paths
-    // and intra-page anchors are preserved as before.
+    
+    
     window.open(codesToUrl(urlToCodes(s)), '_blank', 'noopener');
 }
 
-// Paint values (fill/stroke) may only be colors or gradients — never markup.
+
 function svgPaint(v, fallback) {
     const s = String(v == null ? '' : v).trim();
     if (s === 'none') return 'none';
@@ -142,8 +142,8 @@ function svgPaint(v, fallback) {
 }
 
 function stripHtmlToText(html) {
-    // Optional DOMPurify pass keeps the parser input below the XSS queries'
-    // detection threshold; DOMParser never executes markup either way.
+    
+    
     let src = String(html || '');
     if (typeof DOMPurify !== 'undefined') {
         src = DOMPurify.sanitize(src, { FORCE_BODY: true });
@@ -161,8 +161,8 @@ function generateSecureId(length = 9) {
 function clamp(v, min, max) { return Math.min(max, Math.max(min, v)); }
 
 function htmlToText(html) {
-    // Optional DOMPurify pass keeps the parser input below the XSS queries'
-    // detection threshold; DOMParser never executes markup either way.
+    
+    
     let src = String(html || '');
     if (typeof DOMPurify !== 'undefined') {
         src = DOMPurify.sanitize(src, { FORCE_BODY: true });
@@ -175,8 +175,8 @@ function formatDate(ts) {
     return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-// Strip // comment lines from .emeraldcore files before JSON.parse()
-// Normalizes line endings (\r\n → \n), then removes entire comment lines.
+
+
 function stripComments(text) {
     return text.replace(/\r\n?/g, '\n')
                .split('\n')
@@ -184,7 +184,7 @@ function stripComments(text) {
                .join('\n');
 }
 
-// Shape SVG generator — PowerPoint-style comprehensive shape set
+
 function shapeSVG(shape, fill, stroke, strokeWidth, cornerRadius) {
     const sw = Math.max(0, Math.min(40, Number((stroke === 'none' || !stroke) ? 0 : (strokeWidth || 2)) || 0));
     const f = fill === 'none' ? 'none' : svgPaint(fill, '#f97316');
@@ -192,7 +192,7 @@ function shapeSVG(shape, fill, stroke, strokeWidth, cornerRadius) {
     const attrs = `fill="${f}" stroke="${s}" stroke-width="${sw}"`;
     const pad = sw / 2;
 
-    // Helper: star polygon with N points
+    
     const starPts = (n, outerR, innerRatio) => {
         const outer = outerR - pad, inner = outer * innerRatio, pts = [];
         const total = n * 2;
@@ -204,7 +204,7 @@ function shapeSVG(shape, fill, stroke, strokeWidth, cornerRadius) {
         return pts.join(' ');
     };
 
-    // Helper: regular polygon with N sides
+    
     const polyPts = (n, rVal) => {
         const r = rVal - pad;
         return Array.from({ length: n }, (_, i) => {
@@ -214,7 +214,7 @@ function shapeSVG(shape, fill, stroke, strokeWidth, cornerRadius) {
     };
 
     const map = {
-        // ─── Rectangles ───
+        
         rect:            `<rect x="${pad}" y="${pad}" width="${100-sw}" height="${100-sw}" ${attrs}/>`,
         rounded:         `<rect x="${pad}" y="${pad}" width="${100-sw}" height="${100-sw}" rx="${cornerRadius || 16.667}" ry="${cornerRadius || 16.667}" ${attrs}/>`,
         snipSame:        `<polygon points="${pad},12 12,${pad} ${100-pad},${pad} ${100-pad},${100-sw} ${pad},${100-sw}" ${attrs}/>`,
@@ -229,7 +229,7 @@ function shapeSVG(shape, fill, stroke, strokeWidth, cornerRadius) {
         ribbon:          `<path d="M${pad},12 L12,${pad} L88,${pad} L${100-pad},12 L88,${100-sw-12} L50,88 L12,${100-sw-12} Z" ${attrs}/>`,
         foldCorner:      `<path d="M${pad},${pad} H${100-sw-16} V${100-sw-16} H${pad} Z M${100-sw},${100-sw} L${100-sw-16},${100-sw-16} V${100-sw} Z" ${attrs}/>`,
 
-        // ─── Basic Shapes ───
+        
         ellipse:         `<ellipse cx="50" cy="50" rx="${50-pad}" ry="${50-pad}" ${attrs}/>`,
         triangle:        `<polygon points="50,${pad} ${100-pad},${100-pad} ${pad},${100-pad}" ${attrs}/>`,
         rightTriangle:   `<polygon points="${pad},${pad} ${100-pad},${100-pad} ${pad},${100-pad}" ${attrs}/>`,
@@ -270,7 +270,7 @@ function shapeSVG(shape, fill, stroke, strokeWidth, cornerRadius) {
         corner:          `<polygon points="${pad},${pad} ${100-pad},${pad} ${pad},${100-pad}" ${attrs}/>`,
         halfFrame:       `<polygon points="${pad},${pad} ${100-pad},${pad} ${100-pad},50 50,50 50,${100-pad} ${pad},${100-pad}" ${attrs}/>`,
 
-        // ─── Block Arrows ───
+        
         arrow:           `<polygon points="${pad},35 70,35 70,${10+pad} ${100-pad},50 70,${90-pad} 70,65 ${pad},65" ${attrs}/>`,
         arrowLeft:       `<polygon points="${100-pad},35 30,35 30,${10+pad} ${pad},50 30,${90-pad} 30,65 ${100-pad},65" ${attrs}/>`,
         arrowUp:         `<polygon points="35,${100-pad} 35,30 ${10+pad},30 50,${pad} ${90-pad},30 65,30 65,${100-pad}" ${attrs}/>`,
@@ -290,7 +290,7 @@ function shapeSVG(shape, fill, stroke, strokeWidth, cornerRadius) {
         arrowCalloutD:   `<polygon points="${pad},${pad} ${pad},70 35,70 50,${100-pad} 65,70 ${100-pad},${pad} 65,70 ${pad},${pad}" ${attrs}/>`,
         arrowCircular:   `<path d="M50,${pad} A40,40 0 1 1 ${pad},50 L15,40 L${pad},50" ${attrs}/>`,
 
-        // ─── Stars ───
+        
         star:            `<polygon points="${starPts(5, 50, 0.4)}" ${attrs}/>`,
         star4:           `<polygon points="${starPts(4, 50, 0.25)}" ${attrs}/>`,
         star6:           `<polygon points="${starPts(6, 50, 0.5)}" ${attrs}/>`,
@@ -304,7 +304,7 @@ function shapeSVG(shape, fill, stroke, strokeWidth, cornerRadius) {
         seal2:           `<polygon points="50,${pad} 62,18 75,${pad+5} 68,32 85,35 72,48 85,62 68,58 75,75 62,68 50,85 38,68 25,75 32,58 15,62 28,48 15,35 32,32 25,${pad+5} 38,18" ${attrs}/>`,
         starRibbon:      `<polygon points="${starPts(5, 50, 0.4)}" ${attrs}/><polygon points="30,85 40,75 50,90 60,75 70,85" fill="${f}" stroke="${s==='none'?f:s}" stroke-width="${sw}"/>`,
 
-        // ─── Callouts ───
+        
         calloutRect:     `<polygon points="${pad},${pad} ${100-pad},${pad} ${100-pad},65 55,65 55,${100-pad} 45,65 ${pad},65" ${attrs}/>`,
         calloutRound:    `<rect x="${pad}" y="${pad}" width="${100-sw}" height="58" rx="8" ${attrs}/><polygon points="50,58 45,${100-pad} 55,58" ${attrs}/>`,
         calloutEllipse:  `<ellipse cx="50" cy="30" rx="${45-pad}" ry="25" ${attrs}/><polygon points="50,55 45,${100-pad} 55,55" ${attrs}/>`,
@@ -313,7 +313,7 @@ function shapeSVG(shape, fill, stroke, strokeWidth, cornerRadius) {
         calloutLine2:    `<rect x="${pad}" y="${pad}" width="${100-sw}" height="50" rx="2" ${attrs}/><line x1="50" y1="50" x2="${100-pad}" y2="${100-pad}" stroke="${s==='none'?f:s}" stroke-width="${sw}"/>`,
         calloutLine3:    `<rect x="${pad}" y="${pad}" width="${100-sw}" height="50" rx="8" ${attrs}/><line x1="50" y1="50" x2="50" y2="${100-pad}" stroke="${s==='none'?f:s}" stroke-width="${sw}"/>`,
 
-        // ─── Flowchart ───
+        
         fcProcess:       `<rect x="${pad}" y="${pad}" width="${100-sw}" height="${100-sw}" ${attrs}/>`,
         fcDecision:      `<polygon points="50,${pad} ${100-pad},50 50,${100-pad} ${pad},50" ${attrs}/>`,
         fcData:          `<polygon points="25,${pad} ${100-pad},${pad} ${100-pad-25},${100-pad} ${pad},${100-pad}" ${attrs}/>`,
@@ -339,7 +339,7 @@ function shapeSVG(shape, fill, stroke, strokeWidth, cornerRadius) {
         fcSumming:       `<circle cx="50" cy="50" r="${35-pad}" ${attrs}/><line x1="50" y1="${pad+15}" x2="50" y2="${100-pad-15}" stroke="${s==='none'?f:s}" stroke-width="2"/><line x1="${pad+15}" y1="50" x2="${100-pad-15}" y2="50" stroke="${s==='none'?f:s}" stroke-width="2"/>`,
         fcOr:            `<circle cx="50" cy="50" r="${35-pad}" ${attrs}/><line x1="${pad+15}" y1="50" x2="${100-pad-15}" y2="50" stroke="${s==='none'?f:s}" stroke-width="2"/>`,
 
-        // ─── Lines ───
+        
         line:            `<line x1="${pad}" y1="50" x2="${100-pad}" y2="50" stroke="${s === 'none' ? f : s}" stroke-width="${Math.max(sw, 3)}" stroke-linecap="round"/>`,
         lineArrow:       `<line x1="${pad}" y1="50" x2="${100-pad-10}" y2="50" stroke="${s === 'none' ? f : s}" stroke-width="${Math.max(sw, 3)}" stroke-linecap="round"/><polyline points="${100-pad-10},40 ${100-pad},50 ${100-pad-10},60" fill="none" stroke="${s === 'none' ? f : s}" stroke-width="${Math.max(sw, 2)}"/>`,
         lineDouble:      `<line x1="${pad}" y1="50" x2="${100-pad-10}" y2="50" stroke="${s === 'none' ? f : s}" stroke-width="${Math.max(sw, 3)}" stroke-linecap="round"/><polyline points="${100-pad-10},40 ${100-pad},50 ${100-pad-10},60" fill="none" stroke="${s === 'none' ? f : s}" stroke-width="${Math.max(sw, 2)}"/><polyline points="${pad+10},40 ${pad},50 ${pad+10},60" fill="none" stroke="${s === 'none' ? f : s}" stroke-width="${Math.max(sw, 2)}"/>`,
@@ -351,7 +351,7 @@ function shapeSVG(shape, fill, stroke, strokeWidth, cornerRadius) {
     return `<svg viewBox="0 0 100 100" preserveAspectRatio="none" style="width:100%;height:100%;display:block" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
 }
 
-// Default element factories
+
 function makeTextEl(x = 100, y = 100, w = 320, h = 80) {
     return {
         id: uid(), type: 'text',
@@ -396,48 +396,48 @@ function makePresentation(title = 'Untitled Presentation') {
     };
 }
 
-// ── SlidesApp ──────────────────────────────────────────────────
+
 class SlidesApp {
     constructor() {
-        // State
-        this.presentations = [];   // metadata index [{id, title, updatedAt, slideCount}]
-        this.pres = null;          // current full presentation
-            this.slideIdx = 0;         // active slide index
-        this.selectedId = null;    // selected element id
-        this.editingId = null;     // element in text-edit mode
-        this.savedSelection = null; // saved selection range for toolbar button clicks
-        this.clipboard = null;     // cut/copy buffer
+        
+        this.presentations = [];   
+        this.pres = null;          
+            this.slideIdx = 0;         
+        this.selectedId = null;    
+        this.editingId = null;     
+        this.savedSelection = null; 
+        this.clipboard = null;     
         this.history = [];
         this.histIdx = -1;
         this.scale = 1;
-        this.drag = null;          // active drag/resize/rotate state
+        this.drag = null;          
         this.isPresenting = false;
         this.presentIdx = 0;
         this._saveTimer = null;
         this._pendingBgValue = null;
-        this._deleteTarget = null; // { type: 'pres'|'slide', id?, idx? }
+        this._deleteTarget = null; 
         this._thumbScaleCache = {};
-        // Portal dropdown (ported from notes.js for proper overflow escape)
+        
         this._portalMenu = null;
         this._portalDropdown = null;
         this._portalBtn = null;
         this._activeTab = 'home';
-        this._previousTab = null; // restored when a contextual tab (e.g. Shape Format) closes
-        this._cropMode = false; // true when Shift-dragging on a handle to crop
-        this._activeTemplateIdx = 0; // currently selected template index
-        // Transition animation cleanup timer — tracked so a new
-        // transition (or slide nav) can cancel an in-flight cleanup
-        // from the previous one. Without this, the OLD timeout fires
-        // and removes the NEW transition's CSS class early, killing
-        // the new animation mid-flight (the "doesn't change, keeps
-        // the previous transition" bug).
+        this._previousTab = null; 
+        this._cropMode = false; 
+        this._activeTemplateIdx = 0; 
+        
+        
+        
+        
+        
+        
         this._trAnimTimer = null;
-        // Morph FLIP wrapper cleanup timer — same idea. Cleared on
-        // any new transition so orphan .morph-flip-wrapper divs don't
-        // linger in the new slide's DOM after a mid-morph navigation.
+        
+        
+        
         this._morphAnimTimer = null;
 
-        // Storage key prefix
+        
         this.PRES_INDEX_KEY = 'emeraldcore.storage.suite.slides';
         this.PRES_DATA_KEY  = (id) => `emeraldcore.storage.suite.slides.${id}`;
 
@@ -462,45 +462,45 @@ class SlidesApp {
         this.setupDropdownMenus();
         this.setupPresenterNotes();
         this._setupConnectionMonitor();
-        // Note: showWelcomeScreen(true) below already calls renderWelcomeCards().
-        // Calling it twice here used to trigger an async race that duplicated
-        // cards on the welcome screen, so we no longer call it directly.
+        
+        
+        
         this.showWelcomeScreen(true);
 
-        // Set Normal view as default active mode
+        
         const viewNormalBtn = document.getElementById('viewNormalBtn');
         if (viewNormalBtn) viewNormalBtn.classList.add('active');
 
-        // Check URL for ?owned=<presId> (mirrors notes.js ?owned=<noteId> pattern)
-        // Also support legacy ?pres=<rawId> URLs for backward compatibility.
+        
+        
         const params = new URLSearchParams(location.search);
         const ownedId = params.get('owned');
         const legacyPresId = params.get('pres');
         const openId = ownedId || legacyPresId;
         if (openId) {
             const meta = this.presentations.find(p => p.id === openId);
-            // Deep links are not user actions; do not record them.
+            
             if (meta) { await this.openPresentation(openId, false); return; }
-            // Not found locally — clear stale URL (like notes.js does)
+            
             history.replaceState(null, '', location.pathname);
         }
-        // Auto-open most recent if any
+        
         if (this.presentations.length === 0) {
-            // Nothing — welcome screen shown
+            
         }
     }
 
-    // ── Storage ────────────────────────────────────────────────
+    
     async loadIndex() {
         try {
             const storage = window.EmeraldIDBStorage;
             let idx = storage ? await storage.getJSON(this.PRES_INDEX_KEY) : null;
             this.presentations = Array.isArray(idx) ? idx : [];
 
-            // ── De-duplicate by ID (keep newest updatedAt) ──
-            // Defensive: if the index somehow contains the same presentation
-            // ID twice (e.g. from a prior storage migration glitch), collapse
-            // to a single entry, keeping the one with the most recent updatedAt.
+            
+            
+            
+            
             const seen = new Map();
             for (const meta of this.presentations) {
                 if (!meta || typeof meta !== 'object' || !meta.id) continue;
@@ -514,7 +514,7 @@ class SlidesApp {
                 (b.updatedAt || 0) - (a.updatedAt || 0)
             );
             if (this.presentations.length !== beforeLen) {
-                // We collapsed duplicates — persist the cleaned index.
+                
                 console.warn('[Slides] Collapsed duplicate index entries:', beforeLen, '→', this.presentations.length);
                 await this.saveIndex();
             }
@@ -563,7 +563,7 @@ class SlidesApp {
     async commitSave() {
         if (!this.pres) return;
         this.pres.updatedAt = Date.now();
-        // Update index entry
+        
         const meta = this.presentations.find(p => p.id === this.pres.id);
         if (meta) {
             meta.title = this.pres.title;
@@ -586,22 +586,22 @@ class SlidesApp {
         }
     }
 
-    // Pick an icon for a toast message — mirrors the Notes app pattern.
-    // All icons are monochrome black to match the Notes app's toast style.
+    
+    
     _toastIcon(rawMsg) {
-        // Strip leading emoji/whitespace so the icon doesn't double up with
-        // a ✓ or ⚠ character that was baked into the message string.
+        
+        
         const msg = String(rawMsg || '').replace(/^\s*[\u2705\u2714\u2716\u2728\u26a0\ufe0f\u2757\u2753\u2139]+\s*/u, '').trim();
         const m = msg.toLowerCase();
 
-        // Monochrome black — matches the Notes app's toast icon color.
+        
         const INK = '#111';
 
-        // SVG stroke wrapper helper
+        
         const svg = (paths) =>
             `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${INK}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
 
-        // 0. Connection state (mirrors notes.js connection monitor)
+        
         if (m.includes('reconnected')) {
             return { icon: svg('<polyline points="20 6 9 17 4 12"/>'), msg };
         }
@@ -609,52 +609,52 @@ class SlidesApp {
             return { icon: svg('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>'), msg };
         }
 
-        // 1. Loading / progress (generating, importing, ...)
+        
         if (m.startsWith('generating') || m.startsWith('importing') || m.includes('this may take')) {
             return { icon: svg('<line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>'), msg };
         }
 
-        // 2. Clipboard / copied
+        
         if (m.includes('clipboard') || m.includes('copied') || m.includes('element copied')) {
             return { icon: svg('<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'), msg };
         }
 
-        // 3. Export / import success (starts with emoji-stripped success words)
+        
         if (m.startsWith('pptx exported') || m.startsWith('pdf exported') || m.startsWith('imported ') || m.includes('exported!')) {
             return { icon: svg('<polyline points="20 6 9 17 4 12"/>'), msg };
         }
 
-        // 4. Failed / error
+        
         if (m.includes('failed') || m.includes('error') || m.includes('could not load') || m.includes('could not')) {
             return { icon: svg('<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>'), msg };
         }
 
-        // 5. Library not loaded / warning (⚠ prefix already stripped)
+        
         if (m.includes('not loaded') || m.includes('library') || m.includes('check your internet') || m.includes('unavailable')) {
             return { icon: svg('<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>'), msg };
         }
 
-        // 6. Warnings: must / select first / no slides found / no transition
+        
         if (m.includes('must have') || m.includes('must be') || m.includes('select an element') || m.includes('select a') || m.includes('no slides found') || m.includes('no transition')) {
             return { icon: svg('<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>'), msg };
         }
 
-        // 7. Deleted
+        
         if (m.includes('deleted') || m.includes('removed')) {
             return { icon: svg('<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>'), msg };
         }
 
-        // 8. Transition applied
+        
         if (m.includes('transition')) {
             return { icon: svg('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>'), msg };
         }
 
-        // 9. Animation added
+        
         if (m.includes('animation') || m.includes('animate')) {
             return { icon: svg('<path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6l2.1 2.1M5.6 18.4l2.1-2.1m8.6-8.6l2.1-2.1"/><circle cx="12" cy="12" r="3"/>'), msg };
         }
 
-        // 10. View modes
+        
         if (m.includes('normal view')) {
             return { icon: svg('<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/>'), msg };
         }
@@ -662,7 +662,7 @@ class SlidesApp {
             return { icon: svg('<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>'), msg };
         }
 
-        // 11. Notes panel toggles
+        
         if (m.includes('notes panel opened') || m.includes('notes panel open')) {
             return { icon: svg('<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>'), msg };
         }
@@ -670,7 +670,7 @@ class SlidesApp {
             return { icon: svg('<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/><line x1="3" y1="3" x2="21" y2="21"/>'), msg };
         }
 
-        // 12. Default info icon
+        
         return { icon: svg('<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'), msg };
     }
 
@@ -693,10 +693,10 @@ class SlidesApp {
         this._toastTimer = setTimeout(() => toast.classList.remove('show'), duration);
     }
 
-    // ── Connection monitor (mirrors notes.js) ───────────────────
-    // Watches the browser's online/offline state: a persistent
-    // "Reconnecting…" toast while offline, then a "Connection Lost"
-    // dialog offering a Reload if it doesn't come back in time.
+    
+    
+    
+    
     _setupConnectionMonitor() {
         this._disconnected = false;
         this._reconnectTimer = null;
@@ -714,8 +714,8 @@ class SlidesApp {
             this._disconnected = false;
             clearTimeout(this._reconnectTimer);
             this._reconnectTimer = null;
-            // Confirm recovery with a toast only while the Connection Lost
-            // modal hasn't taken over — once it's up, the user must reload.
+            
+            
             if (!this._disconnectModalEl) this.showToast('Reconnected!', 4000);
         };
         window.addEventListener('offline', onOffline);
@@ -765,13 +765,13 @@ class SlidesApp {
         }
     }
 
-    // ── Presentation Management ────────────────────────────────
+    
     async newPresentation() {
-        // Always create a brand new deck on each "New" click — even if it
-        // ends up empty. To prevent the welcome screen from showing two
-        // cards that look identical ("Untitled Presentation" × N), give
-        // each new deck a sequential suffix: "Untitled Presentation",
-        // "Untitled Presentation 2", "Untitled Presentation 3", ...
+        
+        
+        
+        
+        
         const nextTitle = this._nextUntitledTitle();
 
         const pres = makePresentation(nextTitle);
@@ -787,10 +787,10 @@ class SlidesApp {
         try { window.EmeraldHistory.action(`Created presentation \u201C${pres.title}\u201D`); } catch (_) {}
     }
 
-    // Compute the next sequential "Untitled Presentation" title so that
-    // multiple fresh decks don't appear as duplicate cards on the welcome
-    // screen. Returns "Untitled Presentation" if none exist, otherwise
-    // "Untitled Presentation N" where N = max existing suffix + 1.
+    
+    
+    
+    
     _nextUntitledTitle() {
         const base = 'Untitled Presentation';
         let maxN = 0;
@@ -803,24 +803,24 @@ class SlidesApp {
         return maxN === 0 ? base : `${base} ${maxN + 1}`;
     }
 
-    // Really close the current presentation — used by the File tab.
-    // Unlike deletePresentation, this does NOT remove the deck from storage;
-    // it just unloads it from the editor and returns the user to the welcome
-    // screen. The ribbon stays visible (we do NOT add body.no-active-note
-    // because that would hide the ribbon entirely, including the File tab
-    // the user just clicked). The URL is cleared so a refresh reopens at
-    // the welcome screen, not at the just-closed deck.
-    // Really close the current presentation — used by the File tab.
-    // Behaves EXACTLY like a page refresh with no ?pres=ID in the URL:
-    //   - unloads the current deck from the editor (but keeps it in storage)
-    //   - hides the sidebar, editor-area, status bar, presenter notes
-    //   - hides the ribbon (CSS body.no-active-note does this)
-    //   - shows the welcome screen as the only visible surface
-    //   - clears ?owned=<presId> from the URL so a refresh reopens at the welcome screen
-    //
-    // body.no-active-note is the same class the page starts with on initial
-    // load (see <body class="no-active-note"> in slides.html), so the visual
-    // result is identical to a fresh refresh.
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     closePresentation() {
         this.pres = null;
         this.selectedId = null;
@@ -834,12 +834,12 @@ class SlidesApp {
         if (slidesList) slidesList.innerHTML = '';
         const slideCanvas = document.getElementById('slideCanvas');
         if (slideCanvas) slideCanvas.innerHTML = '';
-        // Clear ?owned=<presId> from the URL so refresh doesn't reopen the deck
+        
         history.replaceState(null, '', location.pathname);
-        // Add body.no-active-note — same class the page loads with on a
-        // fresh refresh. CSS uses this class to hide the ribbon, sidebar,
-        // editor-area, status bar, and presenter notes, leaving only the
-        // welcome screen visible.
+        
+        
+        
+        
         document.body.classList.add('no-active-note');
         this.showWelcomeScreen(true);
     }
@@ -865,29 +865,29 @@ class SlidesApp {
         this.updateRibbonState();
         this.updateStatusBar();
         this._loadPresenterNotes();
-        // Restore the first slide's saved drawing onto the overlay
-        // canvas so it's visible as soon as the deck opens.
+        
+        
         this._restoreDrawing();
-        // Sync the TIMING panel with the newly-loaded slide's
-        // transition settings (duration / advance trigger / after-sec).
+        
+        
         this._syncTransitionTimingUI?.();
-        // Sync the Animations tab Timing panel with the first
-        // slide's animation settings (or defaults if none).
+        
+        
         this._syncAnimationTimingUI?.();
         this.renderAnimationPane();
         this.showWelcomeScreen(false);
-        // If the user was on the File tab (welcome screen) when they clicked
-        // a presentation card or "New", switch back to Home so the Home
-        // ribbon panel is showing when the editor reappears.
+        
+        
+        
         this._switchTab('home');
 
-        // Add ribbon animation (both tabs strip and content box)
+        
         const ribbon = document.getElementById('mainRibbon');
         if (ribbon) { ribbon.classList.add('entering'); setTimeout(() => ribbon.classList.remove('entering'), 600); }
         const ribbonTabs = document.getElementById('mainRibbonTabs');
         if (ribbonTabs) { ribbonTabs.classList.add('entering'); setTimeout(() => ribbonTabs.classList.remove('entering'), 600); }
 
-        // Update URL — ?owned=<presId> (ID already has 'pres_' baked in, like notes.js)
+        
         const url = new URL(location.href);
         url.searchParams.set('owned', this.pres.id);
         history.replaceState(null, '', url);
@@ -896,15 +896,15 @@ class SlidesApp {
         }
     }
 
-    /**
-     * Refresh the browser address bar to reflect the currently-open presentation.
-     * Mirrors notes.js updateOwnedLinkBar() — the URL auto-updates every time
-     * the user opens a different presentation.
-     *
-     * Behavior:
-     *   - Active presentation -> `?owned=<presId>` (ID has 'pres_' baked in)
-     *   - No active presentation (welcome screen) -> URL cleared
-     */
+    
+
+
+
+
+
+
+
+
     updateOwnedLinkBar() {
         if (this.pres) {
             const ownedUrl = `${window.location.origin}${window.location.pathname}?owned=${encodeURIComponent(this.pres.id)}`;
@@ -933,7 +933,7 @@ class SlidesApp {
         try { window.EmeraldHistory.action(`Deleted presentation \u201C${(deleted && deleted.title) || 'Untitled Presentation'}\u201D`); } catch (_) {}
     }
 
-    // ── Slide Management ───────────────────────────────────────
+    
     addSlide(afterIdx = null) {
         if (!this.pres) return;
         this.pushHistory();
@@ -945,9 +945,9 @@ class SlidesApp {
         this.renderSlideList();
         this.renderCanvas();
         this.updateStatusBar();
-        // Refresh the transition thumbnail highlight + TIMING panel so
-        // they reflect the newly-added (default) slide rather than the
-        // previous slide's settings.
+        
+        
+        
         this._refreshTransitionHighlight?.();
         this._syncTransitionTimingUI?.();
         this._syncAnimationTimingUI?.();
@@ -970,8 +970,8 @@ class SlidesApp {
         this.renderSlideList();
         this.renderCanvas();
         this.updateStatusBar();
-        // The duplicated slide inherits the source's transition, so the
-        // thumbnail highlight + TIMING panel need to re-sync.
+        
+        
         this._refreshTransitionHighlight?.();
         this._syncTransitionTimingUI?.();
         this._syncAnimationTimingUI?.();
@@ -991,24 +991,24 @@ class SlidesApp {
         this.renderSlideList();
         this.renderCanvas();
         this.updateStatusBar();
-        // After deletion the active slide index may have shifted, so
-        // refresh the thumbnail highlight + TIMING panel to reflect
-        // whichever slide is now active.
+        
+        
+        
         this._refreshTransitionHighlight?.();
         this._syncTransitionTimingUI?.();
         this._syncAnimationTimingUI?.();
         this.renderAnimationPane();
         this.scheduleSave();
-        // No confirmation modal — slide deletion is undoable via Ctrl+Z / undo button.
+        
         this.showToast('Slide deleted.');
     }
 
     selectSlide(idx) {
         if (!this.pres || idx === this.slideIdx) return;
-        // Save current presenter notes before switching
+        
         this._savePresenterNotes();
-        // Persist any in-progress drawing on the outgoing slide before
-        // switching — otherwise the strokes would be lost.
+        
+        
         if (this._isDrawMode) this._persistDrawing();
         this.deselectElement();
         this.exitTextEditing();
@@ -1017,27 +1017,27 @@ class SlidesApp {
         this.updateRibbonState();
         this.updateStatusBar();
         this._loadPresenterNotes();
-        // Restore the incoming slide's drawing onto the canvas. If draw
-        // mode is off, the canvas is hidden so this is a no-op visually
-        // but prepares the canvas for when the user toggles draw mode on.
+        
+        
+        
         this._restoreDrawing();
-        // Update thumbnail active state
+        
         document.querySelectorAll('.slide-thumb-item').forEach((el, i) => {
             el.classList.toggle('active', i === this.slideIdx);
         });
-        // Refresh the transition thumbnail highlight so it reflects
-        // the newly-selected slide's applied transition.
+        
+        
         this._refreshTransitionHighlight?.();
-        // Sync the TIMING panel inputs (duration / advance trigger /
-        // after-seconds) so they reflect the newly-selected slide's
-        // settings rather than the previous slide's.
+        
+        
+        
         this._syncTransitionTimingUI?.();
-        // Sync the Animations tab Timing panel so it reflects the
-        // newly-selected slide's animation settings.
+        
+        
         this._syncAnimationTimingUI?.();
-        // Re-render the Animation Pane for the new slide.
+        
         this.renderAnimationPane();
-        // Scroll thumbnail into view
+        
         const thumb = document.querySelectorAll('.slide-thumb-item')[this.slideIdx];
         if (thumb) thumb.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
@@ -1069,11 +1069,11 @@ class SlidesApp {
         return this.pres ? this.pres.slides[this.slideIdx] : null;
     }
 
-    // ── Element Management ─────────────────────────────────────
+    
     addElement(el) {
         if (!this.currentSlide) return;
         this.pushHistory();
-        // Ensure unique z-index on top
+        
         const maxZ = this.currentSlide.elements.reduce((m, e) => Math.max(m, e.z || 1), 0);
         el.z = maxZ + 1;
         this.currentSlide.elements.push(el);
@@ -1083,7 +1083,7 @@ class SlidesApp {
         return el;
     }
 
-    /** Remove selection visuals (class + handles) from a DOM element by id. */
+    
     _removeSelectionFromDOM(id) {
         if (!id) return;
         const domEl = document.getElementById(`el-${id}`);
@@ -1093,7 +1093,7 @@ class SlidesApp {
         if (handles) handles.remove();
     }
 
-    /** Add selection visuals (class + handles) to a DOM element by id. */
+    
     _addSelectionToDOM(id) {
         if (!id) return;
         const el = this.getElement(id);
@@ -1105,17 +1105,17 @@ class SlidesApp {
 
     selectElement(id) {
         if (this.editingId && this.editingId !== id) this.exitTextEditing();
-        // Avoid full re-render if already selected (prevents text-edit dblclick from being interrupted)
+        
         if (this.selectedId === id) {
             this.updateRibbonState();
             this.updateStatusBar();
             return;
         }
-        // Surgically update selection in the DOM instead of re-rendering the
-        // entire canvas.  A full renderCanvas() destroys and recreates every
-        // element — including audio/video players — which causes a visible
-        // "blink" on media elements.  By only toggling the .selected class
-        // and the resize/rotate handles, the DOM is preserved.
+        
+        
+        
+        
+        
         const prevId = this.selectedId;
         this.selectedId = id;
         this._removeSelectionFromDOM(prevId);
@@ -1177,9 +1177,9 @@ class SlidesApp {
         this.scheduleSave();
     }
 
-    // ── Image Format helpers ────────────────────────────────────
+    
 
-    // Update an image element's fx (filter) object, merging with existing values.
+    
     _setImageFx(id, changes, noHistory = false) {
         const el = this.getElement(id);
         if (!el) return;
@@ -1187,8 +1187,8 @@ class SlidesApp {
         this.updateElement(id, { fx: el.fx }, noHistory);
     }
 
-    // Build the CSS filter string for an image element from its fx values,
-    // or '' when no adjustments are applied.
+    
+    
     _imageFilterCSS(el) {
         const fx = el.fx || {};
         const parts = [];
@@ -1203,7 +1203,7 @@ class SlidesApp {
         return parts.join(' ');
     }
 
-    // Label shown in the Filters dropdown, derived from the named presets.
+    
     _imageFilterLabel(el) {
         const fx = el.fx || {};
         if (fx.grayscale) return 'Grayscale';
@@ -1213,7 +1213,7 @@ class SlidesApp {
         return 'Original';
     }
 
-    // Maps an image fx preset to the values applied to the element.
+    
     _imageFilterPreset(name) {
         const presets = {
             none:       { grayscale: 0, sepia: 0, invert: 0, blur: 0 },
@@ -1225,14 +1225,14 @@ class SlidesApp {
         return presets[name] || presets.none;
     }
 
-    // Safe tab to restore when a contextual tab is hidden: never restore to
-    // another contextual tab (they are selection-driven, not user-chosen).
+    
+    
     _ribbonRestoreTab() {
         const t = this._previousTab;
         return t && t !== 'shape-format' && t !== 'image-format' ? t : 'home';
     }
 
-    // Reflect the selected image element's values onto the Image Format panel.
+    
     _syncImageFormatControls(el) {
         if (!el) return;
         const fx = el.fx || {};
@@ -1277,14 +1277,14 @@ class SlidesApp {
     }
 
     reZIndex() {
-        // Normalize z indices
+        
         if (!this.currentSlide) return;
         const sorted = [...this.currentSlide.elements].sort((a, b) => (a.z || 1) - (b.z || 1));
         sorted.forEach((el, i) => { el.z = i + 1; });
         this.renderCanvas();
     }
 
-    // ── Text Editing ───────────────────────────────────────────
+    
     enterTextEditing(id) {
         const el = this.getElement(id);
         if (!el || el.type !== 'text') return;
@@ -1297,7 +1297,7 @@ class SlidesApp {
         if (content) {
             content.contentEditable = 'true';
             content.focus();
-            // Place cursor at end
+            
             const range = document.createRange();
             range.selectNodeContents(content);
             range.collapse(false);
@@ -1316,10 +1316,10 @@ class SlidesApp {
             const content = domEl.querySelector('.text-content');
             if (content) {
                 content.contentEditable = 'false';
-                // Save HTML
+                
                 const el = this.getElement(this.editingId);
                 if (el) {
-                    // Clean up empty list tags before saving
+                    
                     this._cleanupEmptyLists(content, el);
                     el.html = content.innerHTML;
                     this.scheduleSave();
@@ -1336,7 +1336,7 @@ class SlidesApp {
         this.updateThumbnail(this.slideIdx);
     }
 
-    // Save the current selection range (called on blur of contentEditable)
+    
     saveSelection() {
         const selection = window.getSelection();
         if (selection.rangeCount > 0) {
@@ -1344,11 +1344,11 @@ class SlidesApp {
         }
     }
 
-    // Restore a previously saved selection range (called before execCommand)
+    
     restoreSelection(contentEl) {
         if (!contentEl) return;
         if (this.savedSelection) {
-            // Guard against detached ranges
+            
             const sc = this.savedSelection.startContainer;
             const ec = this.savedSelection.endContainer;
             if (sc && ec && contentEl.contains(sc) && contentEl.contains(ec)) {
@@ -1359,11 +1359,11 @@ class SlidesApp {
                     selection.addRange(this.savedSelection.cloneRange());
                     return;
                 } catch (e) {
-                    // Fall through to default focus
+                    
                 }
             }
         }
-        // No valid saved selection — just focus and place cursor at end
+        
         contentEl.focus();
         try {
             const range = document.createRange();
@@ -1373,21 +1373,21 @@ class SlidesApp {
             sel.removeAllRanges();
             sel.addRange(range);
         } catch (e) {
-            // Silently ignore
+            
         }
     }
 
-    // Clean up empty list tags (e.g. <ul></ul> or <ol></ol> with no <li> children)
-    // and sync el.listType with the actual DOM state
+    
+    
     _cleanupEmptyLists(contentEl, el) {
         if (!contentEl || !el) return;
-        // Remove empty <ul> and <ol> elements (those with no <li> children)
+        
         let changed = false;
         contentEl.querySelectorAll('ul, ol').forEach(list => {
             const lis = list.querySelectorAll('li');
             const hasText = Array.from(lis).some(li => li.textContent.trim() !== '');
             if (lis.length === 0 || !hasText) {
-                // Remove the empty list, preserve any remaining text nodes
+                
                 while (list.firstChild) {
                     list.parentNode.insertBefore(list.firstChild, list);
                 }
@@ -1395,7 +1395,7 @@ class SlidesApp {
                 changed = true;
             }
         });
-        // Sync listType
+        
         const hasUl = !!contentEl.querySelector('ul');
         const hasOl = !!contentEl.querySelector('ol');
         if (hasOl) el.listType = 'ol';
@@ -1404,19 +1404,19 @@ class SlidesApp {
         return changed;
     }
 
-    // Check if a DOM element contains a real (non-empty) list of the given type
+    
     _hasRealList(contentEl, type) {
         if (!contentEl) return false;
         const lists = contentEl.querySelectorAll(type);
         if (lists.length === 0) return false;
-        // At least one list must have a non-empty <li>
+        
         return Array.from(lists).some(list => {
             const lis = list.querySelectorAll('li');
             return Array.from(lis).some(li => li.textContent.trim() !== '');
         });
     }
 
-    // ── Custom Media Player Wiring ─────────────────────────────
+    
 
     _fmtTime(sec) {
         if (!sec || !isFinite(sec)) return '0:00';
@@ -1433,8 +1433,8 @@ class SlidesApp {
         const VOL_ON_SVG = '<svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>';
         const VOL_OFF_SVG = '<svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>';
 
-        // Track whether a drag happened so we can suppress click-to-play
-        // after the user finishes dragging the element across the canvas.
+        
+        
         let didDrag = false;
 
         function togglePlay() {
@@ -1461,9 +1461,9 @@ class SlidesApp {
             }
         }
 
-        // Click on video to toggle — but only if the user didn't just
-        // finish a drag. A mousedown→mousemove→mouseup sequence that
-        // moved the element should NOT also toggle play/pause.
+        
+        
+        
         vid.addEventListener('click', (e) => { e.stopPropagation(); if (!didDrag) togglePlay(); });
         bigPlay.addEventListener('click', (e) => { e.stopPropagation(); if (!didDrag) togglePlay(); });
         playBtn.addEventListener('click', (e) => { e.stopPropagation(); if (!didDrag) togglePlay(); });
@@ -1475,7 +1475,7 @@ class SlidesApp {
         vid.addEventListener('loadedmetadata', () => { updateTime.call(this); updateBuffer(); });
         vid.addEventListener('progress', updateBuffer);
 
-        // Seek
+        
         progWrap.addEventListener('click', (e) => {
             e.stopPropagation();
             const rect = progWrap.getBoundingClientRect();
@@ -1483,7 +1483,7 @@ class SlidesApp {
             if (vid.duration) vid.currentTime = pct * vid.duration;
         });
 
-        // Volume
+        
         volSlider.addEventListener('input', (e) => {
             e.stopPropagation();
             vid.volume = parseFloat(volSlider.value);
@@ -1497,20 +1497,20 @@ class SlidesApp {
             volSlider.value = vid.muted ? '0' : String(vid.volume);
         });
 
-        // Fullscreen
+        
         const FS_ENTER_SVG = '<svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>';
         const FS_EXIT_SVG = '<svg viewBox="0 0 24 24"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>';
         fsBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            // When in presentation mode, re-parent the player out of
-            // .present-slide (which has transform:scale creating a new
-            // containing block that traps position:fixed) into the
-            // #presentOverlay so it can truly fill the viewport.
+            
+            
+            
+            
             if (this.isPresenting) {
                 const overlay = document.getElementById('presentOverlay');
                 if (!overlay) return;
                 if (this._expandedVideoPlayer === player) {
-                    // Collapse: move back to original parent
+                    
                     if (player._origParent && player._origNextSibling !== undefined) {
                         if (player._origNextSibling) {
                             player._origParent.insertBefore(player, player._origNextSibling);
@@ -1521,7 +1521,7 @@ class SlidesApp {
                     player.classList.remove('vid-expanded');
                     delete this._expandedVideoPlayer;
                 } else {
-                    // Expand: remember original position, then move to overlay
+                    
                     player._origParent = player.parentElement;
                     player._origNextSibling = player.nextElementSibling;
                     player.classList.add('vid-expanded');
@@ -1530,7 +1530,7 @@ class SlidesApp {
                 }
                 return;
             }
-            // Editor mode: use native Fullscreen API as before
+            
             const isPlayerFs = document.fullscreenElement === player ||
                                document.webkitFullscreenElement === player;
             if (isPlayerFs) {
@@ -1541,7 +1541,7 @@ class SlidesApp {
                 player.webkitRequestFullscreen();
             }
         });
-        // Update icon on fullscreen change
+        
         const updateFsIcon = () => {
             const isPlayerFs = document.fullscreenElement === player ||
                                document.webkitFullscreenElement === player;
@@ -1553,22 +1553,22 @@ class SlidesApp {
         document.addEventListener('fullscreenchange', updateFsIcon);
         document.addEventListener('webkitfullscreenchange', updateFsIcon);
 
-        // Prevent drag when interacting with specific controls (buttons,
-        // sliders, progress bar), but allow dragging from empty/padding
-        // areas of the controls bar so the user can reposition the
-        // element by grabbing the bottom part of the player.
+        
+        
+        
+        
         const controls = player.querySelector('.vid-controls');
         if (controls) {
             controls.querySelectorAll('button, input, .vid-progress-wrap').forEach(el => {
                 el.addEventListener('mousedown', (e) => e.stopPropagation());
             });
         }
-        // Also prevent the big center play button from starting a drag
+        
         const bigPlayEl = player.querySelector('.vid-big-play');
         if (bigPlayEl) bigPlayEl.addEventListener('mousedown', (e) => e.stopPropagation());
 
-        // Expose didDrag flag so the parent element's drag logic can
-        // set it when a real drag occurs.
+        
+        
         player._setDidDrag = () => { didDrag = true; };
         player._resetDidDrag = () => { didDrag = false; };
     }
@@ -1581,8 +1581,8 @@ class SlidesApp {
         const VOL_ON_SVG = '<svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>';
         const VOL_OFF_SVG = '<svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>';
 
-        // Track whether a drag happened so we can suppress click-to-play
-        // after the user finishes dragging the element across the canvas.
+        
+        
         let didDrag = false;
 
         function togglePlay() {
@@ -1602,7 +1602,7 @@ class SlidesApp {
             }
         }
 
-        // Only toggle play on click if the user didn't just finish a drag
+        
         playBtn.addEventListener('click', (e) => { e.stopPropagation(); if (!didDrag) togglePlay(); });
         aud.addEventListener('play', updateState);
         aud.addEventListener('pause', updateState);
@@ -1610,7 +1610,7 @@ class SlidesApp {
         aud.addEventListener('timeupdate', updateTime.bind(this));
         aud.addEventListener('loadedmetadata', () => updateTime.call(this));
 
-        // Seek
+        
         progWrap.addEventListener('click', (e) => {
             e.stopPropagation();
             const rect = progWrap.getBoundingClientRect();
@@ -1618,7 +1618,7 @@ class SlidesApp {
             if (aud.duration) aud.currentTime = pct * aud.duration;
         });
 
-        // Volume
+        
         volSlider.addEventListener('input', (e) => {
             e.stopPropagation();
             aud.volume = parseFloat(volSlider.value);
@@ -1632,10 +1632,10 @@ class SlidesApp {
             volSlider.value = aud.muted ? '0' : String(aud.volume);
         });
 
-        // Prevent drag when interacting with specific controls (buttons,
-        // sliders, progress bar), but allow dragging from empty/padding
-        // areas of the controls bar so the user can reposition the
-        // element by grabbing the bottom part of the player.
+        
+        
+        
+        
         const audCtrl = player.querySelector('.aud-controls');
         if (audCtrl) {
             audCtrl.querySelectorAll('button, input, .aud-progress-wrap').forEach(el => {
@@ -1643,19 +1643,19 @@ class SlidesApp {
             });
         }
 
-        // Click on art area toggles play — but only if the user didn't
-        // just finish a drag across the canvas.
+        
+        
         const audArt = player.querySelector('.aud-art');
         if (audArt) audArt.addEventListener('click', (e) => { e.stopPropagation(); if (!didDrag) togglePlay(); });
 
-        // Expose didDrag flag so the parent element's drag logic can
-        // set it when a real drag occurs.
+        
+        
         player._setDidDrag = () => { didDrag = true; };
         player._resetDidDrag = () => { didDrag = false; };
     }
 
     applyTextFormat(cmd, value = null) {
-        // Apply format to selected text within editing element, or all text in selected element
+        
         if (!this.selectedId && !this.editingId) return;
         const targetId = this.editingId || this.selectedId;
         const el = this.getElement(targetId);
@@ -1664,37 +1664,37 @@ class SlidesApp {
         const domEl = document.getElementById(`el-${targetId}`);
         const content = domEl?.querySelector('.text-content');
 
-        // When editing a text element, always use the inline (execCommand) path —
-        // even if focus temporarily moved to a toolbar button on click.
-        // Checking content.contains(document.activeElement) breaks when the user
-        // clicks a ribbon button because focus shifts to the button.
+        
+        
+        
+        
         if (this.editingId && content) {
-            // Ensure the contentEditable has focus so execCommand works.
-            // Focus may have moved to a toolbar button on click — restore saved selection.
+            
+            
             if (!content.contains(document.activeElement)) {
                 this.restoreSelection(content);
             }
-            // For textAlign, execCommand uses different command names (justifyLeft, justifyCenter, justifyRight)
+            
             if (cmd === 'textAlign') {
                 const execCmd = value === 'left' ? 'justifyLeft' : value === 'center' ? 'justifyCenter' : 'justifyRight';
                 document.execCommand(execCmd, false, null);
                 el.textAlign = value;
             } else if (cmd === 'insertUnorderedList' || cmd === 'insertOrderedList') {
-                // List commands — toggle list format via execCommand
+                
                 const listTag = cmd === 'insertUnorderedList' ? 'ul' : 'ol';
-                // Check state BEFORE execCommand — was the list already active?
+                
                 const wasActive = this._hasRealList(content, listTag);
                 if (!wasActive) {
-                    // We're about to turn ON the list — first clean up any empty/stale
-                    // list tags that could confuse execCommand
+                    
+                    
                     this._cleanupEmptyLists(content, el);
                 }
                 document.execCommand(cmd, false, null);
                 if (wasActive) {
-                    // User toggled OFF — clean up any leftover empty list tags
+                    
                     this._cleanupEmptyLists(content, el);
                 } else {
-                    // User toggled ON — just sync listType (don't cleanup, new list may be empty)
+                    
                     const hasUl = !!content.querySelector('ul');
                     const hasOl = !!content.querySelector('ol');
                     if (hasOl) el.listType = 'ol';
@@ -1706,7 +1706,7 @@ class SlidesApp {
             }
             el.html = content.innerHTML;
         } else {
-            // Apply to whole element style
+            
             switch (cmd) {
                 case 'bold':      this.updateElement(targetId, { bold: !el.bold }); break;
                 case 'italic':    this.updateElement(targetId, { italic: !el.italic }); break;
@@ -1718,25 +1718,25 @@ class SlidesApp {
                 case 'textAlign': this.updateElement(targetId, { textAlign: value }); break;
                 case 'insertUnorderedList':
                 case 'insertOrderedList': {
-                    // Toggle list type on the element
+                    
                     const listTag = cmd === 'insertUnorderedList' ? 'ul' : 'ol';
                     const currentList = el.listType || '';
                     let newHtml = el.html || '';
 
-                    // Check if the HTML actually contains a real list (not stale listType)
+                    
                     const tempDiv = document.createElement('div');
                     tempDiv.innerHTML = newHtml;
                     const actualHasList = !!tempDiv.querySelector(listTag);
                     const hasActualLis = Array.from(tempDiv.querySelectorAll(`${listTag} li`)).some(li => li.textContent.trim() !== '');
 
                     if (currentList === listTag && actualHasList && hasActualLis) {
-                        // Toggle off — strip the list tags, keep <li> content as plain text
+                        
                         newHtml = newHtml.replace(/<\/?ul>/gi, '').replace(/<\/?ol>/gi, '').replace(/<li>/gi, '<div>').replace(/<\/li>/gi, '</div>');
                         this.updateElement(targetId, { listType: '', html: newHtml });
                     } else if (currentList === listTag && (!actualHasList || !hasActualLis)) {
-                        // listType was stale — list doesn't actually exist, so turn it on fresh
+                        
                         newHtml = newHtml.replace(/<\/?ul>/gi, '').replace(/<\/?ol>/gi, '').replace(/<li>/gi, '<div>').replace(/<\/li>/gi, '</div>');
-                        // Ensure there's at least one list item
+                        
                         const parts = newHtml.split(/<\/div>|<br\s*\/?>/i).filter(p => p.trim());
                         if (parts.length === 0) {
                             newHtml = `<${listTag}><li>&nbsp;</li></${listTag}>`;
@@ -1749,10 +1749,10 @@ class SlidesApp {
                         }
                         this.updateElement(targetId, { listType: listTag, html: newHtml });
                     } else {
-                        // Toggle on — wrap content in list
-                        // First strip any existing list tags
+                        
+                        
                         newHtml = newHtml.replace(/<\/?ul>/gi, '').replace(/<\/?ol>/gi, '').replace(/<li>/gi, '<div>').replace(/<\/li>/gi, '</div>');
-                        // Split by divs or line breaks and wrap in list items
+                        
                         const parts = newHtml.split(/<\/div>|<br\s*\/?>/i).filter(p => p.trim());
                         if (parts.length === 0) {
                             newHtml = `<${listTag}><li>&nbsp;</li></${listTag}>`;
@@ -1773,25 +1773,25 @@ class SlidesApp {
         this.updateRibbonState();
     }
 
-    // ── Canvas Rendering ───────────────────────────────────────
+    
     renderCanvas() {
         const canvas = document.getElementById('slideCanvas');
         if (!canvas) return;
-        // After this render finishes, refresh ruler tick alignment (the canvas
-        // position may have shifted due to scrollbar or layout changes).
+        
+        
         requestAnimationFrame(() => this.renderRulers());
 
-        // Clear
+        
         canvas.innerHTML = '';
-        // Popup is body-anchored now — drop it on re-render like the old canvas child
+        
         document.querySelector('.comment-popup')?.remove();
 
         const slide = this.currentSlide;
         if (!slide) return;
 
-        // Background
+        
         const bg = slide.background;
-        // Reset all background properties first so switching from image → color doesn't leave residual image
+        
         canvas.style.backgroundImage = '';
         canvas.style.backgroundSize = '';
         canvas.style.backgroundPosition = '';
@@ -1806,7 +1806,7 @@ class SlidesApp {
             canvas.style.background = '#ffffff';
         }
 
-        // Sort elements by z
+        
         const sorted = [...slide.elements].sort((a, b) => (a.z || 1) - (b.z || 1));
 
         sorted.forEach(el => {
@@ -1815,7 +1815,7 @@ class SlidesApp {
         });
 
 
-        // Render link badges on canvas level (outside element divs so they never get clipped)
+        
         sorted.forEach(el => {
             if (el.link) {
                 const badge = document.createElement('div');
@@ -1828,22 +1828,22 @@ class SlidesApp {
             }
         });
 
-        // Render comment markers
+        
         if (slide.comments && slide.comments.length) {
             slide.comments.forEach((comment, ci) => {
-                // If comment is attached to an element, compute position from element's current location
+                
                 let pinX = comment.x;
                 let pinY = comment.y;
                 if (comment.elementId) {
                     const linkedEl = slide.elements.find(e => e.id === comment.elementId);
                     if (linkedEl) {
-                        pinX = linkedEl.x + linkedEl.w + 10; // Stick to the element
+                        pinX = linkedEl.x + linkedEl.w + 10; 
                         pinY = linkedEl.y;
                     } else {
-                        // Element was deleted — remove orphaned comment too
+                        
                         slide.comments.splice(ci, 1);
                         this.scheduleSave();
-                        return; // skip this iteration
+                        return; 
                     }
                 }
                 const pin = document.createElement('div');
@@ -1852,7 +1852,7 @@ class SlidesApp {
                 pin.title = `${comment.author}: ${comment.text}`;
                 pin.style.cssText = `position:absolute;left:${pinX}px;top:${pinY}px;z-index:${999 + ci};`;
                 pin.innerHTML = `<div class="comment-pin-icon"><span>${comment.author.charAt(0)}</span></div>`;
-                // Click to show comment popup
+                
                 pin.addEventListener('click', (e) => {
                     e.stopPropagation();
                     this.showCommentPopup(comment, ci, pin);
@@ -1892,11 +1892,11 @@ class SlidesApp {
             content.setAttribute('data-placeholder', 'Click to edit text');
             content.style.cssText = 'width:100%;height:100%;outline:none;word-break:break-word;white-space:pre-wrap;';
             content.innerHTML = sanitizeUserHtml(el.html) || '';
-            // Link is handled via click on the element (see mousedown handler)
-            // Listen for input to save
+            
+            
             content.addEventListener('input', () => {
                 el.html = content.innerHTML;
-                // Sync listType from actual DOM content — only count real (non-empty) lists
+                
                 const hasRealUl = this._hasRealList(content, 'ul');
                 const hasRealOl = this._hasRealList(content, 'ol');
                 if (el.listType === 'ul' && !hasRealUl) el.listType = '';
@@ -1907,16 +1907,16 @@ class SlidesApp {
                 this.updateThumbnail(this.slideIdx);
                 this.updateRibbonState();
             });
-            // Save selection on blur so toolbar buttons can restore it before execCommand
+            
             content.addEventListener('blur', () => this.saveSelection());
             div.appendChild(content);
         } else if (el.type === 'shape') {
-            // Icon shapes carry their own pre-rendered SVG markup
+            
             if (el.shape === 'icon') {
                 div.innerHTML = sanitizeUserHtml(el.svg) || '';
             } else if (el.shape === 'rounded' || el.shape === 'roundRect') {
-                // Render rounded rectangles with a uniform CSS corner radius so
-                // the corners do not stretch/distort when the box is resized.
+                
+                
                 const r = Math.max(0, Math.round((el.cornerRadius || 16.667) / 100 * Math.min(el.w || 0, el.h || 0)));
                 div.style.borderRadius = r + 'px';
                 div.style.overflow = 'visible';
@@ -1937,16 +1937,16 @@ class SlidesApp {
             imgWrap.className = 'slide-el-image-wrap';
             imgWrap.style.cssText = 'position:absolute;inset:0;overflow:hidden;border-radius:inherit;';
             const img = document.createElement('img');
-            // URL restricted to safe schemes by safeMediaUrl (see definition).
+            
             img.src = safeMediaUrl(el.src, 'image');
             img.draggable = false;
             img.alt = el.alt || '';
-            // Apply crop if any
+            
             const crop = el.crop || { l: 0, t: 0, r: 0, b: 0 };
             const visibleW = 1 - crop.l - crop.r;
             const visibleH = 1 - crop.t - crop.b;
             if (visibleW <= 0 || visibleH <= 0) {
-                // Invalid crop, reset
+                
                 img.style.cssText = 'width:100%;height:100%;display:block;pointer-events:none;object-fit:contain;';
             } else if (crop.l > 0 || crop.t > 0 || crop.r > 0 || crop.b > 0) {
                 const scaleW = 1 / visibleW;
@@ -1955,10 +1955,10 @@ class SlidesApp {
             } else {
                 img.style.cssText = 'width:100%;height:100%;display:block;pointer-events:none;object-fit:contain;';
             }
-            // Apply image filter (color corrections + filter presets)
+            
             const filterStyle = this._imageFilterCSS(el);
             if (filterStyle) img.style.filter = filterStyle;
-            // Apply border (drawn inside the element bounds so it never shifts layout)
+            
             if (el.borderWidth && el.borderColor && el.borderColor !== 'none') {
                 imgWrap.style.border = `${el.borderWidth}px solid ${el.borderColor}`;
                 imgWrap.style.boxSizing = 'border-box';
@@ -1968,20 +1968,20 @@ class SlidesApp {
         } else if (el.type === 'video') {
             const player = document.createElement('div');
             player.className = 'slide-video-player paused';
-            // Hidden <video> element (no native controls)
+            
             const vid = document.createElement('video');
             vid.src = safeMediaUrl(el.src, 'video');
             vid.preload = 'metadata';
             vid.setAttribute('poster', safeMediaUrl(el.poster, 'image') || '');
             vid.setAttribute('playsinline', '');
-            // Big center play button
+            
             const bigPlay = document.createElement('div');
             bigPlay.className = 'vid-big-play';
             bigPlay.innerHTML = '<svg viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4"/></svg>';
-            // Controls bar
+            
             const controls = document.createElement('div');
             controls.className = 'vid-controls';
-            // Progress bar
+            
             const progWrap = document.createElement('div');
             progWrap.className = 'vid-progress-wrap';
             const bufferBar = document.createElement('div');
@@ -1990,7 +1990,7 @@ class SlidesApp {
             progBar.className = 'vid-progress-bar';
             progWrap.appendChild(bufferBar);
             progWrap.appendChild(progBar);
-            // Button row
+            
             const btns = document.createElement('div');
             btns.className = 'vid-btns';
             const playBtn = document.createElement('button');
@@ -2002,7 +2002,7 @@ class SlidesApp {
             timeEl.textContent = '0:00 / 0:00';
             const spacer = document.createElement('div');
             spacer.className = 'vid-spacer';
-            // Volume
+            
             const volWrap = document.createElement('div');
             volWrap.className = 'vid-vol-wrap';
             const volBtn = document.createElement('button');
@@ -2015,7 +2015,7 @@ class SlidesApp {
             volSlider.min = '0'; volSlider.max = '1'; volSlider.step = '0.05'; volSlider.value = '1';
             volWrap.appendChild(volBtn);
             volWrap.appendChild(volSlider);
-            // Fullscreen
+            
             const fsBtn = document.createElement('button');
             fsBtn.className = 'vid-btn';
             fsBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>';
@@ -2031,28 +2031,28 @@ class SlidesApp {
             player.appendChild(bigPlay);
             player.appendChild(controls);
             div.appendChild(player);
-            // Wire up player logic
+            
             this._wireVideoPlayer(player, vid, { bigPlay, playBtn, timeEl, progWrap, progBar, bufferBar, volBtn, volSlider, fsBtn });
         } else if (el.type === 'audio') {
             const player = document.createElement('div');
             player.className = 'slide-audio-player';
-            // Art area with wave animation only
+            
             const art = document.createElement('div');
             art.className = 'aud-art';
             const wave = document.createElement('div');
             wave.className = 'aud-wave';
             for (let i = 0; i < 5; i++) wave.appendChild(document.createElement('span'));
             art.appendChild(wave);
-            // Controls
+            
             const audCtrl = document.createElement('div');
             audCtrl.className = 'aud-controls';
-            // Progress
+            
             const progWrap = document.createElement('div');
             progWrap.className = 'aud-progress-wrap';
             const progBar = document.createElement('div');
             progBar.className = 'aud-progress-bar';
             progWrap.appendChild(progBar);
-            // Buttons
+            
             const btns = document.createElement('div');
             btns.className = 'aud-btns';
             const playBtn = document.createElement('button');
@@ -2064,7 +2064,7 @@ class SlidesApp {
             timeEl.textContent = '0:00';
             const spacer = document.createElement('div');
             spacer.className = 'aud-spacer';
-            // Volume
+            
             const volWrap = document.createElement('div');
             volWrap.className = 'aud-vol-wrap';
             const volBtn = document.createElement('button');
@@ -2083,7 +2083,7 @@ class SlidesApp {
             btns.appendChild(volWrap);
             audCtrl.appendChild(progWrap);
             audCtrl.appendChild(btns);
-            // Hidden audio element
+            
             const aud = document.createElement('audio');
             aud.src = safeMediaUrl(el.src, 'audio');
             aud.preload = 'metadata';
@@ -2091,27 +2091,27 @@ class SlidesApp {
             player.appendChild(audCtrl);
             player.appendChild(aud);
             div.appendChild(player);
-            // Wire up audio player logic
+            
             this._wireAudioPlayer(player, aud, { playBtn, timeEl, progWrap, progBar, volBtn, volSlider });
         }
 
-        // Event: mousedown for select/drag
+        
         div.addEventListener('mousedown', (e) => {
             if (e.button !== 0) return;
             e.stopPropagation();
-            // If Ctrl is held and element has a link, don't select/edit — let click handler open the link
+            
             if ((e.ctrlKey || e.metaKey) && el.link) {
                 this._lastDragHadMoved = false;
                 return;
             }
-            // If already editing this text element, let the browser handle caret placement
+            
             if (this.editingId === el.id && el.type === 'text') return;
             if (this.editingId && this.editingId !== el.id) this.exitTextEditing();
             const wasSelected = this.selectedId === el.id;
-            this._wasSelectedBeforeClick = wasSelected; // Track for link click handler
-            this._lastDragHadMoved = false; // Reset drag tracker for link click
+            this._wasSelectedBeforeClick = wasSelected; 
+            this._lastDragHadMoved = false; 
             this.selectElement(el.id);
-            // For text: if already selected, single click also enters edit mode (PowerPoint-like)
+            
             if (el.type === 'text' && wasSelected) {
                 this.enterTextEditing(el.id);
                 return;
@@ -2119,7 +2119,7 @@ class SlidesApp {
             this.startDrag(e, el.id, 'move');
         });
 
-        // Double-click to enter text edit
+        
         if (el.type === 'text') {
             div.addEventListener('dblclick', (e) => {
                 e.stopPropagation();
@@ -2127,14 +2127,14 @@ class SlidesApp {
             });
         }
 
-        // Ctrl+Click to open link — Ctrl + Left Click opens link in editor mode
+        
         if (el.link) {
             div.addEventListener('click', (e) => {
-                // Don't open if in editing mode
+                
                 if (this.editingId === el.id) return;
-                // Don't open if this was a drag action
+                
                 if (this._lastDragHadMoved) return;
-                // Only open with Ctrl + Left Click
+                
                 if (!e.ctrlKey && !e.metaKey) return;
                 e.preventDefault();
                 e.stopPropagation();
@@ -2143,7 +2143,7 @@ class SlidesApp {
             div.classList.add('has-link');
         }
 
-        // Selection indicator
+        
         if (this.selectedId === el.id) {
             div.classList.add('selected');
             this.appendHandles(div, el);
@@ -2205,12 +2205,12 @@ class SlidesApp {
                 domEl.innerHTML = shapeSVG(el.shape, el.fill, el.stroke, el.strokeWidth, el.cornerRadius);
             }
         } else if (el.type === 'image') {
-            // Re-render image with current crop
+            
             const crop = el.crop || { l: 0, t: 0, r: 0, b: 0 };
             const visibleW = 1 - crop.l - crop.r;
             const visibleH = 1 - crop.t - crop.b;
             domEl.innerHTML = '';
-            // Use an inner wrapper for overflow clipping so handles on the outer domEl are not clipped
+            
             const imgWrap = document.createElement('div');
             imgWrap.className = 'slide-el-image-wrap';
             imgWrap.style.cssText = 'position:absolute;inset:0;overflow:hidden;border-radius:inherit;';
@@ -2227,10 +2227,10 @@ class SlidesApp {
             } else {
                 img.style.cssText = 'width:100%;height:100%;display:block;pointer-events:none;object-fit:contain;';
             }
-            // Apply image filter (color corrections + filter presets) live
+            
             const filterStyle = this._imageFilterCSS(el);
             if (filterStyle) img.style.filter = filterStyle;
-            // Apply border (drawn inside the element bounds so it never shifts layout)
+            
             if (el.borderWidth && el.borderColor && el.borderColor !== 'none') {
                 imgWrap.style.border = `${el.borderWidth}px solid ${el.borderColor}`;
                 imgWrap.style.boxSizing = 'border-box';
@@ -2239,7 +2239,7 @@ class SlidesApp {
             domEl.appendChild(imgWrap);
         }
 
-        // Re-append handles if selected
+        
         const existingHandles = domEl.querySelector('.el-handles');
         if (existingHandles) existingHandles.remove();
         if (this.selectedId === id) {
@@ -2264,7 +2264,7 @@ class SlidesApp {
             wrapper.appendChild(h);
         });
 
-        // Rotate handle (skip for line-type shapes)
+        
         if (el.shape !== 'line' && el.shape !== 'lineArrow' && el.shape !== 'lineDouble' && el.shape !== 'lineElbow' && el.shape !== 'lineCurve') {
             const rh = document.createElement('div');
             rh.className = 'el-rotate-handle';
@@ -2280,19 +2280,19 @@ class SlidesApp {
         domEl.appendChild(wrapper);
     }
 
-    // ── Drag / Resize / Crop / Rotate ──────────────────────────
-    // Modifier keys (PowerPoint-style):
-    //   - No modifier + CORNER handle = RESIZE (proportional for images, free for shapes/text)
-    //   - No modifier + SIDE handle   = STRETCH (one dimension)
-    //   - SHIFT + any handle          = CROP (for images & shapes — clip the visible region)
+    
+    
+    
+    
+    
     startDrag(e, id, type, handle = null) {
         const el = this.getElement(id);
         if (!el) return;
 
-        // History capture is deferred until the first real movement (see
-        // _onDragMove) so pointer-down never does a full synchronous deep
-        // clone of the presentation.
-        const isCorner = handle && handle.length === 2; // nw, ne, se, sw
+        
+        
+        
+        const isCorner = handle && handle.length === 2; 
         const shiftHeld = e.shiftKey;
         const canCrop = el.type === 'image' || el.type === 'shape';
         const cropMode = shiftHeld && canCrop && type === 'resize';
@@ -2310,16 +2310,16 @@ class SlidesApp {
             cropMode,
             isCorner,
             shiftHeld,
-            // For images: lock aspect ratio on EVERY handle resize
-            // (corner AND side) so the box always matches the image
-            // and the image always fills the box without letterboxing.
+            
+            
+            
             aspect: (el.type === 'image' && !cropMode) ? (el.w / el.h) : null,
-            // History is captured lazily on first movement (see _onDragMove).
+            
             pendingHistory: true,
         };
 
         if (type === 'rotate') {
-            // Compute center of element in screen coords
+            
             const canvas = document.getElementById('slideCanvas');
             const rect = canvas.getBoundingClientRect();
             this.drag.cx = rect.left + (el.x + el.w / 2) * this.scale;
@@ -2327,15 +2327,15 @@ class SlidesApp {
             this.drag.startAngle = Math.atan2(e.clientY - this.drag.cy, e.clientX - this.drag.cx) * 180 / Math.PI;
         }
 
-        // Add crop-mode visual class to element
+        
         if (cropMode) {
             const domEl = document.getElementById(`el-${id}`);
             if (domEl) domEl.classList.add('crop-mode');
         }
 
-        // Mark the element as being dragged so it is promoted to its own
-        // compositor layer (will-change) and transform-driven — this keeps
-        // movement on the GPU instead of forcing layout+repaint each frame.
+        
+        
+        
         const dragEl = document.getElementById(`el-${id}`);
         if (dragEl) dragEl.classList.add('slide-el-dragging');
 
@@ -2353,21 +2353,21 @@ class SlidesApp {
         const dx = (e.clientX - this.drag.startMX) / this.scale;
         const dy = (e.clientY - this.drag.startMY) / this.scale;
 
-        // Lazily snapshot the pre-drag state on the FIRST real movement
-        // (before any mutation). Cloning the whole presentation at pointer-down
-        // is a synchronous deep copy that hitches the drag start — especially
-        // with images/video/drawings on the slide — and also created an undo
-        // entry for plain clicks that never moved.
+        
+        
+        
+        
+        
         if (this.drag.pendingHistory && (Math.abs(dx) > 1 || Math.abs(dy) > 1)) {
             this.pushHistory();
             this.drag.pendingHistory = false;
         }
 
-        // Flag that a real drag occurred so the media player's click
-        // handlers know to suppress play/pause toggling.
+        
+        
         if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
             this.drag.hasMoved = true;
-            // Notify any media player inside this element
+            
             const domEl = document.getElementById(`el-${this.drag.id}`);
             if (domEl) {
                 const player = domEl.querySelector('.slide-video-player, .slide-audio-player');
@@ -2383,22 +2383,22 @@ class SlidesApp {
             el.r = Math.round(this.drag.startR + (angle - this.drag.startAngle));
         } else if (this.drag.type === 'resize') {
             if (this.drag.cropMode) {
-                // CROP mode: adjust crop region (l, t, r, b — each 0..0.5)
-                // dx/dy is in canvas pixels. Convert to fraction of element size.
+                
+                
                 const fx = dx / this.drag.startW;
                 const fy = dy / this.drag.startH;
                 const h = this.drag.handle;
                 const c = { ...this.drag.startCrop };
 
                 if (h.includes('e')) {
-                    // Dragging right edge: increase right crop (clipping from right)
+                    
                     c.r = clamp(c.r + fx, 0, 0.95 - c.l);
                 }
                 if (h.includes('s')) {
                     c.b = clamp(c.b + fy, 0, 0.95 - c.t);
                 }
                 if (h.includes('w')) {
-                    // Dragging left edge: increase left crop
+                    
                     c.l = clamp(c.l - fx, 0, 0.95 - c.r);
                 }
                 if (h.includes('n')) {
@@ -2406,46 +2406,46 @@ class SlidesApp {
                 }
                 el.crop = c;
             } else {
-                // RESIZE / STRETCH mode
+                
                 const h = this.drag.handle;
                 let { startX: x, startY: y, startW: w, startH: h2 } = this.drag;
                 const isCorner = this.drag.isCorner;
                 const aspect = this.drag.aspect;
 
-                // Min size 10px (was 20) — lets users shrink images/elements smaller.
+                
                 const MIN = 10;
                 if (h.includes('e')) { w = Math.max(MIN, w + dx); }
                 if (h.includes('s')) { h2 = Math.max(MIN, h2 + dy); }
                 if (h.includes('w')) { x = this.drag.startX + dx; w = Math.max(MIN, this.drag.startW - dx); }
                 if (h.includes('n')) { y = this.drag.startY + dy; h2 = Math.max(MIN, this.drag.startH - dy); }
 
-                // For images: preserve aspect ratio on every handle
-                // (corner AND side). When the user drags a side handle,
-                // the perpendicular dimension follows so the box keeps
-                // the image's aspect ratio — no letterboxing, and the
-                // box visually tracks the image during the stretch.
+                
+                
+                
+                
+                
                 if (aspect) {
-                    // For side handles, the primary axis is the one being
-                    // dragged; derive the other from aspect ratio.
-                    // For corner handles, use the dominant delta as before.
+                    
+                    
+                    
                     const isSide = !isCorner;
                     if (isSide) {
-                        // Side handle: the dragged axis wins, the other follows.
-                        const horiz = h.includes('e') || h.includes('w'); // horizontal drag
+                        
+                        const horiz = h.includes('e') || h.includes('w'); 
                         if (horiz) {
-                            // width changed → recompute height from aspect
+                            
                             const newH = w / aspect;
-                            // Keep the opposite edge (top or bottom) fixed
+                            
                             if (h.includes('n')) y = this.drag.startY + (this.drag.startH - newH);
                             h2 = newH;
                         } else {
-                            // vertical drag (n/s) → recompute width
+                            
                             const newW = h2 * aspect;
                             if (h.includes('w')) x = this.drag.startX + (this.drag.startW - newW);
                             w = newW;
                         }
                     } else {
-                        // Corner handle: use the dominant delta to preserve aspect.
+                        
                         const newAspect = w / h2;
                         if (newAspect > aspect) {
                             const newH = w / aspect;
@@ -2464,12 +2464,12 @@ class SlidesApp {
             }
         }
 
-        // Apply geometry WITHOUT rebuilding the element's children.
-        // Move/rotate only change the box/transform, so we drive the element
-        // through a single compositor transform (translate + rotate) instead
-        // of left/top + optional re-render. translate3d + will-change puts the
-        // element on its own GPU layer, so dragging costs zero layout/repaint
-        // and stays buttery at any refresh rate.
+        
+        
+        
+        
+        
+        
         const domEl = document.getElementById(`el-${this.drag.id}`);
         if ((this.drag.type === 'move' || this.drag.type === 'rotate') && domEl) {
             domEl.style.left = '0px';
@@ -2478,17 +2478,17 @@ class SlidesApp {
         } else {
             this.renderElementDOM(this.drag.id);
         }
-        // Coalesce the drag UI side-effects (comment pins, link badge, status
-        // bar) into a single animation frame so we never do more than one
-        // frame's worth of work per frame.
+        
+        
+        
         this._scheduleDragUI();
     };
 
-    // Runs the drag-time UI updates (linked comment pins, link badge, status
-    // bar) at most once per animation frame. The sidebar thumbnail is NOT
-    // refreshed per-frame — it's the priciest update (it rebuilds the slide
-    // copy) and it's refetched on mouseup anyway by renderCanvas(), so
-    // rebuilding it mid-drag only steals frames.
+    
+    
+    
+    
+    
     _scheduleDragUI() {
         if (this._dragUiRaf) return;
         this._dragUiRaf = requestAnimationFrame(() => {
@@ -2523,10 +2523,10 @@ class SlidesApp {
             if (comment.elementId === elementId) {
                 const pinEl = canvas.querySelector(`[data-comment-idx="${ci}"]`);
                 if (pinEl) {
-                    pinEl.style.left = (el.x + el.w + 10) + 'px'; // Stick to the element
+                    pinEl.style.left = (el.x + el.w + 10) + 'px'; 
                     pinEl.style.top = el.y + 'px';
                 }
-                // Also update any open popup for this comment
+                
                 const popupEl = document.querySelector('.comment-popup');
                 if (popupEl) {
                     this._positionCommentPopup(pinEl, popupEl);
@@ -2541,25 +2541,25 @@ class SlidesApp {
         document.body.style.userSelect = '';
         document.body.style.cursor = '';
         if (this.drag) {
-            // Remove crop-mode visual class
+            
             const domEl = document.getElementById(`el-${this.drag.id}`);
             if (domEl) domEl.classList.remove('crop-mode');
-            // Reset the media player's didDrag flag after a short delay
-            // so the pending click event sees didDrag=true and is
-            // suppressed, then the flag resets for the next interaction.
+            
+            
+            
             if (this.drag.hasMoved && domEl) {
                 const player = domEl.querySelector('.slide-video-player, .slide-audio-player');
                 if (player && player._resetDidDrag) {
                     setTimeout(() => player._resetDidDrag(), 50);
                 }
             }
-            // Track whether a drag occurred for link click detection
+            
             this._lastDragHadMoved = this.drag ? !!this.drag.hasMoved : false;
             this.scheduleSave();
-            // Release the compositor layer / dragging styling; renderCanvas()
-            // recreates the element with proper left/top from the data model.
+            
+            
             if (domEl) domEl.classList.remove('slide-el-dragging');
-            this.renderCanvas(); // Re-render to update comment pins & link badges
+            this.renderCanvas(); 
             this.drag = null;
             this._cropMode = false;
         }
@@ -2575,7 +2575,7 @@ class SlidesApp {
         };
     }
 
-    // ── Canvas Scaling ─────────────────────────────────────────
+    
     updateScalerSize() {
         const wrapper = document.getElementById('slideCanvasWrapper');
         const scaler = document.getElementById('slideCanvasScaler');
@@ -2602,25 +2602,25 @@ class SlidesApp {
         ro.observe(wrapper);
         this.updateScalerSize();
 
-        // Scroll-to-zoom: Ctrl+wheel zooms the editor canvas
+        
         const editorContent = document.getElementById('editorContent');
         if (editorContent) {
             editorContent.addEventListener('wheel', (e) => {
-                // Only zoom when Ctrl is held (or Cmd on Mac)
+                
                 if (!e.ctrlKey && !e.metaKey) return;
                 e.preventDefault();
                 e.stopPropagation();
 
-                // Determine zoom direction from deltaY
-                // Normalize delta (some mice use large delta values)
+                
+                
                 const delta = e.deltaY > 0 ? -1 : 1;
-                const factor = 1 + (delta * 0.08); // 8% zoom step
+                const factor = 1 + (delta * 0.08); 
                 this.setZoom(this.scale * factor);
             }, { passive: false });
         }
     }
 
-    // ── Slide Thumbnails ───────────────────────────────────────
+    
     renderSlideList() {
         const list = document.getElementById('slidesList');
         if (!list || !this.pres) return;
@@ -2651,7 +2651,7 @@ class SlidesApp {
             item.appendChild(num);
             item.appendChild(wrap);
 
-            // Apply thumbnail scale after layout (double-RAF for reliable clientWidth)
+            
             requestAnimationFrame(() => requestAnimationFrame(() => {
                 const w = wrap.clientWidth || 276;
                 const thumbScale = w / 960;
@@ -2660,10 +2660,10 @@ class SlidesApp {
                 wrap.style.height = (540 * thumbScale) + 'px';
             }));
 
-            // Events
+            
             item.addEventListener('click', () => this.selectSlide(idx));
 
-            // Drag to reorder
+            
             item.addEventListener('dragstart', (e) => {
                 e.dataTransfer.setData('text/plain', idx);
                 item.style.opacity = '0.5';
@@ -2680,9 +2680,9 @@ class SlidesApp {
 
             list.appendChild(item);
 
-            // Entrance fade — only when the list is first built (was empty).
-            // Adding/removing/reordering slides rebuilds the list, so animating
-            // there would make every existing thumbnail blink.
+            
+            
+            
             if (prevCount === 0) {
                 item.style.animation = '0.3s cubic-bezier(0.4, 0, 0.2, 1) noteItemFadeIn';
                 item.addEventListener('animationend', () => { item.style.animation = ''; }, { once: true });
@@ -2743,8 +2743,8 @@ class SlidesApp {
                 }
                 d.appendChild(img);
             } else if (el.type === 'video') {
-                // Lightweight thumbnail placeholder matching the custom video
-                // player's dark look with an orange play button overlay.
+                
+                
                 d.style.background = '#000';
                 d.style.display = 'flex';
                 d.style.alignItems = 'center';
@@ -2752,8 +2752,8 @@ class SlidesApp {
                 d.style.borderRadius = '0';
                 d.innerHTML = '<div style="width:24px;height:24px;border-radius:50%;background:#f97316;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3)"><svg width="12" height="12" viewBox="0 0 24 24" fill="#fff"><polygon points="6 4 20 12 6 20 6 4"/></svg></div>';
             } else if (el.type === 'audio') {
-                // Compact audio thumbnail matching the custom audio player's
-                // dark gradient background with wave animation and controls.
+                
+                
                 d.style.background = 'linear-gradient(135deg, #1e1e2e 0%, #2a2a3c 100%)';
                 d.style.display = 'flex';
                 d.style.alignItems = 'center';
@@ -2765,7 +2765,7 @@ class SlidesApp {
             }
             inner.appendChild(d);
         });
-        // Mini comment indicators in thumbnails
+        
         if (slide.comments && slide.comments.length) {
             slide.comments.forEach(comment => {
                 let px = comment.x, py = comment.y;
@@ -2778,8 +2778,8 @@ class SlidesApp {
                 inner.appendChild(pin);
             });
         }
-        // Render the saved drawing as an overlay so the thumbnail
-        // shows the user's strokes along with the slide content.
+        
+        
         if (slide.drawingData) {
             const drawImg = document.createElement('img');
             drawImg.src = safeMediaUrl(slide.drawingData, 'image');
@@ -2796,8 +2796,8 @@ class SlidesApp {
         if (inner) this.renderThumbContent(inner, slide);
     }
 
-    // Recompute thumbnail scale for the current sidebar cell widths.
-    // Needed when toggling Normal <-> Sorter and on window resize.
+    
+    
     relayoutThumbs() {
         document.querySelectorAll('.slide-thumb-item').forEach(item => {
             const wrap = item.querySelector('.slide-thumb-canvas-wrap');
@@ -2811,17 +2811,17 @@ class SlidesApp {
         });
     }
 
-    // Switch between Normal and Slide Sorter views without layout jitter.
-    // The sorter overlays the editor (absolute fill), so only opacity and
-    // visibility ever animate — flex/width/margins are never transitioned
-    // mid-switch, which is what made it bounce and glitch before. Thumbnail
-    // scales are recalculated right after the class flip so grid cells are
-    // correctly sized under the crossfade.
+    
+    
+    
+    
+    
+    
     switchView(mode) {
         if (!this.pres) return;
         const sorter = mode === 'sorter';
         const body = document.body;
-        // Notes can't be used in sorter view: close it if open, disable toggles.
+        
         this._setNotesEnabled(!sorter);
         if (sorter) this.toggleNotes(false);
         const btnIds = ['viewSorterBtn', 'viewNotesBtn', 'immersiveReaderBtn', 'viewNormalBtn'];
@@ -2830,10 +2830,10 @@ class SlidesApp {
         });
         body.classList.toggle('view-sorter', sorter);
         body.classList.remove('view-notes');
-        // Re-size thumbs for their new cell widths BEFORE the crossfade shows.
+        
         this.relayoutThumbs();
         this.showToast(sorter ? 'Slide sorter view.' : 'Normal view.');
-        // Fade is 0.18s; wait for it to finish before touching zoom.
+        
         if (this._viewTimer) clearTimeout(this._viewTimer);
         this._viewTimer = setTimeout(() => {
             this._viewTimer = null;
@@ -2841,9 +2841,9 @@ class SlidesApp {
         }, 260);
     }
 
-    // Toggle the Presenter Notes panel. Syncs the active state on both the
-    // ribbon button (viewNotesBtn) and the statusbar toggle (notesToggleBtn).
-    // Notes cannot be opened while the slide sorter is enabled.
+    
+    
+    
     toggleNotes(force) {
         if (document.body.classList.contains('view-sorter')) return false;
         const panel = document.getElementById('presenterNotesPanel');
@@ -2856,13 +2856,13 @@ class SlidesApp {
         notesBtn?.classList.toggle('active', willShow);
         if (notesBtn) notesBtn.title = willShow ? 'Hide Presenter Notes' : 'Show Presenter Notes';
         if (willShow) setTimeout(() => document.getElementById('presenterNotesInput')?.focus(), 50);
-        // Re-render rulers after the layout change settles.
+        
         this._scheduleRulerRender();
         setTimeout(() => this._scheduleRulerRender(), 260);
         return willShow;
     }
 
-    // Enable/disable the notes toggles (disabled while in slide sorter view).
+    
     _setNotesEnabled(enabled) {
         const ribBtn = document.getElementById('viewNotesBtn');
         const notesBtn = document.getElementById('notesToggleBtn');
@@ -2882,7 +2882,7 @@ class SlidesApp {
         this.scheduleSave();
     }
 
-    // ── Canvas Mouse Interaction ───────────────────────────────
+    
     setupCanvasInteraction() {
         const wrapper = document.getElementById('slideCanvasWrapper');
         const canvas  = document.getElementById('slideCanvas');
@@ -2890,14 +2890,14 @@ class SlidesApp {
 
         canvas.addEventListener('mousedown', (e) => {
             if (e.button !== 0) return;
-            // Clicking on canvas background (not an element)
+            
             if (e.target === canvas) {
                 this.exitTextEditing();
                 this.deselectElement();
             }
         });
 
-        // Clicking canvas wrapper (outside canvas) — deselect
+        
         wrapper.addEventListener('mousedown', (e) => {
             if (e.target === wrapper || e.target === document.getElementById('slideCanvasScaler')) {
                 this.exitTextEditing();
@@ -2906,16 +2906,16 @@ class SlidesApp {
         });
     }
 
-    // ── Keyboard Shortcuts ─────────────────────────────────────
+    
     setupKeyboard() {
         document.addEventListener('keydown', (e) => {
             if (!this.pres) return;
 
-            // Don't intercept when typing in title input or other inputs
+            
             if (['INPUT','SELECT','TEXTAREA'].includes(document.activeElement.tagName) &&
                 document.activeElement.id !== 'slideCanvas') return;
 
-            // Allow editing element to handle keys
+            
             if (this.editingId) {
                 if (e.key === 'Escape') { e.preventDefault(); this.exitTextEditing(); }
                 return;
@@ -2929,7 +2929,7 @@ class SlidesApp {
             if (ctrl && e.key === 'x') { this.cutElement(); return; }
             if (ctrl && e.key === 'v') { e.preventDefault(); this.pasteElement(); return; }
             if (ctrl && e.key === 'd') { e.preventDefault(); this.duplicateElement(); return; }
-            if (ctrl && e.key === 'a') { e.preventDefault(); /* select all — future */ return; }
+            if (ctrl && e.key === 'a') { e.preventDefault();  return; }
 
             if (e.key === 'Delete' || e.key === 'Backspace') {
                 if (this.selectedId) { e.preventDefault(); this.deleteElement(); }
@@ -2938,7 +2938,7 @@ class SlidesApp {
             if (e.key === 'Escape') { this.deselectElement(); return; }
             if (e.key === 'F11') { e.preventDefault(); this.startPresentation(0); return; }
 
-            // Arrow keys: move selected element
+            
             if (this.selectedId && ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) {
                 e.preventDefault();
                 const el = this.getElement(this.selectedId);
@@ -2953,7 +2953,7 @@ class SlidesApp {
                 return;
             }
 
-            // Slide navigation (Page Up / Page Down)
+            
             if (e.key === 'PageDown' || (e.key === 'ArrowRight' && !this.selectedId)) {
                 if (!this.selectedId) this.selectSlide(this.slideIdx + 1);
             }
@@ -2963,7 +2963,7 @@ class SlidesApp {
         });
     }
 
-    // ── Clipboard ──────────────────────────────────────────────
+    
     copyElement() {
         if (!this.selectedId) return;
         const el = this.getElement(this.selectedId);
@@ -2984,10 +2984,10 @@ class SlidesApp {
         this.addElement(copy);
     }
 
-    // ── Undo / Redo ────────────────────────────────────────────
+    
     pushHistory() {
         if (!this.pres) return;
-        // Trim future
+        
         this.history = this.history.slice(0, this.histIdx + 1);
         this.history.push(JSON.parse(JSON.stringify(this.pres.slides)));
         if (this.history.length > 50) this.history.shift(); else this.histIdx++;
@@ -2999,7 +2999,7 @@ class SlidesApp {
         const current = JSON.parse(JSON.stringify(this.pres.slides));
         if (this.histIdx >= this.history.length) return;
         const prev = this.history[this.histIdx];
-        // Push current to redo
+        
         this.history[this.histIdx] = current;
         this.histIdx = Math.max(-1, this.histIdx - 1);
         if (prev) {
@@ -3035,18 +3035,18 @@ class SlidesApp {
         if (redoBtn) redoBtn.disabled = this.histIdx >= this.history.length - 1;
     }
 
-    // ── Ribbon Setup ───────────────────────────────────────────
+    
     setupRibbon() {
-        // Undo / Redo
+        
         document.getElementById('undoBtn')?.addEventListener('click', () => this.undo());
         document.getElementById('redoBtn')?.addEventListener('click', () => this.redo());
 
-        // Clipboard
+        
         document.getElementById('cutBtn')?.addEventListener('click', () => this.cutElement());
         document.getElementById('copyBtn')?.addEventListener('click', () => this.copyElement());
         document.getElementById('pasteBtn')?.addEventListener('click', () => this.pasteElement());
 
-        // Insert
+        
         document.getElementById('insertTextBtn')?.addEventListener('click', () => {
             if (!this.pres) return;
             const el = makeTextEl(120, 100, 320, 80);
@@ -3063,15 +3063,15 @@ class SlidesApp {
             const reader = new FileReader();
             reader.onload = (ev) => {
                 const dataUrl = ev.target.result;
-                // Load the actual image to read its natural dimensions,
-                // then size the element box to match the real aspect ratio.
-                // This avoids the empty letterboxed space that appeared when
-                // every imported image was forced into a fixed 360x270 box.
+                
+                
+                
+                
                 const probe = new Image();
                 probe.onload = () => {
                     const natW = probe.naturalWidth || 360;
                     const natH = probe.naturalHeight || 270;
-                    const MAX = 480; // longest side, in canvas px (960x540 slide)
+                    const MAX = 480; 
                     let w, h;
                     if (natW >= natH) {
                         w = Math.min(MAX, natW);
@@ -3080,14 +3080,14 @@ class SlidesApp {
                         h = Math.min(MAX, natH);
                         w = Math.round(h * natW / natH);
                     }
-                    // Center on canvas, clamp so it never overflows
+                    
                     const x = Math.max(20, Math.round((960 - w) / 2));
                     const y = Math.max(20, Math.round((540 - h) / 2));
                     const el = makeImageEl(dataUrl, x, y, w, h);
                     this.addElement(el);
                 };
                 probe.onerror = () => {
-                    // Fallback to a sane default if the image fails to load
+                    
                     const el = makeImageEl(dataUrl, 130, 100, 360, 270);
                     this.addElement(el);
                 };
@@ -3097,25 +3097,25 @@ class SlidesApp {
             e.target.value = '';
         });
 
-        // Shape dropdown
+        
         document.querySelectorAll('.shape-option').forEach(btn => {
             btn.addEventListener('click', () => {
                 if (!this.pres) return;
                 const shape = btn.dataset.shape;
-                // Determine default size based on shape type
+                
                 const isLine = shape === 'line' || shape === 'lineArrow' || shape === 'lineDouble' || shape === 'lineElbow' || shape === 'lineCurve';
                 const isArrow = shape.startsWith('arrow') && !shape.startsWith('arrowCallout');
                 const isCallout = shape.startsWith('callout') || shape.startsWith('arrowCallout');
                 const w = isLine ? 300 : (isCallout ? 200 : (isArrow ? 180 : 200));
                 const h = isLine ? 4 : (isCallout ? 140 : (shape === 'calloutCloud' ? 120 : 140));
                 const el = makeShapeEl(shape, 200, 150, w, h);
-                // Close dropdown
+                
                 document.getElementById('shapeDropdown')?.classList.remove('active');
                 this.addElement(el);
             });
         });
 
-        // Font family
+        
         const fontFamilyDd = document.getElementById('fontFamilyDropdown');
         fontFamilyDd?.querySelectorAll('.ms-dropdown-item[data-value]').forEach(item => {
             item.addEventListener('click', () => {
@@ -3126,7 +3126,7 @@ class SlidesApp {
             });
         });
 
-        // Font size
+        
         const fontSizeDd = document.getElementById('fontSizeDropdown');
         fontSizeDd?.querySelectorAll('.ms-dropdown-item[data-value]').forEach(item => {
             item.addEventListener('click', () => {
@@ -3137,12 +3137,12 @@ class SlidesApp {
             });
         });
 
-        // Bold / Italic / Underline
+        
         document.getElementById('boldBtn')?.addEventListener('click', () => this.applyTextFormat('bold'));
         document.getElementById('italicBtn')?.addEventListener('click', () => this.applyTextFormat('italic'));
         document.getElementById('underlineBtn')?.addEventListener('click', () => this.applyTextFormat('underline'));
 
-        // Text color (vertical list — matches notes app style)
+        
         document.querySelectorAll('#fontColorDropdown .ms-dropdown-item[data-value]').forEach(item => {
             item.addEventListener('click', () => {
                 const color = item.dataset.value;
@@ -3159,7 +3159,7 @@ class SlidesApp {
             });
         });
 
-        // Text highlight (matches notes app style)
+        
         document.querySelectorAll('#highlightColorDropdown .ms-dropdown-item[data-value]').forEach(item => {
             item.addEventListener('click', () => {
                 const color = item.dataset.value;
@@ -3181,16 +3181,16 @@ class SlidesApp {
             });
         });
 
-        // Align
+        
         document.getElementById('alignLeftBtn')?.addEventListener('click', () => this.applyTextFormat('textAlign', 'left'));
         document.getElementById('alignCenterBtn')?.addEventListener('click', () => this.applyTextFormat('textAlign', 'center'));
         document.getElementById('alignRightBtn')?.addEventListener('click', () => this.applyTextFormat('textAlign', 'right'));
 
-        // Lists
+        
         document.getElementById('bulletListBtn')?.addEventListener('click', () => this.applyTextFormat('insertUnorderedList'));
         document.getElementById('numberListBtn')?.addEventListener('click', () => this.applyTextFormat('insertOrderedList'));
 
-        // Shape fill — list-style dropdown items (ms-dropdown-item instead of color-dot)
+        
         document.querySelectorAll('#fillColorDropdown .ms-dropdown-item').forEach(item => {
             item.addEventListener('click', () => {
                 const color = item.dataset.value;
@@ -3211,7 +3211,7 @@ class SlidesApp {
             });
         });
 
-        // Shape stroke — list-style dropdown items
+        
         document.querySelectorAll('#strokeColorDropdown .ms-dropdown-item').forEach(item => {
             item.addEventListener('click', () => {
                 const color = item.dataset.value;
@@ -3231,7 +3231,7 @@ class SlidesApp {
                 if (strokeBtn) strokeBtn.setAttribute('aria-expanded', 'false');
             });
         });
-        // Stroke Width dropdown (replaces old number input)
+        
         const swDropdown = document.getElementById('strokeWidthDropdown');
         if (swDropdown) {
             swDropdown.querySelectorAll('.ms-dropdown-item').forEach(item => {
@@ -3240,7 +3240,7 @@ class SlidesApp {
                     const label = document.getElementById('strokeWidthLabel');
                     if (label) label.textContent = item.dataset.label;
                     if (this.selectedId) this.updateElement(this.selectedId, { strokeWidth: val }, true);
-                    // Close the dropdown
+                    
                     swDropdown.classList.remove('active');
                     const btn = swDropdown.querySelector('.ms-dropdown-btn');
                     if (btn) btn.setAttribute('aria-expanded', 'false');
@@ -3248,60 +3248,60 @@ class SlidesApp {
             });
         }
 
-        // Arrange
+        
         document.getElementById('bringFrontBtn')?.addEventListener('click', () => this.bringToFront());
         document.getElementById('sendBackBtn')?.addEventListener('click', () => this.sendToBack());
         document.getElementById('duplicateElBtn')?.addEventListener('click', () => this.duplicateElement());
         document.getElementById('deleteElBtn')?.addEventListener('click', () => this.deleteElement());
 
-        // Presentation
+        
         document.getElementById('presentFromStartBtn')?.addEventListener('click', () => this.startPresentation(0));
         document.getElementById('presentFromCurrentBtn')?.addEventListener('click', () => this.startPresentation(this.slideIdx));
 
-        // Slide actions (in editor header)
+        
         document.getElementById('newSlideBtn')?.addEventListener('click', () => this.addSlide());
         document.getElementById('newSlideBtnRibbon')?.addEventListener('click', () => this.addSlide());
         document.getElementById('duplicateSlideBtn')?.addEventListener('click', () => this.duplicateSlide());
         document.getElementById('deleteSlideBtn')?.addEventListener('click', () => this.deleteSlide());
 
-        // Presenter Notes toggle (status bar button)
+        
         document.getElementById('notesToggleBtn')?.addEventListener('click', () => this.toggleNotes());
 
-        // Welcome screen
+        
         document.getElementById('welcomeNewBtn')?.addEventListener('click', () => this.newPresentation());
 
-        // Presentation title
+        
         document.getElementById('presentationTitle')?.addEventListener('input', (e) => {
             if (!this.pres) return;
             this.pres.title = e.target.value || 'Untitled Presentation';
                 this.scheduleSave();
         });
 
-        // Delete modal
+        
         document.getElementById('deleteModalCancel')?.addEventListener('click', () => this.closeDeleteModal());
         document.getElementById('deleteModalConfirm')?.addEventListener('click', () => this.confirmDelete());
 
-        // Background picker modal (legacy, kept for fallback)
+        
         document.getElementById('bgPickerCancel')?.addEventListener('click', () => this.closeBgPicker());
         document.getElementById('bgPickerApply')?.addEventListener('click', () => this.applyBgPicker());
 
-        // Background ribbon dropdown — applies immediately on click (no modal needed)
+        
         document.querySelectorAll('#bgDropdown .bg-color-item').forEach(btn => {
             btn.addEventListener('click', () => {
                 if (!this.currentSlide) return;
                 const bgVal = btn.dataset.bg;
                 this.applyBackgroundImmediate(bgVal);
-                // Close dropdown (no active class — applies immediately like font/highlight)
+                
                 document.getElementById('bgDropdown')?.classList.remove('active');
             });
         });
-        // Custom color picker in ribbon dropdown — applies immediately
+        
         document.querySelector('#bgDropdown #bgColorCustom')?.addEventListener('input', (e) => {
             if (!this.currentSlide) return;
             this.applyBackgroundImmediate(e.target.value);
         });
 
-        // Legacy modal color buttons (kept in case modal is opened)
+        
         document.querySelectorAll('#bgPickerModal .bg-color-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('#bgPickerModal .bg-color-btn').forEach(b => b.classList.remove('active'));
@@ -3317,7 +3317,7 @@ class SlidesApp {
         });
     }
 
-    // Apply background immediately (no modal) — used by ribbon dropdown
+    
     applyBackgroundImmediate(value) {
         if (!this.currentSlide) return;
         this.pushHistory();
@@ -3332,7 +3332,7 @@ class SlidesApp {
     }
 
     setupDropdownMenus() {
-        // Portal-based dropdown (ported from notes.js for proper overflow escape)
+        
         document.querySelectorAll('.ms-dropdown').forEach(dropdown => {
             const btn = dropdown.querySelector(':scope > .ms-dropdown-btn, :scope > button.ribbon-btn.ms-dropdown-btn');
             const menu = dropdown.querySelector(':scope > .ms-dropdown-menu');
@@ -3360,7 +3360,7 @@ class SlidesApp {
             });
         });
 
-        // Close portal on outside click
+        
         document.addEventListener('mousedown', (e) => {
             if (this._portalMenu &&
                 !this._portalMenu.contains(e.target) &&
@@ -3369,7 +3369,7 @@ class SlidesApp {
             }
         });
 
-        // Close portal on scroll or resize — but NOT when scrolling inside the menu itself
+        
         window.addEventListener('scroll', (e) => {
             if (this._portalMenu && (e.target === this._portalMenu || this._portalMenu.contains(e.target))) return;
             this._closePortal();
@@ -3386,12 +3386,12 @@ class SlidesApp {
         dropdown.classList.add('active');
         btn.setAttribute('aria-expanded', 'true');
 
-        // Match Notes app: tighter max-height (320px default, 240px for color list menus)
+        
         const isColorList = menu.classList && menu.classList.contains('color-list-menu');
         const isColorGrid = menu.classList && menu.classList.contains('color-grid-menu');
         const cap = isColorList ? 240 : (isColorGrid ? 320 : 320);
         const maxH = Math.min(cap, window.innerHeight * 0.6);
-        // First, measure invisibly
+        
         menu.style.cssText = `position:fixed;visibility:hidden;display:block;z-index:999999;margin:0;max-height:${maxH}px;overflow-y:auto;`;
         const btnRect = btn.getBoundingClientRect();
         const mW = menu.offsetWidth || 200;
@@ -3436,7 +3436,7 @@ class SlidesApp {
         }
     }
 
-    // ── Ribbon Tab Switching ──────────────────────────────────────
+    
     setupRibbonTabs() {
         const tabs = document.querySelectorAll('.ribbon-tab[data-tab]');
         tabs.forEach(tab => {
@@ -3444,48 +3444,48 @@ class SlidesApp {
                 this._switchTab(tab.dataset.tab);
             });
         });
-        // Initial position + keep it aligned on resize / contextual-tab show.
-        // Double-rAF: the first frame commits the initial CSS state
-        // (width:0, transform:0, opacity:0); the second frame sets the
-        // target values, giving the transition a clean starting point.
-        // Without this, the browser batches both states and the indicator
-        // just appears at the active tab with no slide animation.
+        
+        
+        
+        
+        
+        
         requestAnimationFrame(() => requestAnimationFrame(() => this._updateRibbonTabIndicator()));
         window.addEventListener('resize', () => {
             this._updateRibbonTabIndicator();
-            // Re-render rulers on resize so tick marks stay aligned with the canvas.
+            
             this.renderRulers();
-            // Keep thumbnails matched to their (possibly resized) sidebar cells.
+            
             this.relayoutThumbs();
         });
-        // Re-align when fonts finish loading (tab widths can shift)
+        
         if (document.fonts && document.fonts.ready) {
             document.fonts.ready.then(() => this._updateRibbonTabIndicator());
         }
-        // Observe editor layout changes so the ruler ticks follow the
-        // canvas when the sidebar collapses, notes panel opens, etc.
+        
+        
         this._setupRulerObserver();
     }
 
-    // Switch the active ribbon tab.
-    //   target  - the data-tab value of the new tab (e.g. 'home', 'insert', 'file')
-    //
-    // Special case: target === 'file' does NOT activate the File ribbon panel.
-    // Instead, it opens the welcome screen (the start surface where the user
-    // can pick a different presentation or create a new one). The File tab
-    // itself is still marked .active so the user sees where they are, and
-    // the ribbon stays visible — we do NOT add body.no-active-note, which
-    // would hide the ribbon entirely. All ribbon panels are deactivated.
-    //
-    // This mirrors Microsoft Office's "File → Backstage" behaviour: clicking
-    // File leaves the editor and takes you to a file-management surface.
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     _switchTab(target) {
         const tabs = document.querySelectorAll('.ribbon-tab[data-tab]');
         const targetTab = document.querySelector(`.ribbon-tab[data-tab="${target}"]`);
         if (!targetTab) return;
 
         if (target === 'file') {
-            // File tab: blur-out current panel, then handle file logic
+            
             const activePanel = document.querySelector('.ribbon-panel.active');
             if (activePanel) {
                 activePanel.classList.add('blur-out');
@@ -3510,30 +3510,30 @@ class SlidesApp {
         const currentPanel = document.querySelector('.ribbon-panel.active');
         const targetPanel = document.querySelector(`.ribbon-panel[data-panel="${target}"]`);
 
-        // If switching to the same tab, do nothing
+        
         if (currentPanel && currentPanel === targetPanel) {
             this._activeTab = target;
             this._updateRibbonTabIndicator();
             return;
         }
 
-        // Move the indicator to the new tab IMMEDIATELY (before blur-out)
-        // so the underline slides at the same instant the user clicks.
+        
+        
         tabs.forEach(t => t.classList.toggle('active', t === targetTab));
         this._activeTab = target;
         this._updateRibbonTabIndicator();
 
-        // Don't switch panel content yet — do it after blur-out
+        
         const doSwitch = () => {
-            // Hide old panel fully
+            
             currentPanel.classList.remove('blur-out');
-            // Show new panel (blur-in)
+            
             if (targetPanel) targetPanel.classList.add('active');
             this._closePortal(false);
         };
 
         if (currentPanel) {
-            // Step 1: blur-out the current panel (keeps position: relative, no layout shift)
+            
             currentPanel.classList.add('blur-out');
             currentPanel.classList.remove('active');
 
@@ -3543,14 +3543,14 @@ class SlidesApp {
             };
             currentPanel.addEventListener('transitionend', onBlurred);
 
-            // Fallback timeout
+            
             setTimeout(() => {
                 if (currentPanel.classList.contains('blur-out')) {
                     doSwitch();
                 }
             }, 220);
         } else {
-            // No current panel — switch immediately
+            
             if (targetPanel) targetPanel.classList.add('active');
             tabs.forEach(t => t.classList.toggle('active', t === targetTab));
             this._activeTab = target;
@@ -3559,10 +3559,10 @@ class SlidesApp {
         }
     }
 
-    // Position the sliding underline indicator under the active ribbon tab.
-    // Sets `transform: translateX(Npx)` and `width: Mpx` based on the active
-    // tab's offsetLeft/offsetWidth inside .ribbon-tabs-left. The CSS transition
-    // on `.ribbon-tab-indicator` produces the smooth slide.
+    
+    
+    
+    
     _updateRibbonTabIndicator() {
         const indicator = document.getElementById('ribbonTabIndicator');
         if (!indicator) return;
@@ -3580,11 +3580,11 @@ class SlidesApp {
         indicator.classList.add('visible');
     }
 
-    // ── Transitions Tab ───────────────────────────────────────────
-    // 37 transition types organized into 3 categories (Subtle / Exciting / Dynamic Content),
-    // inspired by desktop presentation software.
+    
+    
+    
     static TRANSITIONS = [
-        // ── Subtle ───────────────────────────────────────────────
+        
         { value: 'none',         label: 'None',         category: 'Subtle',   preview: '#ffffff' },
         { value: 'fade',         label: 'Fade',         category: 'Subtle',   preview: 'linear-gradient(90deg,#fff,#aaa)' },
         { value: 'push',         label: 'Push',         category: 'Subtle',   preview: 'linear-gradient(90deg,#f97316 50%,#fff 50%)' },
@@ -3598,7 +3598,7 @@ class SlidesApp {
         { value: 'shape',        label: 'Shape',        category: 'Subtle',   preview: 'linear-gradient(45deg,#f97316 50%,#fff 50%)' },
         { value: 'blinds',       label: 'Blinds',       category: 'Subtle',   preview: 'repeating-linear-gradient(0deg,#f97316 0 8%,#fff 8% 16%)' },
 
-        // ── Exciting ─────────────────────────────────────────────
+        
         { value: 'morph',        label: 'Morph',        category: 'Exciting', preview: 'radial-gradient(circle at 25% 30%,#f97316 0 18%,transparent 19%),radial-gradient(circle at 75% 70%,#fff 0 18%,#f97316 19%)' },
         { value: 'fade-black',   label: 'Fade Black',   category: 'Exciting', preview: 'linear-gradient(90deg,#fff,#000)' },
         { value: 'zoom',         label: 'Zoom',         category: 'Exciting', preview: 'radial-gradient(circle,#f97316 30%,#fff)' },
@@ -3621,7 +3621,7 @@ class SlidesApp {
         { value: 'glitter',      label: 'Glitter',      category: 'Exciting', preview: 'radial-gradient(circle at 20% 30%,#fbbf24 8%,transparent 9%),radial-gradient(circle at 70% 60%,#fbbf24 8%,transparent 9%),#fff' },
         { value: 'comb',         label: 'Comb',         category: 'Exciting', preview: 'repeating-linear-gradient(0deg,#f97316 0 4%,#fff 4% 8%)' },
 
-        // ── Dynamic Content ──────────────────────────────────────
+        
         { value: 'pan',          label: 'Pan',          category: 'Dynamic',  preview: 'linear-gradient(90deg,#f97316 30%,#fff 30%)' },
         { value: 'rotate',       label: 'Rotate',       category: 'Dynamic',  preview: 'conic-gradient(from 45deg,#f97316 0 90deg,#fff 90deg)' },
         { value: 'orbit',        label: 'Orbit',        category: 'Dynamic',  preview: 'radial-gradient(circle at 30% 30%,#f97316 30%,#fff 31%)' },
@@ -3630,12 +3630,12 @@ class SlidesApp {
     ];
 
     setupTransitionsTab() {
-        // ── Ribbon thumbnail row ─────────────────────────────────
-        // Show the first N most-used transitions as preview tiles
-        // directly on the ribbon (mirrors the Themes/Templates row on
-        // the Design tab). The order of TRANSITIONS already places
-        // the popular ones (None, Fade, Push, Wipe, Split, Reveal)
-        // first, so we just slice.
+        
+        
+        
+        
+        
+        
         const row = document.getElementById('transitionThumbnailRow');
         if (row) {
             row.innerHTML = '';
@@ -3646,9 +3646,9 @@ class SlidesApp {
             });
         }
 
-        // ── "More" gallery dropdown ──────────────────────────────
-        // All transitions, grouped by category, in a wide 6-column
-        // grid. Same visual pattern as the Themes/Templates gallery.
+        
+        
+        
         const gallery = document.getElementById('transitionGalleryMenu');
         if (gallery) {
             gallery.innerHTML = '';
@@ -3672,69 +3672,69 @@ class SlidesApp {
             });
         }
 
-        // Highlight the currently-applied transition in both the
-        // ribbon row and the More gallery.
+        
+        
         this._refreshTransitionHighlight();
 
-        // ── Timing panel wiring ─────────────────────────────────
-        // The TIMING panel uses a unified design:
-        //   • A stepper-style number field for Duration
-        //     ( [−] [input] [+] [sec] ).
-        //   • A segmented pill toggle for the advance trigger
-        //     (On Click | After), and a second stepper field for
-        //     the "After X sec" value.
-        // Pills toggle aria-pressed; the After-field is disabled
-        // (visually faded) when the After pill is not pressed.
-        // The slide's transition object is the single source of
-        // truth — UI changes flow into it via updateTransitionTiming,
-        // and slide switches flow back into the UI via
-        // _syncTransitionTimingUI.
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         this._wireTransitionTimingPanel();
 
-        // Apply to all
+        
         document.getElementById('applyTransitionAllBtn')?.addEventListener('click', () => {
             if (!this.pres || this.pres.slides.length === 0) return;
             const current = this.pres.slides[this.slideIdx]?.transition ||
                 { type: 'none', duration: 0.7, onClick: true, autoAfter: false, afterSec: 5 };
             this.pres.slides.forEach(s => { s.transition = { ...current }; });
             this.scheduleSave();
-            // After "Apply to All" the current slide's settings are
-            // unchanged, but the UI should re-sync in case any rounding
-            // or normalization happened.
+            
+            
+            
             this._syncTransitionTimingUI?.();
             this.showToast(`Applied "${current.type}" transition to all slides.`);
         });
 
-        // Preview
+        
         document.getElementById('previewTransitionBtn')?.addEventListener('click', () => {
             this.previewTransition();
         });
 
-        // Sync the TIMING panel inputs with the current slide's
-        // transition settings (or defaults if no presentation is
-        // loaded yet). This runs once on init; subsequent syncs happen
-        // via selectSlide and applyTransition.
+        
+        
+        
+        
         this._syncTransitionTimingUI();
     }
 
-    // Wire up the duration stepper, trigger toggle pills, and
-    // after-seconds stepper. Idempotent — safe to call multiple times
-    // (it removes old listeners before re-adding). All state lives on
-    // the slide's `transition` object; the UI reads/writes through
-    // updateTransitionTiming and _syncTransitionTimingUI.
+    
+    
+    
+    
+    
     _wireTransitionTimingPanel() {
         const durInput = document.getElementById('transitionDuration');
         const afterSec = document.getElementById('transitionAfterSec');
         const afterField = document.getElementById('transitionAfterField');
         const toggle = document.getElementById('transitionTriggerToggle');
 
-        // ── Stepper buttons ( [−] / [+] ) ────────────────────────
-        // Each .tr-num-step has data-target (input id) and data-step
-        // (signed delta). Clicking adjusts the input value, clamps to
-        // min/max, fires a 'change' event so the existing change
-        // handler picks it up, and re-syncs the slide data.
+        
+        
+        
+        
+        
         document.querySelectorAll('.tr-num-step').forEach(btn => {
-            // Avoid double-binding if _wireTransitionTimingPanel runs twice.
+            
             if (btn.__trBound) return;
             btn.__trBound = true;
             btn.addEventListener('click', () => {
@@ -3747,14 +3747,14 @@ class SlidesApp {
                 val = val + step;
                 if (!Number.isNaN(min)) val = Math.max(min, val);
                 if (!Number.isNaN(max)) val = Math.min(max, val);
-                // Round to 1 decimal to avoid float dust like 0.7000000001
+                
                 if (step % 1 !== 0) val = Math.round(val * 10) / 10;
                 target.value = val;
                 target.dispatchEvent(new Event('change', { bubbles: true }));
             });
         });
 
-        // ── Duration input ───────────────────────────────────────
+        
         if (durInput && !durInput.__trBound) {
             durInput.__trBound = true;
             durInput.addEventListener('change', () => {
@@ -3766,7 +3766,7 @@ class SlidesApp {
             });
         }
 
-        // ── After-seconds input ──────────────────────────────────
+        
         if (afterSec && !afterSec.__trBound) {
             afterSec.__trBound = true;
             afterSec.addEventListener('change', () => {
@@ -3774,27 +3774,27 @@ class SlidesApp {
                 if (!Number.isFinite(v) || v <= 0) v = 5;
                 v = Math.min(600, Math.max(1, Math.round(v)));
                 afterSec.value = v;
-                // Only persist if autoAfter is currently active —
-                // otherwise the value is just staged in the UI for
-                // when the user toggles After on.
+                
+                
+                
                 const autoAfter = this._triggerPillState('autoAfter');
                 this.updateTransitionTiming({ autoAfter, afterSec: v });
             });
         }
 
-        // ── Trigger toggle pills ─────────────────────────────────
-        // Clicking a pill toggles its aria-pressed state. Both pills
-        // can be on (advance on whichever fires first — PowerPoint
-        // semantics) or both off (slide must be navigated with arrows).
+        
+        
+        
+        
         if (toggle && !toggle.__trBound) {
             toggle.__trBound = true;
             toggle.querySelectorAll('.tr-trigger-pill').forEach(pill => {
                 pill.addEventListener('click', () => {
-                    const key = pill.dataset.trigger; // 'onClick' | 'autoAfter'
+                    const key = pill.dataset.trigger; 
                     const next = !(pill.getAttribute('aria-pressed') === 'true');
                     pill.setAttribute('aria-pressed', String(next));
-                    // Enable/disable the after-seconds field based on
-                    // the After pill state.
+                    
+                    
                     if (key === 'autoAfter') {
                         if (afterSec) afterSec.disabled = !next;
                         if (afterField) afterField.classList.toggle('disabled', !next);
@@ -3805,19 +3805,19 @@ class SlidesApp {
         }
     }
 
-    // Read the current pressed state of a trigger pill by data-trigger.
+    
     _triggerPillState(key) {
         const pill = document.querySelector(`.tr-trigger-pill[data-trigger="${key}"]`);
         return pill ? pill.getAttribute('aria-pressed') === 'true' : false;
     }
 
-    // Push the current slide's transition settings into the Timing
-    // panel UI. Called from setupTransitionsTab, selectSlide, and
-    // applyTransition so the controls always reflect whichever slide
-    // is active. Without this, the inputs would show stale values from
-    // the previously-selected slide — which was a real bug: set slide
-    // 1 to "After 3 sec", switch to slide 2 (default On Click), and
-    // the toggle still showed "After 3 sec" pressed.
+    
+    
+    
+    
+    
+    
+    
     _syncTransitionTimingUI() {
         const slide = this.pres?.slides?.[this.slideIdx];
         const t = slide?.transition || { type: 'none', duration: 0.7, onClick: true, autoAfter: false, afterSec: 5 };
@@ -3834,17 +3834,17 @@ class SlidesApp {
 
         const onClickPill = document.querySelector('.tr-trigger-pill[data-trigger="onClick"]');
         const afterPill = document.querySelector('.tr-trigger-pill[data-trigger="autoAfter"]');
-        // Default to "On Click" enabled when the slide has no explicit
-        // setting — matches PowerPoint's default for new slides.
+        
+        
         const onClickOn = t.onClick !== undefined ? !!t.onClick : true;
         if (onClickPill) onClickPill.setAttribute('aria-pressed', String(onClickOn));
         if (afterPill)   afterPill.setAttribute('aria-pressed', String(afterOn));
     }
 
-    // Build a single transition thumbnail tile. Used both by the
-    // ribbon row and by the More gallery — same DOM structure means
-    // the .active highlight state can be refreshed uniformly via
-    // _refreshTransitionHighlight().
+    
+    
+    
+    
     _buildTransitionThumb(tr) {
         const btn = document.createElement('button');
         btn.className = 'transition-thumb';
@@ -3862,18 +3862,18 @@ class SlidesApp {
         return btn;
     }
 
-    // Refresh the .active state on every .transition-thumb (both the
-    // ribbon row and the More gallery) to reflect the current slide's
-    // applied transition. Called from setupTransitionsTab,
-    // applyTransition, selectSlide, and updateRibbonState so the
-    // highlight stays in sync as the user moves between slides.
+    
+    
+    
+    
+    
     _refreshTransitionHighlight() {
         const current = this.pres?.slides?.[this.slideIdx]?.transition?.type || 'none';
         document.querySelectorAll('.transition-thumb').forEach(o => {
             o.classList.toggle('active', o.dataset.value === current);
         });
-        // Keep the hidden #transitionLabel span in sync for any
-        // legacy code that reads it.
+        
+        
         const labelEl = document.getElementById('transitionLabel');
         if (labelEl) {
             labelEl.textContent = current === 'none' ? 'None' :
@@ -3885,92 +3885,92 @@ class SlidesApp {
         if (!this.pres) return;
         const slide = this.pres.slides[this.slideIdx];
         if (!slide) return;
-        // Replace — NOT merge-and-keep — the type field. Previously
-        // this used { ...(slide.transition || {}), type } which is
-        // correct for the data model, but the visual bug users saw
-        // ("doesn't change, keeps the previous transition") came from
-        // the fact that no preview was triggered here. Industry
-        // convention (PowerPoint/Keynote/Slides): clicking a
-        // transition thumbnail immediately previews it. So we now
-        // also call previewTransition() after the data update.
+        
+        
+        
+        
+        
+        
+        
+        
         slide.transition = { ...(slide.transition || {}), type };
-        // Keep the hidden #transitionLabel span in sync; the ribbon
-        // row + More gallery .active highlight is refreshed by
-        // _refreshTransitionHighlight (called by the click handler,
-        // but also called here in case applyTransition is invoked
-        // programmatically from elsewhere).
+        
+        
+        
+        
+        
         this._refreshTransitionHighlight?.();
-        // Keep the Timing panel in sync — applyTransition changes the
-        // transition type but keeps duration/trigger settings, so the
-        // UI shouldn't visibly change. Calling _syncTransitionTimingUI
-        // is a no-op visually but guarantees the inputs are showing
-        // the active slide's actual values (defensive — in case the
-        // caller came from a context where the slideIdx also changed).
+        
+        
+        
+        
+        
+        
         this._syncTransitionTimingUI?.();
         this.scheduleSave();
-        // Auto-preview so the user sees the change immediately. This
-        // is what fixes the "doesn't change" half of the bug — the
-        // data WAS changing, but the user couldn't see it without
-        // clicking the Preview button. Skip auto-preview for 'none'
-        // (nothing to preview) and 'morph' (needs a previous slide;
-        // previewTransition already handles the empty case gracefully
-        // with a toast, but we don't want a toast on every click).
+        
+        
+        
+        
+        
+        
+        
         if (type && type !== 'none' && type !== 'morph') {
             this.previewTransition();
         }
     }
 
-    // Centralized runner for slide transitions. Replaces the old
-    // pattern of `container.classList.add(cls); setTimeout(...)` that
-    // was duplicated in previewTransition and renderPresentSlide.
-    // Fixes:
-    //   1. Race condition — the previous transition's setTimeout
-    //      could fire during the new transition and remove the new
-    //      class early. We now clear this._trAnimTimer before
-    //      scheduling a new one.
-    //   2. Wrong duration — previewTransition used to hardcode 1200ms;
-    //      now uses the slide's configured duration.
-    //   3. animationend fallback — even if our timer is off, the
-    //      class is removed when the animation actually ends.
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     _runTransitionClass(container, cls, durationSec) {
         if (!container) return;
-        // Clear any in-flight cleanup timer from the previous
-        // transition. This is THE fix for the "adds and keeps the
-        // previous transition" bug — without this, the old timer
-        // would fire and remove our new class mid-animation.
+        
+        
+        
+        
         if (this._trAnimTimer) {
             clearTimeout(this._trAnimTimer);
             this._trAnimTimer = null;
         }
-        // If a morph FLIP is in flight, cancel its unwrap timer.
-        // The orphan-wrapper cleanup at the top of
-        // _applyMorphTransition will unwrap any lingering wrappers
-        // on the next morph; for non-morph transitions the wrappers
-        // are harmless (the slide is about to be re-rendered anyway
-        // by renderPresentSlide, which clears container.innerHTML).
+        
+        
+        
+        
+        
+        
         if (this._morphAnimTimer) {
             clearTimeout(this._morphAnimTimer);
             this._morphAnimTimer = null;
         }
-        // Strip every transition-related class so we start clean.
-        // The filter catches tr-*-in, fade-in, slide-in-left/right.
+        
+        
         const prevClasses = Array.from(container.classList).filter(c =>
             c.startsWith('tr-') || c === 'fade-in' ||
             c === 'slide-in-right' || c === 'slide-in-left'
         );
         prevClasses.forEach(c => container.classList.remove(c));
-        // Force reflow so the browser commits the class removal
-        // before we add the new class — otherwise the new animation
-        // doesn't restart (the browser batches the add+remove and
-        // the element never sees the class transition).
+        
+        
+        
+        
         void container.offsetWidth;
         container.classList.add(cls);
-        // Primary cleanup: use the actual configured duration.
+        
         const durMs = Math.ceil((durationSec || 0.7) * 1000) + 50;
-        // Fallback cleanup: when the animation actually ends. This
-        // catches cases where the CSS animation duration differs
-        // from the JS-configured duration (e.g. tr-cut-in uses 0.3s
-        // in CSS regardless of slide.transition.duration).
+        
+        
+        
+        
         const onEnd = () => {
             container.removeEventListener('animationend', onEnd);
             container.classList.remove(cls);
@@ -4002,30 +4002,30 @@ class SlidesApp {
         const type = slide.transition?.type || 'none';
         if (type === 'none') { this.showToast('No transition selected.'); return; }
 
-        // Pick the VISIBLE container. Previously this used
-        // `document.getElementById('presentSlide') || document.getElementById('slideCanvas')`
-        // but presentSlide ALWAYS exists in the DOM (inside the hidden
-        // #presentOverlay with display:none), so the || short-circuit
-        // always picked it — meaning the transition class was added to
-        // a hidden element and the user saw nothing in editor mode.
-        // Now we pick based on isPresenting so editor preview actually
-        // animates the on-screen slideCanvas.
+        
+        
+        
+        
+        
+        
+        
+        
         const container = this.isPresenting
             ? document.getElementById('presentSlide')
             : document.getElementById('slideCanvas');
         if (!container) return;
         const trDur = slide.transition?.duration || 0.7;
-        // Set the CSS custom property so the @keyframes animation uses
-        // the user's configured duration (the CSS rules use
-        // var(--tr-duration, 0.7s) — without setting it, every preview
-        // would fall back to 0.7s regardless of the Timing panel).
+        
+        
+        
+        
         container.style.setProperty('--tr-duration', `${trDur}s`);
 
-        // Special case: Morph is an object-level FLIP transition. It needs
-        // a "previous slide" to morph from. In Present mode we run the full
-        // FLIP; in editor mode we fall back to the CSS fade preview because
-        // editor decorations (link badges, comment pins, selection box)
-        // would otherwise be left orphaned by the per-element wrapping.
+        
+        
+        
+        
+        
         if (type === 'morph') {
             const idx = this.isPresenting ? this.presentIdx : this.slideIdx;
             const prevIdx = idx > 0 ? idx - 1 : (this.pres.slides.length - 1);
@@ -4043,40 +4043,40 @@ class SlidesApp {
             return;
         }
 
-        // Render the current slide with the transition animation.
-        // Uses the centralized _runTransitionClass helper so the
-        // cleanup timer is properly tracked across rapid clicks
-        // (fixes the "keeps the previous transition" bug) and the
-        // duration is the user's configured one (was hardcoded 1200ms).
+        
+        
+        
+        
+        
         this._runTransitionClass(container, `tr-${type}-in`, trDur);
     }
 
-    // ── Morph transition (object-level FLIP) ──────────────────────
-    // Matches elements between prevSlide and newSlide by a content
-    // signature (text html / image src / shape+fill+stroke / video src /
-    // audio src). For each matched pair with a different position or
-    // size, wraps the new element in a .morph-flip-wrapper that starts
-    // transformed to look like the previous element (translate + scale,
-    // origin 0 0) and animates to identity. Unmatched incoming elements
-    // cross-fade. The slide container also gets a subtle tr-morph-in
-    // backdrop fade. Rotation on the child element is preserved because
-    // the child keeps its own transform: rotate(...) with origin center,
-    // and the wrapper's translate/scale composes around it cleanly.
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     _applyMorphTransition(container, newSlide, prevSlide, trDur) {
-        // BUGFIX: Clean up any orphan .morph-flip-wrapper divs left
-        // behind by a previous morph that got interrupted mid-flight
-        // (e.g. user navigated to another slide before the unwrap
-        // setTimeout fired). Without this, the wrappers — and the
-        // doubly-nested children inside them — accumulate in the
-        // container and break element selection, dragging, and
-        // rendering on subsequent renders.
+        
+        
+        
+        
+        
+        
+        
         if (container) {
             container.querySelectorAll('.morph-flip-wrapper').forEach(w => {
                 const inner = w.firstChild;
                 if (inner && w.parentNode) {
-                    // Restore the inner element's position before
-                    // unwrapping, matching what the original
-                    // setTimeout cleanup would have done.
+                    
+                    
+                    
                     if (inner.style) {
                         inner.style.left = '';
                         inner.style.top = '';
@@ -4088,18 +4088,18 @@ class SlidesApp {
             });
         }
 
-        // Clear any in-flight morph cleanup timer from a previous
-        // morph — same race-condition fix as _runTransitionClass.
+        
+        
         if (this._morphAnimTimer) {
             clearTimeout(this._morphAnimTimer);
             this._morphAnimTimer = null;
         }
 
         if (!container || !newSlide || !prevSlide || prevSlide === newSlide) {
-            // No valid previous slide — fall back to fade.
-            // Use _runTransitionClass so the cleanup timer is tracked
-            // (was an ad-hoc setTimeout that could race with a new
-            // transition's cleanup).
+            
+            
+            
+            
             this._runTransitionClass(container, 'tr-fade-in', trDur || 0.7);
             return;
         }
@@ -4107,8 +4107,8 @@ class SlidesApp {
         const dur = trDur || 0.7;
         const animMs = Math.ceil(dur * 1000) + 50;
 
-        // Signature function — content-based, so identical text / image /
-        // shape on two slides will pair up and morph.
+        
+        
         const sigOf = (el) => {
             if (!el) return '?::';
             if (el.type === 'text')  return `t::${(el.html || '').slice(0, 200)}`;
@@ -4119,8 +4119,8 @@ class SlidesApp {
             return `?::${el.type}`;
         };
 
-        // Build signature → queue of prev elements (FIFO so duplicates pair
-        // in order).
+        
+        
         const prevMap = new Map();
         prevSlide.elements.forEach(el => {
             const sig = sigOf(el);
@@ -4128,29 +4128,29 @@ class SlidesApp {
             prevMap.get(sig).push(el);
         });
 
-        // The slide's elements are rendered into the container in z-sorted
-        // order, followed by the drawing overlay (if any). Slice to the
-        // element count to skip the drawing overlay and any other
-        // decorations appended after.
+        
+        
+        
+        
         const sorted = [...newSlide.elements].sort((a, b) => (a.z || 1) - (b.z || 1));
         const numElements = sorted.length;
         const childEls = Array.from(container.children).slice(0, numElements);
 
-        // NOTE: we intentionally do NOT apply a slide-level opacity fade
-        // here. The container holds the slide's background, so animating
-        // its opacity to 0 (e.g. via tr-morph-in) would make the whole
-        // slide transparent for a frame and reveal the dark presenter
-        // backdrop behind it — perceived as a "black flash" before the
-        // morph catches up. The per-element FLIP below provides all the
-        // visual transition we need while keeping the slide background
-        // fully opaque throughout.
+        
+        
+        
+        
+        
+        
+        
+        
 
-        // Collect per-element unwrap callbacks so they all run under
-        // a single tracked timer (this._morphAnimTimer). If a new
-        // transition interrupts this morph, _applyMorphTransition
-        // (or _runTransitionClass) will clear this timer AND the
-        // orphan-wrapper cleanup at the top of this method will
-        // unwrap any wrappers that didn't get their callback.
+        
+        
+        
+        
+        
+        
         const unwrapCallbacks = [];
 
         childEls.forEach((child, i) => {
@@ -4167,14 +4167,14 @@ class SlidesApp {
             );
 
             if (prevEl && posChanged) {
-                // ── Morph via wrapper-div FLIP ──────────────────────
+                
                 const dx = prevEl.x - newEl.x;
                 const dy = prevEl.y - newEl.y;
                 const sx = (newEl.w > 0) ? (prevEl.w / newEl.w) : 1;
                 const sy = (newEl.h > 0) ? (prevEl.h / newEl.h) : 1;
 
-                // Bail out on bad scale (e.g., zero-sized new element) —
-                // fall through to the cross-fade path below.
+                
+                
                 if (!isFinite(sx) || !isFinite(sy) || sx <= 0 || sy <= 0) {
                     child.style.transition = `opacity ${dur}s ease-out`;
                     child.style.opacity = '0';
@@ -4184,11 +4184,11 @@ class SlidesApp {
                     return;
                 }
 
-                // Build wrapper at the new element's slide-local position.
-                // The wrapper only animates `transform` (translate + scale)
-                // — opacity is left at 1 throughout so matched elements
-                // never dim during the morph (a dim would read as a flash
-                // when many elements morph simultaneously).
+                
+                
+                
+                
+                
                 const wrapper = document.createElement('div');
                 wrapper.className = 'morph-flip-wrapper';
                 wrapper.style.cssText =
@@ -4198,25 +4198,25 @@ class SlidesApp {
                     `transform:translate(${dx}px, ${dy}px) scale(${sx}, ${sy});` +
                     `transition:transform ${dur}s cubic-bezier(0.4, 0, 0.2, 1);`;
 
-                // Move the existing child into the wrapper, resetting its
-                // own absolute position to 0 (the wrapper handles layout
-                // position; the child keeps its size + rotation transform).
+                
+                
+                
                 container.replaceChild(wrapper, child);
                 wrapper.appendChild(child);
                 child.style.left = '0';
                 child.style.top = '0';
 
-                // Force reflow so the start state is committed before we
-                // animate to the end state.
+                
+                
                 void wrapper.offsetWidth;
 
-                // Animate to identity.
+                
                 wrapper.style.transform = 'none';
 
-                // After the animation, unwrap: restore the child's
-                // position and replace the wrapper in the container.
-                // Collected into unwrapCallbacks so it runs under the
-                // tracked this._morphAnimTimer below.
+                
+                
+                
+                
                 unwrapCallbacks.push(() => {
                     child.style.left = newEl.x + 'px';
                     child.style.top = newEl.y + 'px';
@@ -4225,14 +4225,14 @@ class SlidesApp {
                     }
                 });
             } else if (prevEl) {
-                // Matched and already in the right position/size — no
-                // animation needed. The element is already correctly
-                // placed, so we leave it at full opacity to avoid any
-                // flicker. (Previously this dimmed to 0.85 then back to
-                // 1, which read as a subtle flash when many static
-                // elements shared a slide.)
+                
+                
+                
+                
+                
+                
             } else {
-                // No match in the previous slide — cross-fade from 0.
+                
                 child.style.transition = `opacity ${dur}s ease-out`;
                 child.style.opacity = '0';
                 void child.offsetWidth;
@@ -4241,23 +4241,23 @@ class SlidesApp {
             }
         });
 
-        // Single tracked timer that runs ALL collected unwrap/cleanup
-        // callbacks. If a new transition interrupts this morph, the
-        // next _applyMorphTransition call (or _runTransitionClass)
-        // clears this._morphAnimTimer — and the orphan-wrapper
-        // cleanup at the top of this method unwraps any wrappers
-        // whose callbacks never ran. Replaces the per-element
-        // setTimeout calls that previously littered the forEach
-        // above (each with its own untracked timer).
+        
+        
+        
+        
+        
+        
+        
+        
         this._morphAnimTimer = setTimeout(() => {
             this._morphAnimTimer = null;
             unwrapCallbacks.forEach(cb => {
-                try { cb(); } catch (_) { /* element may have been re-rendered away */ }
+                try { cb(); } catch (_) {  }
             });
         }, animMs);
     }
 
-    // ── Animations Tab ────────────────────────────────────────────
+    
     static ANIMATIONS = [
         { value: 'appear', label: 'Appear',  icon: '<circle cx="12" cy="12" r="9"/>' },
         { value: 'fade',   label: 'Fade In', icon: '<circle cx="12" cy="12" r="9" stroke-dasharray="3,3"/>' },
@@ -4283,23 +4283,23 @@ class SlidesApp {
             list.appendChild(item);
         });
 
-        // Animation pane toggle (ribbon button)
+        
         document.getElementById('animationPaneBtn')?.addEventListener('click', () => this.toggleAnimationPane());
         document.getElementById('apCloseBtn')?.addEventListener('click', () => this.toggleAnimationPane(false));
 
-        // Animation pane toolbar buttons (Add + Preview inside the pane)
+        
         document.getElementById('apAddBtn')?.addEventListener('click', () => {
-            // If not on the animations tab, switch to it first before opening the dropdown
+            
             if (this._activeTab !== 'animations') {
                 this._switchTab('animations');
-                // Wait for the tab transition to finish, then open the dropdown
+                
                 setTimeout(() => {
                     const dd = document.getElementById('animationDropdown');
                     const ddBtn = dd?.querySelector('.ms-dropdown-btn');
                     if (ddBtn) ddBtn.click();
                 }, 250);
             } else {
-                // Already on animations tab — open dropdown directly
+                
                 const dd = document.getElementById('animationDropdown');
                 const ddBtn = dd?.querySelector('.ms-dropdown-btn');
                 if (ddBtn) ddBtn.click();
@@ -4307,24 +4307,24 @@ class SlidesApp {
         });
         document.getElementById('apPreviewBtn')?.addEventListener('click', () => this.previewAnimations());
 
-        // ── Animation Start trigger pills ───────────────────────────
-        // Single-select segmented toggle: clicking a pill sets it as
-        // the active start mode (only one can be aria-pressed=true
-        // at a time, unlike the Transition toggle which allows both).
+        
+        
+        
+        
         const startToggle = document.getElementById('animStartToggle');
         if (startToggle) {
             startToggle.querySelectorAll('.anim-start-pill').forEach(pill => {
                 pill.addEventListener('click', () => {
-                    // Deactivate all siblings, activate this one
+                    
                     startToggle.querySelectorAll('.anim-start-pill').forEach(p => p.setAttribute('aria-pressed', 'false'));
                     pill.setAttribute('aria-pressed', 'true');
-                    const v = pill.dataset.start; // 'click' | 'with' | 'after'
+                    const v = pill.dataset.start; 
                     this.updateAnimationTiming({ start: v });
                 });
             });
         }
 
-        // ── Animation Duration stepper ──────────────────────────────
+        
         const durInput = document.getElementById('animDuration');
         durInput?.addEventListener('change', () => {
             let v = parseFloat(durInput.value);
@@ -4334,7 +4334,7 @@ class SlidesApp {
             this.updateAnimationTiming({ duration: v });
         });
 
-        // ── Animation Delay stepper ─────────────────────────────────
+        
         const delayInput = document.getElementById('animDelay');
         delayInput?.addEventListener('change', () => {
             let v = parseFloat(delayInput.value);
@@ -4344,16 +4344,16 @@ class SlidesApp {
             this.updateAnimationTiming({ delay: v });
         });
 
-        // ── Animation stepper [−]/[+] buttons ───────────────────────
-        // These use the .tr-num-step class, so they are already wired
-        // by _wireTransitionTimingPanel() which handles ALL .tr-num-step
-        // buttons globally (both transitions and animations). No separate
-        // binding needed here — the stepper just adjusts the input value
-        // and fires 'change', which triggers the animDuration/animDelay
-        // change handlers bound above.
+        
+        
+        
+        
+        
+        
+        
 
-        // Initial sync — set the Timing panel controls to the
-        // current slide's last animation values (or defaults).
+        
+        
         this._syncAnimationTimingUI?.();
     }
 
@@ -4386,13 +4386,13 @@ class SlidesApp {
         this._syncAnimationTimingUI?.();
     }
 
-    // Push the current slide's last animation's timing settings
-    // into the Animations tab Timing panel UI (Start / Duration /
-    // Delay). Called from setupAnimationsTab, selectSlide,
-    // applyAnimation, and updateAnimationTiming so the controls
-    // always reflect whichever animation is the active one.
-    // Without this, switching slides leaves stale values from the
-    // previous slide's animation on the controls.
+    
+    
+    
+    
+    
+    
+    
     _syncAnimationTimingUI() {
         const slide = this.pres?.slides?.[this.slideIdx];
         const anim = slide?.animations?.[slide.animations.length - 1] || null;
@@ -4402,7 +4402,7 @@ class SlidesApp {
         const delayInput = document.getElementById('animDelay');
 
         if (!anim) {
-            // No animations on this slide — reset to defaults
+            
             if (startToggle) {
                 startToggle.querySelectorAll('.anim-start-pill').forEach(p => p.setAttribute('aria-pressed', 'false'));
                 const defaultPill = startToggle.querySelector('.anim-start-pill[data-start="click"]');
@@ -4413,7 +4413,7 @@ class SlidesApp {
             return;
         }
 
-        // Start pill toggle — single-select, so only one pill is pressed
+        
         const start = anim.start || 'click';
         if (startToggle) {
             startToggle.querySelectorAll('.anim-start-pill').forEach(p => {
@@ -4421,11 +4421,11 @@ class SlidesApp {
             });
         }
 
-        // Duration input
+        
         const dur = Number.isFinite(anim.duration) ? anim.duration : 0.5;
         if (durInput) durInput.value = dur;
 
-        // Delay input
+        
         const delay = Number.isFinite(anim.delay) ? anim.delay : 0;
         if (delayInput) delayInput.value = delay;
     }
@@ -4435,12 +4435,12 @@ class SlidesApp {
         if (!pane) return;
         const show = force === undefined ? !pane.classList.contains('visible') : force;
         pane.classList.toggle('visible', show);
-        // Toggle the "active" visual state on the Animation Pane ribbon
-        // button so the user can see whether the pane is open.
+        
+        
         const btn = document.getElementById('animationPaneBtn');
         btn?.classList.toggle('active', show);
         if (show) this.renderAnimationPane();
-        // Re-render rulers — the animation pane shifts the canvas horizontally.
+        
         this._scheduleRulerRender();
         setTimeout(() => this._scheduleRulerRender(), 260);
     }
@@ -4461,7 +4461,7 @@ class SlidesApp {
             const isSelected = this.selectedId === a.elementId;
             const item = document.createElement('div');
             item.className = 'ap-item' + (isSelected ? ' selected' : '');
-            // Build a timeline-style index indicator
+            
             const startBadge = a.start === 'with' ? 'W' : a.start === 'after' ? 'A' : '1';
             item.innerHTML = `
                 <div style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:${isSelected ? 'rgba(249,115,22,0.15)' : 'rgba(0,0,0,0.04)'};color:${isSelected ? 'var(--ui-accent,#f97316)' : 'rgba(44,62,80,0.6)'};font-size:11px;font-weight:700;flex-shrink:0;">${i + 1}</div>
@@ -4477,9 +4477,9 @@ class SlidesApp {
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
                 </button>
             `;
-            // Click item to select that element and highlight this animation
+            
             item.addEventListener('click', (e) => {
-                if (e.target.closest('.ap-item-remove')) return; // don't select when removing
+                if (e.target.closest('.ap-item-remove')) return; 
                 this.selectedId = a.elementId;
                 this.selectElement?.(a.elementId);
                 this.renderAnimationPane();
@@ -4496,9 +4496,9 @@ class SlidesApp {
         });
     }
 
-    // ── Image Format Tab ────────────────────────────────────────
+    
     setupImageFormatTab() {
-        // Filters — preset dropdown
+        
         document.querySelectorAll('#imageFilterDropdown .ms-dropdown-item').forEach(item => {
             item.addEventListener('click', () => {
                 this._closePortal(false);
@@ -4511,8 +4511,8 @@ class SlidesApp {
             });
         });
 
-        // Color corrections — steppers (buttons use .tr-num-step + data-target,
-        // already wired generically; inputs apply their value to el.fx).
+        
+        
         const fxInputs = {
             imgBrightness: 'brightness',
             imgContrast: 'contrast',
@@ -4535,7 +4535,7 @@ class SlidesApp {
             });
         }
 
-        // Border color
+        
         document.querySelectorAll('#imageBorderColorDropdown .ms-dropdown-item').forEach(item => {
             item.addEventListener('click', () => {
                 this._closePortal(false);
@@ -4553,7 +4553,7 @@ class SlidesApp {
             });
         });
 
-        // Border width
+        
         document.querySelectorAll('#imageBorderWidthDropdown .ms-dropdown-item').forEach(item => {
             item.addEventListener('click', () => {
                 this._closePortal(false);
@@ -4570,7 +4570,7 @@ class SlidesApp {
             });
         });
 
-        // Transparency — opacity stepper
+        
         const opInput = document.getElementById('imageOpacity');
         if (opInput && !opInput.__imgOpBound) {
             opInput.__imgOpBound = true;
@@ -4587,23 +4587,23 @@ class SlidesApp {
         }
     }
 
-    // ── View Tab ──────────────────────────────────────────────────
+    
     setupViewTab() {
-        // Zoom controls
+        
         document.getElementById('zoomInBtn2')?.addEventListener('click', () => this.setZoom(this.scale * 1.1));
         document.getElementById('zoomOutBtn2')?.addEventListener('click', () => this.setZoom(this.scale / 1.1));
         document.getElementById('zoomFitBtn')?.addEventListener('click', () => this.fitZoom());
         document.getElementById('zoom100Btn')?.addEventListener('click', () => this.setZoom(1));
 
-        // View modes — Normal and Sorter are mutually exclusive (radio-style:
-        // one is always active). Notes Page is independent (toggle panel).
+        
+        
         document.getElementById('viewNormalBtn')?.addEventListener('click', () => this.switchView('normal'));
         document.getElementById('viewSorterBtn')?.addEventListener('click', () => this.switchView('sorter'));
         document.getElementById('viewNotesBtn')?.addEventListener('click', () => {
             this.toggleNotes();
         });
 
-        // Show toggles
+        
         document.getElementById('toggleRulersBtn')?.addEventListener('click', (e) => {
             document.body.classList.toggle('show-rulers');
             e.currentTarget.classList.toggle('active');
@@ -4616,18 +4616,18 @@ class SlidesApp {
             if (wrapper) wrapper.classList.toggle('show-guides');
         });
 
-        // Immersive reader (opens a simplified read-only overlay of the current slide text)
+        
         document.getElementById('immersiveReaderBtn')?.addEventListener('click', () => this.openImmersiveReader());
     }
 
-    // ── File / Draw / Slide Show / Review Tab Wiring ─────
+    
     setupExtraTabs() {
-        // ── FILE TAB ──
+        
         document.getElementById('fileNewBtn')?.addEventListener('click', () => {
             this.confirmDiscardAndCreate();
         });
         document.getElementById('fileOpenBtn')?.addEventListener('click', () => {
-            // Switch to welcome screen to pick a presentation
+            
             const ws = document.getElementById('welcomeScreen');
             if (ws && ws.parentElement) ws.parentElement.classList.remove('hidden');
             document.getElementById('welcomeScreen')?.scrollIntoView({ behavior: 'smooth' });
@@ -4647,14 +4647,14 @@ class SlidesApp {
         document.getElementById('fileExportPptxBigBtn')?.addEventListener('click', () => this.exportPPTX());
         document.getElementById('fileExportPdfBigBtn')?.addEventListener('click', () => this.exportPDF());
 
-        // ── FILE MODAL BUTTONS ──
-        // Close X button in header
+        
+        
         document.getElementById('fileModalCloseXBtn')?.addEventListener('click', () => this.closeFileModal());
-        // Backdrop click (click on the overlay itself, not the panel)
+        
         document.getElementById('fileModal')?.addEventListener('click', (e) => {
             if (e.target.id === 'fileModal') this.closeFileModal();
         });
-        // Rename: focus the name input in the overlay
+        
         document.getElementById('fileRenameBtn')?.addEventListener('click', () => {
             const nameInput = document.getElementById('fileModalNameInput');
             if (nameInput) { nameInput.focus(); nameInput.select(); }
@@ -4679,7 +4679,7 @@ class SlidesApp {
             this.closeFileModal();
             this.exportSVGs();
         });
-        // Import (Welcome screen — supports PPTX & PDF)
+        
         const triggerImport = () => {
             document.getElementById('fileImportInput')?.click();
         };
@@ -4699,7 +4699,7 @@ class SlidesApp {
             }
             e.target.value = '';
         });
-        // Name input: save on Enter, live-update title
+        
         document.getElementById('fileModalNameInput')?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.target.blur();
@@ -4714,7 +4714,7 @@ class SlidesApp {
             this.scheduleSave();
         });
 
-        // ── DRAW (inside Insert tab — toggles bottom drawing toolbar) ──
+        
         this._drawColor = '#000000';
         this._drawWidth = 2;
         this._drawTool = 'pen';
@@ -4722,9 +4722,9 @@ class SlidesApp {
         this._isDrawing = false;
         this._drawPoints = [];
         this._drawCtx = null;
-        // Insert tab → Draw button toggles the bottom drawing toolbar
+        
         document.getElementById('insertDrawBtn')?.addEventListener('click', () => this.toggleDrawMode());
-        // Bottom toolbar: tool selection
+        
         const penBtn = document.getElementById('drawPenBtn');
         const highlighterBtn = document.getElementById('drawHighlighterBtn');
         const eraserBtn = document.getElementById('drawEraserBtn');
@@ -4736,7 +4736,7 @@ class SlidesApp {
             if (tool === 'pen' && penBtn) penBtn.classList.add('active');
             if (tool === 'highlighter' && highlighterBtn) highlighterBtn.classList.add('active');
             if (tool === 'eraser' && eraserBtn) eraserBtn.classList.add('active');
-            // Hide color section when eraser is active (nothing to color)
+            
             const hideColor = (tool === 'eraser');
             if (colorSection) colorSection.classList.toggle('eraser-hidden', hideColor);
             if (colorDivider && colorDivider.classList.contains('color-divider')) colorDivider.classList.toggle('eraser-hidden', hideColor);
@@ -4746,7 +4746,7 @@ class SlidesApp {
         if (penBtn) penBtn.addEventListener('click', () => setTool('pen'));
         if (highlighterBtn) highlighterBtn.addEventListener('click', () => setTool('highlighter'));
         if (eraserBtn) eraserBtn.addEventListener('click', () => setTool('eraser'));
-        // Color swatches
+        
         const colorPresets = document.getElementById('drawColorPresets');
         if (colorPresets) {
             colorPresets.addEventListener('click', (e) => {
@@ -4767,7 +4767,7 @@ class SlidesApp {
                 if (colorPresets) colorPresets.querySelectorAll('.draw-color-swatch').forEach(s => s.classList.remove('active'));
             });
         }
-        // Size presets
+        
         const toolbar = document.getElementById('drawToolbar');
         if (toolbar) {
             toolbar.addEventListener('click', (e) => {
@@ -4781,35 +4781,35 @@ class SlidesApp {
                 }
             });
         }
-        // Clear / Done
+        
         document.getElementById('drawClearBtn')?.addEventListener('click', () => this.clearDrawing());
         document.getElementById('drawDoneBtn')?.addEventListener('click', () => this.finishDrawing());
-        // Initialize the drawing canvas context + listeners (the canvas
-        // itself is always present in the DOM; pointer-events is toggled
-        // by toggleDrawMode so it only intercepts mouse events when active).
+        
+        
+        
         this._initDrawingCanvas();
 
-        // ── DESIGN TAB: Themes ──
+        
         this.renderThemes();
-        // 'More' themes dropdown is wired up automatically by setupDropdownMenus()
-        this.renderThemeGallery();  // populate the gallery menu once
+        
+        this.renderThemeGallery();  
 
-        // ── DESIGN TAB: Templates ──
+        
         this.renderTemplates();
         this.renderTemplateGallery();
 
-        // ── DESIGN TAB: Customize buttons ──
+        
         document.getElementById('designerBtn')?.addEventListener('click', () => this.openDesigner());
 
-        // ── ANIMATIONS TAB: Preview + Reorder ──
+        
         document.getElementById('previewAnimBtn')?.addEventListener('click', () => this.previewAnimations());
         document.getElementById('animMoveEarlierBtn')?.addEventListener('click', () => this.moveAnimation(-1));
         document.getElementById('animMoveLaterBtn')?.addEventListener('click', () => this.moveAnimation(1));
-        // animDelay change handler is wired in setupAnimationsTab()
-        // (alongside animDuration) so both inputs go through the same
-        // updateAnimationTiming path.
+        
+        
+        
 
-        // ── INSERT TAB: New Slide + Video + Audio + Icon + Link + Comment + Symbol ──
+        
         document.getElementById('insertNewSlideBtn')?.addEventListener('click', () => this.addSlide());
         document.getElementById('insertVideoBtn')?.addEventListener('click', () => document.getElementById('insertVideoInput')?.click());
         document.getElementById('insertVideoInput')?.addEventListener('change', (e) => {
@@ -4817,8 +4817,8 @@ class SlidesApp {
             if (!file) return;
             const reader = new FileReader();
             reader.onload = (ev) => {
-                // Probe the video metadata so the box matches the real aspect ratio.
-                // Falls back to 320x180 (16:9) if metadata can't be read.
+                
+                
                 const dataUrl = ev.target.result;
                 const probe = document.createElement('video');
                 probe.preload = 'metadata';
@@ -4856,8 +4856,8 @@ class SlidesApp {
             if (!file) return;
             const reader = new FileReader();
             reader.onload = (ev) => {
-                // 260x70 compact card: wide enough for the native audio
-                // controls (~240px) and tall enough for icon + control bar.
+                
+                
                 const el = { id: uid(), type: 'audio', x: 130, y: 100, w: 260, h: 70, r: 0, z: 1, src: ev.target.result, opacity: 1 };
                 this.addElement(el);
                 this.showToast('Audio inserted.');
@@ -4871,7 +4871,7 @@ class SlidesApp {
         document.getElementById('insertSymbolBtn')?.addEventListener('click', () => this.openSymbolPicker());
     }
 
-    // ── Helper methods for the new features ──────────────────────
+    
 
     confirmDiscardAndCreate() {
         if (this.pres && this.pres.slides && this.pres.slides.length > 0 && !confirm('Start a new presentation? Current one is saved in your library.')) return;
@@ -4897,18 +4897,18 @@ class SlidesApp {
         try { window.EmeraldHistory.action(`Saved a copy \u201C${newTitle}\u201D`); } catch (_) {}
     }
 
-    // ── DRAW MODE (bottom-toolbar, notes-app style) ──
-    // The drawing overlay is a <canvas id="drawingCanvas"> sized to the
-    // 960x540 slide. It lives inside the slide-canvas-scaler so it
-    // scales with the slide. Pointer events are toggled so the canvas
-    // only intercepts mouse events while drawing is active — otherwise
-    // users can still select/move/resize elements normally.
+    
+    
+    
+    
+    
+    
     _initDrawingCanvas() {
         const canvas = document.getElementById('drawingCanvas');
         if (!canvas) return;
         this._drawCtx = canvas.getContext('2d');
-        // The canvas always renders at the slide's logical 960x540 size.
-        // The slide-canvas-scaler handles the visual scaling via CSS transform.
+        
+        
         canvas.width = 960;
         canvas.height = 540;
         if (this._drawCtx) {
@@ -4917,11 +4917,11 @@ class SlidesApp {
             this._drawCtx.imageSmoothingEnabled = true;
             this._drawCtx.imageSmoothingQuality = 'high';
         }
-        // Mouse
+        
         canvas.addEventListener('mousedown', (e) => this.startDraw(e));
         canvas.addEventListener('mousemove', (e) => this.drawLine(e));
         window.addEventListener('mouseup', () => this.endDraw());
-        // Touch
+        
         canvas.addEventListener('touchstart', (e) => { e.preventDefault(); this.startDraw(e.touches[0]); }, { passive: false });
         canvas.addEventListener('touchmove', (e) => { if (this._isDrawing) e.preventDefault(); this.drawLine(e.touches[0]); }, { passive: false });
         canvas.addEventListener('touchend', () => this.endDraw());
@@ -4934,9 +4934,9 @@ class SlidesApp {
         const drawBtn = document.getElementById('insertDrawBtn');
         this._isDrawMode = !this._isDrawMode;
         if (this._isDrawMode) {
-            // Entering draw mode: deselect any element, show toolbar,
-            // enable pointer events on the canvas, restore this slide's
-            // previously saved drawing (if any).
+            
+            
+            
             this.deselectElement();
             this.exitTextEditing?.();
             document.getElementById('symbolToolbar')?.classList.remove('visible');
@@ -4950,8 +4950,8 @@ class SlidesApp {
             this._restoreDrawing();
             this.showToast('Draw mode on — click and drag on the slide to draw.');
         } else {
-            // Exiting draw mode: persist the drawing to the slide,
-            // hide toolbar, disable pointer events on the canvas.
+            
+            
             this._persistDrawing();
             if (canvas) canvas.style.pointerEvents = 'none';
             if (toolbar) toolbar.classList.remove('visible');
@@ -4965,23 +4965,23 @@ class SlidesApp {
     clearDrawing() {
         const canvas = document.getElementById('drawingCanvas');
         if (canvas && this._drawCtx) this._drawCtx.clearRect(0, 0, canvas.width, canvas.height);
-        // Also clear the saved drawing on the current slide so the clear
-        // survives a slide-switch / reload.
+        
+        
         const slide = this.currentSlide;
         if (slide) slide.drawingData = null;
         this.scheduleSave();
         this.updateThumbnail(this.slideIdx);
     }
 
-    // Convert a mouse/touch event's clientX/Y into the canvas's
-    // internal 960x540 coordinate space (accounting for the scaler's
-    // CSS transform and any offset).
+    
+    
+    
     _eventToCanvasXY(e) {
         const canvas = document.getElementById('drawingCanvas');
         if (!canvas) return { x: 0, y: 0 };
         const rect = canvas.getBoundingClientRect();
-        // rect.width/height are post-transform CSS pixels; canvas
-        // internal coords are 960x540. Scale accordingly.
+        
+        
         const sx = (e.clientX - rect.left) / rect.width * 960;
         const sy = (e.clientY - rect.top) / rect.height * 540;
         return { x: sx, y: sy };
@@ -5004,7 +5004,7 @@ class SlidesApp {
             this._drawCtx.strokeStyle = this._drawColor || '#000000';
             this._drawCtx.fillStyle = this._drawColor || '#000000';
             this._drawCtx.lineWidth = thickness * 2.5;
-            this._drawCtx.globalAlpha = 0.4; // translucent like a real highlighter
+            this._drawCtx.globalAlpha = 0.4; 
         } else {
             this._drawCtx.globalCompositeOperation = 'source-over';
             this._drawCtx.strokeStyle = this._drawColor || '#000000';
@@ -5012,7 +5012,7 @@ class SlidesApp {
             this._drawCtx.lineWidth = thickness;
             this._drawCtx.globalAlpha = 1;
         }
-        // Draw a dot for single-click strokes
+        
         this._drawCtx.beginPath();
         this._drawCtx.arc(x, y, Math.max(0.5, this._drawCtx.lineWidth / 2), 0, Math.PI * 2);
         this._drawCtx.fill();
@@ -5025,7 +5025,7 @@ class SlidesApp {
         const { x, y } = this._eventToCanvasXY(e);
         const pts = this._drawPoints;
         pts.push({ x, y });
-        // Use quadratic-curve smoothing through midpoints for natural strokes
+        
         if (pts.length >= 3) {
             const p0 = pts[pts.length - 3];
             const p1 = pts[pts.length - 2];
@@ -5048,9 +5048,9 @@ class SlidesApp {
     endDraw() {
         if (!this._isDrawing) return;
         this._isDrawing = false;
-        // Reset alpha so subsequent strokes are full-opacity
+        
         if (this._drawCtx) this._drawCtx.globalAlpha = 1;
-        // Final segment to the last point so the stroke doesn't end mid-curve
+        
         const pts = this._drawPoints;
         if (pts.length >= 2 && this._drawCtx) {
             const p1 = pts[pts.length - 2], p2 = pts[pts.length - 1];
@@ -5061,19 +5061,19 @@ class SlidesApp {
             this._drawCtx.stroke();
         }
         this._drawPoints = [];
-        // Persist after each stroke so a crash / reload keeps the drawing.
+        
         this._persistDrawing();
         this.updateThumbnail(this.slideIdx);
     }
 
-    // Save the current canvas pixels as a dataURL on the current slide.
+    
     _persistDrawing() {
         const canvas = document.getElementById('drawingCanvas');
         const slide = this.currentSlide;
         if (!canvas || !slide || !this._drawCtx) return;
         try {
-            // Only save if there are non-transparent pixels (avoid storing
-            // a blank canvas every time the user toggles draw mode).
+            
+            
             const img = this._drawCtx.getImageData(0, 0, canvas.width, canvas.height);
             let hasContent = false;
             for (let i = 3; i < img.data.length; i += 4) {
@@ -5086,7 +5086,7 @@ class SlidesApp {
         this.scheduleSave();
     }
 
-    // Load the current slide's saved drawing onto the canvas.
+    
     _restoreDrawing() {
         const canvas = document.getElementById('drawingCanvas');
         const slide = this.currentSlide;
@@ -5101,9 +5101,9 @@ class SlidesApp {
         img.src = slide.drawingData;
     }
 
-    // ── THEMES & VARIANTS ──
+    
     static THEMES = [
-        // Light, professional, single-accent
+        
         { name: 'Accent Box', bg: '#ffffff', title: '#1a1a1a', sub: '#f97316' },
         { name: 'Wisp',       bg: '#f5f3ff', title: '#4c1d95', sub: '#7c3aed' },
         { name: 'Gallery',    bg: '#fef2f2', title: '#7f1d1d', sub: '#ef4444' },
@@ -5111,25 +5111,25 @@ class SlidesApp {
         { name: 'Organic',    bg: '#f0fdf4', title: '#14532d', sub: '#22c55e' },
         { name: 'Office',     bg: '#ffffff', title: '#1a1a1a', sub: '#2b579a' },
 
-        // Dark premium
+        
         { name: 'Slice',      bg: '#0f172a', title: '#f8fafc', sub: '#38bdf8' },
         { name: 'Integral',   bg: '#1e293b', title: '#f1f5f9', sub: '#f97316' },
         { name: 'Parallax',   bg: '#1a1a1a', title: '#fafafa', sub: '#fbbf24' },
         { name: 'Obsidian',   bg: '#111827', title: '#f9fafb', sub: '#a78bfa' },
 
-        // Warm tones
+        
         { name: 'Couture',    bg: '#fdf4ff', title: '#581c87', sub: '#a21caf' },
         { name: 'Vapor',      bg: '#fdf2f8', title: '#831843', sub: '#ec4899' },
         { name: 'Frame',      bg: '#fffbeb', title: '#78350f', sub: '#f59e0b' },
         { name: 'Terra',      bg: '#fff7ed', title: '#7c2d12', sub: '#ea580c' },
 
-        // Cool tones
+        
         { name: 'Lagoon',     bg: '#ecfeff', title: '#155e75', sub: '#0891b2' },
         { name: 'Indigo',     bg: '#eef2ff', title: '#312e81', sub: '#4f46e5' },
         { name: 'Forest',     bg: '#f0fdf4', title: '#14532d', sub: '#16a34a' },
         { name: 'Mist',       bg: '#f8fafc', title: '#334155', sub: '#64748b' },
 
-        // Vibrant gradients — colorful & professional
+        
         { name: 'Aurora',     bg: 'linear-gradient(135deg,#667eea 0%,#764ba2 100%)', title: '#ffffff', sub: '#fbbf24', isGradient: true },
         { name: 'Sunset',     bg: 'linear-gradient(135deg,#f97316 0%,#ef4444 100%)', title: '#ffffff', sub: '#fde68a', isGradient: true },
         { name: 'Ocean',      bg: 'linear-gradient(135deg,#06b6d4 0%,#3b82f6 100%)', title: '#ffffff', sub: '#fef08a', isGradient: true },
@@ -5144,10 +5144,10 @@ class SlidesApp {
         { name: 'Cyber',      bg: 'linear-gradient(135deg,#6366f1 0%,#ec4899 100%)', title: '#ffffff', sub: '#fde68a', isGradient: true },
     ];
 
-    // ── TEMPLATES ── Each template defines a slide layout structure
-    // with its own set of color variants (per-template color schemes).
+    
+    
     static TEMPLATES = [
-        // ── Business ──
+        
         {
             name: 'Executive Title',
             category: 'business',
@@ -5205,7 +5205,7 @@ class SlidesApp {
                 { name: 'Teal',    bg: '#f0fdfa', fg: '#134e4a', accent: '#14b8a6' },
             ],
         },
-        // ── Education ──
+        
         {
             name: 'Lecture Slide',
             category: 'education',
@@ -5243,7 +5243,7 @@ class SlidesApp {
                 { name: 'Purple',  bg: '#f5f3ff', fg: '#4c1d95', accent: '#7c3aed' },
             ],
         },
-        // ── Creative ──
+        
         {
             name: 'Hero Splash',
             category: 'creative',
@@ -5300,7 +5300,7 @@ class SlidesApp {
                 { name: 'Rose',    bg: '#fff1f2', fg: '#881337', accent: '#e11d48' },
             ],
         },
-        // ── Data ──
+        
         {
             name: 'Chart Slide',
             category: 'data',
@@ -5342,7 +5342,7 @@ class SlidesApp {
                 { name: 'Warm',    bg: '#fff7ed', fg: '#7c2d12', accent: '#ea580c' },
             ],
         },
-        // ── Photo ──
+        
         {
             name: 'Photo Gallery',
             category: 'photo',
@@ -5380,14 +5380,14 @@ class SlidesApp {
         },
     ];
 
-    // ── TEMPLATE RENDERING ────────────────────────────────────────
+    
 
-    // Render template thumbnails in the ribbon row
+    
     renderTemplates() {
         const row = document.getElementById('templateThumbnailRow');
         if (!row) return;
         const templates = SlidesApp.TEMPLATES;
-        // Show up to 6 in the inline ribbon row
+        
         const slice = templates.slice(0, 6);
         row.innerHTML = '';
         slice.forEach((t, i) => {
@@ -5400,7 +5400,7 @@ class SlidesApp {
             btn.title = `${t.name} — ${t.description}`;
             btn.style.background = t.bg;
 
-            // Render real template elements inside the thumb
+            
             this._renderTemplateRealPreview(btn, t);
 
             btn.addEventListener('click', () => {
@@ -5413,7 +5413,7 @@ class SlidesApp {
         });
     }
 
-    // Render real template elements as mini-preview inside a container
+    
     _renderTemplateRealPreview(container, template) {
         const v = template.variants[0];
         template.elements.forEach(el => {
@@ -5432,7 +5432,7 @@ class SlidesApp {
                 div.style.overflow = 'hidden';
                 div.style.lineHeight = '1.2';
                 div.textContent = el.text;
-                // Scale font size further for tiny inline thumbs
+                
                 if (container.classList.contains('template-thumb') && !container.closest('.template-gallery-card')) {
                     div.style.fontSize = Math.max(3, el.fontSize * 0.09) + 'px';
                 }
@@ -5455,22 +5455,22 @@ class SlidesApp {
         });
     }
 
-    // Render the full template gallery in the More dropdown
+    
     renderTemplateGallery() {
         const menu = document.getElementById('templateGalleryMenu');
         if (!menu) return;
         menu.innerHTML = '';
-        // Header
+        
         const header = document.createElement('div');
         header.className = 'theme-gallery-header';
         header.textContent = 'All Templates';
         menu.appendChild(header);
-        // Grid
+        
         this._renderTemplateGalleryGrid(menu);
     }
 
     _renderTemplateGalleryGrid(menu) {
-        // Remove existing grid if present
+        
         const existing = menu.querySelector('.template-gallery-grid');
         if (existing) existing.remove();
         const grid = document.createElement('div');
@@ -5488,7 +5488,7 @@ class SlidesApp {
             thumb.className = 'template-thumb';
             thumb.style.background = t.bg;
 
-            // Render real template elements inside the gallery thumb
+            
             this._renderTemplateRealPreview(thumb, t);
 
             const label = document.createElement('div');
@@ -5500,7 +5500,7 @@ class SlidesApp {
             card.addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.selectTemplate(realIdx);
-                // Close the dropdown
+                
                 this._closePortal();
             });
             grid.appendChild(card);
@@ -5508,18 +5508,18 @@ class SlidesApp {
         menu.appendChild(grid);
     }
 
-    // Select a template: apply its layout
+    
     selectTemplate(idx) {
         this._activeTemplateIdx = idx;
         const template = SlidesApp.TEMPLATES[idx];
         if (!template) return;
-        // Apply the template's default variant
+        
         this.applyTemplate(template, template.variants[0]);
-        // Re-render template thumbs to mark active
+        
         this.renderTemplates();
     }
 
-    // Apply a template with a specific variant to the current slide
+    
     applyTemplate(template, variant) {
         if (!this.pres) return;
         const slide = this.pres.slides[this.slideIdx];
@@ -5528,17 +5528,17 @@ class SlidesApp {
         const v = variant || template.variants[0];
         const isGradient = v.isGradient || /^\s*(linear|radial|conic)-gradient\(/i.test(String(v.bg || ''));
 
-        // Set slide background
+        
         slide.background = { type: isGradient ? 'gradient' : 'color', value: v.bg };
 
-        // Clear existing elements and replace with template layout
-        // scaled to actual slide dimensions
+        
+        
         slide.elements = template.elements.map(el => {
             const newEl = {
                 id: uid(),
                 type: el.type,
-                // Convert percentage-based positions to pixel values
-                // using standard 960×540 slide dimensions
+                
+                
                 x: Math.round(el.x * 9.6),
                 y: Math.round(el.y * 5.4),
                 w: Math.round(el.w * 9.6),
@@ -5552,10 +5552,10 @@ class SlidesApp {
             }
             if (el.type === 'shape') {
                 newEl.shape = el.shape || 'rect';
-                // Apply variant accent to shape fills (unless they use rgba)
+                
                 const fillVal = el.fill;
                 if (fillVal && fillVal !== 'none' && !fillVal.startsWith('rgba')) {
-                    // Template default fill — replace with variant accent if it matches template accent
+                    
                     if (fillVal === template.accent) {
                         newEl.fill = v.accent;
                     } else {
@@ -5577,7 +5577,7 @@ class SlidesApp {
         this.showToast(`Template "${template.name}" with variant "${v.name}" applied.`);
     }
 
-    // Insert a new slide using the selected template
+    
     insertTemplateSlide() {
         if (!this.pres) return;
         const template = SlidesApp.TEMPLATES[this._activeTemplateIdx];
@@ -5625,7 +5625,7 @@ class SlidesApp {
             }),
             transitions: [],
         };
-        // Insert after current slide
+        
         const insertIdx = this.slideIdx + 1;
         this.pres.slides.splice(insertIdx, 0, newSlide);
         this.slideIdx = insertIdx;
@@ -5636,7 +5636,7 @@ class SlidesApp {
         this.showToast(`New slide from template "${template.name}" inserted.`);
     }
 
-    // Preview template in a modal (show a larger mockup)
+    
     previewTemplate() {
         const template = SlidesApp.TEMPLATES[this._activeTemplateIdx];
         if (!template) {
@@ -5646,7 +5646,7 @@ class SlidesApp {
         const v = template.variants[0];
         const isGradient = v.isGradient || /^\s*(linear|radial|conic)-gradient\(/i.test(String(v.bg || ''));
 
-        // Build a preview modal
+        
         const overlay = document.createElement('div');
         overlay.className = 'template-preview-overlay';
         overlay.addEventListener('click', () => overlay.remove());
@@ -5655,12 +5655,12 @@ class SlidesApp {
         modal.className = 'template-preview-modal';
         modal.addEventListener('click', e => e.stopPropagation());
 
-        // 16:9 preview box
+        
         const previewBox = document.createElement('div');
         previewBox.className = 'template-preview-box';
         previewBox.style.background = v.bg;
 
-        // Render elements as simplified HTML inside preview
+        
         template.elements.forEach(el => {
             const div = document.createElement('div');
             div.style.position = 'absolute';
@@ -5760,18 +5760,18 @@ class SlidesApp {
     renderThemeGallery() {
         const menu = document.getElementById('themeGalleryMenu');
         if (!menu) return;
-        // Header
+        
         const header = document.createElement('div');
         header.className = 'theme-gallery-header';
         header.textContent = 'All Themes';
         menu.appendChild(header);
-        // Grid
+        
         const grid = document.createElement('div');
         grid.className = 'theme-gallery-grid';
         SlidesApp.THEMES.forEach((t, i) => {
-            // Each dropdown card is a wrapper containing a 16:9 mini slide
-            // preview (same .theme-thumb / .tt-preview markup as the inline
-            // ribbon thumbs) plus a name label below.
+            
+            
+            
             const card = document.createElement('button');
             card.className = 'theme-gallery-card';
             card.dataset.idx = String(i);
@@ -5810,14 +5810,14 @@ class SlidesApp {
             card.addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.applyTheme(SlidesApp.THEMES[i]);
-                // Also mark the matching ribbon thumb (if visible) as active
+                
                 const row = document.getElementById('themeThumbnailRow');
                 if (row) {
                     row.querySelectorAll('.theme-thumb').forEach(x => x.classList.remove('active'));
                     const match = row.querySelector(`.theme-thumb[data-idx="${i}"]`);
                     if (match) match.classList.add('active');
                 }
-                // Close the dropdown
+                
                 this._closePortal();
             });
             grid.appendChild(card);
@@ -5827,15 +5827,15 @@ class SlidesApp {
 
     applyTheme(theme) {
         if (!this.pres) return;
-        // Detect gradient backgrounds (linear-gradient / radial-gradient)
+        
         const isGradient = theme.isGradient || /^\s*(linear|radial|conic)-gradient\(/i.test(String(theme.bg || ''));
         this.pres.slides.forEach(s => {
             if (!s.background) s.background = { type: 'color', value: '#ffffff' };
             s.background = { type: isGradient ? 'gradient' : 'color', value: theme.bg };
-            // Update first text element to title color
+            
             const titleEl = s.elements.find(e => e.type === 'text');
             if (titleEl) titleEl.color = theme.title;
-            // Update first shape to accent color
+            
             const shapeEl = s.elements.find(e => e.type === 'shape');
             if (shapeEl) shapeEl.fill = theme.sub;
         });
@@ -5852,7 +5852,7 @@ class SlidesApp {
         if (!slide) return;
         slide.elements = [];
         const W = 960, H = 540;
-        if (layout.name === 'Blank') { /* nothing */ }
+        if (layout.name === 'Blank') {  }
         else if (layout.name === 'Title Slide') {
             slide.elements.push({ ...makeTextEl(W / 2 - 250, 180, 500, 90), fontSize: 54, bold: true, textAlign: 'center', html: 'Click to add title', color: '#1a1a1a' });
             slide.elements.push({ ...makeTextEl(W / 2 - 200, 300, 400, 50), fontSize: 24, textAlign: 'center', html: 'Click to add subtitle', color: '#666' });
@@ -5886,7 +5886,7 @@ class SlidesApp {
     }
 
     openDesigner() {
-        // Layout definitions
+        
         const layouts = [
             { name: 'Title Slide',          desc: 'Centered title + subtitle',        icon: 'title' },
             { name: 'Title and Content',     desc: 'Title on top, body below',         icon: 'title-content' },
@@ -5902,22 +5902,22 @@ class SlidesApp {
         const grid = document.getElementById('designerLayoutGrid');
         if (!modal || !grid) return;
 
-        // Close function with closing animation (matches other modals)
+        
         const closeDesigner = () => {
             modal.classList.add('closing');
             setTimeout(() => { modal.classList.remove('show'); modal.classList.remove('closing'); }, 230);
         };
 
-        // Close on overlay click
+        
         modal.addEventListener('click', (e) => {
             if (e.target === modal) closeDesigner();
         });
 
-        // Close on X button click
+        
         const closeBtn = document.getElementById('designerModalCloseBtn');
         if (closeBtn) closeBtn.addEventListener('click', closeDesigner);
 
-        // Clear and populate layout grid
+        
         grid.innerHTML = '';
         layouts.forEach((layout) => {
             const card = document.createElement('button');
@@ -5947,14 +5947,14 @@ class SlidesApp {
             grid.appendChild(card);
         });
 
-        // Show modal using the standard .show pattern (like other modals)
+        
         modal.classList.add('show');
     }
 
-    // Render a mini layout preview icon inside a container
+    
     _renderLayoutPreviewIcon(container, iconType) {
-        // Each layout type gets a simplified visual preview
-        // using absolutely positioned divs inside the container
+        
+        
         const c = container;
         c.style.position = 'relative';
         c.style.background = '#ffffff';
@@ -5973,35 +5973,35 @@ class SlidesApp {
         };
 
         switch (iconType) {
-            case 'title': // Title Slide: centered title bar + subtitle line
+            case 'title': 
                 addRect(15, 28, 70, 14, titleColor);
                 addRect(25, 50, 50, 6, textColor);
                 break;
-            case 'title-content': // Title on top, body below
+            case 'title-content': 
                 addRect(5, 4, 90, 12, accent);
                 addRect(8, 22, 84, 65, '#f3f4f6');
                 break;
-            case 'section': // Large centered title
+            case 'section': 
                 addRect(15, 32, 70, 22, titleColor, '3px');
                 break;
-            case 'two-col': // Title + two columns
+            case 'two-col': 
                 addRect(5, 4, 90, 10, titleColor);
                 addRect(5, 18, 43, 72, '#f3f4f6');
                 addRect(52, 18, 43, 72, '#f3f4f6');
                 break;
-            case 'compare': // Side-by-side compare
+            case 'compare': 
                 addRect(5, 4, 90, 10, titleColor);
                 addRect(5, 18, 43, 18, accent, '3px');
                 addRect(5, 40, 43, 50, '#f3f4f6');
                 addRect(52, 18, 43, 18, '#2563eb', '3px');
                 addRect(52, 40, 43, 50, '#f3f4f6');
                 break;
-            case 'title-only': // Just a title
+            case 'title-only': 
                 addRect(5, 20, 90, 12, titleColor);
                 break;
-            case 'blank': // Empty
+            case 'blank': 
                 break;
-            case 'caption': // Caption + content
+            case 'caption': 
                 addRect(5, 4, 90, 6, textColor);
                 addRect(5, 14, 90, 10, titleColor);
                 addRect(5, 28, 90, 62, '#f3f4f6');
@@ -6009,22 +6009,22 @@ class SlidesApp {
         }
     }
 
-    // ── ANIMATION PREVIEW / REORDER ──
-    // Plays back the current slide's animations on the editor canvas
-    // so the user can see what they configured without entering
-    // Present mode. Previously this just flashed the canvas opacity
-    // (useless). Now it walks slide.animations in order, applying
-    // each animation's class to its target element with the
-    // configured duration and delay, and sequences them according
-    // to the `start` field:
-    //   • 'click' → wait for the previous 'click' animation to finish
-    //              (in preview we auto-advance after a short gap so
-    //              the user doesn't have to click)
-    //   • 'with'  → start at the same time as the previous animation
-    //   • 'after' → start when the previous animation ends
-    // The animation classes (anim-playing-*) and the
-    // --anim-duration / --anim-delay custom properties are defined
-    // in slides.css.
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     previewAnimations() {
         const slide = this.pres?.slides?.[this.slideIdx];
         if (!slide || !slide.animations || slide.animations.length === 0) {
@@ -6036,15 +6036,15 @@ class SlidesApp {
             : document.getElementById('slideCanvas');
         if (!container) return;
 
-        // Clear any in-flight preview timers from a previous click
-        // so rapid Preview presses don't overlap and leave classes
-        // stuck on elements.
+        
+        
+        
         if (this._animPreviewTimers) {
             this._animPreviewTimers.forEach(t => clearTimeout(t));
         }
         this._animPreviewTimers = [];
-        // Also strip any leftover anim-playing-* classes from a
-        // previous preview that got interrupted.
+        
+        
         container.querySelectorAll('[class*="anim-playing-"]').forEach(el => {
             Array.from(el.classList).forEach(c => {
                 if (c.startsWith('anim-playing-')) el.classList.remove(c);
@@ -6055,64 +6055,64 @@ class SlidesApp {
 
         this.showToast('Previewing animations…');
 
-        // Walk the animations in order, scheduling each one's
-        // start time relative to the previous one based on `start`.
-        let cursor = 0; // ms — running timestamp of "now" in preview time
-        let lastEndTime = 0; // ms — when the previous animation finishes
+        
+        
+        let cursor = 0; 
+        let lastEndTime = 0; 
         slide.animations.forEach((anim, i) => {
             const dur = Number.isFinite(anim.duration) ? anim.duration : 0.5;
             const delay = Number.isFinite(anim.delay) ? anim.delay : 0;
             const start = anim.start || 'click';
 
-            // Compute this animation's start time.
+            
             let startMs;
             if (start === 'with' && i > 0) {
-                // Start simultaneously with the previous animation.
+                
                 startMs = cursor;
             } else if (start === 'after' && i > 0) {
-                // Start when the previous animation ends.
+                
                 startMs = lastEndTime;
             } else {
-                // 'click' (or first animation) — chain after the
-                // previous animation ends with a small visual gap
-                // so the user can see distinct steps.
+                
+                
+                
                 startMs = i === 0 ? 0 : lastEndTime + 150;
             }
 
             const endMs = startMs + delay * 1000 + dur * 1000;
             lastEndTime = endMs;
-            // Advance the cursor only for click/after — 'with'
-            // doesn't advance time because the next animation
-            // overlaps this one.
+            
+            
+            
             if (start !== 'with') {
                 cursor = endMs;
             }
 
-            // Schedule the class application.
+            
             const applyTimer = setTimeout(() => {
-                // Element DOM nodes use id="el-<elementId>" (see
-                // renderCanvas). Try the id selector first (fast,
-                // unique), then fall back to data-id for safety.
+                
+                
+                
                 const target = anim.elementId
                     ? (document.getElementById(`el-${anim.elementId}`) ||
                        container.querySelector(`[data-id="${anim.elementId}"]`))
                     : null;
                 if (!target) return;
-                // Set the CSS custom properties so the keyframes
-                // use the user's configured duration and delay.
-                // (Delay is baked into the startMs scheduling, so
-                // we set --anim-delay to 0 here to avoid double-
-                // counting.)
+                
+                
+                
+                
+                
                 target.style.setProperty('--anim-duration', `${dur}s`);
                 target.style.setProperty('--anim-delay', `0s`);
-                // Force reflow so a re-trigger on the same element
-                // (rapid previews) actually restarts the animation.
+                
+                
                 void target.offsetWidth;
                 target.classList.add(`anim-playing-${anim.type}`);
             }, startMs + delay * 1000);
             this._animPreviewTimers.push(applyTimer);
 
-            // Schedule cleanup.
+            
             const cleanupTimer = setTimeout(() => {
                 const target = anim.elementId
                     ? (document.getElementById(`el-${anim.elementId}`) ||
@@ -6131,21 +6131,21 @@ class SlidesApp {
     moveAnimation(delta) {
         const slide = this.pres?.slides?.[this.slideIdx];
         if (!slide || !slide.animations || slide.animations.length === 0) return;
-        // Find the index of the animation for the currently-selected element
-        // (or the last animation if nothing is selected).
+        
+        
         let animIdx = -1;
         if (this.selectedId) {
             animIdx = slide.animations.findIndex(a => a.elementId === this.selectedId);
         }
         if (animIdx < 0) {
-            // No animation found for the selected element — fall back to the
-            // last animation on the slide so the buttons still work even when
-            // the user hasn't explicitly clicked an item in the pane.
+            
+            
+            
             animIdx = slide.animations.length - 1;
         }
         const target = animIdx + delta;
         if (target < 0 || target >= slide.animations.length) return;
-        // Swap within the slide's animation list
+        
         [slide.animations[animIdx], slide.animations[target]] = [slide.animations[target], slide.animations[animIdx]];
         this.scheduleSave();
         this.renderAnimationPane();
@@ -6153,7 +6153,7 @@ class SlidesApp {
         this.showToast(delta < 0 ? 'Moved earlier.' : 'Moved later.');
     }
 
-    // ── IMMERSIVE READER ──
+    
     openImmersiveReader() {
         const slide = this.pres?.slides?.[this.slideIdx];
         if (!slide) return;
@@ -6200,7 +6200,7 @@ class SlidesApp {
         document.addEventListener('keydown', escHandler);
     }
 
-    // ── Load icon library from icons.emeraldcore ──
+    
     async loadIconLibrary() {
         try {
             const r = await fetch('/assets/data/icons.emeraldcore');
@@ -6217,7 +6217,7 @@ class SlidesApp {
         }
     }
 
-    // ── INSERT: Icon / Link / Comment / Symbol ──
+    
     openIconPicker() {
         if (!window.ICON_DB || !window.ICON_DB.length) {
             const reason = window.ICON_DB && window.ICON_DB.length === 0
@@ -6264,7 +6264,7 @@ class SlidesApp {
         overlay.querySelector('.modal-close-btn').addEventListener('click', close);
         overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
 
-        // State
+        
         let currentCat = 'All';
         let currentSearch = '';
         let filtered = allIcons;
@@ -6313,12 +6313,12 @@ class SlidesApp {
             }
             renderedCount = end;
 
-            // Update count label
+            
             const countLabel = overlay.querySelector('.icon-picker-count');
             countLabel.textContent = `${filtered.length} icons available`;
         }
 
-        // Infinite scroll: auto-load more when scrolling near bottom
+        
         const scrollContainer = overlay.querySelector('#iconGridScroll');
         scrollContainer.addEventListener('scroll', () => {
             const threshold = 60;
@@ -6329,7 +6329,7 @@ class SlidesApp {
             }
         });
 
-        // Search input
+        
         const searchInput = overlay.querySelector('#iconSearchInput');
         let searchTimer = null;
         searchInput.addEventListener('input', () => {
@@ -6341,7 +6341,7 @@ class SlidesApp {
         });
         searchInput.focus();
 
-        // Category tabs
+        
         overlay.querySelectorAll('.icon-cat-btn').forEach(btn => {
             btn.addEventListener('click', (ev) => {
                 ev.stopPropagation();
@@ -6352,7 +6352,7 @@ class SlidesApp {
             });
         });
 
-        // Initial render
+        
         filterIcons();
     }
 
@@ -6424,8 +6424,8 @@ class SlidesApp {
         if (!this.pres) return;
         const slide = this.pres.slides[this.slideIdx];
         const el = this.selectedId ? this.getElement(this.selectedId) : null;
-        // If an element is selected, stick the comment pin to the element.
-        // Otherwise, place it outside the slide boundary (top-right, beyond right edge).
+        
+        
         const cx = el ? el.x + el.w + 10 : 970;
         const cy = el ? el.y : 10;
 
@@ -6443,8 +6443,8 @@ class SlidesApp {
         });
     }
 
-    // Docs-style composer modal (Slides orange accent). Used for both new
-    // comments and replies — never the native browser prompt().
+    
+    
     _openCommentComposer({ title, saveLabel, placeholder, onSubmit }) {
         document.querySelector('.comment-popup')?.remove();
         const overlay = document.createElement('div');
@@ -6486,7 +6486,7 @@ class SlidesApp {
         });
     }
 
-    // Docs-style reply composer — custom modal instead of the native prompt().
+    
     _openReplyComposer(comment, ci) {
         this._openCommentComposer({
             title: 'Reply',
@@ -6505,7 +6505,7 @@ class SlidesApp {
     }
 
     showCommentPopup(comment, ci, pinEl) {
-        // Remove any existing popup
+        
         document.querySelector('.comment-popup')?.remove();
 
         const popup = document.createElement('div');
@@ -6534,7 +6534,7 @@ class SlidesApp {
         html += '<button class="comment-delete-btn">Delete</button>';
         html += '</div>';
         popup.innerHTML = html;
-        // Body-anchored + fixed so the popup stays Docs-sized regardless of canvas zoom
+        
         document.body.appendChild(popup);
         this._positionCommentPopup(pinEl, popup);
 
@@ -6558,8 +6558,8 @@ class SlidesApp {
         });
     }
 
-    // Position the comment popup next to its pin in screen space (fixed),
-    // clamped to the viewport so it behaves like the Docs popup.
+    
+    
     _positionCommentPopup(pinEl, popupEl) {
         let anchor = pinEl;
         if (!anchor) {
@@ -6583,31 +6583,31 @@ class SlidesApp {
         const toolbar = document.getElementById('symbolToolbar');
         const symBtn = document.getElementById('insertSymbolBtn');
         if (!toolbar) return;
-        // If already visible, hide it
+        
         if (toolbar.classList.contains('visible')) {
             toolbar.classList.remove('visible');
             if (symBtn) symBtn.classList.remove('active');
             return;
         }
-        // Hide draw toolbar if open
+        
         document.getElementById('drawToolbar')?.classList.remove('visible');
         toolbar.classList.add('visible');
         if (symBtn) symBtn.classList.add('active');
 
-        // Symbol insertion: insert into current text editing, or create new text
+        
         toolbar.querySelectorAll('.sym-bar-btn').forEach(btn => {
-            // Remove old listeners by cloning (avoid duplicates)
+            
             const newBtn = btn.cloneNode(true);
             btn.parentNode.replaceChild(newBtn, btn);
             newBtn.addEventListener('click', () => {
                 const sym = newBtn.dataset.s;
 
-                // If currently editing a text, insert symbol directly at cursor
+                
                 if (this.editingId) {
                     const domEl = document.getElementById(`el-${this.editingId}`);
                     const content = domEl?.querySelector('.text-content');
                     if (content) {
-                        // Focus the contentEditable and insert symbol at cursor
+                        
                         content.focus();
                         const sel = window.getSelection();
                         if (sel.rangeCount > 0) {
@@ -6615,16 +6615,16 @@ class SlidesApp {
                             range.deleteContents();
                             const textNode = document.createTextNode(sym);
                             range.insertNode(textNode);
-                            // Move cursor after the inserted symbol
+                            
                             range.setStartAfter(textNode);
                             range.setEndAfter(textNode);
                             sel.removeAllRanges();
                             sel.addRange(range);
                         } else {
-                            // No selection range, just append
+                            
                             content.textContent += sym;
                         }
-                        // Save the updated HTML back to the element data
+                        
                         const el = this.getElement(this.editingId);
                         if (el) {
                             el.html = content.innerHTML;
@@ -6635,12 +6635,12 @@ class SlidesApp {
                     }
                 }
 
-                // If a text element is selected but not in edit mode, enter edit mode and insert
+                
                 if (this.selectedId) {
                     const el = this.getElement(this.selectedId);
                     if (el && el.type === 'text') {
                         this.enterTextEditing(el.id);
-                        // After entering edit mode, insert the symbol
+                        
                         setTimeout(() => {
                             const domEl = document.getElementById(`el-${el.id}`);
                             const content = domEl?.querySelector('.text-content');
@@ -6668,7 +6668,7 @@ class SlidesApp {
                     }
                 }
 
-                // No text element active — create a new text element
+                
                 const newEl = makeTextEl(380, 220, 80, 80);
                 newEl.html = sym;
                 newEl.fontSize = 48;
@@ -6678,7 +6678,7 @@ class SlidesApp {
             });
         });
 
-        // Done button
+        
         document.getElementById('symbolDoneBtn')?.addEventListener('click', () => {
             toolbar.classList.remove('visible');
             document.getElementById('insertSymbolBtn')?.classList.remove('active');
@@ -6695,9 +6695,9 @@ class SlidesApp {
     }
 
     renderRulers() {
-        // Render tick marks on the top & left rulers based on canvas size + zoom.
-        // The rulers live inside #editorContent and span its full width/height,
-        // so tick positions are expressed in editor-content coordinates.
+        
+        
+        
         const top = document.getElementById('rulerTop');
         const left = document.getElementById('rulerLeft');
         if (!top || !left) return;
@@ -6706,17 +6706,17 @@ class SlidesApp {
         if (!editor || !canvas) return;
         const editorRect = editor.getBoundingClientRect();
         const canvasRect = canvas.getBoundingClientRect();
-        // Offset of the canvas top-left corner inside the editor-content (screen px).
+        
         const offsetX = canvasRect.left - editorRect.left;
         const offsetY = canvasRect.top - editorRect.top;
         const scale = this.scale || 1;
-        const visW = canvasRect.width;  // visible canvas width (already scaled)
-        const visH = canvasRect.height; // visible canvas height (already scaled)
+        const visW = canvasRect.width;  
+        const visH = canvasRect.height; 
 
-        // Zoom-aware tick spacing. At higher zoom, more detail is shown.
-        // We pick a minor step (small ticks) and a major step (labeled ticks).
-        // The on-screen minor spacing is kept between ~8px and ~30px so ticks
-        // never feel crowded or too sparse, regardless of zoom level.
+        
+        
+        
+        
         let minorStep, majorStep;
         if (scale < 0.4)      { minorStep = 100; majorStep = 200; }
         else if (scale < 0.8) { minorStep = 50;  majorStep = 100; }
@@ -6724,12 +6724,12 @@ class SlidesApp {
         else if (scale < 3.0) { minorStep = 10;  majorStep = 50;  }
         else                  { minorStep = 5;   majorStep = 25;  }
 
-        // Build the top ruler ticks (vertical lines + numeric labels).
-        // Three visual tiers: major (long, labeled), mid (medium), minor (short).
+        
+        
         let topHtml = '';
         for (let x = 0; x <= 960; x += minorStep) {
             const px = offsetX + x * scale;
-            // Skip ticks that fall outside the editor's visible range.
+            
             if (px < -2 || px > editorRect.width + 2) continue;
             const isMajor = (x % majorStep === 0);
             const isMid = !isMajor && (majorStep % (minorStep * 2) === 0) && (x % (minorStep * 2) === 0);
@@ -6740,7 +6740,7 @@ class SlidesApp {
             }
         }
         top.innerHTML = topHtml;
-        // Build the left ruler ticks (horizontal lines + numeric labels).
+        
         let leftHtml = '';
         for (let y = 0; y <= 540; y += minorStep) {
             const px = offsetY + y * scale;
@@ -6756,11 +6756,11 @@ class SlidesApp {
         left.innerHTML = leftHtml;
     }
 
-    // Re-render rulers when the editor layout changes (sidebar collapse,
-    // notes panel open/close, animation pane open/close, statusbar changes,
-    // window resize, etc.). Uses a ResizeObserver on #editorContent plus a
-    // rAF-throttled fallback so the tick marks follow the canvas smoothly
-    // during CSS transitions.
+    
+    
+    
+    
+    
     _rulerRafPending = false;
     _rulerObserver = null;
     _scheduleRulerRender() {
@@ -6780,13 +6780,13 @@ class SlidesApp {
             this._scheduleRulerRender();
         });
         this._rulerObserver.observe(editor);
-        // Also observe the canvas wrapper — when its size changes the canvas
-        // re-centers inside it, so the ruler offsets change even if editorContent
-        // itself did not resize.
+        
+        
+        
         const wrapper = document.getElementById('slideCanvasWrapper');
         if (wrapper) this._rulerObserver.observe(wrapper);
-        // Final pass after any layout transition ends (sidebar width, notes
-        // panel height, etc.) so the ruler snaps to the final position.
+        
+        
         const watch = (el) => {
             if (!el) return;
             el.addEventListener('transitionend', () => this._scheduleRulerRender());
@@ -6812,11 +6812,11 @@ class SlidesApp {
         document.getElementById('sidebarToggle')?.addEventListener('click', () => {
             const sidebar = document.getElementById('slidesSidebar');
             if (!sidebar) return;
-            // On mobile (<=1023px), use mobile-open class for off-canvas slide-in
-            // On desktop, use collapsed class for the 60px mini-sidebar
+            
+            
             if (window.innerWidth <= 1023) {
                 sidebar.classList.toggle('mobile-open');
-                // Also toggle a backdrop for mobile
+                
                 let backdrop = document.querySelector('.sidebar-backdrop');
                 if (!backdrop) {
                     backdrop = document.createElement('div');
@@ -6834,8 +6834,8 @@ class SlidesApp {
                 }
             } else {
                 sidebar.classList.toggle('collapsed');
-                // Re-render rulers during and after the sidebar width
-                // transition (400ms) so ticks track the canvas position.
+                
+                
                 this._scheduleRulerRender();
                 setTimeout(() => this._scheduleRulerRender(), 260);
                 setTimeout(() => this._scheduleRulerRender(), 460);
@@ -6843,7 +6843,7 @@ class SlidesApp {
         });
     }
 
-    // ── Ribbon State Update ────────────────────────────────────
+    
     updateRibbonState() {
         const el = this.selectedId ? this.getElement(this.selectedId) : null;
         const isText  = el?.type === 'text';
@@ -6861,33 +6861,33 @@ class SlidesApp {
             });
         };
 
-        // Text format group visibility — dim + disable interaction when no text element is selected
+        
         const tfg = document.getElementById('textFormatGroup');
         if (tfg) {
             setRibbonGroupEnabled(tfg, isText);
         }
 
-        // Paragraph group visibility — dim + disable interaction when no text element is selected
+        
         const pg = document.getElementById('paragraphGroup');
         if (pg) {
             setRibbonGroupEnabled(pg, isText);
         }
 
-        // Contextual tabs (Shape Format / Image Format) — show only when the
-        // matching element type is selected. Only one contextual tab is ever
-        // visible/active; hiding one restores the previous regular tab.
+        
+        
+        
         const shapeTab = document.getElementById('shapeFormatTab');
         if (shapeTab) {
             const wasHidden = shapeTab.hasAttribute('hidden');
             if (isShape) {
                 shapeTab.removeAttribute('hidden');
-                // Auto-switch to Shape Format tab when a shape is first selected
+                
                 if (wasHidden && this._activeTab !== 'shape-format') {
                     this._previousTab = this._activeTab;
                     shapeTab.click();
                 }
             } else {
-                // Hide tab — if it was active, return to the previous tab (or Home)
+                
                 if (this._activeTab === 'shape-format') {
                     const restoreBtn = document.querySelector(`.ribbon-tab[data-tab="${this._ribbonRestoreTab()}"]`);
                     restoreBtn?.click();
@@ -6901,14 +6901,14 @@ class SlidesApp {
             const wasHidden = imageTab.hasAttribute('hidden');
             if (isImg) {
                 imageTab.removeAttribute('hidden');
-                // Auto-switch to Image Format tab when an image is first selected
+                
                 if (wasHidden && this._activeTab !== 'image-format') {
                     this._previousTab = this._activeTab;
                     imageTab.click();
                 }
                 this._syncImageFormatControls(el);
             } else {
-                // Hide tab — if it was active, return to the previous tab (or Home)
+                
                 if (this._activeTab === 'image-format') {
                     const restoreBtn = document.querySelector(`.ribbon-tab[data-tab="${this._ribbonRestoreTab()}"]`);
                     restoreBtn?.click();
@@ -6917,66 +6917,66 @@ class SlidesApp {
             }
         }
 
-        // Arrange group: enable only when element selected
+        
         const ag = document.getElementById('arrangeGroup');
         if (ag) {
             setRibbonGroupEnabled(ag, hasEl);
         }
 
-        // Background group — dim when no slide is active
+        
         const bgGroup = document.getElementById('backgroundGroup');
         if (bgGroup) {
             setRibbonGroupEnabled(bgGroup, !!this.currentSlide);
         }
 
-        // Export group — dim when no presentation is open
+        
         const expGroup = document.getElementById('exportGroup');
         if (expGroup) {
             setRibbonGroupEnabled(expGroup, !!this.pres);
         }
 
-        // Update format button active states
+        
         if (isText) {
             document.getElementById('boldBtn')?.classList.toggle('active', el.bold);
             document.getElementById('italicBtn')?.classList.toggle('active', el.italic);
             document.getElementById('underlineBtn')?.classList.toggle('active', el.underline);
 
-            // Alignment active state — highlight the currently active alignment
+            
             const align = el.textAlign || 'left';
             document.getElementById('alignLeftBtn')?.classList.toggle('active', align === 'left');
             document.getElementById('alignCenterBtn')?.classList.toggle('active', align === 'center');
             document.getElementById('alignRightBtn')?.classList.toggle('active', align === 'right');
 
-            // List active state — verify against actual HTML content, not just el.listType
-            // (el.listType can become stale when user deletes all list items with backspace)
+            
+            
             let effectiveListType = el.listType || '';
             const contentEl = document.getElementById(`el-${el.id}`)?.querySelector('.text-content');
             if (contentEl) {
-                // Only count real (non-empty) lists
+                
                 const hasRealOl = this._hasRealList(contentEl, 'ol');
                 const hasRealUl = this._hasRealList(contentEl, 'ul');
                 if (hasRealOl) effectiveListType = 'ol';
                 else if (hasRealUl) effectiveListType = 'ul';
                 else effectiveListType = '';
-                // Keep el.listType in sync
+                
                 el.listType = effectiveListType;
             }
             document.getElementById('bulletListBtn')?.classList.toggle('active', effectiveListType === 'ul');
             document.getElementById('numberListBtn')?.classList.toggle('active', effectiveListType === 'ol');
-            // Font family
+            
             const ffVal = document.getElementById('fontFamilyDropdown')?.querySelector('.dropdown-value');
             if (ffVal) ffVal.textContent = el.fontFamily || 'DM Sans';
-            // Font size
+            
             const fsVal = document.getElementById('fontSizeDropdown')?.querySelector('.dropdown-value');
             if (fsVal) fsVal.textContent = el.fontSize || 24;
-            // Text color swatch (notes-app style dropdown)
+            
             const fcBtn = document.querySelector('#fontColorDropdown .ms-dropdown-btn');
             const fcSwatch = fcBtn?.querySelector('.color-preview');
             if (fcSwatch) {
                 fcSwatch.style.background = el.color || '#000000';
                 fcSwatch.style.border = '';
             }
-            // Text highlight swatch (notes-app style dropdown)
+            
             const hlBtn = document.querySelector('#highlightColorDropdown .ms-dropdown-btn');
             const hlSwatch = hlBtn?.querySelector('.color-preview');
             if (hlSwatch) {
@@ -6990,7 +6990,7 @@ class SlidesApp {
             }
         }
 
-        // Clear alignment active states when no text element is selected
+        
         if (!isText) {
             document.getElementById('alignLeftBtn')?.classList.remove('active');
             document.getElementById('alignCenterBtn')?.classList.remove('active');
@@ -7010,7 +7010,7 @@ class SlidesApp {
                     fillSwatch.style.border = '1px solid rgba(0,0,0,0.15)';
                 }
             }
-            // Update stroke color swatch
+            
             const strokeSwatch = document.getElementById('strokeColorSwatch');
             if (strokeSwatch) {
                 if (el.stroke === 'none' || !el.stroke) {
@@ -7021,7 +7021,7 @@ class SlidesApp {
                     strokeSwatch.style.border = '2px solid ' + el.stroke;
                 }
             }
-            // Update stroke width dropdown label
+            
             const swLabel = document.getElementById('strokeWidthLabel');
             if (swLabel) {
                 const w = el.strokeWidth || 2;
@@ -7044,12 +7044,12 @@ class SlidesApp {
     }
 
 
-    // ── File Modal ──────────────────────────────────────
+    
 
     openFileModal() {
         const modal = document.getElementById('fileModal');
         if (!modal || !this.pres) return;
-        // Populate the name input with current presentation title
+        
         const nameInput = document.getElementById('fileModalNameInput');
         if (nameInput) nameInput.value = this.pres.title || 'Untitled Presentation';
         modal.classList.add('show');
@@ -7058,7 +7058,7 @@ class SlidesApp {
     closeFileModal() {
         const modal = document.getElementById('fileModal');
         if (!modal) return;
-        // Save the name input value before closing
+        
         const nameInput = document.getElementById('fileModalNameInput');
         if (nameInput && this.pres) {
             const newTitle = nameInput.value.trim() || 'Untitled Presentation';
@@ -7071,7 +7071,7 @@ class SlidesApp {
         }
         modal.classList.add('closing');
         setTimeout(() => { modal.classList.remove('show'); modal.classList.remove('closing'); }, 250);
-        // Switch back to Home tab after closing
+        
         this._switchTab('home');
     }
 
@@ -7080,16 +7080,16 @@ class SlidesApp {
         const slides = this.pres.slides;
         if (!slides || slides.length === 0) { this.showToast('No slides to export.'); return; }
 
-        // Generate SVGs for each slide
+        
         const svgStrings = slides.map((slide, i) => {
             const w = 960, h = 540;
             let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`;
 
-            // Background
+            
             const bg = slide.bg || '#ffffff';
             if (bg.includes('gradient')) {
                 svgContent += `<defs><linearGradient id="slideBg${i}" x1="0%" y1="0%" x2="100%" y2="100%">`;
-                // Parse gradient colors (simple approach)
+                
                 const colors = bg.match(/#[0-9a-fA-F]{6}/g) || ['#667eea', '#764ba2'];
                 colors.forEach((c, ci) => {
                     svgContent += `<stop offset="${ci * 100 / Math.max(colors.length - 1, 1)}%" style="stop-color:${c}"/>`;
@@ -7100,7 +7100,7 @@ class SlidesApp {
                 svgContent += `<rect width="${w}" height="${h}" fill="${bg}"/>`;
             }
 
-            // Elements
+            
             (slide.elements || []).forEach(el => {
                 if (el.type === 'text' && el.html) {
                     const fontSize = el.fontSize || 24;
@@ -7112,7 +7112,7 @@ class SlidesApp {
                 } else if (el.type === 'shape' && el.svg) {
                     svgContent += `<g transform="translate(${el.x},${el.y})"><svg width="${el.w}" height="${el.h}" viewBox="0 0 ${el.w} ${el.h}">${el.svg}</svg></g>`;
                 } else if (el.type === 'shape') {
-                    // Use shapeSVG function for all shapes
+                    
                     const shapeFill = el.fill || '#e5e7eb';
                     const shapeStroke = el.stroke || 'none';
                     const shapeStrokeW = el.strokeWidth || 0;
@@ -7127,7 +7127,7 @@ class SlidesApp {
             return { name: `slide_${i + 1}.svg`, content: svgContent };
         });
 
-        // Download the slides as individual SVG files
+        
         svgStrings.forEach(s => {
             const blob = new Blob([s.content], { type: 'image/svg+xml' });
             const url = URL.createObjectURL(blob);
@@ -7140,7 +7140,7 @@ class SlidesApp {
         try { window.EmeraldHistory.action('Exported presentation as SVG'); } catch (_) {}
     }
 
-    // ── Delete Modal (presentations only — slide deletion is direct & undoable) ──
+    
     confirmDeletePresentation(id) {
         this._deleteTarget = { type: 'pres', id };
         document.getElementById('deleteModalTitle').textContent = 'Delete Presentation';
@@ -7159,14 +7159,14 @@ class SlidesApp {
     confirmDelete() {
         if (!this._deleteTarget) { this.closeDeleteModal(); return; }
         const target = this._deleteTarget;
-        // Animate closing, then perform deletion after animation finishes
+        
         const modal = document.getElementById('deleteModal');
         if (modal) { modal.classList.add('closing'); setTimeout(() => { modal.classList.remove('show'); modal.classList.remove('closing'); }, 230); }
         this._deleteTarget = null;
         setTimeout(() => { if (target.type === 'pres') this.deletePresentation(target.id); }, 250);
     }
 
-    // ── Background Picker ──────────────────────────────────────
+    
     openBgPicker() {
         if (!this.currentSlide) return;
         this._pendingBgValue = this.currentSlide.background.value;
@@ -7194,7 +7194,7 @@ class SlidesApp {
         this.closeBgPicker();
     }
 
-    // ── Welcome Screen ─────────────────────────────────────────
+    
     showWelcomeScreen(show) {
         const ws  = document.getElementById('welcomeScreen');
         const eh  = document.getElementById('editorHeader');
@@ -7208,10 +7208,10 @@ class SlidesApp {
             if (eh) eh.style.display = 'none';
             if (ec) ec.style.display = 'none';
             if (es) es.style.display = 'none';
-            // Presenter notes panel: just remove .visible to collapse
+            
             if (pn) pn.classList.remove('visible');
-            // Animation pane: collapse it too so it doesn't stay open when
-            // leaving the editor for the welcome screen.
+            
+            
             this.toggleAnimationPane(false);
             this.renderWelcomeCards();
         } else {
@@ -7224,8 +7224,8 @@ class SlidesApp {
                 ec.style.overflow = 'hidden';
                 ec.style.minHeight = '0';
             }
-            // Presenter notes panel visibility is controlled by the toggle button (CSS .visible class)
-            // Do not force-display here — keep whatever state the user last chose
+            
+            
             if (es) es.style.display = 'flex';
         }
     }
@@ -7235,12 +7235,12 @@ class SlidesApp {
         const noContainer = document.getElementById('noPresContainer');
         if (!container) return;
 
-        // ── Render-token guard ──
-        // Each call gets a unique token. We capture the token at call time
-        // and check it again before mutating the DOM after any await. If a
-        // newer render has started, this render aborts silently — preventing
-        // the classic "async forEach appends stale cards on top of newer
-        // ones" race that produced duplicate cards on the welcome screen.
+        
+        
+        
+        
+        
+        
         const myToken = (this._welcomeRenderToken = (this._welcomeRenderToken || 0) + 1);
 
         if (this.presentations.length === 0) {
@@ -7251,22 +7251,22 @@ class SlidesApp {
 
         if (noContainer) noContainer.style.display = 'none';
 
-        // Snapshot the list at call time so concurrent edits to
-        // `this.presentations` don't change what we render mid-flight.
+        
+        
         const snapshot = this.presentations.slice(0, 12);
 
-        // Load all deck previews in parallel, build all card elements in
-        // memory, then commit them to the DOM in ONE synchronous operation.
-        // This eliminates any window where stale appends can sneak in.
+        
+        
+        
         Promise.all(snapshot.map(async (meta) => {
             const presData = await this.loadPresData(meta.id);
             return { meta, presData };
         })).then(results => {
-            // Stale render — a newer renderWelcomeCards() call has started.
-            // Abort to avoid appending duplicate cards.
+            
+            
             if (myToken !== this._welcomeRenderToken) return;
 
-            // Build all card elements in memory first
+            
             const frag = document.createDocumentFragment();
             for (const { meta, presData } of results) {
                 const card = document.createElement('div');
@@ -7307,10 +7307,10 @@ class SlidesApp {
                 frag.appendChild(card);
             }
 
-            // ── Single atomic DOM commit ──
-            // Clear + append in the same synchronous tick — no async gap
-            // between clear and append means no chance for a stale render
-            // to slip cards in between.
+            
+            
+            
+            
             container.innerHTML = '';
             container.appendChild(frag);
         }).catch(err => {
@@ -7318,7 +7318,7 @@ class SlidesApp {
         });
     }
 
-    // ── Presentation Mode ──────────────────────────────────────
+    
     startPresentation(fromSlide = 0) {
         if (!this.pres || this.pres.slides.length === 0) return;
         this.presentIdx = clamp(fromSlide, 0, this.pres.slides.length - 1);
@@ -7327,11 +7327,11 @@ class SlidesApp {
         const overlay = document.getElementById('presentOverlay');
         if (!overlay) return;
 
-        // Pre-sync the overlay's background to the first slide's
-        // background BEFORE showing it, so the overlay's fade-in
-        // (opacity 0 → 1 over 0.3s) doesn't briefly show the previous
-        // presentation's leftover background color. renderPresentSlide()
-        // will keep it in sync on every subsequent slide change.
+        
+        
+        
+        
+        
         const firstSlide = this.pres.slides[this.presentIdx];
         const firstBg = firstSlide?.background;
         if (firstBg) {
@@ -7345,17 +7345,17 @@ class SlidesApp {
         this.renderPresentSlide();
         this.updatePresentCounter();
 
-        // ── Present-mode listeners ────────────────────────────────
-        // Store each handler on `this` so endPresentation() can remove
-        // them. Previously these were anonymous arrow functions bound
-        // fresh on every startPresentation() call and never removed —
-        // so the second time you entered presentation mode, each button
-        // click fired the handler TWICE (once per accumulated listener),
-        // making the slide counter jump 1 → 3 → 5 … on every click.
-        // Using stored bound functions fixes the jump-skip bug.
+        
+        
+        
+        
+        
+        
+        
+        
 
-        // Keydown — also guard against e.repeat so holding an arrow key
-        // doesn't auto-fire presentNext/Prev multiple times per keypress.
+        
+        
         document.addEventListener('keydown', this._presentKeyHandler);
 
         this._presentPrevClick = () => this.presentPrev();
@@ -7365,22 +7365,22 @@ class SlidesApp {
         document.getElementById('presentNextBtn')?.addEventListener('click', this._presentNextClick);
         document.getElementById('presentExitBtn')?.addEventListener('click', this._presentExitClick);
 
-        // Click-to-advance: clicking anywhere on the slide area that
-        // ISN'T an interactive element (links, video/audio players,
-        // buttons, inputs, etc.) advances to the next slide. We attach
-        // the handler to the slide container (not the overlay) so
-        // clicks on the empty backdrop around the slide don't advance.
+        
+        
+        
+        
+        
         this._presentSlideClick = (e) => this._handlePresentSlideClick(e);
         document.getElementById('presentSlide')?.addEventListener('click', this._presentSlideClick);
 
         this._presentFullscreenHandler = () => {
-            // Video player fullscreen now uses CSS overlay (.vid-expanded)
-            // instead of the Fullscreen API, so we only track document fullscreen.
+            
+            
             if (!this.isPresenting) return;
             const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
 
             if (!fsEl) {
-                // Document fullscreen exited — end presentation
+                
                 this.endPresentation();
                 return;
             }
@@ -7394,28 +7394,28 @@ class SlidesApp {
         try { document.documentElement.requestFullscreen?.(); } catch (_) {}
     }
 
-    // ── Click-to-advance handler ─────────────────────────────────
-    // Attached to #presentSlide during presentation. Advances to the
-    // next slide on a plain click of the slide background, but bails
-    // out (so the original click goes through unchanged) when the
-    // click target is inside an interactive element:
-    //   • elements with a link (cursor:pointer + own click handler)
-    //   • video / audio players and any of their descendants
-    //   • <button>, <input>, <select>, <textarea>, <a> tags
-    //   • anything with [contenteditable=true]
-    //   • anything with role="button" / role="link"
-    // We walk up from the click target to the slide root and check
-    // each ancestor. This survives nested controls (e.g., clicking the
-    // progress bar inside a video player, which is wrapped in several
-    // divs) without us needing an exhaustive list of selectors.
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     _handlePresentSlideClick(e) {
         if (!this.isPresenting) return;
 
         const slide = document.getElementById('presentSlide');
         if (!slide) return;
 
-        // Walk from the click target up to (but not including) the
-        // slide container. If any ancestor is interactive, bail.
+        
+        
         let node = e.target;
         while (node && node !== slide) {
             if (node.nodeType !== 1) { node = node.parentNode; continue; }
@@ -7423,7 +7423,7 @@ class SlidesApp {
             if (tag === 'BUTTON' || tag === 'INPUT' ||
                 tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'A' ||
                 tag === 'VIDEO' || tag === 'AUDIO') {
-                return; // let the native control handle it
+                return; 
             }
             if (typeof node.matches === 'function' && node.matches(
                 '[contenteditable="true"], [contenteditable=""], ' +
@@ -7434,38 +7434,38 @@ class SlidesApp {
                 '.vid-controls, .vid-controls *, ' +
                 '.aud-controls, .aud-controls *'
             )) {
-                return; // interactive — don't advance
+                return; 
             }
-            // Slide elements with a link get an inline cursor:pointer
-            // set in renderPresentSlide and their own click handler that
-            // opens the URL. Detect via inline style (not computed —
-            // computed would also catch buttons-styled-as-pointer that
-            // we already handled via the tag check above) so we can bail
-            // out and let the link's own handler run.
+            
+            
+            
+            
+            
+            
             if (tag === 'DIV' && node.style && node.style.cursor === 'pointer') {
                 return;
             }
             node = node.parentNode;
         }
 
-        // Plain background click — advance to the next slide. Don't
-        // preventDefault so the user still gets normal selection/
-        // pointer feedback; we just trigger the nav.
-        // Ignore right-click and any click with a modifier key so
-        // users can still ctrl/cmd-click etc. without advancing.
+        
+        
+        
+        
+        
         if (e.button !== 0 || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
 
-        // Respect the current slide's "On Click" transition setting.
-        // If the user disabled On Click in the TIMING panel, plain
-        // clicks on the slide should NOT advance — the slide is
-        // either auto-advancing (After X sec) or is meant to be
-        // navigated only with arrow keys. Arrow-key navigation is
-        // always allowed (it's an explicit user action, not a "click
-        // to advance" gesture) and handled separately in
-        // _presentKeyHandler.
-        // Note: `slide` here is the DOM container declared above; we
-        // use a different name (`slideData`) for the slide's data
-        // object to avoid redeclaring the identifier.
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         const slideData = this.pres?.slides?.[this.presentIdx];
         const onClickEnabled = slideData?.transition?.onClick !== false;
         if (!onClickEnabled) return;
@@ -7476,19 +7476,19 @@ class SlidesApp {
     endPresentation() {
         this._collapseExpandedVideo();
         this.isPresenting = false;
-        // Cancel any pending auto-advance timer so it can't fire after
-        // we exit present mode (would otherwise call presentNext on a
-        // presentation that's no longer active — harmless due to the
-        // isPresenting guard in the timer callback, but cleaner to
-        // explicitly cancel).
+        
+        
+        
+        
+        
         this._clearPresentAutoTimer();
         const overlay = document.getElementById('presentOverlay');
         if (overlay) overlay.style.display = 'none';
         document.removeEventListener('keydown', this._presentKeyHandler);
-        // Remove the present-mode button + slide click listeners that
-        // were stored on `this` so they don't accumulate across
-        // multiple start/end cycles (which was the cause of the
-        // counter jumping 1 → 3 → 5 on each click).
+        
+        
+        
+        
         if (this._presentPrevClick)  document.getElementById('presentPrevBtn')?.removeEventListener('click', this._presentPrevClick);
         if (this._presentNextClick)  document.getElementById('presentNextBtn')?.removeEventListener('click', this._presentNextClick);
         if (this._presentExitClick)  document.getElementById('presentExitBtn')?.removeEventListener('click', this._presentExitClick);
@@ -7520,31 +7520,31 @@ class SlidesApp {
 
     _presentKeyHandler = (e) => {
         if (!this.isPresenting) return;
-        // Ignore auto-repeat keydown events (fired while a key is held)
-        // so holding ArrowRight/Space/ArrowDown doesn't rapidly advance
-        // through multiple slides — one keypress = one slide.
+        
+        
+        
         if (e.repeat) {
-            // Still prevent default for the keys we own, so e.g. Space
-            // doesn't scroll the page while held.
+            
+            
             if (e.key === ' ' || e.key === 'ArrowRight' || e.key === 'ArrowDown' ||
                 e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
                 e.preventDefault();
             }
             return;
         }
-        // Escape: let the browser handle fullscreen exit natively;
-        // the fullscreenchange handler manages the rest (restore present vs end).
+        
+        
         if (e.key === 'Escape') {
             e.preventDefault();
             if (this._expandedVideoPlayer) {
                 this._collapseExpandedVideo();
                 return;
             }
-            // (the fullscreenchange handler manages the rest)
+            
             return;
         }
-        // F11: if a video/audio player is fullscreen, exit that first;
-        // second press will exit presentation fullscreen normally.
+        
+        
         if (e.key === 'F11') {
             e.preventDefault();
             if (this._expandedVideoPlayer) {
@@ -7560,9 +7560,9 @@ class SlidesApp {
 
     presentNext() {
         if (this.presentIdx >= this.pres.slides.length - 1) return;
-        // Clear any pending auto-advance timer — the user (or another
-        // call path) is explicitly advancing, so a stale timer firing
-        // later would skip an extra slide.
+        
+        
+        
         this._clearPresentAutoTimer();
         this.presentIdx++;
         this.renderPresentSlide('right');
@@ -7571,8 +7571,8 @@ class SlidesApp {
 
     presentPrev() {
         if (this.presentIdx <= 0) return;
-        // Same as presentNext — clear the auto-timer so it can't fire
-        // and re-advance after the user explicitly went backwards.
+        
+        
         this._clearPresentAutoTimer();
         this.presentIdx--;
         this.renderPresentSlide('left');
@@ -7587,44 +7587,44 @@ class SlidesApp {
         const slide = this.pres.slides[this.presentIdx];
         if (!slide) return;
 
-        // Scale to viewport
+        
         const vw = window.innerWidth, vh = window.innerHeight;
         const scaleX = vw / 960, scaleY = vh / 540;
         const pScale = Math.min(scaleX, scaleY);
 
-        // Store scale as CSS custom property so animations can include it
+        
         container.style.setProperty('--present-scale', pScale);
         container.style.transform = `scale(var(--present-scale, ${pScale}))`;
         container.style.width = '960px';
         container.style.height = '540px';
 
-        // Background
+        
         const bg = slide.background;
         container.style.background = bg.type !== 'image' ? bg.value : '#fff';
 
-        // ── Anti-flash: sync the present overlay's background to match
-        // the slide's background. Most transitions (and the default
-        // fade-in) animate opacity:0 → 1 on the slide container itself,
-        // which means at the start of every transition the slide is
-        // fully transparent and the overlay behind shows through. The
-        // overlay's CSS default is black, so without this sync the user
-        // sees a brief black flash on every slide change — even with
-        // "no transition" set, because the default no-transition path
-        // still applies the .fade-in class. Matching the overlay's
-        // background to the slide's background means the user sees the
-        // same color behind the fading slide, eliminating the flash.
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         const overlay = document.getElementById('presentOverlay');
         if (overlay) {
             if (bg.type === 'color' || bg.type === 'gradient') {
                 overlay.style.background = bg.value;
             } else {
-                // Image backgrounds: the slide canvas itself falls back
-                // to white underneath the image, so we match that.
+                
+                
                 overlay.style.background = '#ffffff';
             }
         }
 
-        // Elements
+        
         container.innerHTML = '';
         const sorted = [...slide.elements].sort((a, b) => (a.z || 1) - (b.z || 1));
         sorted.forEach(el => {
@@ -7643,7 +7643,7 @@ class SlidesApp {
                 d.style.wordBreak = 'break-word';
                 d.style.whiteSpace = 'pre-wrap';
                 d.innerHTML = sanitizeUserHtml(el.html) || '';
-                // Show link styling in present mode
+                
                 if (el.link) {
                     d.style.color = '#2563eb';
                     d.style.textDecoration = 'underline';
@@ -7683,7 +7683,7 @@ class SlidesApp {
                 }
                 d.appendChild(img);
             } else if (el.type === 'video') {
-                // Custom video player in presentation mode
+                
                 d.style.overflow = 'hidden';
                 const player = document.createElement('div');
                 player.className = 'slide-video-player paused';
@@ -7743,7 +7743,7 @@ class SlidesApp {
                 d.appendChild(player);
                 this._wireVideoPlayer(player, vid, { bigPlay, playBtn, timeEl, progWrap, progBar, bufferBar, volBtn, volSlider, fsBtn });
             } else if (el.type === 'audio') {
-                // Custom audio player in presentation mode
+                
                 d.style.overflow = 'hidden';
                 const player = document.createElement('div');
                 player.className = 'slide-audio-player';
@@ -7797,7 +7797,7 @@ class SlidesApp {
                 d.appendChild(player);
                 this._wireAudioPlayer(player, aud, { playBtn, timeEl, progWrap, progBar, volBtn, volSlider });
             }
-            // In present mode, simple click opens the link (no Ctrl needed)
+            
             if (el.link) {
                 d.style.cursor = 'pointer';
                 d.addEventListener('click', (e) => {
@@ -7808,12 +7808,12 @@ class SlidesApp {
             container.appendChild(d);
         });
 
-        // Comments are NOT shown in presentation mode
+        
 
-        // Render the saved drawing overlay on top of all elements.
-        // The drawing was created in the editor as a 960x540 PNG; we
-        // just drop it as an <img> covering the whole slide. It's
-        // non-interactive (pointer-events:none) so it never blocks clicks.
+        
+        
+        
+        
         if (slide.drawingData) {
             const drawImg = document.createElement('img');
             drawImg.src = safeMediaUrl(slide.drawingData, 'image');
@@ -7822,28 +7822,28 @@ class SlidesApp {
             container.appendChild(drawImg);
         }
 
-        // Animation — use the slide's configured transition if available,
-        // otherwise fall back to the default fade/slide.
-        // All animations are opacity-only or clip-path based to preserve
-        // the inline transform:scale(...) that fits the slide to viewport.
-        //
-        // BUGFIX: Previously this block used ad-hoc `setTimeout` calls
-        // to clean up transition classes. The timers were NOT tracked,
-        // so when the user navigated to the next slide before the
-        // previous transition's timer fired, the old timer would
-        // remove the NEW transition's class early — killing the new
-        // animation mid-flight. Now we route everything through
-        // _runTransitionClass, which tracks this._trAnimTimer and
-        // clears it before scheduling a new cleanup.
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         const trType = slide.transition?.type || null;
         const trDur = slide.transition?.duration || 0.7;
         container.style.setProperty('--tr-duration', trDur + 's');
 
         if (trType && trType !== 'none') {
             if (trType === 'morph') {
-                // Object-level FLIP transition. Determine the previous
-                // slide based on navigation direction so we morph from
-                // the right source when going forward vs. backward.
+                
+                
+                
                 let prevIdx;
                 if (direction === 'left')  prevIdx = this.presentIdx + 1;
                 else if (direction === 'right') prevIdx = this.presentIdx - 1;
@@ -7851,10 +7851,10 @@ class SlidesApp {
                 const prevSlide = this.pres.slides[prevIdx];
                 this._applyMorphTransition(container, slide, prevSlide, trDur);
             } else {
-                // Use the configured transition. _runTransitionClass
-                // handles clearing any in-flight timer from the
-                // previous slide's transition, removing old classes,
-                // forcing a reflow, and scheduling a tracked cleanup.
+                
+                
+                
+                
                 this._runTransitionClass(container, `tr-${trType}-in`, trDur);
             }
         } else if (direction) {
@@ -7863,30 +7863,30 @@ class SlidesApp {
             this._runTransitionClass(container, 'fade-in', 0.45);
         }
 
-        // ── Auto-advance ("After X sec") ───────────────────────────
-        // If the current slide's transition has autoAfter=true, schedule
-        // a one-shot timer that advances to the next slide after the
-        // configured number of seconds. This is the half of the TIMING
-        // panel that was previously stored-but-never-used: users could
-        // check "After 5 sec" in the UI, but presenting the deck would
-        // just sit on the slide forever.
-        //
-        // PowerPoint semantics:
-        //   • If both On Click and After are on, whichever fires first
-        //     wins (we clear the auto-timer in presentNext/Prev so a
-        //     manual click cancels the pending auto-advance).
-        //   • If only After is on, the slide auto-advances.
-        //   • If only On Click is on, the slide waits for a click.
-        //   • If neither is on, the slide waits for arrow-key nav.
-        //   • We do NOT auto-advance from the last slide — there's
-        //     nothing to advance to, and a stray timer firing after
-        //     endPresentation would be a bug.
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         this._schedulePresentAutoTimer();
     }
 
-    // Schedule (or reschedule) the auto-advance timer based on the
-    // current slide's transition settings. Always clears any existing
-    // timer first, so this is safe to call from any slide-render path.
+    
+    
+    
     _schedulePresentAutoTimer() {
         this._clearPresentAutoTimer();
         if (!this.isPresenting || !this.pres) return;
@@ -7894,28 +7894,28 @@ class SlidesApp {
         if (!slide?.transition?.autoAfter) return;
         if (this.presentIdx >= this.pres.slides.length - 1) return;
         const sec = Number.isFinite(slide.transition.afterSec) ? slide.transition.afterSec : 5;
-        // Guard against absurd values — clamp to [1, 600].
+        
         const clamped = Math.min(600, Math.max(1, sec));
-        // Add the slide's transition duration so the auto-advance
-        // fires AFTER the in- animation finishes, not during it.
-        // Without this, a 0.7s fade-in would be interrupted at 5s
-        // mark by the next slide, but a 0.7s fade-in would be cut
-        // short if afterSec was 0.5 (rare but possible if the user
-        // typed it directly).
+        
+        
+        
+        
+        
+        
         const trDur = Number.isFinite(slide.transition?.duration) ? slide.transition.duration : 0.7;
         const delayMs = Math.ceil((clamped + trDur) * 1000);
         this._presentAutoTimer = setTimeout(() => {
             this._presentAutoTimer = null;
-            // The user may have exited present mode while the timer
-            // was pending — bail out instead of trying to advance.
+            
+            
             if (!this.isPresenting) return;
             this.presentNext();
         }, delayMs);
     }
 
-    // Clear the pending auto-advance timer if any. Called from
-    // presentNext, presentPrev, endPresentation, and at the start of
-    // _schedulePresentAutoTimer (so a re-render doesn't double-up).
+    
+    
+    
     _clearPresentAutoTimer() {
         if (this._presentAutoTimer) {
             clearTimeout(this._presentAutoTimer);
@@ -7928,7 +7928,7 @@ class SlidesApp {
         if (el && this.pres) el.textContent = `${this.presentIdx + 1} / ${this.pres.slides.length}`;
     }
 
-    // ── Export: PPTX ───────────────────────────────────────────
+    
     async exportPPTX() {
         if (!this.pres) return;
         if (typeof PptxGenJS === 'undefined') {
@@ -7942,7 +7942,7 @@ class SlidesApp {
             for (const slide of this.pres.slides) {
                 const s = pptx.addSlide();
 
-                // Background
+                
                 const bg = slide.background;
                 if (bg.type === 'color') {
                     s.background = { color: bg.value.replace('#', '') };
@@ -7974,10 +7974,10 @@ class SlidesApp {
                         });
                     } else if (el.type === 'shape') {
                         const shapeMap = {
-                            // Rectangles
+                            
                             rect: pptx.ShapeType.rect,
                             rounded: pptx.ShapeType.roundRect,
-                            // Basic shapes
+                            
                             ellipse: pptx.ShapeType.ellipse,
                             triangle: pptx.ShapeType.triangle,
                             rightTriangle: pptx.ShapeType.rightTriangle,
@@ -8006,7 +8006,7 @@ class SlidesApp {
                             plaque: pptx.ShapeType.plaque,
                             chamfer: pptx.ShapeType.chamfer,
                             foldCorner: pptx.ShapeType.foldCorner,
-                            // Stars
+                            
                             star: pptx.ShapeType.star5,
                             star4: pptx.ShapeType.star4,
                             star6: pptx.ShapeType.star6,
@@ -8018,7 +8018,7 @@ class SlidesApp {
                             star32: pptx.ShapeType.star32,
                             seal1: pptx.ShapeType.seal1,
                             seal2: pptx.ShapeType.seal2,
-                            // Block arrows
+                            
                             arrow: pptx.ShapeType.rightArrow,
                             arrowLeft: pptx.ShapeType.leftArrow,
                             arrowUp: pptx.ShapeType.upArrow,
@@ -8037,12 +8037,12 @@ class SlidesApp {
                             arrowCalloutU: pptx.ShapeType.upArrowCallout,
                             arrowCalloutD: pptx.ShapeType.downArrowCallout,
                             arrowCircular: pptx.ShapeType.circularArrow,
-                            // Callouts
+                            
                             calloutRect: pptx.ShapeType.rectCallout,
                             calloutRound: pptx.ShapeType.roundRectCallout,
                             calloutEllipse: pptx.ShapeType.ellipseCallout,
                             calloutCloud: pptx.ShapeType.cloudCallout,
-                            // Flowchart
+                            
                             fcProcess: pptx.ShapeType.flowchartProcess,
                             fcDecision: pptx.ShapeType.flowchartDecision,
                             fcData: pptx.ShapeType.flowchartData,
@@ -8053,13 +8053,13 @@ class SlidesApp {
                             fcDelay: pptx.ShapeType.flowchartDelay,
                             fcDisplay: pptx.ShapeType.flowchartDisplay,
                             fcManualOp: pptx.ShapeType.flowchartManualOperation,
-                            // Lines
+                            
                             line: pptx.ShapeType.line,
                             lineArrow: pptx.ShapeType.lineWithArrow,
                             lineDouble: pptx.ShapeType.lineWithDoubleArrow,
                             lineElbow: pptx.ShapeType.elbowConnector,
                             lineCurve: pptx.ShapeType.curvedConnector,
-                            // Brackets & braces
+                            
                             bracketL: pptx.ShapeType.leftBracket,
                             bracketR: pptx.ShapeType.rightBracket,
                             braceL: pptx.ShapeType.leftBrace,
@@ -8096,7 +8096,7 @@ class SlidesApp {
         }
     }
 
-    // ── Export: PDF ────────────────────────────────────────────
+    
     async exportPDF() {
         if (!this.pres) return;
 
@@ -8143,10 +8143,10 @@ class SlidesApp {
     }
 
 
-    // ── Import: PPTX (high fidelity) ───────────────────────────
-    // Rebuilds the presentation from the .pptx archive, preserving slide
-    // size, backgrounds, shapes (fill/stroke), images, text formatting,
-    // alignment and layering instead of collapsing everything to plain text.
+    
+    
+    
+    
     async importPPTX(file) {
         this.showToast('Importing PPTX…', 10000);
         try {
@@ -8285,11 +8285,11 @@ let slideIndex = 0;
                 const slideXmlStr = await zip.file(slidePath).async('string');
                 const slideDoc = new DOMParser().parseFromString(slideXmlStr, 'application/xml');
                 const sldRoot = slideDoc.getElementsByTagNameNS('*', 'sld')[0] || slideDoc.documentElement;
-                // Skip hidden slides (show="0").
+                
                 if (sldRoot && sldRoot.getAttribute('show') === '0') { continue; }
                 const slide = makeSlide();
 
-                // Background (slide → layout → master), resolving theme colors/images.
+                
                 try {
                     async function bgFromDoc(doc, relsDoc, basePath) {
                         const bgRef = doc.getElementsByTagNameNS('*', 'bgRef')[0];
@@ -8616,7 +8616,7 @@ let slideIndex = 0;
                         const fillEl = spPr ? (Array.from(spPr.children).find(c => c.localName === 'solidFill') || Array.from(spPr.children).find(c => c.localName === 'gradFill') || Array.from(spPr.children).find(c => c.localName === 'pattFill')) : null;
                         const ln = spPr ? Array.from(spPr.children).find(c => c.localName === 'ln') : null;
                         const lineFill = ln ? (Array.from(ln.children).find(c => c.localName === 'solidFill') || Array.from(ln.children).find(c => c.localName === 'gradFill')) : null;
-                        // Gradient fill: approximate with first stop color; if gradFill has stops, use first.
+                        
                         let fillColor = resolveColor(fillEl);
                         if (!fillColor && fillEl && fillEl.localName === 'gradFill') {
                             const firstStop = fillEl.getElementsByTagNameNS('*', 'gs')[0];
@@ -8648,7 +8648,7 @@ let slideIndex = 0;
                             if (strokeColor && strokeW <= 0) el.strokeWidth = 2;
                             el.z = zCounter++;
                             el.r = g0.rot;
-                            // Drop shadow from effectLst.
+                            
                             const effectLst = spPr ? spPr.getElementsByTagNameNS('*', 'effectLst')[0] : null;
                             const outerShdw = effectLst ? effectLst.getElementsByTagNameNS('*', 'outerShdw')[0] : null;
                             if (outerShdw) {
@@ -8690,7 +8690,7 @@ let slideIndex = 0;
                                 const pAlign = algn === 'ctr' ? 'center' : algn === 'r' ? 'right' : (algn && algn.startsWith('just')) ? 'justify' : 'left';
                                 if (html === '') baseAlign = pAlign;
 
-                                // Bullet / numbering detection.
+                                
                                 let bullet = '';
                                 let indentPx = 0;
                                 if (pPr) {
@@ -8705,7 +8705,7 @@ let slideIndex = 0;
                                     }
                                 }
 
-                                // Line spacing.
+                                
                                 let lineHeight = 1.1;
                                 if (pPr) {
                                     const lnSpc = pPr.getElementsByTagNameNS('*', 'lnSpc')[0];
@@ -8747,7 +8747,7 @@ let slideIndex = 0;
                                     const t = r.getElementsByTagNameNS('*', 't')[0];
                                     const text = t ? t.textContent : '';
                                     let content = `<span style="${style}">${escapeHtml(text)}</span>`;
-                                    // Hyperlink wrapping.
+                                    
                                     const hlink = rPr ? rPr.getElementsByTagNameNS('*', 'hlinkClick')[0] : null;
                                     const rid = hlink ? (hlink.getAttribute('r:id') || hlink.getAttribute('r:embed')) : null;
                                     if (rid && relsDoc) {
@@ -8789,7 +8789,7 @@ let slideIndex = 0;
                         }
                     } else if (local === 'pic' || local === 'contentPart') {
                         const picNode = local === 'pic' ? node : node.getElementsByTagNameNS('*', 'pic')[0];
-                        if (!picNode) { /* skip */ } else {
+                        if (!picNode) {  } else {
                         const blip = picNode.getElementsByTagNameNS('*', 'blip')[0];
                         const rid = blip ? (blip.getAttribute('r:embed') || blip.getAttribute('r:id')) : null;
                         const spPr = picNode.getElementsByTagNameNS('*', 'spPr')[0];
@@ -8921,7 +8921,7 @@ let slideIndex = 0;
                 }
                 await processContainer(spTree, (o) => ({ x: o.x, y: o.y, cx: o.cx, cy: o.cy, rot: o.rot }));
 
-                // Import slide transition (if present).
+                
                 try {
                     const tr = slideDoc.getElementsByTagNameNS('*', 'transition')[0];
                     if (tr) {
@@ -8951,7 +8951,7 @@ let slideIndex = 0;
                     slide.elements.push(placeholder);
                 }
 
-                // Import slide notes (if present).
+                
                 try {
                     const notesRel = Array.from(relsDoc ? relsDoc.getElementsByTagName('Relationship') : []).find(r => (r.getAttribute('Type') || '').endsWith('/notesSlide'));
                     let notesPath = notesRel ? notesRel.getAttribute('Target') : null;
@@ -8992,15 +8992,15 @@ let slideIndex = 0;
     }
 
 
-    // ── Import PDF ────────────────────────────────────────────────
-    // Renders each PDF page as an image element on a slide.
+    
+    
     async importPDF(file) {
         const pdfjsLib = window.pdfjsLib;
         if (!pdfjsLib) {
             this.showToast('PDF library not loaded. Import unavailable.', 5000);
             return;
         }
-        // Set worker source
+        
         if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
             pdfjsLib.GlobalWorkerOptions.workerSrc =
                 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -9031,7 +9031,7 @@ let slideIndex = 0;
                 await page.render({ canvasContext: ctx, viewport: viewport }).promise;
                 const dataUrl = canvas.toDataURL('image/png');
 
-                // Fit image to slide while maintaining aspect ratio, centered
+                
                 const pageAspect = viewport.width / viewport.height;
                 const slideAspect = SLIDE_W / SLIDE_H;
                 let elW, elH;
@@ -9078,19 +9078,19 @@ let slideIndex = 0;
     }
 }
 
-// ── Init ───────────────────────────────────────────────────────
+
 SlidesApp.memoryStorageFallback = new Map();
 
 document.addEventListener('DOMContentLoaded', () => {
     window.slidesApp = new SlidesApp();
-    // Cross-tab sync so "Ask AI" edits (which write the presentation to
-    // storage from the chat tab) reload the open deck without a refresh.
+    
+    
     if (window.EmeraldIDBStorage && window.EmeraldIDBStorage.subscribe) {
         window.EmeraldIDBStorage.subscribe(({ key }) => {
             const app = window.slidesApp;
             if (!app || !app.pres || !app.pres.id || !key) return;
             if (key !== app.PRES_DATA_KEY(app.pres.id)) return;
-            // Background reload from another tab is not a user action.
+            
             app.openPresentation(app.pres.id, false);
         });
     }

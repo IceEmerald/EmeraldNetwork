@@ -16,7 +16,6 @@
 <body>
 <div id="app" role="application" aria-label="EmeraldSuite spreadsheet application">
 
-  <!-- ===================== Navbar (utilizing style.css) ===================== -->
   <header class="navbar sticky-top">
     <div class="navcontainer nav-container">
       <a href="emeraldsuite" class="logo">
@@ -31,7 +30,6 @@
     </div>
   </header>
 
-  <!-- ===================== WELCOME SCREEN (home / workbook overview) ===================== -->
   <div class="welcome-screen" id="welcomeScreen">
     <aside class="su-rail" aria-label="Suite navigation">
       <a class="rail-item" href="/emeraldsuite" title="Home">
@@ -87,13 +85,11 @@
     </div>
   </div>
 
-  <!-- ======= Ribbon ======= -->
   <div id="ribbon">
     <div id="ribbon-tabs" role="tablist" aria-label="Ribbon tabs"></div>
     <div id="ribbon-body" role="tabpanel"></div>
   </div>
 
-  <!-- ======= Name box + formula bar ======= -->
   <div id="formula-row">
     <div id="name-box-wrap">
       <input id="name-box" type="text" aria-label="Name Box — type a cell address or range and press Enter" spellcheck="false" autocomplete="off">
@@ -110,7 +106,6 @@
     <div class="expand-grip" id="formula-expand" title="Expand formula bar" aria-label="Expand formula bar"></div>
   </div>
 
-  <!-- ======= Spreadsheet grid + chart pane ======= -->
   <div id="grid-row">
     <main id="grid-area">
       <canvas id="grid-canvas"></canvas>
@@ -123,7 +118,6 @@
     <aside id="chart-pane" class="chart-pane" aria-label="Chart pane" hidden></aside>
   </div>
 
-  <!-- ======= Bottom bar: sheet tabs (left) + status count & zoom (right) ======= -->
   <footer id="status-bar" role="region" aria-label="Sheet tabs and status">
     <div class="sb-sheets">
       <div class="tab-nav" role="group" aria-label="Sheet tab navigation">
@@ -143,24 +137,23 @@
   </footer>
 </div>
 
-<!-- ===================== File Management Modal (Docs/Slides-style Backstage overlay) ===================== -->
 <div class="file-overlay" id="fileModal" role="dialog" aria-label="File">
   <div class="file-overlay-card">
-    <!-- Header -->
+
     <div class="file-overlay-header">
       <span class="file-overlay-header-title">File</span>
       <button class="file-overlay-close-btn" id="fileModalCloseXBtn" title="Close">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
-    <!-- Body -->
+
     <div class="file-overlay-body">
-      <!-- Workbook name -->
+
       <div class="file-overlay-section">
         <div class="file-overlay-section-label">Name</div>
         <input class="file-overlay-name-input" id="fileModalNameInput" type="text" placeholder="Untitled workbook" autocomplete="off" spellcheck="false" />
       </div>
-      <!-- Actions -->
+
       <div class="file-overlay-section">
         <div class="file-overlay-section-label">Actions</div>
         <div class="file-overlay-actions-row">
@@ -174,7 +167,7 @@
           </button>
         </div>
       </div>
-      <!-- Document -->
+
       <div class="file-overlay-section">
         <div class="file-overlay-section-label">Document</div>
         <button class="file-overlay-action-btn" id="fileImportBtn">
@@ -182,7 +175,7 @@
           Import CSV / XLSX…
         </button>
       </div>
-      <!-- Export -->
+
       <div class="file-overlay-section">
         <div class="file-overlay-section-label">Export</div>
         <button class="file-overlay-action-btn" id="fileExportXlsxBtn">
@@ -202,7 +195,6 @@
   </div>
 </div>
 
-<!-- Overlays -->
 <div id="findBar" style="display:none;" role="dialog" aria-label="Find and replace">
   <div class="fr-header">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -252,10 +244,6 @@
 <div id="print-root" aria-hidden="true"></div>
 <textarea id="clip-helper" aria-hidden="true" tabindex="-1"></textarea>
 
-<!-- XLSX engine — optional; the app degrades gracefully if unavailable.
-     xlsx-js-style is a SheetJS fork that can *write* cell styles (fills, fonts,
-     borders, alignment); upstream SheetJS CE silently drops them on export.
-     ensureXlsxLib() retries from a CDN list if this tag never arrives. -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js" crossorigin="anonymous" onerror="window.__XLSX_CDN_FAIL=true"></script>
 <script src="/assets/scripts/idb-storage.js"></script>
 <script src="/assets/scripts/auth-client.js?v=5"></script>

@@ -1,38 +1,13 @@
-/* ============================================================================
- * EmeraldSheets — a complete client-side spreadsheet application.
- * Pure HTML/CSS/JS. No server, no framework. Persistence via IndexedDB.
- *
- * Internal architecture (all inside one IIFE):
- *   1. Utilities & icon library
- *   2. IndexedDB persistence layer
- *   3. Number / date formatting engine
- *   4. Formula engine: lexer, parser, AST serializer, reference transforms
- *   5. Function library (60+ functions)
- *   6. Evaluator, dependency graph, recalculation scheduler
- *   7. Data model (workbook / sheets / cells / styles), history (undo/redo)
- *   8. Virtualized canvas grid renderer + geometry + custom scrollbars
- *   9. Interactions: selection, keyboard, in-cell editing, fill handle, drag-move
- *  10. Clipboard (internal + system TSV), format painter
- *  11. Structure operations (insert/delete rows, cols, sheets, merge, hide)
- * 12. Sorting, region detection, cell style presets
- *  13. Floating charts
- *  14. Import / export (CSV, XLSX) and print
- *  15. Chrome UI: header, menus, ribbon, dialogs, context menus, toasts
- *  16. Find & replace, status bar, name box, formula bar, sheet tabs
- *  17. Boot
- * ========================================================================== */
+
+
 window.addEventListener('error', e => { (window.__errs = window.__errs || []).push('E: ' + e.message + ' @' + (e.filename || '').split('/').pop() + ':' + e.lineno); });
 window.addEventListener('unhandledrejection', e => { (window.__errs = window.__errs || []).push('R: ' + (e.reason && e.reason.message ? e.reason.message : e.reason)); });
 (() => {
 'use strict';
 
-/* ==========================================================================
- * 1. UTILITIES
- * ========================================================================== */
 const MAX_ROWS = 1000000;
 const MAX_COLS = 1000000;
-/* autogrow: a new sheet materializes 100 rows × 100 cols so scrollbars stay usable,
-   then extends by GRID_STEP each time the user scrolls/moves/writes toward an edge */
+
 const GRID_INIT = 100;
 const GRID_STEP = 100;
 const DEF = { rowH: 22, colW: 88, headerH: 22, fontPt: 11, fontFamily: 'Calibri' };
@@ -45,9 +20,7 @@ const SERIES_COLORS = ['#217346', '#b75d0b', '#8b5e83', '#0f7c85', '#a4262c', '#
 const clamp = (v, a, b) => v < a ? a : (v > b ? b : v);
 const uid = () => 'id' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
 const key = (r, c) => r + ',' + c;
-/* Named escapeHtml so static analysis recognises it as an HTML sanitizer: every
- * el()/innerHTML fragment goes through this, so DOM-read values (input .value,
- * cell text) can never be reinterpreted as markup. Keep the name. */
+
 const escapeHtml = s => String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 const $ = sel => document.querySelector(sel);
 const nowTs = () => Date.now();
@@ -55,19 +28,19 @@ const deepClone = obj => (typeof structuredClone === 'function' ? structuredClon
 const isPlainObj = v => v && typeof v === 'object' && !Array.isArray(v);
 const normText = s => String(s == null ? '' : s).toLowerCase();
 
-function colName(c) { // 0-based -> A, B, ... Z, AA ...
+function colName(c) {
   let s = ''; c = c + 1;
   while (c > 0) { const m = (c - 1) % 26; s = String.fromCharCode(65 + m) + s; c = (c - m - 1) / 26; }
   return s;
 }
-function colIndex(name) { // A -> 0
+function colIndex(name) {
   let n = 0; const up = name.toUpperCase();
   for (let i = 0; i < up.length; i++) n = n * 26 + (up.charCodeAt(i) - 64);
   return n - 1;
 }
 const addr = (r, c) => colName(c) + (r + 1);
 const addrAbs = (r, c) => '$' + colName(c) + '$' + (r + 1);
-function parseAddr(text) { // "B10" or "$B$10" -> {r, c} | null
+function parseAddr(text) {
   const m = /^\s*\$?([A-Za-z]{1,3})\$?(\d{1,7})\s*$/.exec(text);
   if (!m) return null;
   const c = colIndex(m[1]), r = parseInt(m[2], 10) - 1;
@@ -86,8 +59,6 @@ function el(html) { const t = document.createElement('template'); t.innerHTML = 
 function fmtTime(ts) { const d = new Date(ts); return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
 function cmpNum(a, b) { return a < b ? -1 : a > b ? 1 : 0; }
 
-/* Tiny SVG icon set (stroke-based, 24x24). Rendered inline so the app never
- * depends on network icon availability. */
 const COMMENT_ICON_PATH = 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z';
 const ICONS = {
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',
@@ -209,9 +180,7 @@ function icon(name, cls) {
   const p = ICONS[name] || ICONS.dots;
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="' + (cls || '') + '">' + p + '</svg>';
 }
-/* Borders gallery previews. The menu used to point every entry at one shared dashed
-   glyph (and some entries had no icon at all, so labels lost their gutter and
-   misaligned), which made the rows indistinguishable. Draw the actual edges. */
+
 function borderIcon(edges, style) {
   const X0 = 3.5, Y0 = 5, X1 = 20.5, Y1 = 19, MX = 12, MY = 12;
   let g = '<rect x="' + X0 + '" y="' + Y0 + '" width="' + (X1 - X0) + '" height="' + (Y1 - Y0) + '" rx="1" stroke-dasharray="1.5 1.6" opacity=".38"/>' +
@@ -244,9 +213,6 @@ ICONS.bdRight = borderIcon('r', 'thin');
 ICONS.bdNone = borderIcon('', 'none');
 function setIcon(elm, name) { if (elm) elm.innerHTML = icon(name); }
 
-/* ==========================================================================
- * 2. INDEXEDDB PERSISTENCE
- * ========================================================================== */
 const IO = (() => {
   const DB_NAME = 'emeraldcore.storage.suite.sheets', STORE = 'workbooks';
   const RECENT_KEY = 'emeraldcore.suite.sheets.recent';
@@ -313,13 +279,6 @@ const IO = (() => {
   return { saveDoc, loadDoc, deleteDoc, allDocs, saveRecent, loadRecent };
 })();
 
-/* ==========================================================================
- * 3. NUMBER / DATE FORMATTING ENGINE
- * Supports: General, 0 # ? . , % E+00, quoted literals, _ and * fills,
- * section splitting (pos;neg;zero;text), [Red]/[Blue] colors, date tokens
- * (yyyy yy mmmm mmm mm m dddd ddd dd d hh h ss s AM/PM a/p), @ text, and
- * fraction formats (# ?/?, # ??/??, halves/quarters/tenths/hundredths).
- * ========================================================================== */
 const DATE_EPOCH = Date.UTC(1899, 11, 30);
 const DAY_MS = 86400000;
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -369,13 +328,13 @@ function tokenizeFmt(sec) {
     if (ch === '@') { toks.push({ t: 'at' }); i++; continue; }
     if (ch === '[') { const j = sec.indexOf(']', i); toks.push({ t: 'cond', v: sec.slice(i + 1, j === -1 ? sec.length : j) }); i = (j === -1 ? sec.length : j) + 1; continue; }
     if (/[yYdDhHsS]/.test(ch) || /m/i.test(ch)) {
-      // date tokens — decide m = month or minute by context (h before, s after)
+
       let j = i; const lower = sec.toLowerCase();
       const c = lower[i];
       while (j < sec.length && lower[j] === c) j++;
       const n = j - i;
       if (c === 'm' || c === 'a' || c === 'p') {
-        // month vs minute: month if previous meaningful token is date-y (y/d) or no h immediately before
+
         let prevMeaning = '';
         for (let k = i - 1; k >= 0; k--) { if (/[ymdhs]/i.test(sec[k])) { prevMeaning = sec[k].toLowerCase(); break; } if (!/[\"a-z ]/i.test(sec[k]) === false) continue; break; }
         let nextMeaning = '';
@@ -400,7 +359,7 @@ function isDateFormat(toks) { return toks.some(t => ['year', 'mon', 'min', 'day'
 function fmtDateTokens(toks, serial) {
   const d = serialToDate(serial);
   let out = '', ampm = null;
-  // pre-scan for 12h clock
+
   const hasAMPM = toks.some(t => t.t === 'ampm');
   for (const t of toks) {
     if (t.t === 'lit') { out += t.v; continue; }
@@ -426,7 +385,7 @@ function fmtDateTokens(toks, serial) {
 }
 
 function applyDigits(intDigits, decDigits, v, opts) {
-  // intDigits: token string like "#,##0"; decDigits: like "00"
+
   const neg = v < 0;
   const abs = Math.abs(v);
   let decPlaces = (decDigits.match(/[0#?]/g) || []).length;
@@ -434,11 +393,11 @@ function applyDigits(intDigits, decDigits, v, opts) {
   let s = scaled.toFixed(Math.min(decPlaces, 100));
   let [si, sd] = s.split('.');
   if (sd === undefined) sd = '';
-  // distribute integer part into the integer token (right-aligned)
+
   const intTok = intDigits.replace(/,/g, '');
   const minInt = (intTok.match(/0/g) || []).length;
   while (si.length < minInt) si = '0' + si;
-  // pad decimals to match placeholder counts (# can be dropped)
+
   let decOut = '';
   const decTok = decDigits;
   for (let i = 0; i < decTok.length; i++) {
@@ -446,9 +405,9 @@ function applyDigits(intDigits, decDigits, v, opts) {
     const dg = sd[decTok.length - 1 - i] || '';
     if (ph === '0') decOut = (dg || '0') + decOut;
     else if (ph === '#') decOut = (dg && (dg !== '0' || /[1-9]/.test(sd.slice(0, decTok.length - i)) || decOut !== '')) ? dg + decOut : (/[1-9]/.test(sd.slice(0, decTok.length - i)) ? '0' + decOut : decOut);
-    else decOut = (dg || ' ') + decOut; // ?
+    else decOut = (dg || ' ') + decOut;
   }
-  // thousands separators
+
   const useSep = intDigits.includes(',');
   if (useSep) si = si.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   return { int: si, dec: decOut, neg };
@@ -472,14 +431,14 @@ function formatValue(v, code) {
   else if (v < 0) sec = secs[1] || secs[0];
   else sec = secs[2] !== undefined ? secs[2] : secs[0];
   const secStr = sec.sec;
-  if (secs[1]) negOverride = v < 0; // negative uses its own section => no auto minus
+  if (secs[1]) negOverride = v < 0;
   const toks = tokenizeFmt(secStr);
   if (!toks.length) return generalNum(v);
-  // scale factors
+
   let scale = 1;
   let pctCount = 0, commaTrail = 0, hasExp = false;
   for (const t of toks) { if (t.t === 'pct') pctCount++; }
-  // trailing commas right after last digit token => thousands scaling
+
   const lastDig = toks.map(t => t.t).lastIndexOf('digits');
   for (let i = lastDig + 1; i < toks.length; i++) { if (toks[i].t === 'comma') commaTrail++; else break; }
   scale = Math.pow(100, pctCount) * Math.pow(1000, -commaTrail);
@@ -487,8 +446,8 @@ function formatValue(v, code) {
     if (pctCount) v = v * scale;
     return fmtDateTokens(toks, v);
   }
-  if (secs[3] !== undefined && typeof v === 'number') { /* numeric with text section falls through */ }
-  // Exponent notation remains supported for custom and imported formats.
+  if (secs[3] !== undefined && typeof v === 'number') {  }
+
   const expIdx = toks.findIndex(t => t.t === 'exp');
   if (expIdx !== -1) {
     const mantToks = toks.slice(0, expIdx);
@@ -503,7 +462,7 @@ function formatValue(v, code) {
     const sign = expv >= 0 ? '+' : '-';
     return (v < 0 ? '-' : '') + mi + (md ? '.' + md : '') + 'E' + toks[expIdx].v + sign + String(Math.abs(expv)).padStart(expZeros, '0');
   }
-  // fraction?
+
   if (toks.some(t => t.t === 'slash') && !toks.some(t => t.t === 'dot')) {
     const digToks = toks.filter(t => t.t === 'digits');
     const scaled = v * scale;
@@ -527,11 +486,11 @@ function formatValue(v, code) {
     else res = whole + ' ' + bestN + '/' + bestD;
     return prefix + sign + res;
   }
-  // numeric
+
   let intTok = '', decTok = '', dotSeen = false;
   const digitToks = [];
   for (const t of toks) if (t.t === 'digits') digitToks.push(t.v);
-  // merge digit tokens across the dot
+
   const dotIdx = toks.findIndex(t => t.t === 'dot');
   let intPart = '', decPart = '';
   if (dotIdx === -1) intPart = digitToks.join('');
@@ -542,7 +501,7 @@ function formatValue(v, code) {
   }
   const scaled = v * scale;
   const r = applyDigits(intPart || '0', decPart, scaled, {});
-  // build literal prefix/suffix
+
   let out = '';
   let placedDec = false;
   for (const t of toks) {
@@ -552,7 +511,7 @@ function formatValue(v, code) {
       case 'fill': out += t.v; break;
       case 'digits': {
         if (!placedDec) out += r.int;
-        else { /* second digit run for decimals already handled by decPart loop */ }
+        else {  }
         placedDec = true; break;
       }
       case 'dot': { if (!placedDec) { out += r.int; placedDec = true; } if (r.dec) out += '.' + r.dec; break; }
@@ -562,17 +521,16 @@ function formatValue(v, code) {
       default: break;
     }
   }
-  if (!placedDec) out = out.replace(/(^|[^\d,])0*$/, (m, p1) => p1); // strip accidental
-  if (dotIdx === -1 && decPart) { /* rare: decimals without dot token — ignore */ }
-  // minus handling
+  if (!placedDec) out = out.replace(/(^|[^\d,])0*$/, (m, p1) => p1);
+  if (dotIdx === -1 && decPart) {  }
+
   if (r.neg) {
-    if (secs[1]) { /* own section: pattern includes its own minus or parens */ }
+    if (secs[1]) {  }
     else if (!/-/.test(out) && !/\(/.test(out)) out = '-' + out;
   }
   return out;
 }
 
-/* Category preset codes used across the UI */
 const NUMCAT = {
   general: 'General',
   number: d => '#,##0' + (d > 0 ? '.' + '0'.repeat(d) : ''),
@@ -586,22 +544,19 @@ const NUMCAT = {
   text: '@'
 };
 
-/* ==========================================================================
- * STYLE MODEL
- * ========================================================================== */
 const styleCache = new Map();
 function normStyle(s) {
-  // Returns a canonical frozen style object (shared reference for equal styles)
+
   const o = {
     fontFamily: s.fontFamily || DEF.fontFamily,
     fontSize: s.fontSize == null ? DEF.fontPt : s.fontSize,
     bold: !!s.bold, italic: !!s.italic,
-    underline: s.underline || 0,           // 0 none, 1 single, 2 double
+    underline: s.underline || 0,
     strike: !!s.strike,
     color: s.color || null,
     backgroundColor: s.backgroundColor || null,
-    halign: s.halign || null,              // left | center | right
-    valign: s.valign || null,              // top | middle | bottom
+    halign: s.halign || null,
+    valign: s.valign || null,
     wrap: !!s.wrap,
     numberFormat: s.numberFormat && s.numberFormat !== 'General' ? s.numberFormat : null,
     numFmtCat: s.numFmtCat || null,
@@ -617,9 +572,6 @@ function normStyle(s) {
 const EMPTY_STYLE = normStyle({});
 const DEFAULT_BORDER = { style: 'thin', color: '#d4d4d4' };
 
-/* ==========================================================================
- * 4. FORMULA ENGINE — LEXER / PARSER / SERIALIZER / TRANSFORMS
- * ========================================================================== */
 const ERR_LITS = ['#NULL!', '#DIV/0!', '#VALUE!', '#REF!', '#NAME?', '#NUM!', '#CIRCULAR!', '#N/A'];
 const BOOL_LITS = { TRUE: true, FALSE: false };
 
@@ -659,8 +611,7 @@ function lexFormula(src) {
   while (i < n) {
     const ch = src[i];
     if (ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r') {
-      /* keep whitespace runs as tokens — a space between two references is the
-         intersection operator; the post-pass below drops all other spaces */
+
       while (i < n && (src[i] === ' ' || src[i] === '\t' || src[i] === '\n' || src[i] === '\r')) i++;
       toks.push({ t: 'ws' });
       continue;
@@ -741,8 +692,7 @@ function lexFormula(src) {
     }
     throw new Error('Unexpected character "' + ch + '" at position ' + i);
   }
-  /* whitespace post-pass: drop every space token except between two reference-ish
-     tokens, where it becomes the classic intersection operator */
+
   const REFISH_TOK = new Set(['ref', 'range', 'colrange', 'rowrange', 'name', 'rp', 'lp']);
   const out = [];
   for (let t = 0; t < toks.length; t++) {
@@ -756,8 +706,6 @@ function lexFormula(src) {
   return out;
 }
 
-/* ---------------- Parser ---------------- */
-/* AST node types that denote a reference (allowed as union operands) */
 const REFISH_AST = new Set(['ref', 'range', 'colrange', 'rowrange', 'union', 'name']);
 const isRefishAST = n => !!(n && REFISH_AST.has(n.t));
 function parseTokens(toks) {
@@ -791,7 +739,7 @@ function parseTokens(toks) {
     while ((op = atOp('*', '/'))) { next(); const r = parsePower(); l = { t: 'bin', op, l, r }; }
     return l;
   }
-  /* classic spreadsheet precedence: negation binds TIGHTER than ^ (=-2^2 is 4), and ^ is left-associative */
+
   function parsePower() {
     let l = parseUnary();
     while (atOp('^')) { next(); const r = parseUnary(); l = { t: 'bin', op: '^', l, r }; }
@@ -805,8 +753,7 @@ function parseTokens(toks) {
   function parsePostfix() {
     let e = parsePrimary();
     while (atOp('%')) { next(); e = { t: 'pct', e }; }
-    /* reference operator: a space between references = intersection;
-       binds tighter than any arithmetic/comparison (classic grammar) */
+
     while (atOp(' ')) { next(); const r = parseUnary(); e = { t: 'bin', op: ' ', l: e, r }; }
     return e;
   }
@@ -827,8 +774,7 @@ function parseTokens(toks) {
       const args = [];
       if (peek() && peek().t === 'rp') { next(); return { t: 'func', name: tk.v, args }; }
       while (true) {
-        /* ',' is the canonical argument separator; ';' is the classic locale-style
-           alternative — both accepted, ',' canonical on output */
+
         if (peek() && (peek().t === 'comma' || peek().t === 'semi' || peek().t === 'rp')) args.push({ t: 'empty' });
         else args.push(parseExpr());
         const nx = next();
@@ -841,8 +787,7 @@ function parseTokens(toks) {
     if (tk.t === 'lp') {
       next();
       const e = parseExpr();
-      /* parenthesized union reference: (A1,A2) combines discontinuous refs
-         into ONE reference argument — classic grammar */
+
       if (peek() && (peek().t === 'comma' || peek().t === 'semi') && isRefishAST(e)) {
         const parts = [e];
         while (peek() && (peek().t === 'comma' || peek().t === 'semi')) {
@@ -872,7 +817,7 @@ function parseTokens(toks) {
       if (cur.length) rows.push(cur);
       return { t: 'array', rows };
     }
-    if (tk.t === 'colon') { next(); return parsePrimary(); } // tolerate stray colon
+    if (tk.t === 'colon') { next(); return parsePrimary(); }
     throw new Error('Unexpected token "' + (tk.v !== undefined ? tk.v : tk.t) + '"');
   }
   const ast = parseExpr();
@@ -881,8 +826,7 @@ function parseTokens(toks) {
 }
 
 const astCache = new Map();
-/* deep-clone a cached AST so mutating walkers (shift/adjust rewrites) never
-   poison the shared cache entry for the same formula body */
+
 function cloneAST(n) {
   if (n === null || typeof n !== 'object') return n;
   if (Array.isArray(n)) return n.map(cloneAST);
@@ -901,7 +845,6 @@ function parseFormula(src) {
   return ast;
 }
 
-/* ---------------- Serializer ---------------- */
 function needsQuote(name) { return !/^[A-Za-z_][A-Za-z0-9_.]*$/.test(name); }
 function serRef(n) {
   const sheet = n.sheet ? (needsQuote(n.sheet) ? "'" + n.sheet.replace(/'/g, "''") + "'" : n.sheet) + '!' : '';
@@ -935,7 +878,7 @@ function serializeAST(n) {
       const wrapL = n.l.t === 'bin' && PREC[n.l.op] < myP;
       const wrapR = n.r.t === 'bin' && (PREC[n.r.op] < myP || (PREC[n.r.op] === myP && (n.op === '-' || n.op === '/')));
       if (n.op === '^' && (n.l.t === 'un' || n.r.t === 'un')) {
-        // -2^2 keeps unary at top level visually
+
       }
       return (wrapL ? '(' + serializeAST(n.l) + ')' : serializeAST(n.l)) + n.op + (wrapR ? '(' + serializeAST(n.r) + ')' : serializeAST(n.r));
     }
@@ -946,7 +889,6 @@ function serializeAST(n) {
   }
 }
 
-/* ---------------- AST walking / transforms ---------------- */
 function walkAST(n, fn) {
   if (!n || typeof n !== 'object') return;
   fn(n);
@@ -961,7 +903,6 @@ function walkAST(n, fn) {
   }
 }
 
-/* Shift all relative references by (dr, dc). Used by copy/fill/drag-move. */
 function shiftFormulaRefs(src, dr, dc) {
   try {
     const ast = parseFormula(src);
@@ -988,8 +929,6 @@ function shiftFormulaRefs(src, dr, dc) {
   } catch (e) { return src; }
 }
 
-/* Insert/delete rows or columns on a sheet — adjust formulas that reference it.
- * spanFilter (optional): for 'rows' kind, only refs in columns [c1..c2] adjust; for 'cols' kind, refs in rows [r1..r2]. */
 function adjustFormulaStructure(src, ownSheetName, targetSheetName, kind, at, count, isDelete, spanFilter) {
   try {
     const ast = parseFormula(src);
@@ -998,7 +937,7 @@ function adjustFormulaStructure(src, ownSheetName, targetSheetName, kind, at, co
       const nodeSheet = n.sheet === null ? ownSheetName : n.sheet;
       if (nodeSheet !== targetSheetName) return;
       const isRow = kind === 'rows';
-      /* span filter check */
+
       if (spanFilter) {
         if (isRow) {
           let cLo, cHi;
@@ -1007,7 +946,7 @@ function adjustFormulaStructure(src, ownSheetName, targetSheetName, kind, at, co
           else if (n.t === 'range') { cLo = n.c1; cHi = n.c2; }
           else if (n.t === 'rowrange') { cLo = 0; cHi = MAX_COLS - 1; }
           else return;
-          if (cLo === 0 && cHi >= MAX_COLS - 1) { /* full-row ref in a filtered col insert: adjust */ }
+          if (cLo === 0 && cHi >= MAX_COLS - 1) {  }
           else if (cHi < spanFilter.c1 || cLo > spanFilter.c2) return;
         } else {
           let rLo, rHi;
@@ -1052,7 +991,6 @@ function adjustFormulaStructure(src, ownSheetName, targetSheetName, kind, at, co
   } catch (e) { return src; }
 }
 
-/* Extract dependency descriptors from an AST */
 function extractDeps(ast) {
   const cells = [], ranges = [], names = new Set();
   walkAST(ast, n => {
@@ -1065,14 +1003,11 @@ function extractDeps(ast) {
   return { cells, ranges, names: [...names] };
 }
 
-/* ==========================================================================
- * 6. EVALUATOR + DEPENDENCY GRAPH + RECALC ENGINE
- * ========================================================================== */
 const Calc = {
-  mode: 'auto',                 // 'auto' | 'manual'
-  dirty: new Set(),             // formula keys needing recalc: "sid|r,c"
-  volatileKeys: new Set(),      // formula keys of volatile formulas
-  evalStack: new Set(),         // cycle detection
+  mode: 'auto',
+  dirty: new Set(),
+  volatileKeys: new Set(),
+  evalStack: new Set(),
   depth: 0
 };
 const VOLATILE_FN = new Set(['NOW', 'TODAY', 'RAND', 'RANDBETWEEN', 'INDIRECT']);
@@ -1080,9 +1015,9 @@ const VOLATILE_FN = new Set(['NOW', 'TODAY', 'RAND', 'RANDBETWEEN', 'INDIRECT'])
 const depKeyOf = (sid, r, c) => sid + '|' + r + ',' + c;
 
 const DepGraph = {
-  cellDeps: new Map(),          // "sid|r,c" -> Set<formulaKey>
-  rangeDeps: new Map(),         // sid -> [{r1,c1,r2,c2,fkey}]
-  fDeps: new Map(),             // formulaKey -> {cells:[], ranges:[]}
+  cellDeps: new Map(),
+  rangeDeps: new Map(),
+  fDeps: new Map(),
   register(fkey, sid, deps, nameResolver) {
     this.unregister(fkey);
     const rec = { cells: [], ranges: [] };
@@ -1154,7 +1089,7 @@ function rebuildAllDeps() {
         const deps = extractDeps(ast);
         DepGraph.register(fkey, sh.id, deps);
         if (new Set(deps.cells.length ? [] : []).size === 0) {
-          // detect volatility by walking function names
+
           let vol = false;
           walkAST(ast, n => { if (n.t === 'func' && VOLATILE_FN.has(n.name)) vol = true; });
           if (vol) Calc.volatileKeys.add(fkey);
@@ -1165,7 +1100,7 @@ function rebuildAllDeps() {
 }
 
 function markDirty(sid, r, c) {
-  // BFS over dependency graph — mark edited cell + transitive dependents dirty
+
   const queue = [[sid, r, c]];
   const seen = new Set();
   while (queue.length) {
@@ -1182,7 +1117,7 @@ function markDirty(sid, r, c) {
       queue.push([fsid, +fr, +fc]);
     }
   }
-  // volatiles always refresh
+
   for (const fk of Calc.volatileKeys) Calc.dirty.add(fk);
 }
 function markAllDirty() {
@@ -1190,14 +1125,13 @@ function markAllDirty() {
   for (const fk of Calc.volatileKeys) Calc.dirty.add(fk);
 }
 
-/* Compute a cell's value on demand (lazy, memoized, cycle-safe). */
 function getComputedCell(sid, r, c) {
   const cell = getRawCell(sid, r, c);
   if (!cell) return null;
   if (cell.f) {
     const k = depKeyOf(sid, r, c);
     if (cell.cv !== undefined && !Calc.dirty.has(k)) return cell.cv;
-    if (Calc.mode === 'manual' && cell.cv !== undefined) return cell.cv; // stale until F9
+    if (Calc.mode === 'manual' && cell.cv !== undefined) return cell.cv;
     if (Calc.evalStack.has(k)) return errObj('#CIRCULAR!');
     if (Calc.depth > 2500) return errObj('#VALUE!');
     if (!cell.ast) {
@@ -1226,7 +1160,6 @@ function evalFormulaText(src, ctxSheetId, r, c) {
   } catch (e) { return errObj(e && e.__xlerr ? e.__xlerr : '#NAME?'); }
 }
 
-/* ---------------- Runtime values ---------------- */
 function rangeValue(sid, r1, c1, r2, c2) {
   r1 = clamp(r1, 0, MAX_ROWS - 1); r2 = clamp(r2, 0, MAX_ROWS - 1);
   c1 = clamp(c1, 0, MAX_COLS - 1); c2 = clamp(c2, 0, MAX_COLS - 1);
@@ -1240,8 +1173,6 @@ function rangeValue(sid, r1, c1, r2, c2) {
 }
 const isRange = v => v && v.__r === true;
 
-/* combine discontinuous references ("(C4,C6)") into one virtual range:
-   row-major across parts; position props hold the bounding box */
 function unionRangeValue(list) {
   const h = list.reduce((s, r) => s + r.h, 0);
   const w = Math.max(...list.map(r => r.w));
@@ -1279,7 +1210,6 @@ function intersectScalar(rv, ctx) {
   return rv.at(0, 0);
 }
 
-/* Coercions */
 function toNum(v, ctx) {
   v = checkErr(v);
   if (isRange(v)) v = intersectScalar(v, ctx);
@@ -1295,7 +1225,7 @@ function toNum(v, ctx) {
     if (d != null) return d;
     xlerr('#VALUE!');
   }
-  if (typeof v === 'object' && v.rows) { // array literal
+  if (typeof v === 'object' && v.rows) {
     const first = v.rows[0] && v.rows[0][0];
     return toNum(first, ctx);
   }
@@ -1320,7 +1250,6 @@ function toBool(v, ctx) {
 }
 function toInt(v, ctx) { return Math.trunc(toNum(v, ctx)); }
 
-/* Compare two scalar values with classic spreadsheet ordering (numbers < text < FALSE < TRUE) */
 function compareVals(a, b) {
   const rank = v => v == null ? 0 : typeof v === 'number' ? 1 : typeof v === 'string' ? 2 : typeof v === 'boolean' ? 3 : 0;
   let ra = rank(a), rb = rank(b);
@@ -1331,7 +1260,6 @@ function compareVals(a, b) {
   return (a === b) ? 0 : (a ? 1 : -1);
 }
 
-/* evaluate a node, preserving reference geometry for bare refs (reference operators) */
 function evalRefLike(n, ctx) {
   if (n.t === 'ref') {
     const sid = n.sheet == null ? ctx.sid : sheetIdByName(n.sheet);
@@ -1341,7 +1269,6 @@ function evalRefLike(n, ctx) {
   return evalAST(n, ctx);
 }
 
-/* evalAST: evaluate an AST node in a context */
 function evalAST(n, ctx) {
   switch (n.t) {
     case 'num': return n.v;
@@ -1365,7 +1292,7 @@ function evalAST(n, ctx) {
       const list = [];
       for (const p of n.parts) {
         const v = evalRefLike(p, ctx);
-        if (!isRange(v)) return v; /* propagate #REF! etc. */
+        if (!isRange(v)) return v;
         list.push(v);
       }
       if (!list.length) xlerr('#VALUE!');
@@ -1386,7 +1313,7 @@ function evalAST(n, ctx) {
     case 'bin': {
       const op = n.op;
       if (op === ' ') {
-        /* reference intersection operator: common cells of both operands, #NULL! if none */
+
         const ia = evalRefLike(n.l, ctx), ib = evalRefLike(n.r, ctx);
         checkErr(ia); checkErr(ib);
         if (!isRange(ia) || !isRange(ib) || ia.sid !== ib.sid) xlerr('#NULL!');
@@ -1401,7 +1328,7 @@ function evalAST(n, ctx) {
         checkErr(a); checkErr(b);
         let av = isRange(a) ? intersectScalar(a, ctx) : a;
         let bv = isRange(b) ? intersectScalar(b, ctx) : b;
-        // numeric strings compare as numbers when other side is number
+
         if (typeof av === 'string' && typeof bv === 'number' && av.trim() !== '' && !isNaN(Number(av))) av = Number(av);
         if (typeof bv === 'string' && typeof av === 'number' && bv.trim() !== '' && !isNaN(Number(bv))) bv = Number(bv);
         const c = compareVals(av, bv);
@@ -1428,16 +1355,13 @@ function evalAST(n, ctx) {
   }
 }
 
-/* ==========================================================================
- * 5. FUNCTION LIBRARY
- * ========================================================================== */
 const FUNCS = {};
-const FUNC_META = []; // {name, cat, desc, args}
+const FUNC_META = [];
 function defFn(name, cat, args, desc, impl) {
   FUNCS[name] = { impl, cat };
   FUNC_META.push({ name, cat, args, desc });
 }
-/* helper: evaluate + coerce AST arg */
+
 const _ev = (a, ctx) => a === undefined ? null : evalAST(a, ctx);
 const _num = (a, ctx) => toNum(_ev(a, ctx), ctx);
 const _int = (a, ctx) => Math.trunc(_num(a, ctx));
@@ -1446,14 +1370,14 @@ const _bool = (a, ctx) => toBool(_ev(a, ctx), ctx);
 function _range(a, ctx) {
   const v = _ev(a, ctx);
   if (isRange(v)) return v;
-  if (v && v.rows) { // array literal → fake range over materialized values
+  if (v && v.rows) {
     const h = v.rows.length, w = v.rows[0].length;
     const vals = v.rows.map(r => r.slice());
     return { __r: true, arr: vals, h, w, at(i, j) { return this.arr[i][j]; }, r1: 0, c1: 0, r2: h - 1, c2: w - 1, sid: ctx.sid };
   }
   return null;
 }
-/* flatten args to a flat list of raw scalar values (ranges expanded) */
+
 function flatten(args, ctx, opts) {
   const out = [];
   for (const a of args) {
@@ -1483,7 +1407,7 @@ function numbersOf(args, ctx, opts = {}) {
   }
   return nums;
 }
-/* wildcard-aware text matcher */
+
 function wildcardToRegex(pat) {
   let out = '';
   for (const ch of pat) {
@@ -1543,7 +1467,6 @@ function range1D(a, ctx) {
   return null;
 }
 
-/* ---- Math & Trig ---- */
 defFn('SUM', 'Math & Trig', 'SUM(number1, [number2], ...)', 'Adds its arguments.', (a, ctx) => numbersOf(a, ctx, { text: false }).reduce((s, x) => s + x, 0));
 defFn('AVERAGE', 'Math & Trig', 'AVERAGE(number1, ...)', 'Arithmetic mean of the arguments.', (a, ctx) => { const n = numbersOf(a, ctx); return n.length ? n.reduce((s, x) => s + x, 0) / n.length : xlerr('#DIV/0!'); });
 defFn('COUNT', 'Math & Trig', 'COUNT(value1, ...)', 'Counts how many numbers are in the list of arguments.', (a, ctx) => numbersOf(a, ctx, { bools: false, text: false }).length);
@@ -1652,7 +1575,6 @@ defFn('PI', 'Math & Trig', 'PI()', 'Value of pi.', () => Math.PI);
 defFn('LARGE', 'Math & Trig', 'LARGE(array, k)', 'k-th largest value.', (a, ctx) => { const n = numbersOf([a[0]], ctx).sort((x, y) => y - x); const k = _int(a[1], ctx); if (k < 1 || k > n.length) return xlerr('#NUM!'); return n[k - 1]; });
 defFn('SMALL', 'Math & Trig', 'SMALL(array, k)', 'k-th smallest value.', (a, ctx) => { const n = numbersOf([a[0]], ctx).sort(cmpNum); const k = _int(a[1], ctx); if (k < 1 || k > n.length) return xlerr('#NUM!'); return n[k - 1]; });
 
-/* ---- Logical ---- */
 defFn('IF', 'Logical', 'IF(test, value_if_true, [value_if_false])', 'Returns one value if a condition is TRUE and another if FALSE.', (a, ctx) => {
   if (!a.length) return xlerr('#VALUE!');
   return _bool(a[0], ctx) ? (a[1] !== undefined ? _ev(a[1], ctx) : true) : (a[2] !== undefined ? _ev(a[2], ctx) : false);
@@ -1686,7 +1608,6 @@ defFn('SWITCH', 'Logical', 'SWITCH(expr, value1, result1, ..., [default])', 'Com
   return i < a.length ? _ev(a[i], ctx) : xlerr('#N/A');
 });
 
-/* ---- Text ---- */
 defFn('CONCATENATE', 'Text', 'CONCATENATE(text1, ...)', 'Joins several text items into one.', (a, ctx) => a.map(x => _str(x, ctx)).join(''));
 defFn('CONCAT', 'Text', 'CONCAT(text1, ...)', 'Combines text from multiple ranges.', (a, ctx) => flatten(a, ctx).map(v => toStr(v, ctx)).join(''));
 defFn('TEXTJOIN', 'Text', 'TEXTJOIN(delimiter, ignore_empty, text1, ...)', 'Concatenates with a delimiter.', (a, ctx) => {
@@ -1740,7 +1661,6 @@ defFn('VALUE', 'Text', 'VALUE(text)', 'Converts a text string to a number.', (a,
   return xlerr('#VALUE!');
 });
 
-/* ---- Lookup & Reference ---- */
 defFn('VLOOKUP', 'Lookup & Reference', 'VLOOKUP(lookup_value, table_array, col_index, [range_lookup])', 'Looks in the first column and returns a value from another column.', (a, ctx) => {
   const lookup = _ev(a[0], ctx);
   const rv = _range(a[1], ctx);
@@ -1826,9 +1746,9 @@ defFn('INDEX', 'Lookup & Reference', 'INDEX(array, row_num, [column_num])', 'Ret
   let c = a[2] === undefined ? (rv.h === 1 ? 0 : -1) : _int(a[2], ctx);
   if (c === -1 && rv.h > 1 && rv.w > 1) c = 0;
   if (rv.h === 1 && a[2] === undefined && r > 0) { c = r; r = 1; }
-  if (rv.w === 1 && a[2] === undefined) { /* r already the row */ }
+  if (rv.w === 1 && a[2] === undefined) {  }
   if (r < 0 || c < 0 || r > rv.h || c > rv.w) return xlerr('#REF!');
-  if ((r === 0 || c === 0)) { // whole row/col — return reduced range
+  if ((r === 0 || c === 0)) {
     if (r === 0 && c === 0) return rv;
     if (r === 0) return rangeValue(rv.sid, rv.r1, rv.c1 + c - 1, rv.r2, rv.c1 + c - 1);
     return rangeValue(rv.sid, rv.r1 + r - 1, rv.c1, rv.r1 + r - 1, rv.c2);
@@ -1896,7 +1816,6 @@ defFn('CHOOSE', 'Lookup & Reference', 'CHOOSE(index_num, value1, ...)', 'Chooses
   return _ev(a[i], ctx);
 });
 
-/* ---- Date & Time ---- */
 defFn('TODAY', 'Date & Time', 'TODAY()', 'Current date as a serial number.', () => dateToSerial(new Date()) - (dateToSerial(new Date()) % 1));
 defFn('NOW', 'Date & Time', 'NOW()', 'Current date and time as a serial number.', () => dateToSerial(new Date()));
 defFn('DATE', 'Date & Time', 'DATE(year, month, day)', 'Serial number of a date.', (a, ctx) => {
@@ -1963,7 +1882,6 @@ defFn('DATEVALUE', 'Date & Time', 'DATEVALUE(date_text)', 'Converts a date strin
   return d == null ? xlerr('#VALUE!') : Math.floor(d);
 });
 
-/* ---- Financial ---- */
 defFn('PMT', 'Financial', 'PMT(rate, nper, pv, [fv], [type])', 'Payment for a loan based on constant payments.', (a, ctx) => {
   const r = _num(a[0], ctx), n = _num(a[1], ctx), pv = _num(a[2], ctx);
   const fv = a[3] === undefined ? 0 : _num(a[3], ctx);
@@ -2012,7 +1930,7 @@ defFn('IRR', 'Financial', 'IRR(values, [guess])', 'Internal rate of return.', (a
     if (Math.abs(nr - r) < 1e-9) return nr;
     r = nr <= -1 ? (r - 1) / 2 - 1e-6 : nr;
   }
-  // bisection fallback
+
   let lo = -0.9999, hi = 10;
   if (npvAt(lo) * npvAt(hi) > 0) return xlerr('#NUM!');
   for (let it = 0; it < 200; it++) {
@@ -2022,7 +1940,6 @@ defFn('IRR', 'Financial', 'IRR(values, [guess])', 'Internal rate of return.', (a
   return (lo + hi) / 2;
 });
 
-/* Sparklines — mini charts drawn inside the cell */
 defFn('SPARKLINE', 'Sparkline', 'SPARKLINE(range, [type])', 'Draws a mini chart in the cell from numeric values. Type: "line" (default), "bar", or "winloss".', (a, ctx) => {
   const vals = numbersOf([a[0]], ctx, { text: false, bools: false });
   if (!vals.length) return xlerr('#VALUE!');
@@ -2035,31 +1952,26 @@ defFn('SPARKLINE', 'Sparkline', 'SPARKLINE(range, [type])', 'Draws a mini chart 
   return { __spark: { values: vals, type } };
 });
 
-/* ==========================================================================
- * 7. DATA MODEL — WORKBOOK / SHEETS / CELLS / STYLES / HISTORY / SELECTION
- * ========================================================================== */
 let WB = null;
 
-const UI = {};            // DOM refs (populated in boot)
-const R = { canvas: null, ctx: null, dpr: 1, w: 0, h: 0, layout: null }; // renderer
+const UI = {};
+const R = { canvas: null, ctx: null, dpr: 1, w: 0, h: 0, layout: null };
 const SEL = { ranges: [], active: { r: 0, c: 0 }, activeIdx: 0, sheetId: null };
-/* Zoom limits live here so the wheel, the ribbon buttons, the status-bar reset and
-   a restored view all clamp to the same pair. */
+
 const ZOOM_MIN = 0.3, ZOOM_MAX = 4;
 const VIEW = { zoom: 1, showFormulaBar: true, showHeadings: true, showFormulas: false };
-const Clip = { cells: null, cut: null, marquee: null, formats: null, src: null, text: null };   // clipboard state (src = source origin, text = system fingerprint)
+const Clip = { cells: null, cut: null, marquee: null, formats: null, src: null, text: null };
 const Edit = { active: false, r: 0, c: 0, cursorMode: false, fromFormulaBar: false, refMode: false, lastRef: null, dirty: false };
 const Mouse = { mode: null, startCell: null, anchor: null, baseSel: null, data: null };
-const Hover = { col: -1, row: -1, handle: false, sb: null };   /* header/handle/scrollbar hover highlight */
+const Hover = { col: -1, row: -1, handle: false, sb: null };
 const FillState = { last: null };
 const PaintState = { active: false, sticky: false, style: null, ranges: null };
 const DragState = { active: false, from: null, to: null };
 
-/* ---------------- Axis models (row/col sizes with prefix-sum lookup) -------- */
 class AxisModel {
   constructor(defSize, max, hardMax) {
     this.def = defSize; this.max = max; this.hardMax = hardMax != null ? hardMax : max;
-    this.meta = new Map();      // index -> {size, hidden}
+    this.meta = new Map();
     this._sorted = []; this._prefix = []; this._dirty = true; this._total = 0;
   }
   sizeOf(i) {
@@ -2087,17 +1999,17 @@ class AxisModel {
       this._prefix[k + 1] = this._prefix[k] + s;
     }
     const lastIdx = this._sorted.length ? this._sorted[this._sorted.length - 1] + 1 : 0;
-    const cap = Math.max(this.max, lastIdx);   /* meta must never exceed the extent */
+    const cap = Math.max(this.max, lastIdx);
     this._total = lastIdx * this.def - (this._sorted.length * this.def) + this._prefix[this._sorted.length] + (cap - lastIdx) * this.def;
     this._dirty = false;
   }
-  offsetOf(i) { // content offset of index i (sum sizes of [0..i-1])
+  offsetOf(i) {
     if (this._dirty) this._rebuild();
     let lo = 0, hi = this._sorted.length;
     while (lo < hi) { const mid = (lo + hi) >> 1; if (this._sorted[mid] < i) lo = mid + 1; else hi = mid; }
     return (i - lo) * this.def + this._prefix[lo];
   }
-  indexAt(y) { // largest i with offsetOf(i) <= y
+  indexAt(y) {
     if (this._dirty) this._rebuild();
     let lo = 0, hi = this.max - 1;
     while (lo < hi) {
@@ -2108,7 +2020,7 @@ class AxisModel {
   }
   total() { if (this._dirty) this._rebuild(); return this._total; }
   invalidate() { this._dirty = true; }
-  /* extend the materialized extent (autogrow). Never shrinks; caps at hardMax. */
+
   setMax(n) {
     if (n <= this.max) return false;
     this.max = Math.min(n, this.hardMax);
@@ -2117,7 +2029,6 @@ class AxisModel {
   }
 }
 
-/* ---------------- Sheet helpers ---------------- */
 function makeSheet(name, id) {
   return {
     id: id || uid(), name, tabColor: null,
@@ -2133,9 +2044,7 @@ function makeSheet(name, id) {
     usedMax: { r: 0, c: 0 }
   };
 }
-/* Autogrow: extend the materialized extent so it covers needR rows / needC cols,
-   stepping in GRID_STEP chunks and never beyond the hard caps. Cheap no-op when
-   the request is already inside the extent (two integer compares). */
+
 function growExtent(sh, needR, needC) {
   if (!sh) return false;
   let changed = false;
@@ -2162,7 +2071,7 @@ function sheetById(id) { return WB.sheets.find(s => s.id === id) || null; }
 function sheetByName(name) { const low = name.toLowerCase(); return WB.sheets.find(s => s.name.toLowerCase() === low) || null; }
 function sheetIdByName(name) { const s = sheetByName(name); return s ? s.id : null; }
 function activeSheet() { return sheetById(WB.activeSheetId) || WB.sheets[0]; }
-/* All sheets are visible (sheet-level hide/unhide removed). */
+
 function visibleSheets() { return WB.sheets.slice(); }
 function getRawCell(sid, r, c) {
   const sh = sheetById(sid);
@@ -2185,13 +2094,12 @@ function usedRange(sh) {
   return { r1: 0, c1: 0, r2: Math.min(mr, MAX_ROWS - 1), c2: Math.min(mc, MAX_COLS - 1) };
 }
 
-/* Central cell mutation. patch: {v, f, s} — undefined fields unchanged; null clears. */
 function writeCell(sh, r, c, patch) {
-  if (r >= sh.rows.max || c >= sh.cols.max) growExtent(sh, r + 1, c + 1);   /* autogrow */
+  if (r >= sh.rows.max || c >= sh.cols.max) growExtent(sh, r + 1, c + 1);
   const k = key(r, c);
   let cell = sh.cells.get(k);
   const hadFormula = !!(cell && cell.f);
-  /* smooth number glide: plain number -> plain number transitions count up/down */
+
   if (cell && !cell.f && typeof cell.v === 'number' && patch && !patch.f &&
       'v' in patch && typeof patch.v === 'number' && patch.v !== cell.v)
     glideNumber(sh, r, c, cell.v, patch.v, (patch.s && patch.s.numberFormat) || (cell.s && cell.s.numberFormat) || 'General');
@@ -2209,8 +2117,7 @@ function writeCell(sh, r, c, patch) {
     Calc.volatileKeys.delete(depKeyOf(sh.id, r, c));
   }
   if (isCellEmpty(cell)) {
-    /* invalidate self + transitive dependents BEFORE removal — otherwise
-       dependents (e.g. =SUM over this cell) keep showing stale cached values */
+
     markDirty(sh.id, r, c);
     sh.cells.delete(k);
     if (hadFormula) { DepGraph.unregister(depKeyOf(sh.id, r, c)); Calc.dirty.delete(depKeyOf(sh.id, r, c)); Calc.volatileKeys.delete(depKeyOf(sh.id, r, c)); }
@@ -2233,7 +2140,7 @@ function writeCell(sh, r, c, patch) {
 }
 
 function clearCellContent(sh, r, c, what) {
-  // what: 'contents' | 'formats' | 'all'
+
   const cell = sh.cells.get(key(r, c));
   if (!cell) return;
   const patch = {};
@@ -2242,7 +2149,6 @@ function clearCellContent(sh, r, c, what) {
   writeCell(sh, r, c, patch);
 }
 
-/* ---------------- History (undo/redo) ---------------- */
 const H = { undo: [], redo: [], limit: 150, batching: null };
 function pushHistory(entry) {
   if (H.batching) { H.batching.push(entry); return; }
@@ -2254,7 +2160,7 @@ function pushHistory(entry) {
 }
 function batchHistory(fn, label) {
   H.batching = [];
-  try { fn(); } finally { const ops = H.batching; H.batching = null; if (ops.length) pushHistory({ label, undo: () => { for (let i = ops.length - 1; i >= 0; i--) ops[i].undo(); }, redo: () => { for (const o of ops) o.redo(); } }); /* no-op operations leave no history entry (desktop-suite parity) */ }
+  try { fn(); } finally { const ops = H.batching; H.batching = null; if (ops.length) pushHistory({ label, undo: () => { for (let i = ops.length - 1; i >= 0; i--) ops[i].undo(); }, redo: () => { for (const o of ops) o.redo(); } });  }
 }
 function undo() {
   if (Edit.active) commitEditor(true);
@@ -2282,7 +2188,6 @@ function redo() {
   updateFormulaBar();
 }
 
-/* cell snapshot {v, f, s} helpers for history */
 function snapOf(cell) {
   if (!cell) return null;
   return { v: cell.v, f: cell.f, s: cell.s };
@@ -2345,7 +2250,6 @@ function histSheet(sh, label, mutate) {
   pushHistory({ label, undo: () => restoreSheet(sh, before), redo: () => restoreSheet(sh, after) });
 }
 
-/* ---------------- Selection ---------------- */
 function normalizeSelRange(r1, c1, r2, c2) { return normRange(clamp(r1,0,MAX_ROWS-1), clamp(c1,0,MAX_COLS-1), clamp(r2,0,MAX_ROWS-1), clamp(c2,0,MAX_COLS-1)); }
 function setSelection(r1, c1, r2, c2, opts = {}) {
   SEL.ranges = [normalizeSelRange(r1, c1, r2, c2)];
@@ -2368,14 +2272,14 @@ function selIsSingleCell() {
 function forEachSelectedCell(cb) {
   const sh = activeSheet();
   const seen = new Set();
-  let ur = null;   /* lazily-computed used range — clamps whole-row/column selections */
+  let ur = null;
   for (const rg of SEL.ranges) {
     let r1 = rg.r1, c1 = rg.c1, r2 = rg.r2, c2 = rg.c2;
     if (isRowSelection(rg) || isColSelection(rg)) {
       if (!ur) ur = usedRange(sh);
       if (isRowSelection(rg)) c2 = Math.min(c2, ur.c2);
       if (isColSelection(rg)) r2 = Math.min(r2, ur.r2);
-      if (r1 > r2 || c1 > c2) continue;   /* nothing used inside this strip */
+      if (r1 > r2 || c1 > c2) continue;
     }
     const h = r2 - r1, w = c2 - c1;
     if (h * w > 2e6 && SEL.ranges.length > 1) continue;
@@ -2427,9 +2331,9 @@ function moveActive(dr, dc, extend) {
   if (extend) {
     const rg = SEL.ranges[SEL.activeIdx];
     SEL.ranges[SEL.activeIdx] = normalizeSelRange(
-      Math.min(rg.r1, r) === rg.r1 && rg.r1 !== r ? r : rg.r1, // extend logic handled below
+      Math.min(rg.r1, r) === rg.r1 && rg.r1 !== r ? r : rg.r1,
       rg.c1, rg.r2, rg.c2);
-    // proper extension
+
     let r1 = rg.r1, c1 = rg.c1, r2 = rg.r2, c2 = rg.c2;
     const ar = SEL.active.r, ac = SEL.active.c;
     r1 = Math.min(ar, r); r2 = Math.max(ar, r);
@@ -2446,7 +2350,7 @@ function moveActive(dr, dc, extend) {
 function jumpTo(r, c, extend) {
   moveActive(r - SEL.active.r, c - SEL.active.c, extend);
 }
-let LastSelRange = null;   /* previous active range — drives the selection glide animation */
+let LastSelRange = null;
 function onSelectionChanged() {
   const shNow = activeSheet();
   const curRg = SEL.sheetId === shNow.id ? activeSelRange() : null;
@@ -2457,7 +2361,7 @@ function onSelectionChanged() {
     SelAnim.pending = false;
     if (cur && prev) beginSelAnim(prev, cur);
   }
-  hideNotePopover();   /* the card belongs to the cell it was opened from */
+  hideNotePopover();
   updateNameBox();
   updateFormulaBar();
   updateStatusBar();
@@ -2465,12 +2369,11 @@ function onSelectionChanged() {
   requestPaint();
 }
 
-/* Scroll so that cell (r, c) is visible, accounting for frozen panes. */
 function ensureVisible(r, c, opts) {
   const sh = activeSheet();
   const L = R.layout;
   if (!L) return;
-  if (r < MAX_ROWS && c < MAX_COLS) growExtent(sh, r + 2, c + 2);   /* autogrow before jumping */
+  if (r < MAX_ROWS && c < MAX_COLS) growExtent(sh, r + 2, c + 2);
   const zm = VIEW.zoom;
   const rowH = sh.rows, cols = sh.cols;
   const frzH = sh.freeze.r ? sumFrozen(rowH, sh.freeze.r) : 0;
@@ -2495,7 +2398,6 @@ function ensureVisible(r, c, opts) {
 }
 function sumFrozen(axis, n) { let s = 0; for (let i = 0; i < n; i++) s += axis.sizeOf(i); return s; }
 
-/* ---------------- View / Scroll ---------------- */
 const Scroll = { x: 0, y: 0 };
 function clampScroll() {
   const L = R.layout;
@@ -2503,17 +2405,15 @@ function clampScroll() {
   const sh = activeSheet();
   const frzH = sh.freeze.r ? sumFrozen(sh.rows, sh.freeze.r) : 0;
   const frzW = sh.freeze.c ? sumFrozen(sh.cols, sh.freeze.c) : 0;
-  /* autogrow: the viewport is pushing past the materialized edge → extend by one step.
-     The clamp below then lets the scroll continue into the new space seamlessly. */
+
   let maxH = sh.rows.total(), maxW = sh.cols.total();
   if (Scroll.y > maxH - L.gridH && sh.rows.max < MAX_ROWS) { growExtent(sh, sh.rows.max + GRID_STEP, 0); maxH = sh.rows.total(); }
   if (Scroll.x > maxW - L.gridW && sh.cols.max < MAX_COLS) { growExtent(sh, 0, sh.cols.max + GRID_STEP); maxW = sh.cols.total(); }
   Scroll.y = clamp(Scroll.y, 0, Math.max(0, maxH - frzH - L.gridH + frzH));
   Scroll.x = clamp(Scroll.x, 0, Math.max(0, maxW - frzW - L.gridW + frzW));
 }
-function scheduleScrollUI() { /* placeholder — replaced by renderer */ }
+function scheduleScrollUI() {  }
 
-/* ---------------- Input parsing (cell entry) ---------------- */
 function tryParseDateStr(s) {
   if (!s || typeof s !== 'string') return null;
   s = s.trim();
@@ -2578,7 +2478,6 @@ function parseUserInput(text) {
   return { v: t };
 }
 
-/* ---------------- Persistence manager ---------------- */
 const Persistence = {
   timer: 0, state: 'saved', docId: null,
   markDirty() {
@@ -2622,7 +2521,6 @@ function updateSaveStatus() {
   else { txt.textContent = 'All changes saved'; btn.classList.add('saved'); }
 }
 
-/* ---------------- (De)serialization ---------------- */
 function serializeSheet(sh) {
   const cells = {};
   for (const [k, cell] of sh.cells) {
@@ -2645,7 +2543,7 @@ function serializeSheet(sh) {
 function deserializeSheet(d) {
   const sh = makeSheet(d.name, d.id);
   sh.tabColor = d.tabColor || null;
-  let maxR = 0, maxC = 0;   /* used range (from stored cells) */
+  let maxR = 0, maxC = 0;
   for (const k in d.cells) {
     const c = d.cells[k];
     sh.cells.set(k, { v: c.v === undefined ? null : c.v, f: c.f || null, s: c.s ? normStyle(c.s) : null, cv: undefined, ast: undefined });
@@ -2659,9 +2557,7 @@ function deserializeSheet(d) {
   sh.merges = (d.merges || []).map(a => ({ r1: a[0], c1: a[1], r2: a[2], c2: a[3] }));
   for (const m of sh.merges) { if (m.r2 > extR) extR = m.r2; if (m.c2 > extC) extC = m.c2; }
   rebuildMergeMap(sh);
-  /* Frozen panes were not serialized, so this line reset them to zero on every
-     load and a saved freeze (or one set by an AI edit) was silently lost on the
-     next open. Restored from storage, and clamped to the sheet extent. */
+
   sh.freeze = {
     r: Math.max(0, Math.min(extR, Math.floor(+((d.freeze && d.freeze.r) || 0)))),
     c: Math.max(0, Math.min(extC, Math.floor(+((d.freeze && d.freeze.c) || 0))))
@@ -2678,7 +2574,7 @@ function deserializeSheet(d) {
       resolved: !!n.rs, replies: Array.isArray(n.r) ? n.r.map(rp => ({ a: String(rp.a || 'Me'), t: String(rp.t || ''), ts: rp.ts || null })) : []
     })));
   }
-  /* autogrow: re-materialize the extent around the loaded content, then restore usedMax */
+
   growExtent(sh, extR + 1, extC + 1);
   sh.usedMax = { r: maxR, c: maxC };
   return sh;
@@ -2737,9 +2633,6 @@ async function loadLastOrNew() {
   return false;
 }
 
-/* ==========================================================================
- * 8. VIRTUALIZED CANVAS GRID RENDERER + GEOMETRY + SCROLLBARS
- * ========================================================================== */
 R.canvas = null; R.ctx = null; R.dpr = Math.max(1, window.devicePixelRatio || 1);
 
 function computeLayout() {
@@ -2758,8 +2651,7 @@ function computeLayout() {
   const gridW = w - hdrW, gridH = h - hdrH;
   const visibleUnzoomedW = (gridW - frzW) / zm;
   const visibleUnzoomedH = (gridH - frzH) / zm;
-  /* autogrow fallback: if the materialized grid is smaller than the viewport (huge
-     monitor, deep zoom-out), extend until it fills so scrolling can always start */
+
   if (sh.rows.total() - frzH / zm <= visibleUnzoomedH + 0.5 && sh.rows.max < MAX_ROWS) growExtent(sh, sh.rows.max + GRID_STEP, 0);
   if (sh.cols.total() - frzW / zm <= visibleUnzoomedW + 0.5 && sh.cols.max < MAX_COLS) growExtent(sh, 0, sh.cols.max + GRID_STEP);
   const totalW = sh.cols.total();
@@ -2774,7 +2666,6 @@ function computeLayout() {
   return L;
 }
 
-/* screen coordinates (css px) for cell index — frozen aware */
 function colScreenX(sh, c) {
   const L = R.layout;
   const off = sh.cols.offsetOf(c);
@@ -2799,7 +2690,7 @@ function cellScreenRect(sh, r, c) {
   }
   return { x, y, w, h };
 }
-/* inverse mapping: css px → cell */
+
 function pointToCellPx(x, y) {
   const sh = activeSheet();
   const L = R.layout;
@@ -2824,21 +2715,21 @@ function hitTest(x, y) {
   if (x < L.gridX && y < L.gridY) { out.zone = 'corner'; return out; }
   if (y < L.gridY) { out.zone = 'colhdr'; const pc = pointToCellPx(Math.max(x, L.gridX + 0.01), y + L.gridY); out.c = pc ? pc.c : 0; out.px = x; return out; }
   if (x < L.gridX) { out.zone = 'rowhdr'; const pr = pointToCellPx(x + L.gridX, Math.max(y, L.gridY + 0.01)); out.r = pr ? pr.r : 0; out.py = y; return out; }
-  // scrollbars
+
   const sbx0 = L.w - L.sb, sby0 = L.h - L.sb;
   if (L.scrollVisibleV && x >= sbx0 && y >= L.gridY) { out.zone = 'vscroll'; out.py = y; return out; }
   if (L.scrollVisibleH && y >= sby0 && x >= L.gridX) { out.zone = 'hscroll'; out.px = x; return out; }
   const pc = pointToCellPx(x, y);
   if (!pc) return out;
   out.zone = 'grid'; out.r = pc.r; out.c = pc.c;
-  // edge detection for resizing (headers only) and selection border proximity (grid)
+
   const sh = activeSheet();
   if (y < L.gridY) {}
-  // for grid: detect near selection border for drag-move
+
   return out;
 }
 function hitHeaderEdge(x, y) {
-  // returns {kind:'col'|'row', index, position} when near a resize boundary in headers
+
   const L = R.layout;
   const sh = activeSheet();
   const tol = 4;
@@ -2869,7 +2760,6 @@ function requestPaint() {
 }
 function repaintAll() { requestPaint(); renderChartsLayer(); }
 
-/* ---------------- cell display value ---------------- */
 function displayValue(sh, r, c) {
   const cell = sh.cells.get(key(r, c));
   if (!cell) return { text: '', v: null, isNum: false, isErr: false, isBool: false, style: EMPTY_STYLE };
@@ -2879,7 +2769,7 @@ function displayValue(sh, r, c) {
   else v = cell.v;
   if (cell.f && VIEW.showFormulas) return { text: cell.f, v, isNum: false, isErr: false, isBool: false, style };
   if (v && typeof v === 'object' && v.__spark) return { text: '', v, isNum: false, isErr: false, isBool: false, style, spark: v.__spark };
-  if (isRange(v)) v = intersectScalar(v, { sid: sh.id, r, c });   /* bare range formula -> implicit intersection */
+  if (isRange(v)) v = intersectScalar(v, { sid: sh.id, r, c });
   if (v && typeof v === 'object' && v.__spark) return { text: '', v, isNum: false, isErr: false, isBool: false, style, spark: v.__spark };
   if (v == null || v === '') return { text: '', v: null, isNum: false, isErr: false, isBool: false, style };
   if (isErr(v)) return { text: v.err, v, isNum: false, isErr: true, isBool: false, style };
@@ -2888,7 +2778,6 @@ function displayValue(sh, r, c) {
   return { text: String(v), v, isNum: false, isErr: false, isBool: false, style };
 }
 
-/* borders: strongest side wins between neighbours */
 const BORDER_W = { thin: 1, medium: 2, thick: 3, double: 3 };
 function drawBorderSide(ctx, x1, y1, x2, y2, b, zoom) {
   ctx.strokeStyle = b.color || '#333';
@@ -2907,18 +2796,12 @@ function drawBorderSide(ctx, x1, y1, x2, y2, b, zoom) {
 }
 function sideStrength(b) { return b ? (BORDER_W[b.style || 'thin'] || 1) : 0; }
 
-/* drag ghost: one unified indicator for every canvas drag gesture (move / fill / paint).
-   The target box GLIDES after the cursor (time-based exponential easing, frame-rate independent),
-   fades in when the gesture starts (~130 ms) and fades out after release (~190 ms), and is drawn
-   as an animated GREEN DOTTED outline (marching round dots) with a soft glow + tint. */
-const DRAG_DOT = '#2f9e63';                       /* vivid spreadsheet green for drag indicators */
+const DRAG_DOT = '#2f9e63';
 const DRAG_GLOW = a => 'rgba(47,158,99,' + a + ')';
-/* Formula references get their own treatment: diagonal hatching crawling around the
-   edge of the range. Green, so it speaks the same colour language as the selection
-   border (SEL_COLOR) and the fill handle, but the stripes keep it distinguishable. */
+
 const REF_STRIPE = '#239a4d';
 const REF_GLOW = a => 'rgba(35,154,77,' + a + ')';
-const REF_CRAWL = 62;                            /* ms per px of stripe drift — deliberately unhurried */
+const REF_CRAWL = 62;
 const DragGhost = { kind: null, rect: null, alpha: 0, last: 0, raf: 0 };
 function dragGhostStep() { DragGhost.raf = 0; requestPaint(); }
 function stepDragGhost(tx, ty, tw, th, active, now) {
@@ -2929,7 +2812,7 @@ function stepDragGhost(tx, ty, tw, th, active, now) {
   const r = g.rect;
   if (SmoothScroll.reduced) { r.x = tx; r.y = ty; r.w = tw; r.h = th; g.alpha = active ? 1 : 0; }
   else {
-    const k = 1 - Math.exp(-dt / 60);             /* glide constant — smooth at any fps */
+    const k = 1 - Math.exp(-dt / 60);
     r.x += (tx - r.x) * k; r.y += (ty - r.y) * k;
     r.w += (tw - r.w) * k; r.h += (th - r.h) * k;
     g.alpha = clamp(g.alpha + (active ? 1 : -1) * dt / (active ? 130 : 190), 0, 1);
@@ -2938,7 +2821,7 @@ function stepDragGhost(tx, ty, tw, th, active, now) {
   const busy = active || dist > 0.3 || (g.alpha > 0.004 && g.alpha < 0.996);
   if (busy && !g.raf) g.raf = requestAnimationFrame(dragGhostStep);
 }
-/* animated green dotted outline: marching round dots + glow + soft interior tint */
+
 function drawDragDots(ctx, r, now, alpha, opts) {
   const reduced = SmoothScroll.reduced;
   ctx.save();
@@ -2950,16 +2833,13 @@ function drawDragDots(ctx, r, now, alpha, opts) {
   ctx.strokeStyle = (opts && opts.color) || DRAG_DOT;
   ctx.lineWidth = (opts && opts.lw) || 2.4;
   ctx.lineCap = 'round';
-  const period = (opts && opts.period) || 7;      /* dash+gap must equal period */
+  const period = (opts && opts.period) || 7;
   ctx.setLineDash([0.1, period - 0.1]);
   ctx.lineDashOffset = reduced ? 0 : -((now / 18) % period);
   ctx.strokeRect(Math.round(r.x) + 1, Math.round(r.y) + 1, Math.round(r.w) - 2, Math.round(r.h) - 2);
   ctx.restore();
 }
 
-/* striped border for a range being dragged into a formula. Built once from an 8px
-   tile of diagonal hatching, so the "stripes" are real strokes rather than a dash
-   pattern; the tile is then slid along the diagonal to make them crawl, slowly. */
 let refStripePat = null;
 function refStripePattern(c) {
   if (refStripePat) return refStripePat;
@@ -2980,7 +2860,7 @@ function refStripePattern(c) {
 function drawRefStripes(ctx, r, now, alpha) {
   ctx.save();
   ctx.globalAlpha = alpha;
-  ctx.fillStyle = REF_GLOW(0.09 * alpha);       /* faint wash so the range reads as "captured" */
+  ctx.fillStyle = REF_GLOW(0.09 * alpha);
   ctx.fillRect(r.x, r.y, r.w, r.h);
   const pat = refStripePattern(ctx);
   if (pat && pat.setTransform && !SmoothScroll.reduced) {
@@ -2988,13 +2868,11 @@ function drawRefStripes(ctx, r, now, alpha) {
     pat.setTransform(new DOMMatrix().translateSelf(o, o));
   }
   ctx.lineWidth = 3;
-  ctx.strokeStyle = pat || REF_STRIPE;          /* pattern-null fallback stays a plain line */
+  ctx.strokeStyle = pat || REF_STRIPE;
   ctx.strokeRect(Math.round(r.x) + 1.5, Math.round(r.y) + 1.5, Math.round(r.w) - 3, Math.round(r.h) - 3);
   ctx.restore();
 }
 
-/* resize guide: soft green dotted edge-line while dragging a row/column border (fades in/out;
-   the line itself stays 1:1 with the pointer — only the visibility animates) */
 const ResizeFx = { alpha: 0, last: 0, raf: 0 };
 function resizeFxStep() { ResizeFx.raf = 0; requestPaint(); }
 function stepResizeFx(active, now) {
@@ -3006,7 +2884,6 @@ function stepResizeFx(active, now) {
   if (busy && !ResizeFx.raf) ResizeFx.raf = requestAnimationFrame(resizeFxStep);
 }
 
-/* ---------------- main paint ---------------- */
 function paint() {
   const canvas = R.canvas, ctx = R.ctx;
   if (!canvas || !WB) return;
@@ -3014,8 +2891,7 @@ function paint() {
   const L = computeLayout();
   ctx.setTransform(R.dpr, 0, 0, R.dpr, 0, 0);
   ctx.clearRect(0, 0, L.w, L.h);
-  /* Keep the header bands (top column headers + left row headers) transparent so
-     the app surface shows through; paint white only on the cell body & scrollbars. */
+
   const vbw = L.scrollVisibleV ? L.sb : 0, hbh = L.scrollVisibleH ? L.sb : 0;
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(L.gridX, L.gridY, L.gridW - vbw, L.gridH - hbh);
@@ -3026,7 +2902,6 @@ function paint() {
   const zm = L.zoom;
   const sbW = L.scrollVisibleV ? L.sb : 0, sbH = L.scrollVisibleH ? L.sb : 0;
 
-  /* --- determine visible index ranges --- */
   const frozenWUnz = sumFrozen(sh.cols, L.frzC);
   const frozenHUnz = sumFrozen(sh.rows, L.frzR);
   const scrollColsX0 = frozenWUnz + Scroll.x;
@@ -3038,7 +2913,6 @@ function paint() {
   const r0 = sh.rows.indexAt(scrollRowsY0);
   const r1 = Math.min(MAX_ROWS - 1, sh.rows.indexAt(scrollRowsY0 + rowsScrollH) + 1);
 
-  /* --- band painting --- */
   function paintBand(clip, rowsFrom, rowsTo, colsFrom, colsTo, offsetX, offsetY, originRow, originCol) {
     if (clip.w <= 0 || clip.h <= 0) return;
     ctx.save();
@@ -3050,7 +2924,7 @@ function paint() {
     if (!drawRows.length || !drawCols.length) { ctx.restore(); return; }
 
     drawSelectionFill(ctx, sh, L);
-    /* fills + text */
+
     const noted = [];
     for (const r of drawRows) {
       const y = rowScreenY(sh, r), hh = rowScreenH(sh, r);
@@ -3066,7 +2940,7 @@ function paint() {
         if (sh.notes && sh.notes.has(key(r, c))) noted.push(r, c, rect);
       }
     }
-    /* gridlines */
+
     if (sh.showGridlines) {
       ctx.strokeStyle = GRID_COLOR; ctx.lineWidth = 1; ctx.setLineDash([]);
       ctx.beginPath();
@@ -3082,7 +2956,7 @@ function paint() {
       }
       ctx.stroke();
     }
-    /* borders */
+
     ctx.setLineDash([]);
     for (const r of drawRows) {
       for (const c of drawCols) {
@@ -3100,29 +2974,27 @@ function paint() {
         void rightIdx; void botIdx;
       }
     }
-    /* recent-commit flash glows (fading accent tint) */
+
     drawCellFlashes(ctx, sh, L);
-    /* selection overlay */
+
     drawSelection(ctx, sh, L);
-    /* comment bubbles last of all: gridlines, cell text, cell borders, commit
-       flashes and the selection glow must never cut through or tint them */
+
     for (let i = 0; i < noted.length; i += 3) drawNotePin(sh, ctx, noted[i], noted[i + 1], noted[i + 2], clip);
     ctx.restore();
   }
 
   const gridRight = L.gridX + L.gridW - sbW;
   const gridBottom = L.gridY + L.gridH - sbH;
-  /* band 1: scrollable area (clip excludes frozen strips) */
+
   paintBand({ x: L.gridX + L.frzW, y: L.gridY + L.frzH, w: gridRight - (L.gridX + L.frzW), h: gridBottom - (L.gridY + L.frzH) },
     r0, r1, c0, c1, 0, 0, r0, c0);
-  /* band 2: frozen columns (rows scroll) */
+
   if (L.frzC) paintBand({ x: L.gridX, y: L.gridY + L.frzH, w: L.frzW, h: gridBottom - (L.gridY + L.frzH) }, r0, r1, 0, L.frzC - 1, 0, 0, r0, 0);
-  /* band 3: frozen rows (cols scroll) */
+
   if (L.frzR) paintBand({ x: L.gridX + L.frzW, y: L.gridY, w: gridRight - (L.gridX + L.frzW), h: L.frzH }, 0, L.frzR - 1, c0, c1, 0, 0, 0, c0);
-  /* band 4: frozen corner */
+
   if (L.frzC && L.frzR) paintBand({ x: L.gridX, y: L.gridY, w: L.frzW, h: L.frzH }, 0, L.frzR - 1, 0, L.frzC - 1, 0, 0, 0, 0);
 
-  /* unified drag indicator — green marching dots for move / fill / paint, with eased follow + fades */
   {
     const now = performance.now();
     let kind = null, rc = null;
@@ -3139,8 +3011,7 @@ function paint() {
              w: (sh.cols.offsetOf(t.c2 + 1) - sh.cols.offsetOf(t.c1)) * zm,
              h: (sh.rows.offsetOf(t.r2 + 1) - sh.rows.offsetOf(t.r1)) * zm };
     } else if (Mouse.mode === 'refSel' && Mouse.data && Mouse.data.anchor) {
-      /* typing a formula and dragging out a reference — striped outline, green with
-         diagonal hatching. Cross-sheet picks have no on-screen range. */
+
       const d = Mouse.data;
       if (d.baseSheet === sh.id && d.cur) {
         kind = 'ref';
@@ -3150,9 +3021,7 @@ function paint() {
                h: (sh.rows.offsetOf(Math.max(a.r, d.cur.r) + 1) - sh.rows.offsetOf(Math.min(a.r, d.cur.r))) * zm };
       }
     } else if (Mouse.mode === 'chartRef' && Mouse.data && Mouse.data.anchor) {
-      /* dragging the chart pane's data range — same striped outline a formula
-         reference gets, so the gesture reads the same as picking a range in a
-         formula */
+
       const d = Mouse.data;
       if (d.baseSheet === sh.id && d.cur) {
         kind = 'ref';
@@ -3172,7 +3041,7 @@ function paint() {
       if (DragGhost.kind !== kind) { DragGhost.kind = kind; DragGhost.rect = null; }
       stepDragGhost(rc.x, rc.y, rc.w, rc.h, true, now);
     } else if (DragGhost.rect && DragGhost.alpha > 0) {
-      /* gesture released — keep drawing while the ghost fades out */
+
       stepDragGhost(DragGhost.rect.x, DragGhost.rect.y, DragGhost.rect.w, DragGhost.rect.h, false, now);
     } else { DragGhost.kind = null; DragGhost.rect = null; }
     if (DragGhost.rect && DragGhost.alpha > 0.01) {
@@ -3182,9 +3051,6 @@ function paint() {
     }
   }
 
-  /* a reference text-selected in the formula is outlined at full strength and stays
-     outlined until the selection changes — the drag ghost above is the transient hint
-     during the drag itself, this is the durable one afterwards */
   if (Mouse.mode !== 'refSel') {
     const selRef = selectedRefRange();
     if (selRef) {
@@ -3196,8 +3062,6 @@ function paint() {
     }
   }
 
-  /* the chart pane's armed data range stays outlined for as long as the range
-     field holds focus, so you can see what the chart is reading */
   if (Mouse.mode !== 'chartRef' && ChartPane.picking && ChartPane.draft) {
     const cpRange = chartPaneRange();
     if (cpRange && ChartPane.draft.sheetId === sh.id) {
@@ -3209,14 +3073,12 @@ function paint() {
     }
   }
 
-  /* formula auditing arrows (recomputed live while active) */
   drawAuditArrows(ctx, sh, L, sbW, sbH);
 
-  /* --- headers --- */
   if (VIEW.showHeadings) {
     drawColHeaders(ctx, sh, L, c0, c1, r0, r1);
     drawRowHeaders(ctx, sh, L, r0, r1, c0, c1);
-    /* corner */
+
     ctx.strokeStyle = HDR_BORDER; ctx.lineWidth = 1;
     ctx.strokeRect(0.5, 0.5, L.gridX - 0.5, L.gridY - 0.5);
     ctx.fillStyle = HDR_TXT;
@@ -3226,7 +3088,6 @@ function paint() {
     ctx.fill();
   }
 
-  /* resize guide: animated green dotted edge-line while dragging a header border */
   {
     const now = performance.now();
     const resizing = (Mouse.mode === 'resizeCol' || Mouse.mode === 'resizeRow') && Mouse.data;
@@ -3254,11 +3115,9 @@ function paint() {
     }
   }
 
-  /* frozen pane dividers */
   if (L.frzC) { ctx.strokeStyle = '#b8bcc2'; ctx.lineWidth = 1.5; ctx.beginPath(); const x = L.gridX + L.frzW; ctx.moveTo(x, L.gridY); ctx.lineTo(x, L.gridY + L.gridH - sbH); ctx.stroke(); }
   if (L.frzR) { ctx.strokeStyle = '#b8bcc2'; ctx.lineWidth = 1.5; ctx.beginPath(); const y = L.gridY + L.frzH; ctx.moveTo(L.gridX, y); ctx.lineTo(L.gridX + L.gridW - sbW, y); ctx.stroke(); }
 
-  /* live resize guide line (column/row drag) */
   if ((Mouse.mode === 'resizeCol' || Mouse.mode === 'resizeRow') && Mouse.data) {
     ctx.save();
     ctx.strokeStyle = 'rgba(33,115,70,0.18)'; ctx.lineWidth = 5;
@@ -3276,18 +3135,15 @@ function paint() {
     ctx.restore();
   }
 
-  /* grid outer edge */
   ctx.strokeStyle = '#e3e5e8'; ctx.lineWidth = 1;
   ctx.strokeRect(L.gridX + 0.5, L.gridY + 0.5, L.gridW - sbW - 1, L.gridH - sbH - 1);
 
-  /* --- scrollbars --- */
   if (L.scrollVisibleV) drawVScrollbar(ctx, L);
   if (L.scrollVisibleH) drawHScrollbar(ctx, L);
 
   updateOverlayLayers();
 }
 
-/* sparkline renderer — mini line/bar/winloss chart inside a cell */
 function drawSparkline(ctx, rect, spark) {
   const vals = (spark.values || []).filter(v => typeof v === 'number');
   if (vals.length < 2) return;
@@ -3314,13 +3170,13 @@ function drawSparkline(ctx, rect, spark) {
         if (v >= 0) ctx.fillRect(bx, by, bw, Math.max(1, zeroY - by));
         else ctx.fillRect(bx, zeroY, bw, Math.max(1, by - zeroY));
       } else {
-        /* winloss: equal-height markers */
+
         if (v >= 0) ctx.fillRect(bx, y0 + 1, bw, Math.max(1, zeroY - y0 - 1));
         else ctx.fillRect(bx, zeroY + 1, bw, Math.max(1, y0 + h0 - zeroY - 2));
       }
     });
   } else {
-    /* soft area fill under the line */
+
     ctx.beginPath();
     vals.forEach((v, i) => { if (i === 0) ctx.moveTo(vx(i), vy(v)); else ctx.lineTo(vx(i), vy(v)); });
     ctx.lineTo(vx(vals.length - 1), y0 + h0);
@@ -3328,14 +3184,14 @@ function drawSparkline(ctx, rect, spark) {
     ctx.closePath();
     ctx.fillStyle = 'rgba(33,115,70,0.10)';
     ctx.fill();
-    /* the line */
+
     ctx.beginPath();
     vals.forEach((v, i) => { if (i === 0) ctx.moveTo(vx(i), vy(v)); else ctx.lineTo(vx(i), vy(v)); });
     ctx.strokeStyle = '#217346';
     ctx.lineWidth = 1.4;
     ctx.lineJoin = 'round';
     ctx.stroke();
-    /* min / max / last markers */
+
     const mi = vals.indexOf(min), ma = vals.indexOf(max);
     ctx.fillStyle = '#c4314b';
     ctx.beginPath(); ctx.arc(vx(mi), vy(min), 1.7, 0, Math.PI * 2); ctx.fill();
@@ -3353,13 +3209,9 @@ function clippedCellRect(rect, clip) {
   return { x, y, w: Math.max(0, right - x), h: Math.max(0, bottom - y) };
 }
 let commentPinPath = null;
-/* How much bigger the bubble grows while hovered (the canvas twin of Docs'
-   `sup.comment-ref:hover .comment-bubble { transform: scale(1.12) }`). */
+
 const NOTE_PIN_HOVER_SCALE = 0.15;
-/* Comment pin geometry (canvas px). paint() and the pointer hit-test share this so
-   the click target is always exactly what is drawn. `clip` trims the pin to the
-   frozen/scrolled viewport; `grow` (0…1 from NotePinAnim) nudges the bubble up in
-   size around its centre. Returns null when the cell is too small to hold a pin. */
+
 function notePinGeom(sh, r, c, rect, clip, grow) {
   const L = R.layout;
   const visible = clip ? clippedCellRect(rect, clip) : rect;
@@ -3374,7 +3226,7 @@ function notePinGeom(sh, r, c, rect, clip, grow) {
     zoom: L.zoom || 1
   };
 }
-/* Is (x,y) inside the comment pin of cell (r,c)? Small slop so the pin is easy to hit. */
+
 function onNotePin(sh, r, c, x, y) {
   if (!sh.notes || !sh.notes.has(key(r, c))) return false;
   const g = notePinGeom(sh, r, c, cellScreenRect(sh, r, c), null, 0);
@@ -3383,11 +3235,7 @@ function onNotePin(sh, r, c, x, y) {
   return x >= g.cx - g.size / 2 - pad && x <= g.cx + g.size / 2 + pad &&
          y >= g.cy - g.size / 2 - pad && y <= g.cy + g.size / 2 + pad;
 }
-/* The bubble itself. Drawn in its own pass AFTER gridlines, cell text, cell
-   borders and the selection overlay, so nothing can cut through it — the same
-   layering Excel gives the note indicator. Every colour is a solid hex: an opaque
-   accent face over an opaque offset copy of the same shape, in place of the
-   translucent blur glow, so the bubble is never see-through. */
+
 function drawNotePin(sh, ctx, r, c, rect, clip) {
   if (!sh.notes || !sh.notes.has(key(r, c))) return;
   const note = noteAt(sh, r, c);
@@ -3412,7 +3260,7 @@ function drawNotePin(sh, ctx, r, c, rect, clip) {
   };
   ctx.fillStyle = face;
   place(g.cx, g.cy);
-  /* author initial last, so it always sits on top of the bubble */
+
   ctx.save();
   ctx.fillStyle = '#ffffff';
   ctx.font = '700 ' + Math.max(6, Math.round(g.size * 0.5)) + 'px "DM Sans", sans-serif';
@@ -3421,11 +3269,7 @@ function drawNotePin(sh, ctx, r, c, rect, clip) {
   ctx.fillText(avatarLetter(note.author || 'You'), g.cx, g.cy);
   ctx.restore();
 }
-/* Hovering a comment pin nudges the bubble a little bigger — the canvas twin of
-   Docs' `sup.comment-ref:hover .comment-bubble { transform: scale(1.12) }` CSS
-   transition. The pin is drawn on the canvas, so it needs its own rAF tween (like
-   the glide / selection animations). One entry per bubble, so growing AND shrinking
-   animate, and sliding straight from one bubble to the next tweens both. */
+
 const NOTE_PIN_TWEEN_MS = 150;
 const NotePinAnim = { hover: null, scales: new Map(), raf: 0 };
 function notePinScaleFor(k) {
@@ -3434,16 +3278,15 @@ function notePinScaleFor(k) {
   if (!t) return 0;
   const p = (performance.now() - t.t0) / NOTE_PIN_TWEEN_MS;
   if (p >= 1) {
-    /* back at rest → forget it; still hovered → park it at full size, otherwise the
-       bubble would snap back the moment the grow tween finished */
+
     if (t.to === 0) m.delete(k); else { t.from = 1; t.t0 = performance.now(); }
     return t.to;
   }
-  return t.from + (t.to - t.from) * (1 - Math.pow(1 - p, 3));   /* ease-out, both ways */
+  return t.from + (t.to - t.from) * (1 - Math.pow(1 - p, 3));
 }
 function retargetNotePin(k, to) {
-  const from = notePinScaleFor(k);          /* read the CURRENT eased value BEFORE
-                                               retargeting, else the tween jumps to its end */
+  const from = notePinScaleFor(k);
+
   if (Math.abs(from - to) < 0.001) return;
   if (SmoothScroll.reduced) {
     if (to === 0) NotePinAnim.scales.delete(k); else NotePinAnim.scales.set(k, { from: 1, to: 1, t0: performance.now() });
@@ -3455,8 +3298,7 @@ function retargetNotePin(k, to) {
   if (NotePinAnim.raf) return;
   const step = () => {
     NotePinAnim.raf = 0;
-    /* Settle finished tweens here rather than only when a bubble is read: one that
-       scrolled off screen mid-tween must not keep this loop alive forever. */
+
     const now = performance.now();
     let busy = false;
     for (const [k2, t] of NotePinAnim.scales) {
@@ -3473,7 +3315,7 @@ function setNotePinHover(k) {
   if (NotePinAnim.hover === k) return;
   const prev = NotePinAnim.hover;
   NotePinAnim.hover = k;
-  if (prev) retargetNotePin(prev, 0);        /* the bubble just left springs back */
+  if (prev) retargetNotePin(prev, 0);
   if (k) retargetNotePin(k, 1);
 }
 function drawCellContent(sh, ctx, r, c, rect, L, clip) {
@@ -3505,7 +3347,6 @@ function drawCellContent(sh, ctx, r, c, rect, L, clip) {
   let align = style.halign || (info.isNum ? 'right' : info.isBool ? 'center' : 'left');
   if (info.isErr) align = style.halign || 'right';
 
-  /* wrapped text */
   if (style.wrap && rect.w > 12) {
     const lines = wrapText(ctx, info.text, rect.w - pad * 2);
     const lh = fs * 1.25;
@@ -3522,7 +3363,6 @@ function drawCellContent(sh, ctx, r, c, rect, L, clip) {
     return;
   }
 
-  /* measure + overflow */
   ctx.textAlign = align === 'right' ? 'right' : align === 'center' ? 'center' : 'left';
   const tw = ctx.measureText(info.text).width;
   const avail = rect.w - pad * 2;
@@ -3530,7 +3370,7 @@ function drawCellContent(sh, ctx, r, c, rect, L, clip) {
 
   if (tw > avail) {
     if (info.isNum) {
-      /* #### */
+
       ctx.save();
       ctx.beginPath(); ctx.rect(rect.x, rect.y, rect.w, rect.h); ctx.clip();
       const cw = Math.max(4, ctx.measureText('#').width);
@@ -3546,7 +3386,7 @@ function drawCellContent(sh, ctx, r, c, rect, L, clip) {
       ctx.restore();
       return;
     }
-    /* text spill into neighbouring empty cells */
+
     let extW = rect.w;
     const dir = align === 'right' ? -1 : 1;
     let edge = align === 'right' ? rect.x : rect.x + rect.w;
@@ -3576,7 +3416,7 @@ function drawCellContent(sh, ctx, r, c, rect, L, clip) {
     ctx.save();
     const ty = textY + fs * 0.42;
     if (style.underline === 2) {
-      ctx.fillRect(tx - (align === 'right' ? tw : 0), ty, tw, 1); 
+      ctx.fillRect(tx - (align === 'right' ? tw : 0), ty, tw, 1);
       ctx.fillRect(tx - (align === 'right' ? tw : 0), ty + 2.5, tw, 1);
     } else if (style.underline === 1) {
       ctx.fillRect(tx - (align === 'right' ? tw : 0), ty + 0.5, tw, 1);
@@ -3586,8 +3426,6 @@ function drawCellContent(sh, ctx, r, c, rect, L, clip) {
   }
   ctx.fillText(info.text, tx, textY);
 }
-/* A data bar sits behind the cell's text, anchored to the left edge and inset
-   slightly, with the rounded cap Excel draws at the end of the bar. */
 
 function wrapText(ctx, text, maxW) {
   const words = String(text).split(/\r?\n/);
@@ -3639,11 +3477,7 @@ function drawColHeaders(ctx, sh, L, c0, c1, r0, r1) {
     ctx.fillStyle = hs.sel ? '#1c5233' : (c === Hover.col ? '#3b6e52' : HDR_TXT);
     ctx.fillText(colName(c), x + w / 2, L.gridY / 2 + 0.5);
   };
-  /* Frozen columns sit *below* c0, because c0 is the first column after the
-     frozen strip (c0 = cols.indexAt(frozenW + Scroll.x)). Looping c0..c1 alone
-     therefore left every frozen column with no letter at all - a column of cells
-     under a blank header. colScreenX already places c < frzC inside the frozen
-     strip, so drawing them here needs no extra offset maths. */
+
   for (let c = 0; c < L.frzC; c++) one(c);
   let c = c0;
   let guard = 0;
@@ -3651,7 +3485,7 @@ function drawColHeaders(ctx, sh, L, c0, c1, r0, r1) {
   ctx.restore();
 }
 const LHdrSel = '#cde5d7';
-const LHdrHover = '#e3f0e8';   /* header hover tint */
+const LHdrHover = '#e3f0e8';
 function drawRowHeaders(ctx, sh, L, r0, r1, c0, c1) {
   ctx.save();
   ctx.beginPath(); ctx.rect(0, L.gridY, L.gridX, L.gridH); ctx.clip();
@@ -3673,8 +3507,7 @@ function drawRowHeaders(ctx, sh, L, r0, r1, c0, c1) {
     ctx.font = Math.round(11 * Math.min(L.zoom, 1.4)) + 'px "Segoe UI", sans-serif';
     ctx.fillText(String(r + 1), L.gridX / 2, y + h / 2 + 0.5);
   };
-  /* Same story as drawColHeaders: r0 begins after the frozen rows, so frozen
-     rows need their own pass or their numbers are never drawn. */
+
   for (let r = 0; r < L.frzR; r++) one(r);
   let r = r0;
   let guard = 0;
@@ -3682,8 +3515,6 @@ function drawRowHeaders(ctx, sh, L, r0, r1, c0, c1) {
   ctx.restore();
 }
 
-/* selection tint + active-cell wash, drawn UNDER cell text (call inside a
-   translated/clipped band, before drawCellContent) so text is never bleached */
 function drawSelectionFill(ctx, sh, L) {
   if (SEL.sheetId !== sh.id) return;
   const zm = L.zoom;
@@ -3706,7 +3537,6 @@ function drawSelectionFill(ctx, sh, L) {
   ctx.fillRect(arect.x, arect.y, arect.w, arect.h);
 }
 
-/* selection overlay drawing (call inside a translated/clipped band) */
 function drawSelection(ctx, sh, L) {
   if (SEL.sheetId !== sh.id) return;
   const zm = L.zoom;
@@ -3719,7 +3549,7 @@ function drawSelection(ctx, sh, L) {
     const w = (sh.cols.offsetOf(rg.c2 + 1) - sh.cols.offsetOf(rg.c1)) * zm;
     const h = (sh.rows.offsetOf(rg.r2 + 1) - sh.rows.offsetOf(rg.r1)) * zm;
     const multi = SEL.ranges.length > 1 || rg.r1 !== rg.r2 || rg.c1 !== rg.c2;
-    /* border — the active border glides from the previous selection on click */
+
     let bx = x, by = y, bw = w, bh = h;
     if (isActive && fromRg && animP < 1) {
       const fx = colScreenX(sh, fromRg.c1), fy = rowScreenY(sh, fromRg.r1);
@@ -3743,7 +3573,7 @@ function drawSelection(ctx, sh, L) {
       ctx.lineWidth = 2;
       ctx.strokeRect(arect2.x + 0.5, arect2.y + 0.5, arect2.w - 1, arect2.h - 1);
     }
-    /* fill handle — grows + glows on hover */
+
     if (isActive && !Edit.active && !(rg.r1 === 0 && rg.c1 === 0 && rg.r2 >= MAX_ROWS - 1)) {
       const fr = activeSelRange();
       const hx0 = colScreenX(sh, fr.c2) + colScreenW(sh, fr.c2);
@@ -3764,7 +3594,7 @@ function drawSelection(ctx, sh, L) {
       ctx.restore();
     }
   }
-  /* cut marquee */
+
   if (Clip.marquee) {
     const rg = Clip.marquee.range;
     const x = colScreenX(sh, rg.c1), y = rowScreenY(sh, rg.r1);
@@ -3777,12 +3607,10 @@ function drawSelection(ctx, sh, L) {
     ctx.strokeRect(x + 0.75, y + 0.75, w - 1.5, h - 1.5);
     ctx.setLineDash([]);
   }
-  /* NOTE: autofill + format-painter drag targets are drawn by the unified
-     DragGhost indicator in paint() (animated green marching dots). */
+
 }
 function isErrViewport() { return false; }
 
-/* ---------------- scrollbars ---------------- */
 function vThumbMetrics(L) {
   const sh = activeSheet();
   const total = sh.rows.total();
@@ -3846,10 +3674,6 @@ function scrollByPx(dx, dy) {
   requestPaint();
 }
 
-/* ---------------- smooth scrolling ----------------
- * Wheel input eases the viewport toward a target offset (buttery glide).
- * Direct manipulation (scrollbar drag, autoScroll, programmatic jumps)
- * cancels the glide and stays 1:1. Honors prefers-reduced-motion. */
 const SmoothScroll = { tx: 0, ty: 0, raf: 0, active: false,
   reduced: window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches };
 function smoothScrollBy(dx, dy) {
@@ -3864,7 +3688,7 @@ function smoothScrollBy(dx, dy) {
 function smoothScrollStep() {
   SmoothScroll.raf = 0;
   if (!SmoothScroll.active) return;
-  const k = 0.26;                                   /* ease factor per frame */
+  const k = 0.26;
   Scroll.x += (SmoothScroll.tx - Scroll.x) * k;
   Scroll.y += (SmoothScroll.ty - Scroll.y) * k;
   clampScroll();
@@ -3883,7 +3707,7 @@ function cancelSmoothScroll() {
   SmoothScroll.active = false;
   if (SmoothScroll.raf) { cancelAnimationFrame(SmoothScroll.raf); SmoothScroll.raf = 0; }
 }
-/* glide the viewport to an absolute offset (name-box jumps, big navigations) */
+
 function smoothScrollTo(tx, ty) {
   if (SmoothScroll.reduced) {
     cancelSmoothScroll();
@@ -3895,16 +3719,13 @@ function smoothScrollTo(tx, ty) {
   SmoothScroll.raf = requestAnimationFrame(smoothScrollStep);
 }
 
-/* ---------------- scrollbar auto-fade ----------------
- * Scrollbars are fully visible while scrolling / hovering / dragging and
- * gently fade out after ~1.4 s idle (overlay style). Honors reduced motion. */
 const SbFade = { alpha: 1, last: performance.now(), raf: 0 };
 let sbIdleTimer = 0;
 function sbActivity() {
   if (SmoothScroll.reduced) return;
   SbFade.last = performance.now();
   if (sbIdleTimer) { clearTimeout(sbIdleTimer); sbIdleTimer = 0; }
-  if (SbFade.alpha < 1 && !SbFade.raf) SbFade.raf = requestAnimationFrame(sbFadeStep);   /* fade back in */
+  if (SbFade.alpha < 1 && !SbFade.raf) SbFade.raf = requestAnimationFrame(sbFadeStep);
   sbIdleTimer = setTimeout(() => { sbIdleTimer = 0; if (!SbFade.raf) SbFade.raf = requestAnimationFrame(sbFadeStep); }, 1450);
 }
 function sbFadeTarget() {
@@ -3916,15 +3737,13 @@ function sbFadeStep() {
   const t = sbFadeTarget();
   if (Math.abs(t - SbFade.alpha) < 0.02) {
     if (SbFade.alpha !== t) { SbFade.alpha = t; requestPaint(); }
-    return;                                   /* settled — sleep; the idle timer re-arms on activity */
+    return;
   }
   SbFade.alpha += (t - SbFade.alpha) * 0.15;
   requestPaint();
   SbFade.raf = requestAnimationFrame(sbFadeStep);
 }
 
-/* ---------------- cell commit flash ----------------
- * Brief accent glow on a cell right after its value is written. */
 const CellFlashes = { list: [], raf: 0 };
 function flashCell(sh, r, c) {
   if (SmoothScroll.reduced) return;
@@ -3960,9 +3779,6 @@ function drawCellFlashes(ctx, sh, L) {
   ctx.restore();
 }
 
-/* ---------------- number glide: numeric values count smoothly to their new value ----------------
- * When a plain number is replaced by another plain number (typing, paste, fill, undo),
- * the rendered text eases from the old value to the new one (~360 ms) instead of snapping. */
 const CellGlides = { map: new Map(), raf: 0 };
 function glideNumber(sh, r, c, fromV, toV, fmt) {
   if (SmoothScroll.reduced || document.hidden) return;
@@ -3975,7 +3791,7 @@ function glideNumber(sh, r, c, fromV, toV, fmt) {
     if (p < 1) from = cur.from + (cur.to - cur.from) * (1 - Math.pow(1 - p, 3));
   }
   CellGlides.map.set(k, { from, to: toV, fmt: fmt || 'General', t0: performance.now(), dur: 360 });
-  if (CellGlides.map.size > 400) {          /* bulk operations: keep only the newest entries */
+  if (CellGlides.map.size > 400) {
     let n = CellGlides.map.size - 400;
     for (const k2 of CellGlides.map.keys()) { if (n-- <= 0) break; CellGlides.map.delete(k2); }
   }
@@ -3997,11 +3813,10 @@ function glideTextFor(sh, r, c) {
   if (p >= 1) { CellGlides.map.delete(k); return null; }
   const e = 1 - Math.pow(1 - p, 3);
   let val = g.from + (g.to - g.from) * e;
-  if (Number.isInteger(g.from) && Number.isInteger(g.to)) val = Math.round(val);   /* integers count as integers */
+  if (Number.isInteger(g.from) && Number.isInteger(g.to)) val = Math.round(val);
   return formatValue(val, g.fmt);
 }
 
-/* ---------------- cut marquee marching ants ---------------- */
 const MarqueeAnim = { raf: 0, last: 0 };
 function startMarqueeAnim() {
   if (SmoothScroll.reduced || MarqueeAnim.raf) return;
@@ -4014,10 +3829,6 @@ function startMarqueeAnim() {
   MarqueeAnim.raf = requestAnimationFrame(step);
 }
 
-/* ---------------- selection border animation ----------------
- * When a new cell is clicked, the active border glides from the previous
- * active range to the new one (~120 ms). Pointer-driven only: keyboard nav,
- * drag-select and fill/move stay instant so they never lag the cursor. */
 const SelAnim = { t0: 0, dur: 120, active: false, raf: 0, from: null, pending: false };
 function selAnimEase(p) { return 1 - Math.pow(1 - p, 3); }
 function beginSelAnim(from, to) {
@@ -4051,7 +3862,6 @@ function lerpRangeRect(a, b, p) {
   };
 }
 
-/* overlay DOM (chart frames) repositioning after paint */
 let overlaySig = '';
 function updateOverlayLayers() {
   const sh = activeSheet();
@@ -4074,9 +3884,6 @@ function repositionCharts() {
   });
 }
 
-/* ==========================================================================
- * 9. INTERACTIONS — MOUSE / SELECTION / EDITING / FILL / MOVE / PAINTER
- * ========================================================================== */
 function gridPos(e) {
   const rect = R.canvas.getBoundingClientRect();
   return { x: e.clientX - rect.left, y: e.clientY - rect.top };
@@ -4086,25 +3893,21 @@ function setupGridEvents() {
 R.canvas.addEventListener('mousedown', e => {
   if (e.button !== 0 && e.button !== 2) return;
   const p = gridPos(e);
-  /* cross-sheet audit chips are click-to-jump targets */
+
   if (e.button === 0 && Audit.mode) {
     const chip = auditChipAt(p.x, p.y);
     if (chip) { if (Edit.active) finishEdit(); jumpToAuditChip(chip); e.preventDefault(); return; }
   }
   const hit = hitTest(p.x, p.y);
   closePopups();
-  /* A live draft is settled FIRST, before anything else in the grid can
-     invalidate it (fill drag, painting, selection move, sheet filter…): typing
-     is committed, an untouched editor is just dismissed. */
+
   if (Edit.active) {
     if (Edit.refMode && hit.zone === 'grid') { startRefSelect(e, hit.r, hit.c); e.preventDefault(); return; }
     finishEdit();
   }
   if (PaintState.active) { startPaint(e, hit); e.preventDefault(); return; }
-  if (e.button === 2) { e.preventDefault(); return; }  /* no custom right-click in sheets except the bottom-bar sheet tabs */
-  /* chart pane armed: a click or drag on a cell re-points the data range instead
-     of moving the selection. Same sheet only — a cross-sheet range has no
-     rectangle to pick from. */
+  if (e.button === 2) { e.preventDefault(); return; }
+
   if (e.button === 0 && ChartPane.picking && ChartPane.draft && hit.zone === 'grid' && activeSheet().id === ChartPane.draft.sheetId) {
     startChartRefSelect(hit.r, hit.c); e.preventDefault(); return;
   }
@@ -4119,20 +3922,17 @@ R.canvas.addEventListener('mousedown', e => {
   }
   if (hit.zone !== 'grid') return;
   const { r, c } = hit;
-  /* comment pin? — left click is the ONLY way the thread card opens (hover just
-     nudges the bubble). Clicking it again closes the card. */
+
   if (e.button === 0 && onNotePin(activeSheet(), r, c, p.x, p.y)) {
     e.preventDefault();
     toggleNotePopover(r, c, e);
     return;
   }
-  /* fill handle? */
+
   if (onFillHandle(p.x, p.y)) { startFill(e, p); e.preventDefault(); return; }
-  /* near selection border → move */
+
   if (!e.shiftKey && !e.ctrlKey && !e.metaKey && nearSelectionBorder(p.x, p.y)) { startMove(e, p); e.preventDefault(); return; }
-  /* A plain click only MOVES the selection — it never drops into typing mode.
-     Typing starts the draft (see the document keydown), double-click / F2 /
-     the formula bar are the deliberate formula-editing entries. */
+
   startSelect(e, r, c);
   e.preventDefault();
 });
@@ -4140,7 +3940,7 @@ R.canvas.addEventListener('mousedown', e => {
 R.canvas.addEventListener('mousemove', e => {
   const p = gridPos(e);
   if (!Mouse.mode) {
-    /* hover cursors */
+
     const hit = hitTest(p.x, p.y);
     let cur = 'default';
     if (Audit.mode && auditChipAt(p.x, p.y)) cur = 'pointer';
@@ -4161,8 +3961,7 @@ R.canvas.addEventListener('mousemove', e => {
       else if (onNotePin(activeSheet(), hit.r, hit.c, p.x, p.y)) { cur = 'pointer'; pinKey = activeSheet().id + ':' + hit.r + ':' + hit.c; }
     }
     R.canvas.style.cursor = cur;
-    /* Hovering a comment pin only nudges the bubble bigger — the thread card is
-       click-to-open (see the mousedown handler), never a hover tooltip. */
+
     setNotePinHover(pinKey);
     const sbHover = (hit.zone === 'vscroll' || hit.zone === 'hscroll') ? hit.zone : null;
     if (handleHover !== Hover.handle || sbHover !== Hover.sb) {
@@ -4170,7 +3969,7 @@ R.canvas.addEventListener('mousemove', e => {
       if (sbHover) sbActivity();
       if (!Edit.active && !Mouse.mode) requestPaint();
     }
-    /* header hover highlight */
+
     const newHover = { col: -1, row: -1 };
     if (hit.zone === 'colhdr') {
       const pc = pointToCellPx(p.x, R.layout.gridY + 0.01);
@@ -4185,7 +3984,7 @@ R.canvas.addEventListener('mousemove', e => {
     }
     return;
   }
-  setNotePinHover(null);   /* dragging: the bubble returns to its resting size */
+  setNotePinHover(null);
   switch (Mouse.mode) {
     case 'select': {
       autoScroll(p);
@@ -4292,7 +4091,7 @@ window.addEventListener('mouseup', e => {
     case 'colSelect': case 'rowSelect': break;
     case 'resizeCol': {
       const sh = activeSheet();
-      /* capture BEFORE Mouse.data is cleared on mouseup — closures must not read it lazily */
+
       const idx = Mouse.data.index, origMeta = Mouse.data.origMeta;
       const after = sh.cols.get(idx).size;
       pushHistory({
@@ -4344,7 +4143,7 @@ R.canvas.addEventListener('dblclick', e => {
 
 R.canvas.addEventListener('wheel', e => {
   e.preventDefault();
-  hideNotePopover();   /* the card is anchored to a cell rect, so scrolling invalidates it */
+  hideNotePopover();
   if (e.ctrlKey || e.metaKey) {
     const zm = clamp(VIEW.zoom * (e.deltaY < 0 ? 1.1 : 0.9), ZOOM_MIN, ZOOM_MAX);
     setZoom(zm);
@@ -4419,7 +4218,7 @@ function startSelect(e, r, c) {
   const m = mergeAt(sh, r, c);
   if (m) { r = m.r1; c = m.c1; }
   r = nextVisibleRow(sh, r, 1); c = nextVisibleCol(sh, c, 1);
-  SelAnim.pending = true;   /* pointer-driven change: glide the active border */
+  SelAnim.pending = true;
   if (e.shiftKey && SEL.ranges.length) {
     const a = SEL.active;
     setSelection(a.r, a.c, r, c, { activeR: a.r, activeC: a.c, keepScroll: true });
@@ -4526,7 +4325,6 @@ function startFill(e, p) {
   $('#fill-tip').style.display = 'none';
 }
 
-/* floating size badge while resizing columns/rows ("Width: 128") */
 function showResizeTip(kind, size, e) {
   const tip = $('#size-tip');
   if (!tip) return;
@@ -4559,7 +4357,7 @@ function updateFillDrag(p) {
   else if (dir === 'left') target = normalizeSelRange(src.r1, cell.c, src.r2, src.c1 - 1);
   Mouse.data.dir = dir;
   Mouse.data.target = (target && target.r1 <= target.r2 && target.c1 <= target.c2) ? target : null;
-  /* tip */
+
   if (Mouse.data.target) {
     const preview = previewFillValue(src, Mouse.data.target, dir);
     const tip = $('#fill-tip');
@@ -4577,7 +4375,6 @@ function finishFill() {
   performFill(Mouse.data.source, Mouse.data.target, Mouse.data.dir, 'smart');
 }
 
-/* ---------------- FILL LOGIC ---------------- */
 function previewFillValue(src, target, dir) {
   const sh = activeSheet();
   const vertical = dir === 'up' || dir === 'down';
@@ -4599,7 +4396,7 @@ function extrapolateNext(line, dirSign) {
   const nums = vals.filter(v => typeof v === 'number');
   if (vals.length === 1) {
     const v = vals[0];
-    if (typeof v === 'number') return dirSign > 0 ? v : v; // single number copies by default, series only via Ctrl — tip shows same
+    if (typeof v === 'number') return dirSign > 0 ? v : v;
     if (typeof v === 'string') {
       const m = /^(.*?)(\d+)(\D*)$/.exec(v);
       if (m && m[2].length < 9) return m[1] + (parseInt(m[2], 10) + dirSign) + m[3];
@@ -4648,13 +4445,13 @@ function performFill(src, target, dir, mode) {
     if (!sd) { changes.push({ r: rr, c: cc, cell: null }); continue; }
     let v = sd.v, f = sd.f;
     if (mode === 'smart' && f) {
-      // shift relative references by the actual positional delta between source cell and target cell
+
       const sr = vertical ? (forward ? src.r1 + (srcIdx % srcLen) : src.r2 - (srcIdx % srcLen)) : src.r1;
       const sc = vertical ? src.c1 : (forward ? src.c1 + (srcIdx % srcLen) : src.c2 - (srcIdx % srcLen));
       f = shiftFormulaRefs(sd.f, rr - sr, cc - sc);
       v = sd.v;
     } else if (mode === 'smart' && typeof sd.v === 'number') {
-      if (srcLen === 1) { v = sd.v; } // single number: copy (default)
+      if (srcLen === 1) { v = sd.v; }
       else if (allNums) {
         const base = forward ? lineVals[lineVals.length - 1] : lineVals[0];
         const n = forward ? i + 1 : tgtLen - i;
@@ -4762,7 +4559,7 @@ function performMove(from, to) {
     redo() { restoreRegion(sh, from, after.src); restoreRegion(sh, to, after.dst); }
   });
   setSelection(to.r1, to.c1, to.r2, to.c2);
-  renderChartsLayer(); /* moved cells may feed charts — keep bars/labels live */
+  renderChartsLayer();
   Persistence.markDirty();
 }
 function restoreRegion(sh, rg, snap) {
@@ -4774,7 +4571,6 @@ function restoreRegion(sh, rg, snap) {
   rebuildAllDeps();
 }
 
-/* ---------------- Format painter ---------------- */
 function startFormatPainter(sticky) {
   const sh = activeSheet();
   const rg = activeSelRange();
@@ -4810,7 +4606,6 @@ function applyPaint(target) {
   }, 'Format painter');
 }
 
-/* ---------------- In-cell editing ---------------- */
 function beginEdit(r, c, opts = {}) {
   const sh = activeSheet();
   const cell = sh.cells.get(key(r, c));
@@ -4822,7 +4617,7 @@ function beginEdit(r, c, opts = {}) {
   Edit.fromFormulaBar = !!opts.fromFormulaBar;
   let initial = opts.initial != null ? opts.initial : (cell ? (cell.f != null ? cell.f : rawValueText(cell)) : '');
   ed.value = initial;
-  /* smooth open: skip size transitions on the first frame, then pop in */
+
   ed.classList.add('no-anim');
   ed.style.display = 'block';
   positionEditor(rect, initial);
@@ -4830,24 +4625,20 @@ function beginEdit(r, c, opts = {}) {
   ed.style.color = (cell && cell.s && cell.s.color) || '#1a1a1a';
   ed.style.background = '#fff';
   ed.style.textAlign = (cell && cell.s && cell.s.halign) || 'left';
-  void ed.offsetWidth;   /* flush styles so opening never animates from a stale size */
+  void ed.offsetWidth;
   ed.classList.remove('no-anim');
   ed.classList.remove('ed-pop'); void ed.offsetWidth; ed.classList.add('ed-pop');
   Edit.refMode = false;
   Edit.lastRef = null;
-  /* Typing mode: the grid seeded the editor with a character, so the draft is
-     already a change and can never be dropped — only Escape discards it. */
+
   Edit.dirty = opts.initial != null;
-  /* point-reference (click-to-insert) mode belongs to DELIBERATE formula entry
-     only — typing "=" on the grid. A double-click / F2 / formula-bar open on a
-     cell that already holds a formula must stay normal: the next click there
-     commits and moves the selection instead of inserting a reference. */
+
   if (opts.initial != null && initial.startsWith('=')) setRefMode(true);
   if (!Edit.cursorMode) { ed.setSelectionRange(initial.length, initial.length); ed.focus(); }
   else { ed.setSelectionRange(initial.length, initial.length); ed.focus(); }
   updateFormulaBarForEdit(initial);
   requestPaint();
-  updateRibbonState();   /* Edit.active flipped, so ribbon availability is stale */
+  updateRibbonState();
 }
 function rawValueText(cell) {
   if (!cell) return '';
@@ -4870,7 +4661,7 @@ function positionEditor(rect, text) {
   ed.style.minWidth = minW + 'px';
   ed.style.height = rect.h + 'px';
   ed.style.lineHeight = (rect.h - 4) + 'px';
-  /* grow width to content */
+
   const meas = UI.measureCtx;
   meas.font = ed.style.font;
   const lines = text.split('\n');
@@ -4883,20 +4674,11 @@ function setRefMode(on) {
   UI.editor.classList.toggle('ref-mode', on);
 }
 
-/* ---------------- auto parentheses ----------------
-   A forgotten paren is the easiest way to leave a cell showing a formula error, so:
-     typing "("  -> the ")" is supplied for you, caret parked between the pair
-     typing ")"  -> steps over the auto-supplied one instead of doubling it up
-   Formulas only — a "(" typed into a plain text cell is just a character. Guarded on
-   inputType so paste, IME composition, undo and drop all pass through untouched, and
-   skipped inside "quoted strings" where a paren is literal text. The browser has
-   already inserted the char by the time this runs, so the caret sits just past it.
-   Returns true when it changed the value, so callers know to refresh the chrome. */
 function inStringLiteral(v, upTo) {
   let open = false;
   for (let i = 0; i < upTo; i++) {
     if (v[i] !== '"') continue;
-    if (open && v[i + 1] === '"') { i++; continue; }   /* "" is an escaped quote */
+    if (open && v[i + 1] === '"') { i++; continue; }
     open = !open;
   }
   return open;
@@ -4904,12 +4686,12 @@ function inStringLiteral(v, upTo) {
 function autoParen(ed, e) {
   if (!e || e.inputType !== 'insertText' || !e.data) return false;
   const v = ed.value;
-  if (v.charAt(0) !== '=') return false;               /* not a formula */
+  if (v.charAt(0) !== '=') return false;
   const s = ed.selectionStart;
-  if (s != null && s !== ed.selectionEnd) return false; /* caret lost track of the field */
+  if (s != null && s !== ed.selectionEnd) return false;
   if (inStringLiteral(v, s == null ? v.length : s)) return false;
   if (e.data === '(') {
-    /* the browser already put the "(" in; drop the matching ")" in behind the caret */
+
     const at = s == null ? v.length : s;
     ed.value = v.slice(0, at) + ')' + v.slice(at);
     ed.setSelectionRange(at, at);
@@ -4917,8 +4699,8 @@ function autoParen(ed, e) {
   }
   if (e.data === ')') {
     const at = s == null ? v.length : s;
-    if (v.charAt(at) !== ')') return false;            /* unbalanced: keep the one just typed */
-    ed.value = v.slice(0, at) + v.slice(at + 1);       /* drop the duplicate, caret lands after the pair */
+    if (v.charAt(at) !== ')') return false;
+    ed.value = v.slice(0, at) + v.slice(at + 1);
     ed.setSelectionRange(at, at);
     return true;
   }
@@ -4929,8 +4711,7 @@ function updateEditorFromRefSelect() {
   const a = d.anchor, cur = d.cur;
   const rg = normRange(a.r, a.c, cur.r, cur.c);
   const sh = activeSheet();
-  /* classic behavior: picking cells inserts RELATIVE references (F4 cycles the
-     absolute forms) — and the reference lands at the editor's caret */
+
   const txt = (d.baseSheet === sh.id ? '' : (needsQuote(sh.name) ? "'" + sh.name + "'" : sh.name) + '!') + addr(rg.r1, rg.c1) + (rg.r1 === rg.r2 && rg.c1 === rg.c2 ? '' : ':' + addr(rg.r2, rg.c2));
   d.refText = txt;
   d.refStart = d.pre.length;
@@ -4943,44 +4724,31 @@ function updateEditorFromRefSelect() {
   updateFormulaBarForEdit(ed.value);
   requestPaint();
 }
-/* The reference token sitting against the caret, so re-dragging replaces the previous
-   range instead of appending to it (a pick leaves the caret collapsed at the end of
-   the token it just wrote, which is why a plain text selection is not enough).
-   Covers the bare A1 / $A$1 / A1:B2 forms the picker itself writes, plus a sheet
-   prefix. Returns null when there is nothing to replace. */
+
 function refTokenAt(text, caret) {
   const re = /(?:(?:'[^']*'|[A-Za-z_][A-Za-z0-9_.]*)!)?\$?[A-Za-z]{1,3}\$?\d{1,7}(?::\$?[A-Za-z]{1,3}\$?\d{1,7})?/g;
   let m;
   while ((m = re.exec(text)) !== null) {
     const s = m.index, e = s + m[0].length;
-    if (caret <= s || caret > e) continue;              /* inside it, or touching its right edge */
-    /* "LOG10" reads as the address LOG10 but is really a function name mid-call:
-       replacing it would eat the function. Spelled addresses that collide with a
-       function name have to be typed rather than re-picked — a fair trade, since
-       mistaking a hand-typed "=LOG10" for a reference is the far likelier mistake. */
+    if (caret <= s || caret > e) continue;
+
     if (m[0].indexOf('!') < 0 && FUNCS[m[0].toUpperCase()]) continue;
     return { start: s, len: m[0].length };
   }
   return null;
 }
-/* The reference exactly covered by the current text selection in the formula, so
-   selecting "A3:B2" outlines those cells and keeps outlining them until the selection
-   moves — it behaves like a selection, not a transient drag hint. Anything that is not
-   precisely one reference (a function name, a partial token, a whole argument list, a
-   cross-sheet reference) yields null. */
+
 function selectedRefRange() {
   if (!Edit.active) return null;
   const ed = document.activeElement === UI.formulaInput ? UI.formulaInput : UI.editor;
   if (ed !== UI.editor && ed !== UI.formulaInput) return null;
-  /* gated on "editing a formula", NOT on Edit.refMode: a formula opened with F2 or a
-     double-click deliberately leaves refMode off, yet the user can still select a
-     reference in it and expect to see where it points */
+
   if (!ed.value.startsWith('=')) return null;
   const s = ed.selectionStart, t = ed.selectionEnd;
-  if (s == null || t == null || s === t) return null;          /* collapsed: no selection */
+  if (s == null || t == null || s === t) return null;
   const txt = ed.value.slice(s, t).trim();
   if (!txt || txt.indexOf('\n') >= 0) return null;
-  if (txt.indexOf('!') >= 0) return null;                      /* lives on another sheet */
+  if (txt.indexOf('!') >= 0) return null;
   const parts = txt.split(':');
   if (parts.length > 2) return null;
   const a = parseAddr(parts[0]);
@@ -4990,9 +4758,7 @@ function selectedRefRange() {
   if (!b) return null;
   return normRange(a.r, a.c, b.r, b.c);
 }
-/* any caret move or selection drag re-evaluates the outline. The stripes crawl, so a
-   frame pump has to keep running for as long as the outline is on screen — a single
-   requestPaint() would freeze the animation on the first frame. */
+
 let refSelRaf = 0;
 function refSelStep() {
   refSelRaf = 0;
@@ -5019,21 +4785,17 @@ function startRefSelect(e, r, c) {
   Mouse.mode = 'refSel';
   if (pos === end) {
     const tok = refTokenAt(ed.value, pos);
-    if (tok) { pos = tok.start; end = tok.start + tok.len; }   /* re-drag: replace the old range */
+    if (tok) { pos = tok.start; end = tok.start + tok.len; }
   }
   let pre = ed.value.slice(0, pos), post = ed.value.slice(end);
-  /* Dragging a range straight after a bare function name supplies the argument list
-     too, so "=SUM" + drag lands on "=SUM(A1)" rather than the error "=SUMA1".
-     Autocomplete already does this (acceptFormulaAC), so this only fires for a
-     hand-typed name. The parens go on either side of pre/post, never into refText,
-     so F4 still cycles the reference alone and not the brackets. */
+
   const tok = currentFnToken(pre, pre.length);
   if (tok && FUNCS[tok.token.toUpperCase()] && post.charAt(0) !== '(') {
     pre += '(';
     const cp = closeParenPos(post);
     if (!cp.already) post = post.slice(0, cp.at) + ')' + post.slice(cp.at);
   }
-  /* insert the picked reference at the caret, replacing any selected text */
+
   Mouse.data = { pre, post, anchor: { r, c }, cur: { r, c }, baseSheet: WB.activeSheetId, refText: '', refStart: pos };
   updateEditorFromRefSelect();
 }
@@ -5044,7 +4806,7 @@ function finishRefSelect() {
     UI.editor.focus();
     const caret = d.refStart + d.refText.length;
     UI.editor.setSelectionRange(caret, caret);
-    /* remember the inserted span so F4 can cycle its absolute forms */
+
     Edit.lastRef = { start: d.refStart, len: d.refText.length };
     Edit.dirty = true;
   }
@@ -5061,22 +4823,14 @@ function cancelEdit() {
   updateFormulaBar();
   requestPaint();
   if (!Edit.fromFormulaBar) UI.formulaInput.blur();
-  updateRibbonState();   /* editor closed, so the selection-scoped controls come back */
+  updateRibbonState();
 }
-/* Leave editing the safe way: a draft the user actually touched is committed,
-   an untouched editor is just dismissed (no write, no history noise). Every
-   focus/selection change routes through here so typed text is never lost. */
+
 function finishEdit() {
   if (!Edit.active) return;
   if (Edit.dirty) commitEditor(); else cancelEdit();
 }
-/* Where does a call opened at the caret actually close? Scan the text that follows and
-   look for, in order: a ")" that closes the paren we are about to insert (the call is
-   already finished, so no extra one is needed), a depth-0 operator that ends the
-   argument list (the ")" belongs just before it), or nothing at all (the call runs to
-   the end). A comma is deliberately NOT a terminator — it means another argument is
-   still coming. Without this, dragging into "=LOG10*2" left an unbalanced
-   "=LOG10(A1*2" instead of "=LOG10(A1)*2". */
+
 function closeParenPos(post) {
   let depth = 0, opAt = -1;
   for (let i = 0; i < post.length; i++) {
@@ -5090,10 +4844,7 @@ function closeParenPos(post) {
   }
   return { at: opAt >= 0 ? opAt : post.length, already: false };
 }
-/* Close any parens the user left open, so "=SUM(A1" commits as "=SUM(A1)" instead of a
-   formula error. Surplus closing parens are dropped too, which is the other half of
-   "forgot the ( or the )". Formulas only, and a half-typed "quoted string" is left
-   strictly alone — that is a different kind of incomplete. */
+
 function balanceParens(text) {
   if (text.charAt(0) !== '=') return text;
   const drop = [];
@@ -5101,14 +4852,14 @@ function balanceParens(text) {
   for (let i = 1; i < text.length; i++) {
     const ch = text.charAt(i);
     if (ch === '"') {
-      if (inStr && text.charAt(i + 1) === '"') { i++; continue; }   /* "" is an escaped quote */
+      if (inStr && text.charAt(i + 1) === '"') { i++; continue; }
       inStr = !inStr; continue;
     }
     if (inStr) continue;
     if (ch === '(') depth++;
     else if (ch === ')') { if (depth > 0) depth--; else drop.push(i); }
   }
-  if (inStr || (!drop.length && depth === 0)) return text;          /* balanced, or not a paren problem */
+  if (inStr || (!drop.length && depth === 0)) return text;
   let out = '';
   for (let i = 0; i < text.length; i++) if (drop.indexOf(i) < 0) out += text.charAt(i);
   if (depth > 0) out += ')'.repeat(depth);
@@ -5118,7 +4869,7 @@ function commitEditor(move) {
   if (!Edit.active) return;
   const sh = activeSheet();
   const r = Edit.r, c = Edit.c;
-  const text = balanceParens(UI.editor.value);   /* a forgotten ")" can no longer commit broken */
+  const text = balanceParens(UI.editor.value);
   const wasDirty = Edit.dirty;
   Edit.active = false;
   Edit.dirty = false;
@@ -5127,7 +4878,7 @@ function commitEditor(move) {
   setRefMode(false);
   hideFormulaAC();
   hideArgTip();
-  updateRibbonState();   /* Edit.active is false from here on */
+  updateRibbonState();
   if (wasDirty) commitCellValue(sh, r, c, text);
   if (move === 'down' || move === true) jumpRelative(1, 0);
   else if (move === 'up') jumpRelative(-1, 0);
@@ -5142,7 +4893,7 @@ function commitCellValue(sh, r, c, text) {
   const prev = sh.cells.get(key(r, c));
   const prevSnap = prev ? snapOf(prev) : null;
   if (text === '' ) {
-    // clear contents but keep format
+
     writeCell(sh, r, c, { v: null, f: null });
     pushHistory(histCellChange(sh, r, c, prevSnap, sh.cells.get(key(r, c)) ? snapOf(sh.cells.get(key(r, c))) : null));
     afterCellCommit(sh, r, c);
@@ -5171,7 +4922,6 @@ function jumpRelative(dr, dc) {
   setSelection(r, c, r, c);
 }
 
-/* ---------------- Formula AutoComplete (function suggestions) ---------------- */
 const FxAC = { el: null, open: false, items: [], idx: 0, host: null };
 function ensureFormulaAC() {
   if (FxAC.el) return FxAC.el;
@@ -5183,10 +4933,7 @@ function ensureFormulaAC() {
   el.addEventListener('mousedown', e => {
     const it = e.target.closest('.fx-ac-item');
     if (!it) return;
-    /* A plain click must NEVER rewrite what the user typed — the list is only ever
-       browsable. Applying a suggestion is an explicit Ctrl/Cmd+click, so a stray
-       click cannot silently turn "=SU" into "=SUM(". The mousedown is swallowed
-       either way, or the editor would blur and drop the draft. */
+
     e.preventDefault();
     e.stopPropagation();
     if (e.ctrlKey || e.metaKey) acceptFormulaAC(+it.dataset.i);
@@ -5204,7 +4951,7 @@ function currentFnToken(text, pos) {
   const m = /([A-Za-z][A-Za-z0-9.]*)$/.exec(upto);
   if (!m) return null;
   const before = upto.slice(0, upto.length - m[1].length);
-  if (before.endsWith("'")) return null;          // inside quoted sheet name
+  if (before.endsWith("'")) return null;
   if (/[0-9]$/.test(before) && /^[0-9]/.test(m[1]) === false && /(?:^|[^A-Za-z0-9])$/.test(before) === false) return null;
   return { token: m[1], start: upto.length - m[1].length };
 }
@@ -5294,17 +5041,16 @@ function acceptFormulaAC(i) {
   }
   hideFormulaAC();
   ed.focus();
-  if (Edit.active) Edit.dirty = true;   /* the accepted name is part of the draft */
+  if (Edit.active) Edit.dirty = true;
   if (ed === UI.editor) {
     positionEditor(cellScreenRect(activeSheet(), Edit.r, Edit.c), ed.value);
     updateFormulaBarForEdit(ed.value);
   } else {
-    UI.editor.value = ed.value;   /* keep in-cell mirror in sync (no input event on programmatic set) */
+    UI.editor.value = ed.value;
     if (Edit.active) Edit.dirty = true;
   }
 }
 
-/* ---------------- Function argument tooltip (signature hint) ---------------- */
 const FXAT = { el: null, open: false, host: null };
 function ensureArgTip() {
   if (FXAT.el) return FXAT.el;
@@ -5333,7 +5079,7 @@ function currentFnContext(text, pos) {
         if (!/^[A-Za-z]/.test(name)) return null;
         const upper = name.toUpperCase();
         if (!FUNCS[upper]) return null;
-        /* count top-level commas between '(' and cursor */
+
         let d2 = 0, args = 0, inQ = false;
         for (let k = i + 1; k < pos; k++) {
           const c2 = text[k];
@@ -5366,7 +5112,7 @@ function updateFormulaArgTip(host) {
   elx.innerHTML = '<code class="fxa-sig">' + sig + '</code><span class="fxa-desc">' + escapeHtml(meta.desc) + '</span>';
   elx.classList.add('open');
   FXAT.open = true;
-  /* position below host editor (or above if near bottom) */
+
   const area = document.getElementById('grid-area');
   if (ed === UI.formulaInput) {
     const fr = UI.formulaInput.getBoundingClientRect();
@@ -5382,18 +5128,14 @@ function updateFormulaArgTip(host) {
   }
 }
 
-/* editor events */
 function setupEditorEvents() {
   const ed = UI.editor;
   ed.addEventListener('keydown', e => {
-    /* Formula AutoComplete interception (before everything else). Enter and Tab are
-       deliberately NOT here: they fall through to the normal commit below, so typing
-       "=SU" + Enter commits "=SU" and does not silently become "=SUM(". Only
-       Ctrl/Cmd+click applies a suggestion. */
+
     if (FxAC.open) {
       if (e.key === 'ArrowDown') { e.preventDefault(); moveFormulaAC(1); return; }
       if (e.key === 'ArrowUp') { e.preventDefault(); moveFormulaAC(-1); return; }
-      if (e.key === 'Enter' || e.key === 'Tab') { hideFormulaAC(); /* fall through and commit */ }
+      if (e.key === 'Enter' || e.key === 'Tab') { hideFormulaAC();  }
       if (e.key === 'Escape') { e.preventDefault(); hideFormulaAC(); return; }
     }
     if (Edit.refMode) {
@@ -5404,7 +5146,7 @@ function setupEditorEvents() {
       }
       if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); return; }
       if (e.key === 'Enter') { e.preventDefault(); commitEditor('down'); return; }
-      return; // arrows move selection (handled by grid keydown? editor focused so handle here)
+      return;
     }
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -5429,43 +5171,34 @@ function setupEditorEvents() {
       e.preventDefault();
       commitEditor(e.key === 'ArrowUp' ? 'up' : e.key === 'ArrowDown' ? 'down' : e.key === 'ArrowLeft' ? 'left' : 'right');
     }
-    /* Delete / Backspace stay plain text edits here: the cell is only cleared by
-       Delete while the cell is merely SELECTED (see the grid keydown), so a
-       typed draft is never thrown away by them. */
+
     setTimeout(() => {
-      if (!Edit.active) return;   /* Enter/Tab/arrow already committed — don't clobber the bar */
+      if (!Edit.active) return;
       positionEditor(cellScreenRect(activeSheet(), Edit.r, Edit.c), ed.value);
       updateFormulaBarForEdit(ed.value);
-      /* leaving formula text turns point-reference mode off; engaging it is
-         handled by the 'input' listener (real user edits only) */
+
       if (Edit.refMode && !ed.value.startsWith('=')) setRefMode(false);
       updateFormulaAC();
       updateFormulaArgTip();
     }, 0);
   });
   ed.addEventListener('input', e => {
-    autoParen(ed, e);           /* supply the ")" before anything reads the value */
-    Edit.dirty = true;   /* any real keystroke makes the draft worth committing */
+    autoParen(ed, e);
+    Edit.dirty = true;
     positionEditor(cellScreenRect(activeSheet(), Edit.r, Edit.c), ed.value);
     updateFormulaBarForEdit(ed.value);
-    /* point-reference mode engages as soon as the user actually edits the text
-       into a formula (typed "=" or modified an existing one) — never from an
-       editor that merely opened on a double-click / F2 / the formula bar */
+
     if (ed.value.startsWith('=')) setRefMode(true); else if (Edit.refMode) setRefMode(false);
     updateFormulaAC();
     updateFormulaArgTip();
   });
   ed.addEventListener('blur', () => {
-    /* Focus left the editor without a grid click (window blur, programmatic
-       focus, tabbing away). mousedown already handled the grid case, so this
-       only fires when the draft really would be orphaned — commit it. */
+
     setTimeout(() => {
       if (!Edit.active || Edit.refMode) return;
       const a = document.activeElement;
       if (a === ed || a === UI.formulaInput) return;
-      /* focus landed on formula-bar chrome (X / check / fx / grip). Those buttons
-         own the decision — committing here would fire first (this task ends before
-         the click) and make X behave like the check. */
+
       if (a && a.closest && a.closest('#formula-row')) return;
       finishEdit();
     }, 0);
@@ -5475,7 +5208,7 @@ function cycleRefAbs() {
   const ed = UI.editor;
   const v = ed.value;
   let token = null, tokenStart = -1;
-  /* prefer the reference that point-selection just inserted (may sit mid-text) */
+
   const lr = Edit.lastRef;
   if (lr) {
     const cand = v.slice(lr.start, lr.start + lr.len);
@@ -5490,8 +5223,7 @@ function cycleRefAbs() {
   const cyc = p => {
     const mm = /^(\$?)([A-Za-z]{1,3})(\$?)(\d{1,7})$/.exec(p);
     if (!mm) return p;
-    /* the four classic forms are built from the bare column/row — deriving them
-       from the current form's $ marks would collapse the cycle */
+
     const states = [mm[2] + mm[4], '$' + mm[2] + '$' + mm[4], '$' + mm[2] + mm[4], mm[2] + '$' + mm[4]];
     const i = states.indexOf(p);
     return states[(i + 1) % 4];
@@ -5504,9 +5236,6 @@ function cycleRefAbs() {
   Edit.lastRef = { start: tokenStart, len: nextToken.length };
 }
 
-/* ==========================================================================
- * 10. KEYBOARD SHORTCUTS + CLIPBOARD + SELECTION STATS
- * ========================================================================== */
 function edgeOf(r, c, dr, dc) {
   const sh = activeSheet();
   const has = (rr, cc) => { const cell = sh.cells.get(key(rr, cc)); return cell && (cell.v != null || cell.f); };
@@ -5537,17 +5266,17 @@ document.addEventListener('keydown', e => {
   }
   const tag = (document.activeElement && document.activeElement.tagName) || '';
   const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement && document.activeElement.isContentEditable;
-  if (document.querySelector('.modal-overlay')) return; // modal handles its own keys
+  if (document.querySelector('.modal-overlay')) return;
   const _fb = $('#findBar');
   if (_fb && _fb.style.display !== 'none' && inInput && document.activeElement.closest('#findBar')) {
     if (e.key === 'Escape') { toggleFindPanel(false); e.preventDefault(); }
     return;
   }
-  if (Edit.active && document.activeElement === UI.editor) return; // editor handles
+  if (Edit.active && document.activeElement === UI.editor) return;
   if (FxAC.open && document.activeElement === UI.formulaInput) {
     if (e.key === 'ArrowDown') { e.preventDefault(); moveFormulaAC(1); return; }
     if (e.key === 'ArrowUp') { e.preventDefault(); moveFormulaAC(-1); return; }
-    /* Enter/Tab fall through to the commit below instead of applying a suggestion */
+
     if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab') hideFormulaAC();
     if (e.key === 'Escape') { e.preventDefault(); hideFormulaAC(); return; }
   }
@@ -5581,7 +5310,7 @@ document.addEventListener('keydown', e => {
       case 'y': e.preventDefault(); redo(); return;
       case 'x': e.preventDefault(); doCopy(true); return;
       case 'c': e.preventDefault(); doCopy(false); return;
-      case 'v': armPaste(); return; // native paste event delivers data
+      case 'v': armPaste(); return;
       case 'b': e.preventDefault(); toggleStyle('bold'); return;
       case 'i': e.preventDefault(); toggleStyle('italic'); return;
       case 'u': e.preventDefault(); toggleStyleUnderline(); return;
@@ -5650,8 +5379,7 @@ document.addEventListener('keydown', e => {
       return;
     }
     case 'Escape':
-      /* classic behavior: Escape only dismisses the marching-ants outline —
-         the clipboard buffer itself stays intact so Paste still works */
+
       if (Clip.marquee) { Clip.marquee = null; requestPaint(); }
       else if (PaintState.active) cancelPaint();
       else if (SEL.ranges.length > 1) { SEL.ranges = [activeSelRange()]; SEL.activeIdx = 0; onSelectionChanged(); }
@@ -5663,9 +5391,7 @@ document.addEventListener('keydown', e => {
       return;
   }
   if (k.length === 1 && !e.altKey) {
-    /* Typing mode: a printable character seeds the in-cell editor, which stays
-       open until Enter/Tab/an arrow, and any focus or selection change commits
-       it (see finishEdit) — the draft is only ever dropped by Escape. */
+
     e.preventDefault();
     beginEdit(SEL.active.r, SEL.active.c, { initial: k, cursorMode: false });
   }
@@ -5732,11 +5458,11 @@ function applyStyleToSelection(patch, opts = {}) {
     });
   }
   updateRibbonState();
-  renderChartsLayer(); /* chart data labels mirror source cell number formats */
+  renderChartsLayer();
   requestPaint();
   Persistence.markDirty();
 }
-/* ---------------- Cell notes (comments) ---------------- */
+
 function noteThreadsFromValue(value) {
   if (!value) return [];
   const threads = Array.isArray(value) ? value : [value];
@@ -5749,7 +5475,7 @@ function noteAt(sh, r, c, threadId) {
   return threadId == null ? threads[threads.length - 1] : threads.find(thread => thread.id === threadId);
 }
 function noteReplies(n) { return n && Array.isArray(n.replies) ? n.replies : []; }
-/* note snapshots for undo/redo (deep-cloned so later mutations never alias history) */
+
 function noteSnap(sh, r, c) { return deepClone(noteThreadsAt(sh, r, c)); }
 function applyNoteSnap(sh, r, c, snap) {
   if (!sh.notes) sh.notes = new Map();
@@ -5820,12 +5546,10 @@ function addNoteReply(sh, r, c, threadId, text) {
   applyNoteSnap(sh, r, c, threads);
   return true;
 }
-/* Outside-click dismisser for the thread card. It listens on document, so it also
-   sees the very mousedown that opened the card — that one event is remembered and
-   skipped, otherwise the card would open and close again in the same click. */
+
 let notePopCloserBound = false;
 let notePopOpenEvent = null;
-const NotePop = { cell: null };   /* sheet:r:c the visible card belongs to */
+const NotePop = { cell: null };
 function notePopOpen() { const pop = document.getElementById('note-pop'); return !!pop && !pop.hidden; }
 function notePopCloser(e) {
   const pop = document.getElementById('note-pop');
@@ -5842,8 +5566,7 @@ function notePopoverEl() {
   if (!pop) {
     pop = el('<div id="note-pop" class="note-pop note-thread" role="dialog" aria-label="Comment thread" hidden></div>');
     $('#grid-area').appendChild(pop);
-    /* The card is opened by clicking the pin, so it stays put until dismissed
-       (close button, Escape, or a click elsewhere) instead of chasing the cursor. */
+
     if (!notePopCloserBound) {
       notePopCloserBound = true;
       document.addEventListener('mousedown', notePopCloser);
@@ -5858,16 +5581,14 @@ function fmtNoteTs(ts) {
   return (isToday ? '' : d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' · ') + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 function highlightFindText(text, q) {
-  /* escape first, then wrap matches of the raw query (plain-text queries highlight best) */
+
   const escd = escapeHtml(text);
   if (!q) return escd;
   let qRe;
   try { qRe = new RegExp('(' + String(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', Find.matchCase ? 'g' : 'gi'); } catch (e) { return escd; }
   return escd.replace(qRe, '<mark class="nt-hl">$1</mark>');
 }
-/* Mirrors the Docs comment popup: header (avatar, author, time), body, replies,
-   then a Reply / Resolve / Delete action row. Sheets' own grid indicator and
-   reply storage stay as they were. */
+
 function noteThreadHtml(threads, hl) {
   const hi = t => hl ? highlightFindText(t, hl) : escapeHtml(t);
   return threads.map((n, index) => {
@@ -5893,8 +5614,7 @@ function noteThreadHtml(threads, hl) {
   }).join('');
 }
 function avatarLetter(name) { return (String(name || 'You').trim().charAt(0) || 'Y').toUpperCase(); }
-/* Toggling resolved goes through setNote so undo/redo, persistence and the redraw
-   all fire exactly as they do for an edit. */
+
 function setNoteResolved(sh, r, c, threadId, v) {
   const n = noteAt(sh, r, c, threadId);
   if (!n || !!n.resolved === !!v) return;
@@ -5966,9 +5686,7 @@ function showNoteThreadPopover(sh, r, c, anchorRect, focusReply) {
   if (focusReply) setTimeout(() => openNoteReplyDialog(sh, r, c, threads[threads.length - 1].id, anchorRect), 0);
 }
 function hideNotePopover() { const pop = document.getElementById('note-pop'); if (pop) pop.hidden = true; NotePop.cell = null; notePopOpenEvent = null; }
-/* Left click on a comment pin: open the thread card, or close it when it is
-   already showing for this cell. The cell is selected so the card and the
-   selection agree, but no drag-select starts from the pin. */
+
 function toggleNotePopover(r, c, e) {
   const sh = activeSheet();
   if (!noteAt(sh, r, c)) return;
@@ -6006,17 +5724,12 @@ function openNoteReplyDialog(sh, r, c, threadId, anchorRect) {
   });
   if (dlg) dlg.modal.classList.add('cmt');
 }
-/* Docs/Slides parity: the composer is a modal (same .modal-head/.modal-icon
-   chrome openModal already builds for every other dialog here), not a floating
-   popup. The thread popover next to the cell keeps replies, as in Docs. */
+
 function openCommentDialog(r, c) {
   const sh = activeSheet();
   const body = el('<div class="cmt-body"><div class="field"><textarea class="cmt-text" rows="3" placeholder="Write a comment..." aria-label="Comment text"></textarea></div></div>');
   const ta = body.querySelector('.cmt-text');
-  /* Delete lives in the body, not the footer: openModal() paints the entire
-     dialog as a danger confirm when any footer button is marked danger, which
-     would make merely editing an existing comment render as a destructive
-     prompt. Docs keeps delete out of the footer for the same reason. */
+
   const dlg = openModal({
     title: 'New Comment',
     icon: 'comment',
@@ -6036,21 +5749,18 @@ function openCommentDialog(r, c) {
         } }
     ]
   });
-  if (dlg) dlg.modal.classList.add('cmt');   /* Docs-style centred bubble head */
+  if (dlg) dlg.modal.classList.add('cmt');
 }
 
-/* ---------------- Formula auditing (trace precedents / dependents) ---------------- */
-/* Arrows are recomputed lazily inside paint() while Audit.mode is active, so they
-   always reflect the current selection and stay correct after edits. */
-const Audit = { mode: null, arrows: [], target: null, chips: 0, chipRects: [] };   // mode: 'prec' | 'dep' | 'both' | 'all' | null
+const Audit = { mode: null, arrows: [], target: null, chips: 0, chipRects: [] };
 const AUDIT_MAX_ARROWS = 400, AUDIT_MAX_DEPTH = 10, AUDIT_MAX_CHIPS = 8;
 
 function auditSheetOf(dep) {
-  /* resolve a dep descriptor's sheet id (null sheet = active sheet) */
+
   if (dep.sheet == null) return activeSheet().id;
   return sheetIdByName(dep.sheet);
 }
-/* direct dependencies of the formula in `shLocal`!(r,c) — cells/ranges resolved to sheet ids */
+
 function formulaDepsOf(shLocal, r, c) {
   const cell = shLocal.cells.get(key(r, c));
   if (!cell || !cell.f) return null;
@@ -6089,9 +5799,9 @@ function computeAuditArrows() {
   const doPrec = Audit.mode === 'prec' || Audit.mode === 'both' || multi;
   const doDep = Audit.mode === 'dep' || Audit.mode === 'both' || multi;
   const nameOf = s => { const x = sheetById(s); return x ? x.name : ('Sheet' + s); };
-  /* ---------- precedents ---------- */
+
   if (doPrec) {
-    const visited = new Set();          /* formula cells already expanded (active sheet only) */
+    const visited = new Set();
     let frontier = [{ r, c, sid, depth: 0 }];
     visited.add(key(r, c));
     while (frontier.length && Audit.arrows.length < AUDIT_MAX_ARROWS) {
@@ -6101,7 +5811,7 @@ function computeAuditArrows() {
         if (node.depth >= (multi ? AUDIT_MAX_DEPTH : 1)) continue;
         const nsh = node.sid === sid ? sh : sheetById(node.sid);
         if (!nsh) continue;
-        /* only expand formulas on the ACTIVE sheet — deeper chains on other sheets cannot be drawn */
+
         if (node.depth > 0 && node.sid !== sid) continue;
         const deps = formulaDepsOf(nsh, node.r, node.c);
         if (!deps) continue;
@@ -6123,9 +5833,9 @@ function computeAuditArrows() {
       frontier = next;
     }
   }
-  /* ---------- dependents ---------- */
+
   if (doDep) {
-    const visited = new Set();          /* formula cells already expanded (any sheet) */
+    const visited = new Set();
     let frontier = [{ r, c, sid, depth: 0 }];
     visited.add(sid + '|' + key(r, c));
     while (frontier.length && Audit.arrows.length < AUDIT_MAX_ARROWS) {
@@ -6158,7 +5868,7 @@ function tracePrecedents() {
   requestPaint();
   updateStatusBar();
   if (Audit.mode) toast(Audit.mode === 'both' ? 'Tracing precedents and dependents' : 'Tracing precedents', 'info', 1400);
-  updateRibbonState();   /* Audit.mode drives Remove Arrows availability */
+  updateRibbonState();
 }
 function traceDependents() {
   Audit.mode = Audit.mode === 'dep' ? null : (Audit.mode === 'both' ? 'prec' : (Audit.mode ? 'both' : 'dep'));
@@ -6195,13 +5905,13 @@ function jumpToAuditChip(cr) {
   updateStatusBar();
   toast('Jumped to ' + target.name + '!' + addr(t.r, t.c) + (sameSheet ? '' : ' — auditing cleared'), 'info', 1600);
 }
-/* point on the boundary of `rect` where a ray from its center toward (tx,ty) exits */
+
 function rectEdgeToward(rect, tx, ty) {
   const cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2;
   let dx = tx - cx, dy = ty - cy;
   if (!dx && !dy) return { x: cx, y: cy };
-  const sx = dx !== 0 ? (rect.w / 2) / Math.abs(dx) : Infinity;   /* steps to reach vertical edge (half-width!) */
-  const sy = dy !== 0 ? (rect.h / 2) / Math.abs(dy) : Infinity;   /* steps to reach horizontal edge (half-height!) */
+  const sx = dx !== 0 ? (rect.w / 2) / Math.abs(dx) : Infinity;
+  const sy = dy !== 0 ? (rect.h / 2) / Math.abs(dy) : Infinity;
   const s = Math.min(sx, sy);
   return { x: cx + dx * s, y: cy + dy * s };
 }
@@ -6233,7 +5943,7 @@ function drawAuditArrows(ctx, sh, L, sbW, sbH) {
   ctx.font = '10px "Segoe UI", system-ui, sans-serif';
   for (const a of Audit.arrows) {
     if (a.kind === 'xsheet') {
-      /* cross-sheet connector: dashed line + small sheet chip with folded corner */
+
       const tr = cellRect(Audit.target.r, Audit.target.c);
       const label = a.label;
       const tw = Math.min(ctx.measureText(label).width, 118);
@@ -6242,8 +5952,8 @@ function drawAuditArrows(ctx, sh, L, sbW, sbH) {
       let by = tr.y - chipH - 3 + a.slot * (chipH + 3);
       if (by < L.gridY + 4) by = L.gridY + 4 + a.slot * (chipH + 3);
       if (by + chipH > gridB) by = gridB - chipH;
-      const anchorX = tr.x + tr.w / 2, anchorY = tr.y;      /* top edge of target cell */
-      const chipAnchorX = bx + chipW / 2, chipAnchorY = by + chipH;  /* bottom of chip */
+      const anchorX = tr.x + tr.w / 2, anchorY = tr.y;
+      const chipAnchorX = bx + chipW / 2, chipAnchorY = by + chipH;
       ctx.strokeStyle = XSID; ctx.setLineDash([3, 3]); ctx.lineWidth = 1.1;
       ctx.beginPath();
       ctx.moveTo(anchorX, anchorY);
@@ -6251,35 +5961,35 @@ function drawAuditArrows(ctx, sh, L, sbW, sbH) {
       ctx.stroke();
       const dirX = (chipAnchorX - anchorX), dirY = (chipAnchorY - anchorY);
       const dl = Math.hypot(dirX, dirY) || 1;
-      /* arrowhead: 'in' → data flows from chip INTO the formula cell; 'out' → from cell INTO chip */
+
       if (a.dir === 'in') drawArrowHead(ctx, anchorX, anchorY, -dirX / dl, -dirY / dl, XSID);
       else drawArrowHead(ctx, chipAnchorX, chipAnchorY, dirX / dl, dirY / dl, XSID);
-      /* chip body */
+
       ctx.setLineDash([]);
       ctx.fillStyle = '#f4f4f0';
       ctx.strokeStyle = XSID; ctx.lineWidth = 1;
       ctx.beginPath();
       if (ctx.roundRect) ctx.roundRect(bx, by, chipW, chipH, 2.5); else ctx.rect(bx, by, chipW, chipH);
       ctx.fill(); ctx.stroke();
-      /* folded corner */
+
       ctx.beginPath();
       ctx.moveTo(bx + chipW - 5, by);
       ctx.lineTo(bx + chipW, by + 5);
       ctx.lineTo(bx + chipW - 5, by + 5);
       ctx.closePath();
       ctx.fillStyle = '#d9d9d2'; ctx.fill();
-      /* sheet glyph */
+
       ctx.fillStyle = XSID;
       ctx.fillRect(bx + 3.5, by + 3, 5, 9);
       ctx.fillRect(bx + 9.5, by + 3, 2.5, 9);
-      /* label (clipped) */
+
       ctx.fillStyle = '#3d3d3d';
       ctx.save();
       ctx.beginPath(); ctx.rect(bx + 14, by, chipW - 18, chipH); ctx.clip();
       ctx.textBaseline = 'middle';
       ctx.fillText(label, bx + 14, by + chipH / 2 + 0.5);
       ctx.restore();
-      /* remember the chip rect (canvas-local px) for click-to-jump */
+
       if (a.jump) Audit.chipRects.push({ x: bx, y: by, w: chipW, h: chipH, jump: a.jump, label });
       continue;
     }
@@ -6295,7 +6005,7 @@ function drawAuditArrows(ctx, sh, L, sbW, sbH) {
         w: colScreenX(sh, c2) + colScreenW(sh, c2) - colScreenX(sh, c1),
         h: rowScreenY(sh, r2) + rowScreenH(sh, r2) - rowScreenY(sh, r1)
       };
-      /* dashed range outline */
+
       ctx.save();
       ctx.strokeStyle = color; ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
       ctx.strokeRect(rect.x + 1.5, rect.y + 1.5, rect.w - 3, rect.h - 3);
@@ -6315,10 +6025,10 @@ function drawAuditArrows(ctx, sh, L, sbW, sbH) {
       const tEdge = rectEdgeToward(tr, sr.x + sr.w / 2, sr.y + sr.h / 2);
       const sEdge = rectEdgeToward(sr, tEdge.x, tEdge.y);
       sx = sEdge.x; sy = sEdge.y; tx = tEdge.x; ty = tEdge.y;
-      /* adjacent cells collapse to a zero-length edge-to-edge hop — fall back to a short stub from the source center */
+
       if (Math.hypot(tx - sx, ty - sy) < 2) { sx = sr.x + sr.w / 2; sy = sr.y + sr.h / 2; }
     }
-    /* clip arrow to grid area */
+
     if (Math.max(sy, ty) < L.gridY || Math.min(sy, ty) > gridB) continue;
     if (Math.max(sx, tx) < L.gridX || Math.min(sx, tx) > gridR) continue;
     const dx = tx - sx, dy = ty - sy;
@@ -6330,13 +6040,13 @@ function drawAuditArrows(ctx, sh, L, sbW, sbH) {
     ctx.moveTo(sx, sy);
     ctx.lineTo(tx - dirX * 6, ty - dirY * 6);
     ctx.stroke();
-    /* origin dot */
+
     ctx.beginPath();
     ctx.arc(sx, sy, 2.4, 0, Math.PI * 2);
     ctx.fill();
     drawArrowHead(ctx, tx, ty, dirX, dirY, color);
   }
-  /* highlight the audited cell */
+
   if (Audit.target) {
     const tr = cellRect(Audit.target.r, Audit.target.c);
     ctx.strokeStyle = '#5b6bb5'; ctx.setLineDash([2, 2]); ctx.lineWidth = 1.2;
@@ -6345,7 +6055,6 @@ function drawAuditArrows(ctx, sh, L, sbW, sbH) {
   ctx.restore();
 }
 
-/* ---------------- Clipboard ---------------- */
 function selMatrixText() {
   const sh = activeSheet();
   const rg = activeSelRange();
@@ -6385,12 +6094,12 @@ function doCopy(cut) {
   if (Edit.active) { document.execCommand('copy'); return; }
   buildInternalClipboard(cut);
   const text = selMatrixText();
-  Clip.text = text; // fingerprint so a later paste of identical system text routes through the internal path (keeps formulas + ref shifting)
+  Clip.text = text;
   const html = selMatrixHtml();
   copyToSystemClipboard(text, html);
   if (!Edit.active) UI.canvasFocus();
   requestPaint();
-  updateRibbonState();   /* Clip.cells is filled, so Paste becomes available */
+  updateRibbonState();
   toast(cut ? 'Cut — press Ctrl+V to paste' : 'Copied to clipboard', 'info', 1400);
 }
 function selMatrixHtml() {
@@ -6424,7 +6133,7 @@ async function copyToSystemClipboard(text, html) {
       await navigator.clipboard.write([item]);
       return;
     }
-  } catch (e) { /* fall through */ }
+  } catch (e) {  }
   try {
     const helper = $('#clip-helper');
     helper.value = text;
@@ -6435,7 +6144,7 @@ async function copyToSystemClipboard(text, html) {
     helper.value = '';
     helper.style.left = '-9999px';
     window.focus();
-  } catch (e) { /* system clipboard unavailable — internal clipboard still works */ }
+  } catch (e) {  }
 }
 function armPaste() {
   const helper = $('#clip-helper');
@@ -6496,9 +6205,7 @@ function parseTsv(text) {
 }
 function parseHtmlTable(html) {
   try {
-    // Optional DOMPurify pass keeps the parser input below the XSS queries'
-    // detection threshold; DOMParser never executes markup either way. Only
-    // cell textContent is returned, so nothing downstream can execute.
+
     let src = String(html || '');
     if (typeof DOMPurify !== 'undefined') {
       src = DOMPurify.sanitize(src, { FORCE_BODY: true });
@@ -6518,15 +6225,15 @@ function parseHtmlTable(html) {
   } catch (e) { return null; }
 }
 function doPaste(mode) {
-  /* mode: undefined full | 'values' | 'formats' | 'formulas' | 'transpose' */
+
   if (!Clip.cells) { toast('Clipboard is empty', 'warn'); return; }
-  finishEdit();   /* a pending draft is saved before the paste lands on it */
+  finishEdit();
   const sh = activeSheet();
   const src = Clip.cells;
   const h = src.length, w = Math.max(...src.map(r => r.length));
   const r0 = SEL.active.r, c0 = SEL.active.c;
   if (Clip.cut && Clip.cut.sid === sh.id && mode === undefined) {
-    /* move semantics */
+
     const cutRg = Clip.cut.range;
     const before = { src: snapshotRegion(sh, cutRg), dst: snapshotRegion(sh, normalizeSelRange(r0, c0, r0 + h - 1, c0 + w - 1)) };
     batchHistory(() => {
@@ -6572,8 +6279,8 @@ function doPaste(mode) {
         const patch = {};
         if (mode === undefined || mode === 'values' || mode === 'formulas' || mode === 'transpose') {
           if (cell.f && (mode === undefined || mode === 'formulas')) {
-            /* transpose swaps block axes: source cell of dest (r,c) is at src block (c,r) */
-            patch.v = null; /* a pasted formula replaces the whole cell — never leave a stale literal behind */
+
+            patch.v = null;
             const tdr = mode === 'transpose' ? dr + (r - c) : dr;
             const tdc = mode === 'transpose' ? dc + (c - r) : dc;
             patch.f = shiftFormulaRefs(cell.f, tdr, tdc);
@@ -6607,7 +6314,7 @@ document.addEventListener('paste', e => {
   const dt = e.clipboardData;
   const html = dt.getData('text/html');
   const text = dt.getData('text/plain');
-  /* own-app copy → internal paste path (preserves formulas + adjusts relative refs) */
+
   if (Clip.cells && Clip.text === text) { doPaste(); UI.canvasFocus(); return; }
   pasteFromSystem(text, html);
   UI.canvasFocus();
@@ -6640,9 +6347,6 @@ document.addEventListener('cut', e => {
   requestPaint();
 });
 
-/* ---------------- status bar stats ---------------- */
-/* The selection summary is intentionally minimal: just a live Count of
-   values in the selected cells (matching the Docs/Slides status bar). */
 function updateStatusBar() {
   const el1 = $('#sb-stats');
   if (!el1) return;
@@ -6666,7 +6370,6 @@ function updateStatusBar() {
   }
 }
 
-/* ---------------- name box ---------------- */
 function addrLabel() {
   const sh = activeSheet();
   if (SEL.sheetId !== sh.id) return '';
@@ -6694,7 +6397,7 @@ function commitNameBox() {
   const txt = UI.nameBox.value.trim();
   const sh = activeSheet();
   const gotoSel = (sid, rg) => {
-    if (Edit.active) finishEdit();   /* never orphan a pending draft on a cell we are leaving */
+    if (Edit.active) finishEdit();
     if (sid && sid !== WB.activeSheetId) setActiveSheet(sid);
     SEL.ranges = [rg]; SEL.active = { r: rg.r1, c: rg.c1 }; SEL.activeIdx = 0;
     ensureVisible(rg.r1, rg.c1, { smooth: true });
@@ -6739,7 +6442,6 @@ function nameBoxError() {
   setTimeout(() => UI.nameBox.classList.remove('error'), 1200);
 }
 
-/* ---------------- formula bar ---------------- */
 function updateFormulaBar() {
   if (Edit.active) return;
   const sh = activeSheet();
@@ -6770,9 +6472,6 @@ function cancelFormulaBar() {
   UI.canvasFocus();
 }
 
-/* ==========================================================================
- * 11. STRUCTURE OPERATIONS — ROWS / COLS / CELLS / SHEETS / MERGE / FREEZE
- * ========================================================================== */
 function selRows() {
   const rows = new Set();
   for (const rg of SEL.ranges) for (let r = rg.r1; r <= rg.r2 && rows.size < 10000; r++) rows.add(r);
@@ -6792,15 +6491,9 @@ function insertRows(at, count) {
     for (const m of sh.merges) { if (m.r1 >= at) { m.r1 += count; m.r2 += count; } else if (m.r2 >= at) m.r2 += count; }
     const rm = sh.rows.meta; const entries = [...rm.entries()].sort((a, b) => b[0] - a[0]);
     for (const [i, m] of entries) { if (i >= at) { rm.delete(i); rm.set(i + count, m); } }
-    /* The shift above writes the meta Map directly instead of going through
-       AxisModel.set(), so the cached _sorted/_prefix are still keyed on the old
-       indices. Any paint before something else calls set() would read that stale
-       prefix sum and draw every row at its pre-insert offset, leaving blank gaps
-       where the row numbers belong. */
+
     sh.rows.invalidate();
-    /* freeze.r === 0 means "nothing frozen", so it must stay 0. The plain
-       `>= at` test was true for at === 0 and switched on a freeze the user never
-       asked for; every further insert then added another phantom frozen row. */
+
     if (sh.freeze.r > 0 && sh.freeze.r >= at) sh.freeze.r += count;
     for (const ch of sh.charts) { if (ch.y >= at * DEF.rowH) ch.y += count * DEF.rowH; }
     rebuildMergeMap(sh);
@@ -6824,7 +6517,7 @@ function deleteRows(at, count) {
       else if (i >= at) rm.delete(i);
     }
     sh.rows.invalidate();
-    /* freeze.r === 0 means "nothing frozen" and must stay 0. */
+
     if (sh.freeze.r > 0 && sh.freeze.r >= at) sh.freeze.r = Math.max(0, sh.freeze.r - count);
     rebuildMergeMap(sh);
     rebuildAllDeps();
@@ -6839,7 +6532,7 @@ function shiftCellsRows(sh, at, count, isDelete) {
     if (isDelete) {
       if (r < at) out.set(k, cell);
       else if (r >= at + count) out.set(key(r - count, c), cell);
-      /* rows inside deletion are dropped */
+
     } else {
       if (r >= at) out.set(key(r + count, c), cell);
       else out.set(k, cell);
@@ -6867,9 +6560,9 @@ function insertCols(at, count) {
     for (const m of sh.merges) { if (m.c1 >= at) { m.c1 += count; m.c2 += count; } else if (m.c2 >= at) m.c2 += count; }
     const cm = sh.cols.meta; const entries = [...cm.entries()].sort((a, b) => b[0] - a[0]);
     for (const [i, m] of entries) { if (i >= at) { cm.delete(i); cm.set(i + count, m); } }
-    /* See insertRows: invalidate the prefix-sum cache after the direct Map shift. */
+
     sh.cols.invalidate();
-    /* See insertRows: at === 0 must not turn a 0 (= none) freeze into a real one. */
+
     if (sh.freeze.c > 0 && sh.freeze.c >= at) sh.freeze.c += count;
     for (const ch of sh.charts) { if (ch.x >= at * DEF.colW) ch.x += count * DEF.colW; }
     rebuildMergeMap(sh);
@@ -6877,18 +6570,7 @@ function insertCols(at, count) {
   });
   requestPaint(); renderChartsLayer(); updateStatusBar(); updateFormulaBar(); Persistence.markDirty();
 }
-/* insertRows()/insertCols() take an absolute start index, so the direction is
-   just a different index: above/left starts at the first selected index, while
-   below/right starts one past the last.
 
-   A whole-row or whole-column selection is the awkward case. Clicking a row
-   header selects c1=0..MAX_COLS-1 (sheets.js:2389), and selCols() caps its Set at
-   10000 entries, so a top-row selection reported 10000 "selected columns" and
-   Insert Columns Left called insertCols(0, 10000) — shoving every column letter
-   10000 places to the right with no visible new column. Mirrored for a
-   left-column selection and Insert Rows Above. Sheets treats a whole-row/column
-   selection as one row/column at the top of the sheet, so collapse it to a
-   single insert anchored there. */
 function insertRowsAt(dir) {
   const rows = selRows();
   if (!rows.length) return;
@@ -6966,8 +6648,6 @@ function adjustAllFormulas(targetSheetName, kind, at, count, isDelete, spanFilte
   }
 }
 
-/* Insert/delete cells (partial shift within selection columns/rows) */
-/* ---------------- hide / unhide ---------------- */
 function setRowsHidden(rows, hidden) {
   const sh = activeSheet();
   const changes = rows.map(r => ({ r, before: Object.assign({}, sh.rows.get(r)), after: Object.assign({}, sh.rows.get(r), { hidden }) }));
@@ -6991,13 +6671,12 @@ function setColsHidden(cols, hidden) {
   requestPaint(); Persistence.markDirty();
 }
 
-/* ---------------- merge ---------------- */
 function mergeSelection(mode) {
   const sh = activeSheet();
   const rg = activeSelRange();
   if (rg.r1 === rg.r2 && rg.c1 === rg.c2 && mode !== 'unmerge') { toast('Select more than one cell to merge', 'warn'); return; }
   if (mode === 'unmerge') { unmergeSelection(); return; }
-  /* safety: multiple non-empty cells */
+
   let nonEmpty = 0, topLeft = null;
   for (let r = rg.r1; r <= rg.r2; r++) for (let c = rg.c1; c <= rg.c2; c++) {
     const cell = sh.cells.get(key(r, c));
@@ -7011,7 +6690,7 @@ function mergeSelection(mode) {
     } else {
       merges.push({ r1: rg.r1, c1: rg.c1, r2: rg.r2, c2: rg.c2 });
     }
-    /* clear non-top-left values */
+
     for (let r = rg.r1; r <= rg.r2; r++) for (let c = rg.c1; c <= rg.c2; c++) {
       if (r === rg.r1 && c === rg.c1) continue;
       writeCell(sh, r, c, { v: null, f: null });
@@ -7046,7 +6725,6 @@ function unmergeSelection() {
   requestPaint(); Persistence.markDirty();
 }
 
-/* ---------------- sizing dialogs / autofit ---------------- */
 function autoFitSize(kind, index) {
   const sh = activeSheet();
   const meas = UI.measureCtx;
@@ -7141,14 +6819,12 @@ function setColsWidthPx(cols, px) {
   requestPaint(); Persistence.markDirty();
 }
 
-/* ---------------- sheet operations ---------------- */
 function uniqueSheetName(base) {
   let name = base, i = 1;
   while (sheetByName(name)) { i++; name = base + i; }
   return name;
 }
-/* Excel's own cap is 31; this sits 1 under it so a name always survives the
-   .xlsx round-trip intact even after Excel's own trimming. */
+
 const SHEET_NAME_MAX = 30;
 function validateSheetName(name) {
   if (!name || !name.trim()) return 'Sheet name cannot be empty.';
@@ -7268,14 +6944,13 @@ function renameActiveSheetFromRibbon() {
   const tab = activeSheetTabEl();
   if (sh && tab) beginTabRename(sh, tab);
 }
-/* Single writer for tabColor so the ribbon dropdown, the tab context menu and
-   undo snapshots can never drift apart. 'none' clears it. */
+
 function setSheetTabColor(id, c) {
   const sh = sheetById(id);
   if (!sh) return;
   sh.tabColor = (c === 'none' || !c) ? null : c;
   updateSheetTabBar();
-  updateRibbonState();   /* repaints the dropdown swatch, matching applyStyleToSelection */
+  updateRibbonState();
   Persistence.markDirty();
 }
 function setActiveSheet(id) {
@@ -7311,7 +6986,6 @@ function switchSheetEdge(toEnd) {
   setActiveSheet((toEnd ? vis[vis.length - 1] : vis[0]).id);
 }
 
-/* ---------------- recalculation controls ---------------- */
 function recalcWorkbook(evaluateAll) {
   if (evaluateAll || Calc.mode === 'manual') {
     markAllDirty();
@@ -7329,9 +7003,6 @@ function recalcWorkbook(evaluateAll) {
   toast('Workbook recalculated', 'success', 1200);
 }
 
-/* ==========================================================================
- * 12. SORTING / REGION DETECTION / CELL STYLE PRESETS
- * ========================================================================== */
 function detectRegionAround(r, c) {
   const sh = activeSheet();
   let r1 = r, r2 = r, c1 = c, c2 = c;
@@ -7343,7 +7014,7 @@ function detectRegionAround(r, c) {
   return { r1, c1, r2, c2 };
 }
 function sortRange(rg, keys, opts) {
-  // keys: [{col (absolute index), desc: bool}]; opts.header: bool
+
   const sh = activeSheet();
   const dataR1 = rg.r1 + (opts.header ? 1 : 0);
   if (rg.r2 <= dataR1) { toast('Nothing to sort', 'warn'); return; }
@@ -7371,7 +7042,7 @@ function sortRange(rg, keys, opts) {
       let res;
       const aEmpty = a == null || a === '', bEmpty = b == null || b === '';
       if (aEmpty && bEmpty) res = 0;
-      else if (aEmpty) res = 1;      // blanks last
+      else if (aEmpty) res = 1;
       else if (bEmpty) res = -1;
       else {
         const an = typeof a === 'number' ? a : (typeof a === 'string' && a.trim() !== '' && !isNaN(Number(a)) ? Number(a) : null);
@@ -7383,7 +7054,7 @@ function sortRange(rg, keys, opts) {
     }
     return A.r - B.r;
   });
-  /* write back */
+
   let i = 0;
   for (let r = dataR1; r <= rg.r2; r++, i++) {
     for (let c = rg.c1; c <= rg.c2; c++) {
@@ -7391,7 +7062,7 @@ function sortRange(rg, keys, opts) {
       writeCell(sh, r, c, d ? { v: d.v, f: d.f, s: d.s } : { v: null, f: null, s: null });
     }
   }
-  /* notes follow their cells through the sort permutation */
+
   if (sh.notes && sh.notes.size) {
     const perm = new Map();
     let j = 0;
@@ -7416,7 +7087,7 @@ function quickSort(desc) {
   if (SEL.ranges.length === 1 && rg.r2 > rg.r1 && rg.c2 > rg.c1 && !isColSelection(rg) && !isRowSelection(rg)) region = rg;
   else region = detectRegionAround(SEL.active.r, SEL.active.c);
   if (region.r2 - region.r1 < 1) { toast('Nothing to sort', 'warn'); return; }
-  /* header guess: first row text while second row not */
+
   const firstCell = sh.cells.get(key(region.r1, SEL.active.c));
   const secondCell = sh.cells.get(key(region.r1 + 1, SEL.active.c));
   const header = firstCell && secondCell && typeof firstCell.v === 'string' && typeof secondCell.v === 'number';
@@ -7438,7 +7109,6 @@ function parseRangeText(txt) {
   } catch (e) { return null; }
 }
 
-/* ---------------- cell styles gallery ---------------- */
 const CELL_STYLES = [
   { name: 'Normal', style: {} },
   { name: 'Good', style: { backgroundColor: '#e2efda', color: '#375623' } },
@@ -7455,12 +7125,12 @@ const CELL_STYLES = [
 ];
 const CELL_STYLE_RESET = { fontFamily: DEF.fontFamily, fontSize: DEF.fontPt, bold: false, italic: false, underline: 0, strike: false, color: null, backgroundColor: null, halign: null, valign: null, wrap: false, numberFormat: null, numFmtCat: null, decimals: null, indent: 0, border: null };
 function applyCellStylePreset(preset) {
-  /* An empty-style preset (Normal) must clear formatting — merging {} would be a no-op. */
+
   const patch = preset.style && Object.keys(preset.style).length ? deepClone(preset.style) : deepClone(CELL_STYLE_RESET);
   applyStyleToSelection(patch, { label: 'Cell style: ' + preset.name });
   markActiveCellStyle(preset.name);
 }
-/* ---------------- cell styles gallery (Themes-style) ---------------- */
+
 let _activeCellStyleName = null;
 function markActiveCellStyle(name) {
   _activeCellStyleName = name;
@@ -7529,9 +7199,6 @@ function buildStyleGalleryMenu() {
   return menu;
 }
 
-/* ==========================================================================
- * 13. FLOATING CHARTS
- * ========================================================================== */
 const CHART_TYPES = [
   { id: 'column', name: 'Column', icon: 'chartCol', hint: 'Compare values across categories' },
   { id: 'bar', name: 'Bar', icon: 'chartBar', hint: 'Compare values across long labels' },
@@ -7539,23 +7206,23 @@ const CHART_TYPES = [
   { id: 'pie', name: 'Pie', icon: 'chartPie', hint: 'Show parts of a whole' },
   { id: 'scatter', name: 'Scatter', icon: 'chartScatter', hint: 'Plot two numeric columns' }
 ];
-/* per-chart series customization: colors[] / seriesNames[] override the defaults */
+
 function chartColorAt(chart, si) {
   return (chart && Array.isArray(chart.colors) && chart.colors[si]) || SERIES_COLORS[si % SERIES_COLORS.length];
 }
 function seriesNameAt(chart, si, fallback) {
   return (chart && Array.isArray(chart.seriesNames) && chart.seriesNames[si]) || fallback;
 }
-/* ---- combo charts: per-series type override + display-order permutation ---- */
+
 function chartOrderOf(chart, n) {
-  /* valid display-order permutation (array of original series indices) or null */
+
   if (!chart || !Array.isArray(chart.seriesOrder) || chart.seriesOrder.length !== n) return null;
   const o = chart.seriesOrder;
   for (const ix of o) if (!Number.isInteger(ix) || ix < 0 || ix >= n) return null;
   return o;
 }
 function chartMetaIndex(chart, di, n) {
-  /* display index -> original series index (for colors/seriesNames/seriesTypes lookups) */
+
   const o = chartOrderOf(chart, n);
   return o ? o[di] : di;
 }
@@ -7564,7 +7231,7 @@ function seriesTypeAt(chart, si) {
   return (t === 'column' || t === 'line') ? t : null;
 }
 function chartEffTypes(chart, data) {
-  /* effective render type per DISPLAY series index: 'column' | 'bar' | 'line' */
+
   const n = data.series.length;
   const base = chart.type === 'bar' ? 'bar' : (chart.type === 'line' ? 'line' : 'column');
   if (base === 'pie' || base === 'scatter') return data.series.map(() => base);
@@ -7576,7 +7243,7 @@ function chartEffTypes(chart, data) {
   return out;
 }
 function chartExtractData(chart) {
-  /* returns {categories: [], series: [{name, values[], fmts[]}]} (fmts = source cell number formats) */
+
   const parsed = parseRangeText(chart.range);
   const out = { categories: [], series: [] };
   if (!parsed) return out;
@@ -7592,7 +7259,7 @@ function chartExtractData(chart) {
   const fmt = (r, c) => { const cell = sh.cells.get(key(r, c)); return cell && cell.s && cell.s.numberFormat ? cell.s.numberFormat : null; };
   const seriesInRows = !!chart.seriesInRows;
   if (!seriesInRows && w === 1 && h > 0) {
-    /* single column: one series, categories = row order */
+
     const values = [], fmts = [];
     for (let r = parsed.r1; r <= parsed.r2; r++) { const v = val(r, parsed.c1); values.push(typeof v === 'number' ? v : 0); fmts.push(fmt(r, parsed.c1)); }
     out.series.push({ name: chart.title || 'Series 1', values, fmts });
@@ -7635,12 +7302,12 @@ function chartExtractData(chart) {
       out.series.push({ name, values, fmts });
     }
   }
-  /* display-order permutation (series reorder in the chart dialog) */
+
   const ord = chartOrderOf(chart, out.series.length);
   if (ord) out.series = ord.map(ix => out.series[ix]);
   return out;
 }
-/* charts that already played their entrance — pop/wipe only plays for NEW charts */
+
 const ChartSeen = { ids: new Set() };
 function renderChartsLayer() {
   const layer = $('#chart-layer');
@@ -7687,7 +7354,7 @@ function drawChartCanvas(chart, canvas) {
   ctx.fillRect(0, 0, w, h);
   paintChart(ctx, w, h, chart);
 }
-/* paint a chart body onto an arbitrary 2d context (shared by the chart layer and print/PDF rasterization) */
+
 function paintChart(ctx, w, h, chart) {
   const data = chartExtractData(chart);
   try {
@@ -7704,7 +7371,7 @@ function paintChart(ctx, w, h, chart) {
     ctx.fillText('No data — edit the chart to choose a range', w / 2, h / 2);
   }
 }
-/* extra padding demanded by optional axis titles */
+
 function chartTitlePads(chart) {
   const t = chart && chart.axisTitles;
   return { padL: (t && t.y) ? 18 : 0, padB: (t && t.x) ? 16 : 0 };
@@ -7728,16 +7395,16 @@ function drawAxisTitles(ctx, chart, padL, padT, padB, plotW, plotH) {
   }
 }
 function chartLabelFmt(v) { return typeof v === 'number' ? generalNum(Math.round(v * 100) / 100) : String(v); }
-/* data-label text: explicit chart format wins, else the source cell's number format, else the rounded default */
+
 function chartLabelFor(chart, s, i, v) {
   let fmt = chart && chart.labelFmt ? String(chart.labelFmt) : null;
   if (!fmt && s && s.fmts && s.fmts[i]) fmt = s.fmts[i];
   if (fmt && fmt !== 'General' && typeof v === 'number') {
-    try { const t = formatValue(v, fmt); if (t) return t; } catch (e) { /* fall through to default */ }
+    try { const t = formatValue(v, fmt); if (t) return t; } catch (e) {  }
   }
   return chartLabelFmt(v);
 }
-/* point label for line-type series honoring chart.labelPos: out (above) / in (below) / ctr (on point) */
+
 function drawLinePointLabel(ctx, chart, label, x, y) {
   const pos = chart.labelPos || 'out';
   ctx.fillStyle = pos === 'out' ? '#323130' : '#ffffff';
@@ -7758,7 +7425,7 @@ function niceTicks(min, max, count) {
   return ticks;
 }
 function chartAxes(ctx, w, h, data, horizontal) {
-  /* shared axis layout; returns plot rect and value scale */
+
   const all = [];
   data.series.forEach(s => all.push(...s.values));
   let max = all.length ? Math.max(...all, 0) : 1;
@@ -7770,7 +7437,7 @@ function drawBarChart(ctx, w, h, data, chart, horizontal) {
   const tp = chartTitlePads(chart);
   const showLbl = !!chart.dataLabels;
   if (horizontal) {
-    /* horizontal bars: categories on Y, values on X */
+
     const padL = 70 + tp.padL, padR = 14, padT = 10, padB = 42 + tp.padB;
     const plotW = w - padL - padR, plotH = h - padT - padB;
     if (plotW <= 10 || plotH <= 10) return;
@@ -7786,7 +7453,7 @@ function drawBarChart(ctx, w, h, data, chart, horizontal) {
       ctx.textAlign = 'center'; ctx.textBaseline = 'top';
       ctx.fillText(generalNum(t), x, padT + plotH + 6);
     }
-    /* horizontal bars + combo line overlays (per-series type override) */
+
     const effT = chartEffTypes(chart, data);
     const barIdxs = [], lineIdxs = [];
     effT.forEach((t, di) => (t === 'line' ? lineIdxs : barIdxs).push(di));
@@ -7798,7 +7465,7 @@ function drawBarChart(ctx, w, h, data, chart, horizontal) {
       s.values.forEach((v, i) => {
         const y0 = padT + groupH * i + (groupH - barH * bCount) / 2 + slot * barH;
         const x1 = vx(Math.max(vmin, Math.min(vmax, v)));
-        const xz = vx(Math.max(vmin, Math.min(vmax, 0)));   /* zero baseline */
+        const xz = vx(Math.max(vmin, Math.min(vmax, 0)));
         ctx.fillRect(Math.min(x1, xz), y0, Math.max(0, Math.abs(xz - x1)), barH - 1);
         if (showLbl && catCount * bCount <= 60) {
           ctx.font = '9px "Segoe UI"'; ctx.textBaseline = 'middle';
@@ -7822,7 +7489,7 @@ function drawBarChart(ctx, w, h, data, chart, horizontal) {
         }
       });
     });
-    /* combo: line-type series drawn on top through category centers */
+
     if (lineIdxs.length) {
       lineIdxs.forEach(di => {
         const s = data.series[di];
@@ -7859,7 +7526,7 @@ function drawBarChart(ctx, w, h, data, chart, horizontal) {
   const ticks = chartAxes(ctx, w, h, data, horizontal);
   const vmin = ticks[0], vmax = ticks[ticks.length - 1];
   const catCount = Math.max(1, (data.categories.length || (data.series[0] ? data.series[0].values.length : 1)));
-  /* value grid */
+
   ctx.strokeStyle = '#e8eaed'; ctx.fillStyle = '#605e5c'; ctx.font = '10px "Segoe UI"'; ctx.lineWidth = 1;
   const vy = v => padT + plotH - ((v - vmin) / (vmax - vmin || 1)) * plotH;
   for (const t of ticks) {
@@ -7868,7 +7535,7 @@ function drawBarChart(ctx, w, h, data, chart, horizontal) {
     ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
     ctx.fillText(generalNum(t), padL - 6, y);
   }
-  /* bars + combo line overlays (per-series type override) */
+
   const effT = chartEffTypes(chart, data);
   const barIdxs = [], lineIdxs = [];
   effT.forEach((t, di) => (t === 'line' ? lineIdxs : barIdxs).push(di));
@@ -7881,7 +7548,7 @@ function drawBarChart(ctx, w, h, data, chart, horizontal) {
     s.values.forEach((v, i) => {
       const x0 = padL + groupW * i + (groupW - barW * sCount) / 2 + slot * barW;
       const y0 = vy(Math.max(vmin, Math.min(vmax, v)));
-      const yz = vy(Math.max(vmin, Math.min(vmax, 0)));   /* zero baseline */
+      const yz = vy(Math.max(vmin, Math.min(vmax, 0)));
       ctx.fillRect(x0, Math.min(y0, yz), barW - 1, Math.max(0, Math.abs(yz - y0)));
       if (showLbl && catCount * sCount <= 60) {
         ctx.font = '9px "Segoe UI"'; ctx.textAlign = 'center';
@@ -7903,7 +7570,7 @@ function drawBarChart(ctx, w, h, data, chart, horizontal) {
       }
     });
   });
-  /* combo: line-type series drawn on top through category centers */
+
   if (lineIdxs.length) {
     lineIdxs.forEach(di => {
       const s = data.series[di];
@@ -7920,7 +7587,7 @@ function drawBarChart(ctx, w, h, data, chart, horizontal) {
       }
     });
   }
-  /* category labels */
+
   ctx.fillStyle = '#605e5c';
   const cats = data.categories.length ? data.categories : (data.series[0] ? data.series[0].values.map((_, i) => i + 1) : []);
   const skip = Math.ceil(cats.length * (ctx.measureText('W').width * 8) / plotW);
@@ -7933,11 +7600,11 @@ function drawBarChart(ctx, w, h, data, chart, horizontal) {
     ctx.fillText(label.length > 9 ? label.slice(0, 8) + '…' : label, 0, 0);
     ctx.restore();
   });
-  /* axis line */
+
   ctx.strokeStyle = '#a19f9d';
   ctx.beginPath(); ctx.moveTo(padL, padT + plotH); ctx.lineTo(padL + plotW, padT + plotH); ctx.stroke();
   drawAxisTitles(ctx, chart, padL, padT, padB, plotW, plotH);
-  /* legend */
+
   drawLegend(ctx, w, h, data, chart);
 }
 function drawLineChart(ctx, w, h, data, chart) {
@@ -7958,7 +7625,7 @@ function drawLineChart(ctx, w, h, data, chart) {
   }
   const catCount = Math.max(1, (data.categories.length || (data.series[0] ? data.series[0].values.length : 1)));
   const vx = i => padL + (catCount <= 1 ? plotW / 2 : (plotW * i / (catCount - 1)));
-  /* combo: column-type series drawn as bars behind the lines */
+
   const effT = chartEffTypes(chart, data);
   const barIdxs = [], lineIdxs = [];
   effT.forEach((t, di) => (t === 'line' ? lineIdxs : barIdxs).push(di));
@@ -7971,7 +7638,7 @@ function drawLineChart(ctx, w, h, data, chart) {
       s.values.forEach((v, i) => {
         const x0 = vx(i) - (barW * bCount) / 2 + slot * barW;
         const y0 = vy(Math.max(vmin, Math.min(vmax, v)));
-        const yz = vy(Math.max(vmin, Math.min(vmax, 0)));   /* zero baseline */
+        const yz = vy(Math.max(vmin, Math.min(vmax, 0)));
         ctx.fillRect(x0, Math.min(y0, yz), barW - 1, Math.max(0, Math.abs(yz - y0)));
         if (showLbl && catCount * bCount <= 60) {
           ctx.font = '9px "Segoe UI"'; ctx.textAlign = 'center';
@@ -8077,7 +7744,7 @@ function drawLegend(ctx, w, h, data, chart) {
     const mi = chartMetaIndex(chart, i, data.series.length);
     const color = chartColorAt(chart, mi);
     if (effT && effT[i] === 'line') {
-      /* line glyph: short stroke + dot */
+
       ctx.strokeStyle = color; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 13, y); ctx.stroke();
       ctx.fillStyle = color;
@@ -8117,7 +7784,7 @@ function attachChartEvents(chart, frame) {
     e.preventDefault();
   });
   frame.addEventListener('dblclick', e => { e.stopPropagation(); openChartPane(chart); });
-  /* hover tooltips (value readout) */
+
   const cvs = frame.querySelector('canvas');
   cvs.addEventListener('mousemove', e => {
     const rect = cvs.getBoundingClientRect();
@@ -8152,7 +7819,7 @@ function chartHitTest(chart, canvas, mx, my) {
     return null;
   }
   if (chart.type === 'scatter') {
-    /* nearest data point within 12px */
+
     const padL = 46, padR = 12, padT = 10, padB = 42;
     const plotW = w - padL - padR, plotH = h - padT - padB;
     if (plotW <= 10 || plotH <= 10) return null;
@@ -8177,7 +7844,7 @@ function chartHitTest(chart, canvas, mx, my) {
     return { title: generalNum(xs[best.i] || 0), series: seriesNameAt(chart, mi, data.series[best.si].name), value: best.v, color: chartColorAt(chart, mi) };
   }
   if (chart.type === 'bar') {
-    /* horizontal bars: categories on Y */
+
     const padL = 70, padR = 14, padT = 10, padB = 42;
     const plotW = w - padL - padR, plotH = h - padT - padB;
     if (plotW <= 10 || plotH <= 10) return null;
@@ -8189,7 +7856,7 @@ function chartHitTest(chart, canvas, mx, my) {
     const catCount = Math.max(1, (data.categories.length || (data.series[0] ? data.series[0].values.length : 1)));
     const catLabel = i => data.categories[i] != null ? String(data.categories[i]) : 'Item ' + (i + 1);
     const vx = v => padL + ((v - vmin) / (vmax - vmin || 1)) * plotW;
-    /* combo line overlays sit on top — test them first */
+
     const effT = chartEffTypes(chart, data);
     const lineIdxs = [];
     effT.forEach((t, di) => { if (t === 'line') lineIdxs.push(di); });
@@ -8245,10 +7912,9 @@ function chartHitTest(chart, canvas, mx, my) {
   effT.forEach((t, di) => (t === 'line' ? lineIdxs : barIdxs).push(di));
   const vy = v => padT + plotH - ((v - vmin) / (vmax - vmin || 1)) * plotH;
   const isLineBase = chart.type === 'line';
-  /* line overlays (and the line base itself) sit on top — test them first */
+
   if (lineIdxs.length) {
-    /* x matches the draw: category centers for line overlays on column/bar base,
-       spread positions for the line base itself */
+
     const vx = isLineBase
       ? padL + (catCount <= 1 ? plotW / 2 : (plotW * i / (catCount - 1)))
       : padL + groupW * i + groupW / 2;
@@ -8269,7 +7935,7 @@ function chartHitTest(chart, canvas, mx, my) {
     const sCount = Math.max(1, barIdxs.length);
     let barW;
     if (isLineBase) {
-      /* combo bars in a line chart cluster around the category point */
+
       barW = Math.max(2, Math.min(40, (plotW / catCount) * 0.5 / sCount));
       const vx = i2 => padL + (catCount <= 1 ? plotW / 2 : (plotW * i2 / (catCount - 1)));
       const rel = mx - (vx(i) - (barW * sCount) / 2);
@@ -8293,7 +7959,7 @@ function chartHitTest(chart, canvas, mx, my) {
     const v = s.values[i];
     if (v == null) return null;
     const yTop = vy(Math.max(vmin, Math.min(vmax, v)));
-    if (my < yTop) return null;   /* above the bar top — e.g. a combo line point */
+    if (my < yTop) return null;
     const mi = chartMetaIndex(chart, di, data.series.length);
     return { title: catLabel(i), series: seriesNameAt(chart, mi, s.name), value: v, color: chartColorAt(chart, mi) };
   }
@@ -8369,11 +8035,7 @@ function deleteChart(chart) {
   renderChartsLayer();
   Persistence.markDirty();
 }
-/* ---------------- chart pane ----------------
-   A right-hand pane, not a modal, matching the Slides animation pane. The grid
-   shrinks instead of being covered, so the data range can be pointed at real
-   cells — focus the range field and the sheet outlines the current range, then a
-   click or drag on the grid re-points it. Same pane for insert and edit. */
+
 const ChartPane = { open: false, existing: null, picking: false, draft: null };
 function closeChartPane() {
   const pane = $('#chart-pane');
@@ -8395,11 +8057,7 @@ function toggleChartPane(existing, presetType) {
   if (ChartPane.open) closeChartPane();
   openChartPane(existing, presetType);
 }
-/* ---- picking the data range off the sheet ----
-   The range field mirrors itself onto the grid: focused, it outlines the range
-   it currently holds (same striped treatment as a formula reference) and a
-   click or drag on any cell re-points it. Cross-sheet ranges have no on-screen
-   rectangle, so they simply do not outline. */
+
 function chartRangeText(r1, c1, r2, c2) {
   const body = (r1 === r2 && c1 === c2) ? addr(r1, c1) : addr(r1, c1) + ':' + addr(r2, c2);
   return activeSheet().name + '!' + body;
@@ -8437,8 +8095,7 @@ function startChartRefSelect(r, c) {
   d.setRange(chartRangeText(r, c, r, c), false);
   kickChartPaneStep();
 }
-/* live: only the value + preview follow the pointer. The series editor rebuilds
-   DOM, so it is left for the settle (mouseup) instead of firing every mousemove. */
+
 function updateChartRefSelect(live) {
   const d = ChartPane.draft;
   const a = Mouse.data && Mouse.data.anchor, cur = Mouse.data && Mouse.data.cur;
@@ -8449,7 +8106,7 @@ function finishChartRefSelect() {
   const d = ChartPane.draft;
   if (!d) return;
   updateChartRefSelect(false);
-  /* hand focus back so the field stays armed for the next range */
+
   d.rangeInput.focus();
 }
 function openChartPane(existing, presetType) {
@@ -8525,7 +8182,7 @@ function openChartPane(existing, presetType) {
   content.querySelector('#ch-lblfmt').value = state.labelFmt;
   content.querySelector('#ch-xt').value = state.xTitle;
   content.querySelector('#ch-yt').value = state.yTitle;
-  /* data labels + axis titles apply to cartesian charts only; label options appear when labels are on */
+
   function updateLblVis() {
     const row = content.querySelector('[data-lbl]');
     if (row) row.style.display = (state.type !== 'pie' && content.querySelector('#ch-labels').checked) ? '' : 'none';
@@ -8537,10 +8194,7 @@ function openChartPane(existing, presetType) {
     updateLblVis();
   }
   updateCartesianVis();
-  /* ---- live preview: paintChart() only reads its ctx, so the sheet renderer
-     and the print rasterizer already share it. Reusing it here means the preview
-     is the real chart, not an approximation. chartExtractData() throws on an
-     unparseable range, which is the normal state mid-edit, so probe first. ---- */
+
   const previewCv = content.querySelector('#ch-preview');
   const previewEmpty = content.querySelector('#ch-preview-empty');
   function draftChart() {
@@ -8601,17 +8255,17 @@ function openChartPane(existing, presetType) {
       }
     });
   }
-  /* delegated, so the series editor's rebuilt inputs stay covered */
+
   content.addEventListener('input', refreshPreview);
   content.addEventListener('change', refreshPreview);
-  /* the box measures 0x0 until openModal attaches and lays out the body */
+
   if (typeof ResizeObserver !== 'undefined') {
     new ResizeObserver(() => {
       const wrap = previewCv.parentElement;
       if (wrap.clientWidth !== lastW || wrap.clientHeight !== lastH) refreshPreview();
     }).observe(previewCv.parentElement);
   }
-  /* ---- per-series color + name + type + order editor (rebuilds when range/orientation/type changes) ---- */
+
   const seriesBox = content.querySelector('#ch-series');
   const comboCapable = () => state.type === 'column' || state.type === 'bar' || state.type === 'line';
   function refreshSeriesEditor() {
@@ -8625,7 +8279,7 @@ function openChartPane(existing, presetType) {
       return;
     }
     const n = data.series.length;
-    /* display order: keep a saved permutation when it still fits, else identity */
+
     let order = state.order && state.order.length === n && state.order.every(ix => Number.isInteger(ix) && ix >= 0 && ix < n)
       ? state.order.slice()
       : Array.from({ length: n }, (_, i) => i);
@@ -8633,7 +8287,7 @@ function openChartPane(existing, presetType) {
     const wireColors = () => seriesBox.querySelectorAll('input[type=color]').forEach(inp =>
       inp.addEventListener('input', () => { state.colors[+inp.dataset.ci] = inp.value; }));
     if (state.type === 'pie') {
-      /* pie: one color per data point (slice); labels come from category cells */
+
       const vals = data.series[0].values;
       vals.slice(0, 12).forEach((v, i) => {
         const def = SERIES_COLORS[i % SERIES_COLORS.length];
@@ -8645,8 +8299,7 @@ function openChartPane(existing, presetType) {
       });
       if (vals.length > 12) seriesBox.appendChild(el('<div class="ch-series-empty">…' + (vals.length - 12) + ' more slices</div>'));
     } else {
-      /* data.series is already in display order (the probe applies state.order via
-         chartExtractData); order[j] maps display row j -> original series index for meta lookups */
+
       order.forEach((orig, j) => {
         const s = data.series[j];
         const def = SERIES_COLORS[orig % SERIES_COLORS.length];
@@ -8689,9 +8342,7 @@ function openChartPane(existing, presetType) {
   const pickTip = content.querySelector('#ch-pick-tip');
   rangeInput.addEventListener('change', () => { refreshSeriesEditor(); syncPickArm(); });
   content.querySelector('#ch-rows').addEventListener('change', refreshSeriesEditor);
-  /* Arming: focus the range field and the sheet starts mirroring it. The grid
-     keeps its own cursor, so a plain click or drag re-points the field — this is
-     the whole reason the pane sits beside the grid instead of over it. */
+
   function syncPickArm() {
     ChartPane.picking = ChartPane.open && document.activeElement === rangeInput;
     rangeInput.classList.toggle('cp-armed', ChartPane.picking);
@@ -8775,8 +8426,7 @@ function openChartPane(existing, presetType) {
     Persistence.markDirty();
     closeChartPane();
   });
-  /* mount only after the wiring exists, so the first preview paint measures a
-     laid-out pane rather than a detached tree */
+
   const pane = $('#chart-pane');
   pane.innerHTML = '';
   pane.appendChild(content);
@@ -8789,27 +8439,6 @@ function openChartPane(existing, presetType) {
   syncPickArm();
 }
 
-/* ==========================================================================
- * 14. IMPORT / EXPORT / PRINT
- * ========================================================================== */
-/* --------------------------------------------------------------------------
- * Style bridge — app style objects <-> XLSX style objects
- *
- * The app keeps one flat, frozen style object per cell (normStyle); XLSX nests
- * the same information under font / fill / alignment / border. These two pairs
- * of functions are the only place that knows about either shape.
- *
- * Reading is done here rather than through the library because SheetJS's
- * parser only surfaces the fill: `cellStyles: true` yields
- *   {patternType, fgColor}                       // nothing else
- * and silently drops fonts, borders and alignment. styles.xml is parsed
- * directly instead, which round-trips the whole vocabulary.
- * ----------------------------------------------------------------------- */
-
-/* XLSX writes colours as ARGB ("FFRRGGBB") but readers hand back anything from
-   6 to 8 digits, and may instead describe the colour by theme slot or legacy
-   palette index. Resolve all of those to "#rrggbb", or null when the colour is
-   absent/automatic — callers treat null as "leave the default alone". */
 const XLSX_INDEXED = [
   '000000', 'ffffff', 'ff0000', '00ff00', '0000ff', 'ffff00', 'ff00ff', '00ffff',
   '000000', 'ffffff', 'ff0000', '00ff00', '0000ff', 'ffff00', 'ff00ff', '00ffff',
@@ -8820,11 +8449,10 @@ const XLSX_INDEXED = [
   'ffcc99', '3366ff', '33cccc', '99cc00', 'ff00ff', 'ff6600', '666699', '969696',
   '003366', '339966', '003300', '333300', '993300', '993366', '333399', '333333'
 ];
-/* Legacy theme slots, resolved against the Office colour scheme. Only the
-   handful a spreadsheet realistically carries; anything else stays null. */
+
 const XLSX_THEME = ['ffffff', '000000', 'e7e6e6', '44546a', '5b9bd5', 'ed7d31', 'a5a5a5', 'ffc000',
   '4472c4', '70ad47', '0563c1', '954f72'];
-/* OOXML tint: positive lightens toward white, negative darkens toward black */
+
 function applyTint(hex, tint) {
   if (!tint) return hex;
   const n = parseInt(hex, 16);
@@ -8837,7 +8465,7 @@ function xlsxColorToHex(col) {
   if (!col || typeof col !== 'object') return null;
   if (col.rgb != null) {
     let s = String(col.rgb).replace(/[^0-9a-fA-F]/g, '');
-    if (s.length === 8) s = s.slice(2);              /* drop the alpha byte */
+    if (s.length === 8) s = s.slice(2);
     if (s.length === 3) s = s[0] + s[0] + s[1] + s[1] + s[2] + s[2];
     return s.length === 6 ? '#' + s.toLowerCase() : null;
   }
@@ -8851,7 +8479,7 @@ function xlsxColorToHex(col) {
   }
   return null;
 }
-/* Normalise anything that can describe a colour into "#rrggbb". */
+
 function hexNorm(c) {
   if (!c) return null;
   if (typeof c === 'object') return xlsxColorToHex(c);
@@ -8868,9 +8496,6 @@ function hexToArgb(hex) {
   return h ? ('FF' + h.slice(1).toUpperCase()) : null;
 }
 
-/* OOXML line styles <-> the app's border vocabulary. The app draws four
-   weights (BORDER_W); everything finer collapses to thin so a hairline from
-   Excel still renders as a visible rule. */
 const BORDER_FROM_XLSX = {
   thin: 'thin', medium: 'medium', thick: 'thick', double: 'double',
   hair: 'thin', dotted: 'thin', dashed: 'thin', dashDot: 'thin', dashDotDot: 'thin',
@@ -8879,10 +8504,6 @@ const BORDER_FROM_XLSX = {
 };
 const BORDER_TO_XLSX = { thin: 'thin', medium: 'medium', thick: 'thick', double: 'double' };
 
-/* XLSX cell.s -> app style patch (or null when the cell carries nothing worth
-   keeping, so we do not allocate a style for every cell in a plain file).
-   `numFmt` is accepted either on the style object or as the second argument,
-   because the two readers that feed this disagree about where it lives. */
 function xlsxStyleToApp(s, numFmt) {
   const fmt = numFmt || (s && s.numFmt) || null;
   if (!s && !fmt) return null;
@@ -8896,20 +8517,17 @@ function xlsxStyleToApp(s, numFmt) {
       if (f.bold) { patch.bold = true; any = true; }
       if (f.italic) { patch.italic = true; any = true; }
       if (f.strike) { patch.strike = true; any = true; }
-      /* u may be boolean, 1, or "single"/"double" — the library's own reader keys it
-         as `u`, readStyleTable keys it as `underline`. Accept either. */
+
       if (f.underline || f.u) {
         const raw = f.underline || f.u;
         patch.underline = /double/i.test(String(raw)) ? 2 : 1;
         any = true;
       }
       const fc = hexNorm(f.color);
-      /* Automatic is black — leaving it unset keeps theme-following text black,
-         which is what the cell already draws. */
+
       if (fc && fc !== '#000000') { patch.color = fc; any = true; }
     }
-    /* Only a solid pattern paints; Excel's hatch/gradient fills have no
-       equivalent here and would otherwise wash the cell a misleading colour. */
+
     const fill = s.fill;
     if (fill && (!fill.patternType || fill.patternType === 'solid')) {
       const bg = hexNorm(fill.fgColor) || hexNorm(fill.bgColor);
@@ -8941,7 +8559,6 @@ function xlsxStyleToApp(s, numFmt) {
   return patch;
 }
 
-/* app style -> XLSX cell.s. Only called when XLSX_STYLE_WRITE is true. */
 function appStyleToXlsx(s) {
   if (!s) return null;
   const out = {};
@@ -8951,8 +8568,7 @@ function appStyleToXlsx(s) {
   if (s.bold) font.bold = true;
   if (s.italic) font.italic = true;
   if (s.strike) font.strike = true;
-  /* The writer looks for `underline`, not the `u` key its own reader produces.
-     It emits a bare <u/>, so a double underline lands as single. */
+
   if (s.underline === 1 || s.underline === 2) font.underline = true;
   const fc = hexToArgb(s.color);
   if (fc) font.color = { rgb: fc };
@@ -8988,15 +8604,6 @@ function appStyleToXlsx(s) {
   return out;
 }
 
-/* --------------------------------------------------------------------------
- * XLSX engine
- *
- * Upstream SheetJS CE parses styles on read but its writer ignores them
- * entirely, so every fill / font / border would silently vanish on export.
- * xlsx-js-style is a drop-in fork with a style-aware writer, and we prefer it.
- * If only CE ever loads we still import and export everything else — the
- * writer path just skips the style table and says so.
- * ----------------------------------------------------------------------- */
 let XLSX_STYLE_WRITE = false;
 const XLSX_CDN = [
   'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js',
@@ -9005,10 +8612,7 @@ const XLSX_CDN = [
   'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
 ];
 function detectXlsxStyleWriter() {
-  /* The fork reports upstream SheetJS 0.18.5 as .version and tags its own build
-     in .style_version — so matching the version string alone would silently
-     disable styling. Either marker counts; anything else is treated as CE so we
-     never advertise fidelity we cannot deliver. */
+
   try {
     const X = window.XLSX || {};
     XLSX_STYLE_WRITE = !!(X.style_version || /js-style/i.test(String(X.version || '')));
@@ -9034,7 +8638,6 @@ function ensureXlsxLib() {
   });
 }
 
-/* ---- minimal XML scraping (styles.xml and <c> tags are machine-generated) ---- */
 const decodeXml = s => String(s == null ? '' : s)
   .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
   .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
@@ -9044,8 +8647,7 @@ const xmlAttr = (attrs, name) => {
   const m = new RegExp('\\s' + name + '="([^"]*)"').exec(attrs || '');
   return m ? decodeXml(m[1]) : null;
 };
-/* Direct children of `tag`, each as {attrs, inner}. Self-closing elements come
-   back with an empty inner. */
+
 function xmlElements(xml, tag) {
   const out = [];
   const open = new RegExp('<' + tag + '(\\s[^>]*?)?(/?)>', 'g');
@@ -9059,8 +8661,7 @@ function xmlElements(xml, tag) {
   }
   return out;
 }
-/* Contents of the first <tag>…</tag> block — used to scope <xf> lookups to
-   cellXfs rather than picking up the cellStyleXfs entries as well. */
+
 function xmlBlock(xml, tag) {
   const open = xml.indexOf('<' + tag);
   if (open === -1) return '';
@@ -9069,7 +8670,7 @@ function xmlBlock(xml, tag) {
   const close = xml.indexOf('</' + tag + '>', gt);
   return close === -1 ? '' : xml.slice(gt + 1, close);
 }
-/* A colour element may describe itself by rgb, theme slot or palette index. */
+
 function xmlColorNode(attrs) {
   if (!attrs) return null;
   const rgb = xmlAttr(attrs, 'rgb');
@@ -9087,7 +8688,7 @@ function readColorTable(xml, names) {
   }
   return out;
 }
-/* Resolve a styles.xml into the four tables cellXfs indexes into. */
+
 function readStyleTable(stylesXml) {
   const numFmts = {};
   for (const nf of xmlElements(xmlBlock(stylesXml, 'numFmts'), 'numFmt')) {
@@ -9139,12 +8740,11 @@ function readStyleTable(stylesXml) {
   });
   return { numFmts, fonts, fills, borders, cellXfs };
 }
-/* Built-in number formats, from the library's own table when it is loaded and
-   from a short fallback otherwise. */
+
 function builtinNumFmtCode(id, table) {
   try {
     if (window.XLSX && window.XLSX.SSF && window.XLSX.SSF._table && window.XLSX.SSF._table[id]) return window.XLSX.SSF._table[id];
-  } catch (e) { /* fall through */ }
+  } catch (e) {  }
   if (id === 0) return null;
   if (id === 14) return 'm/d/yyyy';
   if (id === 9) return '0%';
@@ -9152,24 +8752,17 @@ function builtinNumFmtCode(id, table) {
   if (id === 2) return '0.00';
   return (table && table.numFmts[id]) || null;
 }
-/* One style record -> an xlsx-shaped style, or null when the record says
-   nothing the app's default style does not already say.
 
-   The null case matters: writers stamp an s="" index on *every* cell, and most
-   of those records point at the workbook's base font. Importing them as real
-   styles would give every plain cell in the file an explicit Calibri 11. */
 function xfToStyle(xf, table) {
   const font = table.fonts[xf.fontId] || null;
   const rawFill = table.fills[xf.fillId] || null;
-  /* Only solid fills paint here; Excel's hatch/gradient patterns have no
-     equivalent in the canvas renderer. */
+
   const fill = rawFill && rawFill.patternType === 'solid'
     ? { patternType: 'solid', fgColor: rawFill.fgColor || rawFill.bgColor || null }
     : null;
   const border = table.borders[xf.borderId] || null;
   const emphasised = !!(font && (font.bold || font.italic || font.underline || font.strike || font.color));
-  /* fontId 0 is the workbook base font — its name and size are the app's own
-     default, so only emphasis on it is worth carrying across. */
+
   const fontOut = font && (emphasised || xf.fontId !== 0) ? font : null;
   const numFmt = builtinNumFmtCode(xf.numFmtId, table) || table.numFmts[xf.numFmtId] || null;
   if (!fontOut && !fill && !border && !xf.alignment && !numFmt) return null;
@@ -9181,7 +8774,7 @@ function xfToStyle(xf, table) {
     numFmt: numFmt === 'General' ? null : numFmt
   };
 }
-/* address ("A1") -> style index, from the s="N" attribute on each <c>. */
+
 function readSheetStyleIndexes(sheetXml) {
   const map = new Map();
   const re = /<c r="([A-Z]{1,3}\d{1,7})"([^>]*)>/g;
@@ -9203,9 +8796,7 @@ function parseRelTargets(relsXml) {
   }
   return relMap;
 }
-/* Worksheet parts in workbook order. Resolved through workbook.xml + its rels
-   rather than assuming sheet1.xml, sheet2.xml… — the writer skips hidden
-   sheets, so file order does not line up with our own sheet list. */
+
 async function xlsxSheetParts(zip) {
   const wbEntry = zip.file('xl/workbook.xml');
   if (!wbEntry) return null;
@@ -9224,8 +8815,6 @@ async function xlsxSheetParts(zip) {
   return order.length ? order : null;
 }
 
-/* Resolve every styled cell in an .xlsx. Returns null when the archive cannot
-   be opened, so the caller can still import values and formulas on its own. */
 async function readXlsxStyles(buf) {
   if (typeof openZipBuffer !== 'function') return null;
   try {
@@ -9234,8 +8823,7 @@ async function readXlsxStyles(buf) {
     const stylesEntry = zip.file('xl/styles.xml');
     if (!parts || !stylesEntry) return null;
     const table = readStyleTable(await stylesEntry.async('text'));
-    /* Cache the resolved style per xf index — a workbook usually has far fewer
-       distinct styles than styled cells. */
+
     const byXf = new Map();
     const sheets = [];
     for (const part of parts) {
@@ -9288,9 +8876,7 @@ function importFileDialog() {
 }
 async function importXlsx(file) {
   const buf = await file.arrayBuffer();
-  /* Values and formulas come from the library; cell styles do not — its reader
-     returns only the fill. Styles are read straight from styles.xml + the
-     worksheet's s="" attributes by readStyleTable/readSheetStyleIndexes. */
+
   const wb = XLSX.read(buf, { type: 'array', cellFormula: true, cellStyles: false, cellNF: true, cellDates: false, sheetStubs: false });
   if (!wb.SheetNames.length) { toast('The workbook has no sheets', 'warn'); return; }
   const styleSrc = await readXlsxStyles(buf);
@@ -9301,7 +8887,7 @@ async function importXlsx(file) {
     const sh = makeSheet(uniqueSheetName(name.slice(0, 28)));
     const ref = ws['!ref'] || 'A1';
     const range = XLSX.utils.decode_range(ref);
-    /* address -> app style patch, resolved once for the whole sheet */
+
     const patchByAddr = styleSrc ? styleSrc.sheets[si] || new Map() : new Map();
     for (let R0 = range.s.r; R0 <= Math.min(range.e.r, 100000); R0++) {
       for (let C0 = range.s.c; C0 <= Math.min(range.e.c, 1000); C0++) {
@@ -9320,7 +8906,7 @@ async function importXlsx(file) {
         if (st) { patch.s = st; styled++; }
         if (patch.v !== undefined || patch.f) writeCell(sh, R0, C0, patch);
         else if (patch.s) writeCell(sh, R0, C0, { s: patch.s });
-        /* cell comments → notes (thread replies flattened as extra comment entries) */
+
         if (cell && cell.c && cell.c.length) {
           if (!sh.notes) sh.notes = new Map();
           const main = cell.c[0] || {};
@@ -9355,8 +8941,7 @@ async function importXlsx(file) {
         if (patch.size != null || patch.hidden) sh.rows.set(i, patch);
       });
     }
-    /* Frozen panes + gridline visibility + the sheet's own hidden flag live on
-       the workbook-level sheet record rather than the worksheet body. */
+
     const meta = (wb.Workbook && wb.Workbook.Sheets || [])[wb.SheetNames.indexOf(name)] || null;
     if (meta) {
       const pane = meta.Panes || ws['!freeze'];
@@ -9390,9 +8975,7 @@ async function exportXlsx() {
     const ws = {};
     const ur = usedRange(sh);
     const range = { s: { r: 0, c: 0 }, e: { r: Math.min(ur.r2, 100000), c: Math.min(ur.c2, 1000) } };
-    /* One translated style object per distinct app style, reused across cells —
-       the writer hashes them into a style table anyway, this just avoids
-       rebuilding the same nested object tens of thousands of times. */
+
     const xstyleCache = new Map();
     const xstyleFor = (s) => {
       if (!s) return null;
@@ -9408,19 +8991,18 @@ async function exportXlsx() {
         const o = {};
         if (cell.f) { o.f = cell.f.slice(1); const v = cell.f ? getComputedCell(sh.id, r, c) : cell.v; if (isErr(v)) o.v = v.err; else if (v == null) o.v = null; else if (typeof v === 'object' && v.__spark) { continue; } else o.v = v; o.t = typeof o.v === 'number' ? 'n' : typeof o.v === 'boolean' ? 'b' : 's'; if (o.v == null) { o.t = 's'; o.v = ''; } }
         else {
-          if (cell.v && typeof cell.v === 'object' && cell.v.__spark) continue;   /* sparkline cells export as blank */
+          if (cell.v && typeof cell.v === 'object' && cell.v.__spark) continue;
           o.v = cell.v;
           o.t = typeof cell.v === 'number' ? 'n' : typeof cell.v === 'boolean' ? 'b' : 's';
           if (cell.v == null) continue;
         }
         if (XLSX_STYLE_WRITE && cell.s) { const xs = xstyleFor(cell.s); if (xs) { o.s = xs; styled++; } }
-        /* The writer takes the number format from the cell's own z, not from
-           the style object, so it has to be set either way. */
+
         if (cell.s && cell.s.numberFormat) o.z = cell.s.numberFormat;
         ws[XLSX.utils.encode_cell({ r, c })] = o;
       }
     }
-    /* notes → cell comments (main note + thread replies); extends !ref to cover noted cells */
+
     for (const [k, stored] of sh.notes) {
       const threads = noteThreadsFromValue(stored).filter(n => n.text);
       if (!threads.length) continue;
@@ -9456,8 +9038,7 @@ async function exportXlsx() {
   }
   const fname = (WB.title || 'workbook').replace(/[\\/:*?"<>|]/g, '_') + '.xlsx';
   try {
-    /* Built in memory rather than via writeFile so the toast can report what
-       actually went into the file. */
+
     const out = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
     downloadBlob(new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), fname);
     const notes = ['values', 'formulas', 'widths', 'merges', 'comments'];
@@ -9498,7 +9079,7 @@ function downloadBlob(blob, name) {
   a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
 }
-/* rasterize a chart body to a PNG data URL for print/PDF embedding */
+
 function rasterizeChartDataUrl(chart, scale) {
   const w = Math.max(40, Math.round(chart.w)), h = Math.max(30, Math.round(chart.h));
   const sc = scale || 2;
@@ -9527,7 +9108,7 @@ function buildPrintHtml(sh) {
       if (st.backgroundColor) css.push('background:' + st.backgroundColor);
       if (st.color) css.push('color:' + st.color);
       if (st.halign) css.push('text-align:' + st.halign);
-      if (st.numberFormat && info.isNum) { /* already formatted in text */ }
+      if (st.numberFormat && info.isNum) {  }
       css.push('width:' + sh.cols.sizeOf(c) + 'px');
       let span = '';
       const m = mergeAt(sh, r, c);
@@ -9538,7 +9119,7 @@ function buildPrintHtml(sh) {
     html += '</tr>';
   }
   html += '</table>';
-  /* floating charts, rasterized and positioned over the grid (chart.x/y share the grid px space) */
+
   const charts = (sh.charts || []).slice(0, 20);
   for (const chart of charts) {
     try {
@@ -9546,7 +9127,7 @@ function buildPrintHtml(sh) {
       if (!url) continue;
       html += '<div class="print-chart" style="left:' + Math.round(chart.x) + 'px;top:' + Math.round(chart.y) + 'px;width:' + Math.round(chart.w) + 'px;height:' + Math.round(chart.h) + 'px">' +
         '<img src="' + url + '" alt="' + escapeHtml(chart.title || 'Chart') + '"></div>';
-    } catch (e) { /* skip a broken chart rather than fail the print */ }
+    } catch (e) {  }
   }
   html += '</div>';
   return html;
@@ -9560,7 +9141,6 @@ function printWorksheet() {
   window.print();
 }
 
-/* ---------------- file operations ---------------- */
 function fileNew() {
   confirmDialog('New Workbook', 'Create a new workbook? Unsaved changes to "' + (WB.title || 'this workbook') + '" are kept in browser storage, but the new workbook becomes active.', () => {
     Persistence.flush();
@@ -9578,7 +9158,7 @@ function fileNew() {
     try { window.EmeraldHistory.action('Created spreadsheet'); } catch (_) {}
   });
 }
-/* ---------------- Welcome screen (home / workbook overview) ---------------- */
+
 function flushIfDirty() {
   if (Persistence.state === 'dirty') { try { return Persistence.flush(); } catch (e) {} }
   return Promise.resolve();
@@ -9610,8 +9190,7 @@ function fmtCardDate(ts) {
   if (!ts) return '';
   return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
-/* Tiny spreadsheet preview (6x4 cells): header row/col get a green tint when the
-   sheet has content; cells with a value/formula get a light fill. */
+
 function wbMiniGrid(data) {
   const sh = (data.sheets || [])[0];
   const cells = (sh && sh.cells) ? sh.cells : {};
@@ -9699,7 +9278,7 @@ function welcomeNew() {
   try { window.EmeraldHistory.action('Created spreadsheet'); } catch (_) {}
 }
 function welcomeImport() {
-  /* Import into a brand-new workbook so the dormant background workbook isn't mutated. */
+
   flushIfDirty();
   deserializeWorkbook(newWorkbookData('Untitled workbook'));
   Persistence.setDocId(WB.id);
@@ -9712,8 +9291,6 @@ function closeWorkbookToWelcome() {
   showWelcomeScreen(true);
 }
 
-/* Keep the address bar in sync with the open workbook, Docs/Notes/Slides
-   style: ?owned=book_<ms>_<hex> while a workbook is open, bare URL on welcome. */
 function updateOwnedUrl(forceClear) {
   try {
     if (!forceClear && WB && WB.id && WB._persist !== false) {
@@ -9726,7 +9303,6 @@ function updateOwnedUrl(forceClear) {
   } catch (e) {}
 }
 
-/* ---------------- File modal (Backstage-style, Docs/Slides pattern) ---------------- */
 function fileModalOpen() { const m = $('#fileModal'); return !!(m && m.classList.contains('show')); }
 function syncFileModalNameInput() {
   const n = $('#fileModalNameInput');
@@ -9771,7 +9347,7 @@ function deleteCurrentWorkbook() {
   const deletedTitle = WB.title || 'Untitled workbook';
   confirmDialog('Delete Workbook', 'Delete "' + deletedTitle + '" from browser storage? This cannot be undone.', async () => {
     try { await IO.deleteDoc(WB.id); } catch (e) {}
-    /* Reset the save controller so a pending debounced flush can't re-save the deleted doc. */
+
     clearTimeout(Persistence.timer); Persistence.timer = 0;
     Persistence.state = 'saved';
     updateSaveStatus();
@@ -9845,9 +9421,6 @@ async function openDocumentsDialog() {
   openModal({ title: 'Saved Documents', width: 520, content, buttons: [{ label: 'Close' }] });
 }
 
-/* ==========================================================================
- * 15. CHROME UI — POPUPS / MENUS / MODALS / TOASTS / CONTEXT MENUS
- * ========================================================================== */
 let activePopup = null;
 let activeSheetTabContextMenu = null;
 function popupOpen() { return !!activePopup; }
@@ -9937,8 +9510,7 @@ function showPopupMenu(items, x, y) {
   }, 0);
   return pop;
 }
-/* Sheet-tab context menu styled like the generic rightclick.js menu:
-   no per-item icons, only a small icon on the category title. */
+
 function showSheetTabContextMenu(x, y, sh, tab) {
   closePopups();
   const menu = el('<div class="rightclick-menu" role="menu" style="display:block;pointer-events:auto;"></div>');
@@ -10055,33 +9627,26 @@ function unhideColsMenu(x, y) {
   showPopupMenu(hidden.slice(0, 40).map(c => ({ label: 'Column ' + colName(c), action: () => setColsHidden([c], false) })), x, y);
 }
 
-/* ---------------- toasts (white glass pill, Docs/Slides/Notes pattern) ---------------- */
 let toastTimer = 0;
-/* Pick a monochrome #111 SVG icon for a toast message — same pattern as
-   Docs' _toastIcon / Slides' _toastIcon. Meaning is carried by the icon
-   (the pill is always the same white glass). */
+
 function _toastIcon(rawMsg, type) {
   const msg = String(rawMsg || '').replace(/^\s*[\u2705\u2714\u2716\u2728\u26a0\ufe0f\u2757\u2753\u2139]+\s*/u, '').trim();
   const m = msg.toLowerCase();
   const INK = '#111';
   const svg = paths => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + INK + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + paths + '</svg>';
 
-  /* 0. Connection state (mirrors notes.js connection monitor) */
   if (m.indexOf('reconnected') !== -1) return { icon: svg('<polyline points="20 6 9 17 4 12"/>'), msg };
   if (m.indexOf('reconnect') !== -1) return { icon: svg('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>'), msg };
 
-  /* 1. Loading / progress */
   if (m.indexOf('generating') === 0 || m.indexOf('importing') === 0 || m.indexOf('reading') === 0 ||
       m.indexOf('loading') === 0 || m.indexOf('tracing') === 0 || m.indexOf('this may take') !== -1) {
     return { icon: svg('<line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>'), msg };
   }
 
-  /* 2. Clipboard / copied / pasted */
   if (m.indexOf('clipboard') !== -1 || m.indexOf('copied') !== -1 || m.indexOf('pasted') !== -1 || m.indexOf('paste ') !== -1) {
     return { icon: svg('<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'), msg };
   }
 
-  /* 3. Failed / error (hard errors) */
   if (m.indexOf('failed') !== -1 || m.indexOf('error') !== -1 || m.indexOf('could not') !== -1 ||
       m.indexOf('couldn') !== -1 || m.indexOf('not supported') !== -1 || m.indexOf('unavailable') !== -1 ||
       m.indexOf('not found') !== -1 || m.indexOf('denied') !== -1 || m.indexOf('invalid') !== -1 ||
@@ -10089,7 +9654,6 @@ function _toastIcon(rawMsg, type) {
     return { icon: svg('<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>'), msg };
   }
 
-  /* 4. Warnings / hints: must / select / no X found / cannot / empty … */
   if (m.indexOf('must have') !== -1 || m.indexOf('must be') !== -1 || m.indexOf('must start') !== -1 ||
       m.indexOf('must contain') !== -1 || m.indexOf('cannot') !== -1 ||
       m.indexOf('can\'t') !== -1 || m.indexOf('select ') !== -1 || m.indexOf('nothing to') !== -1 ||
@@ -10103,22 +9667,18 @@ function _toastIcon(rawMsg, type) {
     return { icon: svg('<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>'), msg };
   }
 
-  /* 5. Deleted / removed / cleared */
   if (m.indexOf('deleted') !== -1 || m.indexOf('removed') !== -1) {
     return { icon: svg('<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>'), msg };
   }
 
-  /* 6. Milestones */
   if (m.indexOf('%') !== -1 || m.indexOf('halfway') !== -1 || m.indexOf('goal') !== -1 || m.indexOf('well done') !== -1 || m.indexOf('benchmark') !== -1) {
     return { icon: svg('<circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>'), msg };
   }
 
-  /* 7. Modes toggled */
   if (m.indexOf('mode') !== -1 || m.indexOf('calculation') !== -1 || m.indexOf('read-only') !== -1 || m.indexOf('final') !== -1) {
     return { icon: svg('<circle cx="12" cy="12" r="3"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/><path d="M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/>'), msg };
   }
 
-  /* 8. Success confirmations */
   if (m.indexOf('saved') !== -1 || m.indexOf('inserted') !== -1 ||
       m.indexOf('applied') !== -1 || m.indexOf('added') !== -1 || m.indexOf('created') !== -1 || m.indexOf('restored') !== -1 ||
       m.indexOf('exported') !== -1 || m.indexOf('imported') !== -1 || m.indexOf('merged') !== -1 || m.indexOf('complete') !== -1 ||
@@ -10131,7 +9691,6 @@ function _toastIcon(rawMsg, type) {
     return { icon: svg('<polyline points="20 6 9 17 4 12"/>'), msg };
   }
 
-  /* 9. Default info */
   return { icon: svg('<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'), msg };
 }
 function toast(msg, type = 'info', ms = 2600) {
@@ -10153,10 +9712,6 @@ function toast(msg, type = 'info', ms = 2600) {
   toastTimer = setTimeout(() => { t.className = 'toast'; }, ms);
 }
 
-/* ---------------- connection monitor (mirrors Notes app) ----------------
-   Watches the browser's online/offline state: a persistent "Reconnecting…"
-   toast while offline, then a "Connection Lost" dialog offering a Reload if
-   the network doesn't come back within 15s. */
 let _sheetsDisconnected = false;
 let _sheetsReconnectTimer = null;
 let _sheetsDisconnectDialog = null;
@@ -10174,8 +9729,7 @@ function setupConnectionMonitor() {
     _sheetsDisconnected = false;
     clearTimeout(_sheetsReconnectTimer);
     _sheetsReconnectTimer = null;
-    // Confirm recovery with a toast only while the Connection Lost modal
-    // hasn't taken over — once it's up, the user must reload.
+
     if (!_sheetsDisconnectDialog) toast('Reconnected!', 'success', 4000);
   };
   window.addEventListener('offline', onOffline);
@@ -10200,12 +9754,11 @@ function showDisconnectModal() {
 }
 function hideDisconnectModal() {
   if (_sheetsDisconnectDialog) {
-    try { _sheetsDisconnectDialog.close(); } catch (e) { /* already closed */ }
+    try { _sheetsDisconnectDialog.close(); } catch (e) {  }
     _sheetsDisconnectDialog = null;
   }
 }
 
-/* ---------------- modal infra ---------------- */
 const modalStack = [];
 function modalIconFor(title) {
   const t = (title || '').toLowerCase();
@@ -10228,7 +9781,7 @@ function openModal({ title, width, content, buttons, onClose, icon: iconOverride
   const danger = (buttons || []).some(b => b.danger) || iconName === 'trash';
   modal.classList.add(confirm ? 'confirm' : 'form');
   if (danger) modal.classList.add('danger');
-  /* noCloseX: the dialog carries a footer "Close" instead of a header X. */
+
   const head = el('<div class="modal-head"><div class="modal-icon">' + icon(iconName) + '</div><div class="modal-title">' + escapeHtml(title) + '</div>' + ((confirm || noCloseX) ? '' : '<button class="modal-x" aria-label="Close dialog">' + icon('x') + '</button>') + '</div>');
   if (danger) head.querySelector('.modal-icon').classList.add('danger');
   const body = el('<div class="modal-body"></div>');
@@ -10252,7 +9805,7 @@ function openModal({ title, width, content, buttons, onClose, icon: iconOverride
   const xBtn = head.querySelector('.modal-x');
   if (xBtn) xBtn.addEventListener('click', close);
   overlay.addEventListener('mousedown', e => { if (e.target === overlay) close(); });
-  /* focus trap + Escape */
+
   overlay.addEventListener('keydown', e => {
     if (e.key === 'Escape') { e.stopPropagation(); close(); }
     else if (e.key === 'Tab') {
@@ -10305,7 +9858,6 @@ function promptDialog(title, label, value, onOk) {
   input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const btns = document.querySelectorAll('.modal-foot .btn.primary'); if (btns.length) btns[btns.length - 1].click(); } });
 }
 
-/* ---------------- shared dialogs ---------------- */
 function openDefineNameDialog() {
   const sh = activeSheet();
   const rg = activeSelRange();
@@ -10321,8 +9873,7 @@ function openDefineNameDialog() {
     const list = el('<div class="define-name-listbox" role="list"></div>');
     for (const k of keys) {
       const def = WB.names[k];
-      /* escape the ref as one string: sheet name and the addr() output are both
-       * derived from the stored name, so nothing here may skip escaping. */
+
       const ref = escapeHtml((def.sheetName || '') + '!' + addr(def.r1, def.c1) + ':' + addr(def.r2, def.c2));
       const row = el('<div class="define-name-row" role="listitem"><span class="define-name-info"><span class="define-name-label">' + escapeHtml(def.name) + '</span><span class="define-name-ref">=' + ref + '</span></span><button class="define-name-delete" type="button" data-del title="Delete named range" aria-label="Delete named range ' + escapeHtml(def.name) + '">' + icon('trash') + '</button></div>');
       row.querySelector('[data-del]').addEventListener('click', () => { delete WB.names[k]; rebuildAllDeps(); renderNames(); updateNameBox(); Persistence.markDirty(); });
@@ -10355,7 +9906,6 @@ function openDefineNameDialog() {
   if (dlg) dlg.modal.classList.add('define-name');
 }
 
-
 const RIBBON_FONT_GROUPS = [
   ['Sans-Serif', ['Calibri', 'Segoe UI', 'Arial', 'Helvetica', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Poppins', 'Nunito', 'Ubuntu', 'Raleway', 'Oswald', 'Work Sans', 'DM Sans', 'Impact']],
   ['Serif', ['Georgia', 'Times New Roman', 'Merriweather', 'Lora', 'Libre Baskerville', 'DM Serif Display', 'Crimson Text']],
@@ -10368,7 +9918,6 @@ for (const [head, names] of RIBBON_FONT_GROUPS) {
   for (const n of names) RIBBON_FONTS.push({ value: n, dataLabel: n, html: escapeHtml(n), style: 'font-family:' + n + ',sans-serif;' });
 }
 
-/* ---------------- Insert Function dialog ---------------- */
 function openInsertFunctionDialog() {
   const cats = ['All', ...[...new Set(FUNC_META.map(f => f.cat))]];
   let curCat = 'All', curSel = FUNC_META.find(f => f.name === 'SUM'), lastInsert = 0, items = [];
@@ -10394,13 +9943,9 @@ function openInsertFunctionDialog() {
   const nameEl = content.querySelector('#fn-name');
   const sigEl = content.querySelector('#fn-sig');
   const descEl = content.querySelector('#fn-desc');
-  /* FUNC_META.args already reads "NAME(a, b)" — the list row shows the bare arg list */
+
   const argList = f => f.args.slice(f.name.length + 1, -1);
-  /* Two independent indicators share the gutter: one accent capsule parked on the
-     active row and one neutral capsule that follows the pointer. Same shape, different
-     colour, and the active one never moves for hover. Both survive re-renders so they
-     glide, and both read offsetTop (transform-immune, so the modal entrance can't
-     skew them). */
+
   const catPill = el('<div class="fn-pill" aria-hidden="true"></div>');
   const listPill = el('<div class="fn-pill" aria-hidden="true"></div>');
   const catHov = el('<div class="fn-hov" aria-hidden="true"></div>');
@@ -10418,7 +9963,7 @@ function openInsertFunctionDialog() {
   function syncHov(box, hov) {
     const active = box.querySelector('.selected');
     const on = hoverRow && hoverRow.parentElement === box ? hoverRow : null;
-    /* the active row already owns its capsule — don't stack a second marker on it */
+
     if (!on || on === active) { hov.classList.remove('on'); return; }
     hov.classList.add('on');
     hov.style.height = Math.max(8, on.offsetHeight - 10) + 'px';
@@ -10447,7 +9992,7 @@ function openInsertFunctionDialog() {
         catBox.appendChild(row);
       }
     }
-    /* classes only — rebuilding the rail would reset the pill and kill the glide */
+
     let i = 0;
     for (const row of catBox.querySelectorAll('.fn-cat')) {
       const on = cats[i++] === curCat;
@@ -10466,17 +10011,14 @@ function openInsertFunctionDialog() {
     for (const f of items) {
       const row = el('<div class="fn-item" role="option" title="' + escapeHtml(f.args) + '">' +
         '<span class="fn-nm">' + escapeHtml(f.name) + '</span><span class="fn-arg">' + escapeHtml(argList(f)) + '</span></div>');
-      /* 1-click flow: first click selects + shows detail, clicking the already-selected
-         row inserts right away. (no dblclick handler — a physical second click fires
-         BOTH click and dblclick, which would insert twice) */
+
       row.addEventListener('click', () => { if (curSel && curSel.name === f.name) { insertFunction(); return; } curSel = f; syncSelection(); });
       listBox.appendChild(row);
     }
     if (!items.length) listBox.insertBefore(el('<div class="fn-empty">No matching functions</div>'), listHov);
-    /* rows were just replaced — a hovered node is gone, so the group falls back
-       to the active row until the pointer moves again */
+
     if (hoverRow && !hoverRow.isConnected) hoverRow = null;
-    /* keep a valid selection so the detail card is never blank/stale */
+
     if (!curSel || !items.some(f => f.name === curSel.name)) curSel = items[0] || null;
     if (resetScroll) listBox.scrollTop = 0;
     syncSelection();
@@ -10505,7 +10047,7 @@ function openInsertFunctionDialog() {
   }
   function insertFunction() {
     const now = Date.now();
-    if (now - lastInsert < 450) return;   /* swallow the second click of an accidental double-click */
+    if (now - lastInsert < 450) return;
     lastInsert = now;
     if (!curSel) return;
     if (!Edit.active) beginEdit(SEL.active.r, SEL.active.c, { cursorMode: true });
@@ -10528,19 +10070,13 @@ function openInsertFunctionDialog() {
     title: 'Insert Function', width: 700, content, noCloseX: true, centerFoot: true,
     buttons: [{ label: 'Close', onClick: () => true }, { label: 'Insert', primary: true, onClick: () => { insertFunction(); return true; } }]
   });
-  /* first paint must wait until the dialog is in the document — offsetTop/offsetHeight
-     are all 0 while detached, which would park the indicators at the very top */
+
   trackHover(catBox);
   trackHover(listBox);
   renderCats();
   renderList(true);
 }
 
-/* ==========================================================================
- * 16. MENUBAR / RIBBON / HEADER / SHEET TABS / FIND & REPLACE / BOOT
- * ========================================================================== */
-/* All former menu-bar commands live in the ribbon tabs now (see ribbonConfig).
-   Keyboard shortcuts are registered independently in the global key handler. */
 function openPasteSpecial() {
   if (!Clip.cells) { toast('Clipboard is empty', 'warn'); return; }
   openModal({
@@ -10557,7 +10093,6 @@ function openPasteSpecial() {
   });
 }
 
-/* ---------------- ribbon ---------------- */
 function colorPaletteItems(onPick, allowNone) {
   const colors = ['#000000', '#404040', '#7f7f7f', '#bfbfbf', '#ffffff', '#843c0c', '#c55a11', '#ed7d31', '#f4b183', '#fbe5d5',
     '#5b3b29', '#a0522d', '#d2691e', '#e8a33d', '#ffe4c4', '#264438', '#217346', '#4ea072', '#a9d5bb', '#e2efda',
@@ -10897,20 +10432,13 @@ function positionRibbonIndicator() {
 function buildRibbonItem(item) {
   if (item.custom) return buildCustomRibbonControl(item);
   const big = !item.small;
-  /* no label → no <span> at all. An empty one is still a flex item, so it would
-     add a stray gap and push the glyph off-centre. Icon-only buttons keep the
-     base .ribbon-btn box, matching Notes/Docs/Slides (docs.css:681-683). */
+
   const btn = el('<button class="ribbon-btn' + (big ? '' : ' ribbon-btn-icon') + (item.split ? ' split' : '') + '" title="' + escapeHtml(item.title || item.label) + '" aria-label="' + escapeHtml(item.title || item.label) + '">' + icon(item.icon) + (big && item.label ? '<span>' + escapeHtml(item.label) + '</span>' : '') + '</button>');
-  /* One trigger, on click. This used to open on mousedown and then let the
-     click that follows fire a second time, and openRibbonMenu only ever closed
-     before reopening — so re-pressing the button made the menu reappear instead
-     of dismissing it. Click also keeps keyboard (Enter/Space) working, which
-     mousedown never did. */
+
   if (item.action || item.menu) {
     btn.addEventListener('click', e => {
       if (item.menu && item.split) {
-        /* measure against the button rect, not e.offsetX: pressing the icon makes
-           e.target the inner <path>, so offsetX is relative to the glyph. */
+
         const r = btn.getBoundingClientRect();
         if (e.clientX - r.left > r.width - 12) { toggleRibbonMenu(item.menu, btn); return; }
       }
@@ -10920,8 +10448,7 @@ function buildRibbonItem(item) {
   }
   if (item.dblclick) btn.addEventListener('dblclick', item.dblclick);
   if (item.toggleKey || item.toggleFn) btn.dataset.toggle = item.toggleKey || '';
-  /* data-cmd is the handle updateRibbonAvailability() greys out. Same
-     convention Docs uses on [data-cmd="bold"] (docs.js:1719). */
+
   if (item.cmd) btn.dataset.cmd = item.cmd;
   if (item.id) btn.id = item.id;
   if (item.menu) { btn.setAttribute('aria-haspopup', 'menu'); btn.setAttribute('aria-expanded', 'false'); }
@@ -10930,8 +10457,7 @@ function buildRibbonItem(item) {
 }
 let _msMenu = null, _msMenuBtn = null;
 const MS_MENU_EXIT_MS = 140;
-/* The menu used to be removed from the DOM the instant it closed, so an exit
-   transition could never play. Defer the removal until the fade-out finishes. */
+
 function closeMsMenus() {
   const p = _msMenu;
   _msMenu = null;
@@ -10945,17 +10471,14 @@ function closeMsMenus() {
   };
   p._msDone = false;
   if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) { p.classList.remove('open', 'closing'); done(); return; }
-  /* Drop .open as well as adding .closing. Leaving .open on meant the next open
-     removed .closing and re-added .open — a net no-op, so no style change and no
-     transition, and the menu blinked into place instead of animating. */
+
   p.classList.remove('open');
   p.classList.add('closing');
   p._msTimer = setTimeout(done, MS_MENU_EXIT_MS + 80);
 }
 function portalMsMenu(menu, btn) {
   document.body.appendChild(menu);
-  /* Start from a clean base state: drop any exit state AND .open, so the reflow
-     below always commits opacity 0 and the .open add is a real change. */
+
   clearTimeout(menu._msTimer);
   menu._msDone = false;
   menu.classList.remove('closing', 'open');
@@ -10976,11 +10499,7 @@ function portalMsMenu(menu, btn) {
   let left = r.left;
   if (left + mW > vW - 8) left = vW - mW - 8;
   if (left < 8) left = 8;
-  /* No keyframe animation here: the open/close states are CSS transitions (the
-     .show pattern the rest of the site uses), which animate both directions and
-     stay interruptible. A transition needs a committed start value, hence the
-     forced reflow below — the measuring pass and the .open add otherwise land in
-     the same frame and the browser coalesces them into no animation at all. */
+
   menu.style.cssText = 'position:fixed;display:block;visibility:visible;z-index:999999;margin:0;left:' + left + 'px;top:' + top + 'px;max-height:' + (presetMax ? presetMax + 'px' : menu.style.maxHeight) + ';overflow-y:auto;';
   void menu.offsetHeight;
   menu.classList.add('open');
@@ -11015,9 +10534,7 @@ function openMsMenu(menuItems, btn) {
   }
   return portalMsMenu(menu, btn);
 }
-/* Capture phase so it also sees scrolls that do not bubble. The menu's OWN scrolling
-   is not "the page moved underneath" though — without this guard, wheeling through an
-   overflowing dropdown closed it on the first tick and looked like it would not scroll. */
+
 document.addEventListener('scroll', e => {
   if (_msMenu && e.target && _msMenu.contains(e.target)) return;
   closeMsMenus();
@@ -11026,9 +10543,7 @@ window.addEventListener('resize', () => closeMsMenus());
 document.addEventListener('mousedown', e => {
   if (!_msMenu) return;
   if (_msMenu.contains(e.target)) return;
-  /* containment, not identity: the trigger is an <svg>-bearing button, so pressing the
-     icon itself makes e.target the <path>, not the button. Comparing to _msMenuBtn
-     directly closed the menu on the same press that opened it. */
+
   const b = _msMenuBtn;
   if (b && (b === e.target || b.contains(e.target))) return;
   closeMsMenus();
@@ -11036,8 +10551,7 @@ document.addEventListener('mousedown', e => {
 function openRibbonMenu(menu, anchor) {
   openMsMenu(menu, anchor);
 }
-/* Re-pressing the trigger dismisses. openRibbonMenu alone always closed and
-   reopened, so a second click on the same button re-showed the menu. */
+
 function toggleRibbonMenu(menu, anchor) {
   if (_msMenuBtn === anchor) { closeMsMenus(); return; }
   openRibbonMenu(menu, anchor);
@@ -11057,8 +10571,7 @@ function msDropdownCtrl(opts) {
   }
   btn.addEventListener('click', () => {
     if (_msMenuBtn === btn) { closeMsMenus(); return; }
-    /* openMsMenu closes first; this path portals a prebuilt menu, so without this
-       opening e.g. the font list while the size list is open left two menus up. */
+
     closeMsMenus();
     portalMsMenu(dd._ddMenu, btn);
   });
@@ -11096,8 +10609,7 @@ const FILL_COLORS = [
   { value: '#FFDAB9', label: 'Peach', hex: '#FFDAB9' },
   { value: 'transparent', label: 'Clear', hex: 'transparent' }
 ];
-/* Excel's classic ten tab colours, plus No Color. Tab colour renders as a small
-   dot on the tab, so saturated values all read fine against the chrome. */
+
 const TAB_COLORS = [
   { value: '#C00000', label: 'Dark Red' },
   { value: '#FF0000', label: 'Red' },
@@ -11313,24 +10825,13 @@ function showColorPalette(x, y, onPick, allowNone) {
   pop.appendChild(more);
   showPopup(pop, null, { x, y });
 }
-/* ---------------- Ribbon availability (Notes/Slides/Docs parity) ----------------
-   Notes, Slides and Docs all grey out a ribbon control whose precondition isn't
-   met instead of letting the click run into a dead end and toast about it. Same
-   contract here: updateRibbonAvailability() sets [disabled] + aria-disabled +
-   .is-unavailable, sheets.css styles .ribbon-btn[disabled] the same way, and
-   updateRibbonState() runs it on every repaint of the ribbon. */
+
 function getRibbonAvailability() {
   const sh = WB ? activeSheet() : null;
   const rg = activeSelRange() || { r1: 0, c1: 0, r2: 0, c2: 0 };
-  /* A selection is live when the renderer draws one — same test the row/column
-     headers use (headerSelected, sheets.js:3732). Loading a workbook doesn't
-     establish one, so on boot SEL.ranges is empty and SEL.sheetId null until
-     the first click; that is the "nothing is selected" state. */
+
   const hasSelection = !!sh && SEL.ranges.length > 0 && SEL.sheetId === sh.id;
-  /* Font, Arrange and Number format work on a cell being typed into OR a cell
-     that is simply selected — either one counts. Requiring the editor alone
-     greys the ribbon for nearly every press, since selecting is the common
-     case and typing is the rare one. */
+
   const formattingContext = hasSelection || (!!sh && Edit.active);
   let hasContent = false;
   if (sh) forEachSelectedCell((r, c) => {
@@ -11338,8 +10839,7 @@ function getRibbonAvailability() {
     if (cell && (cell.v != null || cell.f)) { hasContent = true; return false; }
   });
   const active = sh ? sh.cells.get(key(SEL.active.r, SEL.active.c)) : null;
-  /* Sort/table commands fall back to the contiguous region around the active
-     cell when the selection isn't a plain block (quickSort). */
+
   let regionRows = 0;
   if (sh) {
     let region;
@@ -11350,9 +10850,7 @@ function getRibbonAvailability() {
   return {
     formattingContext: formattingContext,
     hasSelection: hasSelection,
-    /* The row and column commands are axis-specific: the row half only applies
-       to a whole-row selection, the column half only to a whole-column one, and
-       a plain cell/block selection is neither — so both halves grey out. */
+
     rowCtx: hasSelection && SEL.ranges.every(isRowSelection),
     colCtx: hasSelection && SEL.ranges.every(isColSelection),
     hasContent: hasContent,
@@ -11384,14 +10882,10 @@ function setRibbonDropdownDisabled(id, disabled) {
 function updateRibbonAvailability() {
   const s = getRibbonAvailability();
 
-  /* Clipboard — cut/copy need content under the selection, paste needs an
-     internal copy. Both keep working mid-edit: doCopy() falls through to the
-     system clipboard for the open editor, so it's deliberately not gated. */
   setRibbonCommandsDisabled('cut', !s.hasContent);
   setRibbonCommandsDisabled('copy', !s.hasContent);
   setRibbonCommandsDisabled('paste', !s.clipboard);
 
-  /* Formatting, alignment and number format: a selected cell or an open editor. */
   ['bold', 'italic', 'underline', 'strike', 'borders', 'align', 'numfmt', 'decimals'].forEach(cmd => {
     setRibbonCommandsDisabled(cmd, !s.formattingContext);
   });
@@ -11399,17 +10893,11 @@ function updateRibbonAvailability() {
     setRibbonDropdownDisabled(id, !s.formattingContext);
   });
 
-  /* Merge needs something to merge — mergeSelection() otherwise toasts. Left off
-     the editing gate on purpose: the two can't coexist, so requiring both would
-     disable it for good. */
   setRibbonCommandsDisabled('merge', !s.multiCell);
 
-  /* Traces resolve from the active cell, so they need a formula there; the
-     whole-graph trace works from any cell. */
   setRibbonCommandsDisabled('trace', !s.hasFormula);
   setRibbonCommandsDisabled('traceAll', false);
 
-  /* Sort / format-as-table need a region with a second row. */
   setRibbonCommandsDisabled('sort', !s.multiRowRegion);
   setRibbonCommandsDisabled('dataTools', !s.multiRowRegion);
 
@@ -11440,7 +10928,6 @@ function updateRibbonState() {
   body.querySelectorAll('select[_sync]').forEach(s => { if (s._sync) try { s._sync(); } catch (e) {} });
 }
 
-/* ---------------- view toggles / zoom ---------------- */
 function toggleGridlines() {
   const sh = activeSheet();
   sh.showGridlines = !sh.showGridlines;
@@ -11467,7 +10954,7 @@ function setZoom(z) {
   renderChartsLayer();
   Persistence.markDirty();
 }
-/* ease the zoom to a target (buttons, menus, reset, zoom-to-selection) */
+
 const ZoomAnim = { raf: 0, from: 0, to: 0, t0: 0, dur: 220 };
 function animateZoom(target) {
   const to = clamp(target, ZOOM_MIN, ZOOM_MAX);
@@ -11506,7 +10993,7 @@ function zoomFitToWindow() {
   toast('Fit to window · ' + Math.round(z * 100) + '%', 'success');
 }
 function hideEditor() {
-  if (Edit.active) finishEdit();   /* zooming never discards what was typed */
+  if (Edit.active) finishEdit();
 }
 function updateUndoRedoUI() {
   const u = $('#hdr-undo'), r = $('#hdr-redo');
@@ -11517,23 +11004,18 @@ function updateUndoRedoUI() {
   if (rr) rr.disabled = !H.redo.length;
 }
 
-/* ---------------- sheet tabs ---------------- */
-/* sheet ids that already played their tab entrance animation */
 const TabSeen = { ids: new Set() };
 const SheetDrag = { id: null, overId: null, before: true };
 function clearSheetDropMarks() {
   document.querySelectorAll('#sheet-tabs .sheet-tab.drop-before, #sheet-tabs .sheet-tab.drop-after')
     .forEach(t => t.classList.remove('drop-before', 'drop-after'));
 }
-/* Reordering works on the visible sheets only, then writes that order back into
-   the unhidden slots of WB.sheets. Hidden sheets keep their original indices —
-   they have no tab to aim at, so guessing a new home for them would be a lie. */
+
 function applySheetReorder(dragId, targetId, before) {
   const vis = visibleSheets();
   const from = vis.findIndex(s => s.id === dragId);
   const to = vis.findIndex(s => s.id === targetId);
-  /* from === to short-circuits the self-drop case: removing the dragged sheet
-     leaves at === -1, and splice(-1, 0, x) would quietly land it mid-array. */
+
   if (from < 0 || to < 0 || from === to) return;
   const moved = vis.splice(from, 1)[0];
   const at = vis.findIndex(s => s.id === targetId);
@@ -11559,7 +11041,7 @@ function wireSheetTabDrag(tab, sh) {
   tab.addEventListener('dragstart', e => {
     SheetDrag.id = sh.id; SheetDrag.overId = null; SheetDrag.before = true;
     e.dataTransfer.effectAllowed = 'move';
-    try { e.dataTransfer.setData('text/plain', sh.name); } catch (_) { /* IE */ }
+    try { e.dataTransfer.setData('text/plain', sh.name); } catch (_) {  }
     tab.classList.add('dragging');
   });
   tab.addEventListener('dragend', () => {
@@ -11581,15 +11063,14 @@ function wireSheetTabDrag(tab, sh) {
   tab.addEventListener('dragleave', () => tab.classList.remove('drop-before', 'drop-after'));
   tab.addEventListener('drop', e => {
     e.preventDefault();
-    e.stopPropagation();   /* otherwise the strip's own handler also fires */
+    e.stopPropagation();
     const id = SheetDrag.id, before = SheetDrag.before;
     clearSheetDropMarks();
     SheetDrag.id = null; SheetDrag.overId = null;
     if (id && id !== sh.id) applySheetReorder(id, sh.id, before);
   });
 }
-/* #sheet-tabs is flex:1, so there's usually bare space past the last tab. Drop
-   there and append, instead of letting the drop die on a non-droppable node. */
+
 function wireSheetStripDrop(bar) {
   bar.addEventListener('dragover', e => {
     if (!SheetDrag.id) return;
@@ -11619,7 +11100,7 @@ function updateSheetTabBar() {
     if (!TabSeen.ids.has(sh.id)) { tab.classList.add('tab-enter'); TabSeen.ids.add(sh.id); }
     tab.addEventListener('click', () => setActiveSheet(sh.id));
     tab.addEventListener('dblclick', () => beginTabRename(sh, tab));
-    /* keyboard parity for the double-click rename: F2 or Enter on a focused tab */
+
     tab.addEventListener('keydown', e => {
       if (e.key === 'F2' || (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.altKey)) {
         e.preventDefault(); e.stopPropagation();
@@ -11634,8 +11115,7 @@ function updateSheetTabBar() {
     bar.appendChild(tab);
     wireSheetTabDrag(tab, sh);
   }
-  /* Nothing to step to when a single sheet is showing — grey the arrows out
-     rather than let a click silently do nothing. */
+
   const vis = visibleSheets();
   const idx = vis.findIndex(s => s.id === WB.activeSheetId);
   [['#tab-home', idx <= 0], ['#tab-prev', idx <= 0], ['#tab-next', idx < 0 || idx >= vis.length - 1], ['#tab-end', idx < 0 || idx >= vis.length - 1]]
@@ -11647,18 +11127,16 @@ function updateSheetTabBar() {
 function beginTabRename(sh, tab) {
   const input = el('<input type="text" value="' + escapeHtml(sh.name) + '" aria-label="Sheet name">');
   tab.innerHTML = '';
-  tab.draggable = false;   /* a draggable button hijacks text selection in the input */
+  tab.draggable = false;
   tab.appendChild(input);
   input.focus();
   input.select();
   let done = false, flagged = false;
-  /* No maxlength attribute: silently swallowing the keystroke gives no clue
-     why typing stopped. Clamp the value and say why instead — once per
-     attempt, re-armed by dropping back under the cap. */
+
   input.addEventListener('input', () => {
     if (input.value.length <= SHEET_NAME_MAX) { flagged = false; return; }
     const caret = input.selectionStart;
-    const appending = caret === input.value.length;   /* read before the slice resets the caret */
+    const appending = caret === input.value.length;
     input.value = input.value.slice(0, SHEET_NAME_MAX);
     const keep = Math.min(caret, SHEET_NAME_MAX);
     input.setSelectionRange(keep, keep);
@@ -11682,7 +11160,6 @@ function beginTabRename(sh, tab) {
   input.addEventListener('blur', () => finish(true));
 }
 
-/* ---------------- find & replace bar (Docs/Notes-style) ---------------- */
 const Find = { text: '', replace: '', matchCase: false, inNotes: false, pos: -1, matches: [], hlCell: null };
 let _findBarWired = false;
 function toggleFindPanel(show, tab) {
@@ -11741,7 +11218,7 @@ function collectMatches() {
       if (hay.includes(q)) out.push({ r, c });
     }
   }
-  /* notes + replies (optional; matches open the thread popover on navigate) */
+
   if (Find.inNotes && sh.notes && sh.notes.size) {
     for (const [k, stored] of sh.notes) {
       const parts = noteThreadsFromValue(stored).flatMap(n => [String(n.text || ''), ...noteReplies(n).map(rp => String(rp.t || ''))]);
@@ -11763,7 +11240,7 @@ function findNext(dir) {
   if (!Find.text) return;
   if (!Find.matches.length) Find.matches = collectMatches();
   if (!Find.matches.length) { toast('No matches found for "' + Find.text + '"', 'warn'); return; }
-  /* order matches row-major; find next after current position */
+
   const cur = { r: SEL.active.r, c: SEL.active.c };
   let idx;
   if (dir > 0) idx = Find.matches.findIndex(m => m.r > cur.r || (m.r === cur.r && m.c > cur.c));
@@ -11824,7 +11301,7 @@ function replaceAt(sh, r, c) {
       commitCellValue(sh, r, c, doRepl(String(cell.v)));
     }
   }
-  /* note text (thread replies kept intact; only the main note body is rewritten) */
+
   if (Find.inNotes) {
     const note = noteAt(sh, r, c);
     if (note) {
@@ -11834,7 +11311,6 @@ function replaceAt(sh, r, c) {
   }
 }
 
-/* ---------------- remove duplicates ---------------- */
 function openRemoveDuplicates() {
   const sh = activeSheet();
   const rg = activeSelRange();
@@ -11876,7 +11352,6 @@ function openRemoveDuplicates() {
   toast(removed + ' duplicate row(s) removed', 'success');
 }
 
-/* ---------------- command palette (Ctrl+K) ---------------- */
 function paletteCommands() {
   const cmds = [];
   const seen = new Set();
@@ -11887,12 +11362,11 @@ function paletteCommands() {
     seen.add(id);
     cmds.push({ label: String(label), icon: iconName || 'dots', group: group || 'Commands', action });
   };
-  /* header-only commands that have no ribbon button */
+
   add('Undo', 'undo', 'Edit', () => undo());
   add('Redo', 'redo', 'Edit', () => redo());
   add('Save Now', 'save', 'Document', () => { Persistence.flush(); toast('Autosaved to this browser', 'success', 1300); });
-  /* Home > Arrange merges on a single click, so these two live on the cell
-     context menu instead of a dropdown (see showCellContextMenu). */
+
   add('Merge Across', 'merge', 'Home', () => mergeSelection('across'));
   add('Unmerge', 'unmerge', 'Home', () => mergeSelection('unmerge'));
   try {
@@ -11905,7 +11379,7 @@ function paletteCommands() {
             continue;
           }
           if (item.action) add(item.title || item.label, item.icon, tabName, item.action);
-          /* split buttons: index the dropdown menu entries too (labelled "Parent — Child" when the parent has no action) */
+
           if (item.menu) {
             const menu = typeof item.menu === 'function' ? item.menu() : item.menu;
             for (const sub of menu) {
@@ -11920,7 +11394,7 @@ function paletteCommands() {
         }
       }
     }
-  } catch (err) { /* palette is best-effort */ }
+  } catch (err) {  }
   return cmds;
 }
 let PAL = null;
@@ -11967,7 +11441,7 @@ function renderPaletteList(q) {
       for (const tok of tokens) {
         const idx = hay.indexOf(tok);
         if (idx >= 0) { total += idx === 0 ? 0 : idx; continue; }
-        /* token must live inside a single word of the label (subsequence) */
+
         const words = c.label.toLowerCase().split(/[^a-z0-9%]+/).filter(Boolean);
         let best = -1;
         for (const w of words) {
@@ -12038,7 +11512,6 @@ function closeCommandPalette() {
   setTimeout(() => ov.remove(), 150);
 }
 
-/* ---------------- boot ---------------- */
 function bootChrome() {
   buildRibbon();
   updateSheetTabBar();
@@ -12061,7 +11534,7 @@ function resizeCanvas() {
 function setupChrome() {
   R.canvas = $('#grid-canvas');
   R.ctx = R.canvas.getContext('2d');
-  refStripePat = null;                          /* pattern belongs to the old context */
+  refStripePat = null;
   UI.editor = $('#cell-editor');
   UI.formulaInput = $('#formula-input');
   UI.nameBox = $('#name-box');
@@ -12077,9 +11550,7 @@ function setupChrome() {
   $('#fx-cancel').addEventListener('click', () => { if (Edit.active) cancelEdit(); else cancelFormulaBar(); UI.canvasFocus(); });
   $('#fx-confirm').addEventListener('click', () => { if (Edit.active) commitEditor(); else commitFormulaBar(); UI.canvasFocus(); });
   $('#fx-insert').addEventListener('click', () => openInsertFunctionDialog());
-  /* Chrome must never steal focus from the editor/formula bar: the blur fallback
-     would auto-commit the draft before the button's own click handler runs.
-     preventDefault on mousedown keeps the caret exactly where the user left it. */
+
   ['#fx-cancel', '#fx-confirm', '#fx-insert', '#name-box-dd', '#formula-expand'].forEach(sel => {
     $(sel).addEventListener('mousedown', e => e.preventDefault());
   });
@@ -12094,12 +11565,12 @@ function setupChrome() {
       UI.formulaInput.focus();
     }
   });
-  UI.formulaInput.addEventListener('input', e => { autoParen(UI.formulaInput, e); if (Edit.active) { UI.editor.value = UI.formulaInput.value; /* mirror the caret too, or a reference picked next lands at the stale spot */ UI.editor.setSelectionRange(UI.formulaInput.selectionStart, UI.formulaInput.selectionEnd); Edit.dirty = true; } updateFormulaAC(UI.formulaInput); updateFormulaArgTip(UI.formulaInput); });
+  UI.formulaInput.addEventListener('input', e => { autoParen(UI.formulaInput, e); if (Edit.active) { UI.editor.value = UI.formulaInput.value;  UI.editor.setSelectionRange(UI.formulaInput.selectionStart, UI.formulaInput.selectionEnd); Edit.dirty = true; } updateFormulaAC(UI.formulaInput); updateFormulaArgTip(UI.formulaInput); });
   UI.formulaInput.addEventListener('keydown', () => { if (FxAC.open) FxAC.host = UI.formulaInput; });
   UI.nameBox.addEventListener('focus', () => UI.nameBox.select());
   watchRefSelection();
   $('#formula-expand').addEventListener('click', () => $('#formula-row').classList.toggle('expanded'));
-  /* ---- File modal (Backstage) ---- */
+
   $('#fileModalCloseXBtn').addEventListener('click', closeFileModal);
   $('#fileModal').addEventListener('click', e => { if (e.target.id === 'fileModal') closeFileModal(); });
   $('#fileCloseBtn').addEventListener('click', () => { closeFileModal(); closeWorkbookToWelcome(); });
@@ -12122,14 +11593,12 @@ function setupChrome() {
   });
   $('#add-sheet').innerHTML = icon('plus');
   $('#add-sheet').addEventListener('click', () => addSheet(WB.activeSheetId));
-  wireSheetStripDrop($('#sheet-tabs'));   /* once — #sheet-tabs outlives updateSheetTabBar */
+  wireSheetStripDrop($('#sheet-tabs'));
   $('#tab-home').innerHTML = icon('chevsLeft');
   $('#tab-prev').innerHTML = icon('chevLeft');
   $('#tab-next').innerHTML = icon('chevRight');
   $('#tab-end').innerHTML = icon('chevsRight');
-  /* These used to scroll #sheet-tabs, which never overflows — the strip is
-     sized to its content — so all four did nothing. They switch sheets now,
-     stepping over hidden ones exactly like walking the visible tabs does. */
+
   $('#tab-home').addEventListener('click', () => switchSheetEdge(false));
   $('#tab-prev').addEventListener('click', () => switchSheetDelta(-1));
   $('#tab-next').addEventListener('click', () => switchSheetDelta(1));
@@ -12159,8 +11628,7 @@ async function boot() {
   setupConnectionMonitor();
   await loadLastOrNew();
   showWelcomeScreen(true);
-  /* Agent link: the AI chat posts an "es-edit" message here after rewriting
-     a workbook, so an already-open sheets tab reloads it without a refresh. */
+
   if (window.emeraldsuiteAgent && window.emeraldsuiteAgent.onSync) {
     window.emeraldsuiteAgent.onSync((msg) => {
       if (msg && msg.type === 'es-edit' && msg.app === 'sheets' && msg.id && WB && msg.id === WB.id) {
@@ -12168,8 +11636,7 @@ async function boot() {
       }
     });
   }
-  /* Deep-link: ?owned=book_<ms>_<hex> opens that workbook immediately,
-     matching Docs/Notes/Slides behaviour. */
+
   const ownedParam = (() => { try { return new URLSearchParams(location.search).get('owned'); } catch (e) { return null; } })();
   if (ownedParam) {
     try {
@@ -12178,12 +11645,12 @@ async function boot() {
       else { history.replaceState({}, document.title, location.pathname); }
     } catch (e) { history.replaceState({}, document.title, location.pathname); }
   }
-  /* marquee animation loop (cheap; only repaints when marquee active) */
+
   setInterval(() => { if (Clip.marquee) requestPaint(); }, 120);
-  /* charts refresh after recalc */
+
   setInterval(() => { if (Calc.dirty.size === 0) return; }, 5000);
   console.log('EmeraldSheets ready — sheets:', WB.sheets.length);
-  /* minimal debug/QA surface (read-only introspection) */
+
   window.ZS = {
     historyLen: () => H.undo.length,
     redoLen: () => H.redo.length,
@@ -12238,7 +11705,7 @@ async function boot() {
     sheets: () => WB.sheets.map(s => ({ name: s.name, cells: s.cells.size })),
     stats: () => ({ sheets: WB.sheets.length, active: activeSheet().name, cells: activeSheet().cells.size }),
     style: (addr) => { try { const p = parseAddr(addr); const cell = activeSheet().cells.get(key(p.r, p.c)); return cell && cell.s ? Object.assign({}, cell.s) : null; } catch (e) { return 'err:' + e.message; } },
-    /* workbook state must survive a save/load cycle unchanged */
+
     persistRoundTrip: () => {
       const before = serializeWorkbook();
       const json = JSON.parse(JSON.stringify(before));
@@ -12246,13 +11713,12 @@ async function boot() {
       rebuildAllDeps();
       return ZS.features();
     },
-    /* build the real .xlsx bytes so a round-trip can be asserted from outside */
+
     exportBytes: async () => { try { const ok = await ensureXlsxLib(); if (!ok) return 'err:no library'; detectXlsxStyleWriter(); const wb = XLSX.utils.book_new(); for (const sh of WB.sheets) { const ws = {}; const ur = usedRange(sh); const range = { s: { r: 0, c: 0 }, e: { r: Math.min(ur.r2, 100000), c: Math.min(ur.c2, 1000) } }; const cache = new Map(); for (let r = range.s.r; r <= range.e.r; r++) for (let c = range.s.c; c <= range.e.c; c++) { const cell = sh.cells.get(key(r, c)); if (!cell) continue; const o = { v: cell.v, t: typeof cell.v === 'number' ? 'n' : typeof cell.v === 'boolean' ? 'b' : 's' }; if (cell.v == null) continue; if (XLSX_STYLE_WRITE && cell.s) { let xs = cache.get(cell.s); if (xs === undefined) { xs = appStyleToXlsx(cell.s); cache.set(cell.s, xs); } if (xs) o.s = xs; } if (cell.s && cell.s.numberFormat) o.z = cell.s.numberFormat; ws[XLSX.utils.encode_cell({ r, c })] = o; } ws['!ref'] = XLSX.utils.encode_range(range); ws['!merges'] = sh.merges.map(m => ({ s: { r: m.r1, c: m.c1 }, e: { r: m.r2, c: m.c2 } })); XLSX.utils.book_append_sheet(wb, ws, sh.name.slice(0, SHEET_NAME_MAX)); } const out = XLSX.write(wb, { type: 'array', bookType: 'xlsx' }); return { bytes: out, styleWriter: XLSX_STYLE_WRITE, version: String((window.XLSX && window.XLSX.version) || ''), styleVersion: String((window.XLSX && window.XLSX.style_version) || '') }; } catch (e) { return 'err:' + e.message; } },
     importBytes: async (buf) => ZS.importBuffer(buf, 'roundtrip.xlsx'),
-    /* minimal write helpers so the feature set can be driven from the console */
+
     fresh: () => {
-      /* Start from a single empty sheet, so a console-driven run does not
-         inherit whatever the last run saved. */
+
       deserializeWorkbook(newWorkbookData(WB.title));
       WB._persist = false;
       H.undo.length = 0; H.redo.length = 0;

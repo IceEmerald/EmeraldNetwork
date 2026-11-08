@@ -1,15 +1,4 @@
-/* ============================================================
-   EmeraldNetwork — Authentication page (account.html)
-   True 50/50 split on a white page:
-   • Left: rounded card — deep emerald galaxy with a
-     twinkling star field, a soft galaxy band and nebula,
-     wordmark top-left, campaign headline, and a giant
-     realistic planet rising from the bottom (only a quarter
-     of the disc on screen)
-   • Right: login/register — social buttons, icon-free
-     inputs, remember-me row, gradient CTA, page footer
-   Accent tokens shared with assets/styles/emeraldsuite.css
-   ============================================================ */
+
 
 :root {
     --ui-accent: #239a4d;
@@ -86,19 +75,11 @@ body {
     outline-offset: 2px;
 }
 
-/* ============================================================
-   Shell: exactly one half each
-   ============================================================ */
-
 .auth-shell {
     min-height: 100vh;
     display: grid;
     grid-template-columns: 1fr 1fr;
 }
-
-/* ============================================================
-   Sky half — rounded daylight card
-   ============================================================ */
 
 .auth-visual {
     position: relative;
@@ -116,7 +97,6 @@ body {
         linear-gradient(155deg, #d6f1ff 0%, #b3e4f0 20%, #8fd6c8 42%, #6fc9a8 62%, #5ab888 80%, #4aa872 100%);
 }
 
-/* soft light sweep + bokeh — no hard X streaks */
 .auth-visual::before {
     content: "";
     position: absolute;
@@ -129,7 +109,6 @@ body {
     pointer-events: none;
 }
 
-/* gentle vignette to keep the planet grounded */
 .auth-visual::after {
     content: "";
     position: absolute;
@@ -140,7 +119,6 @@ body {
     pointer-events: none;
 }
 
-/* ----- Subtle sparkle field (light-mode friendly) ----- */
 .visual-stars {
     position: absolute;
     inset: 0;
@@ -160,9 +138,6 @@ body {
     50%       { opacity: 0.85; transform: scale(1.15); }
 }
 
-/* EmeraldNetwork wordmark — same as index.html's .logo:
-   flex, 0.75rem gap, 1.75rem icon with the 0.2rem nudge,
-   1.125rem / 800 / #383838 text */
 .auth-visual .logo {
     position: absolute;
     top: 30px;
@@ -184,15 +159,9 @@ body {
     font-size: 1.125rem;
     font-weight: 800;
     color: #383838;
-    /* mirror the icon's 0.2rem nudge so both parts of the
-       wordmark sit at exactly the same height */
+
     margin-bottom: 0.2rem;
 }
-
-/* ----- Campaign headline -----
-   Horizontally centered, sitting about a third of the way
-   down the card — directly above the rising planet — and
-   kept away from the wordmark at the top. */
 
 .brand-headline {
     position: absolute;
@@ -220,9 +189,7 @@ body {
     text-align: right;
     max-width: 88%;
     margin-left: auto;
-    /* a single gradient that slides across the glyphs — the resting
-       look is the gradient itself, and the sweep is just that same
-       gradient moving, so there is never a two-layer cutoff */
+
     background: linear-gradient(90deg,
             #7c3aed 0%, #a855f7 20%, #f472b6 40%,
             #a855f7 60%, #7c3aed 80%, #7c3aed 100%);
@@ -245,14 +212,9 @@ body {
     }
 }
 
-/* ============================================================
-   The planet — giant, quarter visible, lit by the bright sky
-   ============================================================ */
-
 .globe {
     position: absolute;
-    /* centre just past the bottom-right corner of the card, so
-       only the top arc of the sphere is ever on screen */
+
     width: 130vmin;
     aspect-ratio: 1;
     right: -35vmin;
@@ -263,10 +225,8 @@ body {
     transform: none;
     z-index: 2;
 
-    /* the canvas (aboutgl real-earth renderer) fills this box */
     background: transparent;
 
-    /* atmosphere halo blending into the bright sky */
     box-shadow:
         0 0 90px 12px rgba(150, 235, 170, 0.42),
         0 0 210px 60px rgba(110, 210, 140, 0.20);
@@ -279,13 +239,11 @@ body {
     height: 100%;
     display: block;
     pointer-events: auto;
-    /* native resolution — no upscaling, keeps the earth sharp */
+
     transform: none;
     filter: saturate(1.15) hue-rotate(-6deg) brightness(0.96);
 }
 
-/* tint the real-earth canvas toward the page's blue-green so the
-   planet's ocean doesn't read as a separate colour from the sky */
 .globe::after {
     content: "";
     position: absolute;
@@ -298,7 +256,6 @@ body {
     z-index: 3;
 }
 
-/* Compact wordmark shown only on phone (when the sky half is hidden) */
 .mobile-logo {
     display: none;
 }
@@ -346,8 +303,6 @@ body {
     }
 }
 
-/* "New to EmeraldNetwork? Create an account" — pinned top-right
-   of the login half */
 .panel-top {
     position: absolute;
     top: 55px;
@@ -398,7 +353,6 @@ body {
     pointer-events: none;
 }
 
-/* EmeraldNetwork badge pill */
 .brand-badge {
     display: inline-flex;
     align-items: center;
@@ -453,10 +407,6 @@ body {
     flex-shrink: 0;
 }
 
-/* ============================================================
-   Social buttons
-   ============================================================ */
-
 .social-buttons {
     display: grid;
     gap: 10px;
@@ -477,8 +427,6 @@ body {
 .social-logo {
     flex: 0 0 auto;
 }
-
-/* ---------------- Divider ---------------- */
 
 .divider {
     display: flex;
@@ -501,10 +449,6 @@ body {
     color: var(--text-muted);
     white-space: nowrap;
 }
-
-/* ============================================================
-   Forms
-   ============================================================ */
 
 .auth-form {
     display: none;
@@ -584,8 +528,6 @@ body {
     box-shadow: 0 0 0 4px rgba(217, 48, 37, 0.20);
 }
 
-/* Confirm-password field turns green once it matches exactly
-   (comparison is case-sensitive, so capitalization must match) */
 .input-wrap input.match {
     border-color: var(--ui-accent);
     background: var(--ui-accent-soft);
@@ -595,10 +537,6 @@ body {
     box-shadow: 0 0 0 4px var(--ui-accent-ring);
 }
 
-/* Hide the browser's built-in password-reveal / clear buttons so
-   only our custom .pw-toggle is shown — scoped to the auth fields,
-   as a global rule breaks WebKit search inputs (their text editor
-   lives inside ::-webkit-textfield-decoration-container) */
 .input-group input::-ms-reveal,
 .input-group input::-ms-clear,
 .input-wrap input::-ms-reveal,
@@ -613,8 +551,6 @@ body {
     position: absolute;
     right: 0;
 }
-
-/* ----- Show / hide password ----- */
 
 .pw-toggle {
     position: absolute;
@@ -651,8 +587,6 @@ body {
     display: block;
 }
 
-/* ----- Errors ----- */
-
 .error-message {
     margin: 6px 0 0;
     font-size: 0.82rem;
@@ -679,7 +613,6 @@ body {
     }
 }
 
-/* Remember me + Forgot password row */
 .row-between {
     display: flex;
     align-items: center;
@@ -697,7 +630,6 @@ body {
     user-select: none;
 }
 
-/* visually hidden native control */
 .remember-input {
     position: absolute;
     opacity: 0;
@@ -707,7 +639,6 @@ body {
     pointer-events: none;
 }
 
-/* custom box */
 .remember-box {
     width: 16px;
     height: 16px;
@@ -758,10 +689,6 @@ body {
     color: var(--ui-accent-hover);
     text-decoration: underline;
 }
-
-/* ============================================================
-   Buttons
-   ============================================================ */
 
 .btn {
     position: relative;
@@ -819,16 +746,12 @@ body {
     transform: translateY(-50%);
 }
 
-/* ---------------- Trouble link ---------------- */
-
 .trouble {
     margin: 26px 0 0;
     font-size: 0.85rem;
     color: var(--text-muted);
     text-align: center;
 }
-
-/* ---------------- Footer (agree line) ---------------- */
 
 .auth-footer {
     margin-top: 24px;
@@ -881,8 +804,6 @@ body {
     text-decoration: underline;
 }
 
-/* Register form has no "Remember me" row, so nudge its submit
-   button down to match the login form's vertical rhythm */
 #register-form .btn.primary {
     margin-top: 24px;
 }
@@ -922,10 +843,6 @@ body {
     vertical-align: middle;
 }
 
-/* ============================================================
-   Responsive
-   ============================================================ */
-
 @media (max-width: 960px) {
     .auth-shell {
         grid-template-columns: 1fr;
@@ -934,12 +851,10 @@ body {
         margin: 0 auto;
     }
 
-    /* On phone, drop the sky half entirely */
     .auth-visual {
         display: none;
     }
 
-    /* Show a compact wordmark in its place, top-left */
     .mobile-logo {
         display: inline-flex;
         position: absolute;
@@ -989,7 +904,6 @@ body {
         max-width: none;
     }
 
-    /* index.html hides the wordmark text and enlarges the icon */
     .auth-visual .logo-text {
         display: none;
     }
@@ -1007,10 +921,6 @@ body {
         font-size: 1.4rem;
     }
 }
-
-/* ============================================================
-   Right-click context menu (shared with index.html / rightclick.js)
-   ============================================================ */
 
 .rightclick-menu {
     position: fixed;
@@ -1111,11 +1021,6 @@ body {
     }
 }
 
-
-/* ============================================================
-   Account dashboard (logged in) — glass navbar + sliding pill
-   ============================================================ */
-
 .account-dashboard {
     min-height: 100vh;
     background:
@@ -1125,8 +1030,6 @@ body {
     color: var(--text-body);
     padding-bottom: 48px;
 }
-
-/* ---------- Wiki-style top bar ---------- */
 
 .dash-header {
     position: sticky;
@@ -1174,7 +1077,6 @@ body {
     opacity: .82;
 }
 
-/* centred: settings search, same geometry as the wiki's .su-search */
 .dash-search {
     position: absolute;
     left: 50%;
@@ -1269,7 +1171,6 @@ body {
     display: flex;
 }
 
-/* dropdown of matching sections */
 .dash-search-results {
     position: absolute;
     top: calc(100% + 6px);
@@ -1367,9 +1268,6 @@ body {
     color: #8a8886;
 }
 
-/* right side — mirrors the suite's bare top-right icons
-   (storage / theme toggle): no box, no border, no hover
-   background — only the icon colour follows the brand */
 .dash-top-right {
     display: flex;
     align-items: center;
@@ -1408,7 +1306,6 @@ body {
     outline-offset: 2px;
 }
 
-/* photo sits loose in the bar like the suite's logo icon */
 .dash-avatar {
     width: 26px;
     height: 26px;
@@ -1441,8 +1338,6 @@ body {
     height: 18px;
 }
 
-/* ---------- Layout ---------- */
-
 .dash-layout {
     display: grid;
     grid-template-columns: 250px minmax(0, 1fr);
@@ -1452,12 +1347,6 @@ body {
     padding: 0 24px;
 }
 
-/* ---------- Sidebar with sliding pill ---------- */
-
-/* Mirror of wiki's sidebar system (.wiki-nav / .wiki-nav-pill /
-   .wiki-nav-link), token for token. Lite-mode wiki tokens inlined:
-   line #e4e6e8, sunken #eef0f2, text #2b2b2b, soft #5d6165,
-   brand-ink #157a38. */
 .dash-sidebar {
     position: fixed;
     top: 88px;
@@ -1477,17 +1366,10 @@ body {
     overflow-y: auto;
     overscroll-behavior: contain;
 
-    /* No top padding and no row gap: every row carries its own rhythm,
-       exactly like .wiki-nav. --dash-nav-pad-x is also the pill's left
-       edge, so the rail always sits exactly on the row edge. */
     padding: 0 0.9rem 4rem var(--dash-nav-pad-x);
     border-right: 1px solid #e4e6e8;
 }
 
-/* --- the sliding rail ----------------------------------------------------
-   One element for the whole column rather than a ::before per row. It is
-   translated to the active row, so it slides. It lives inside the nav (a
-   positioned element) so it scrolls with the content it marks. */
 .dash-nav-pill {
     position: absolute;
     left: var(--dash-nav-pad-x);
@@ -1500,7 +1382,6 @@ body {
     transform: translate3d(0, 0, 0);
     pointer-events: none;
 
-    /* The rail must never be hidden by a row behind it. */
     z-index: 2;
     will-change: transform;
     transition: transform 0.34s cubic-bezier(0.32, 0.72, 0, 1),
@@ -1539,7 +1420,6 @@ body {
     color: #2b2b2b;
 }
 
-/* Selected = the rail, the accent colour and the weight. No filled box. */
 .dash-nav-item.active {
     background: transparent;
     color: #157a38;
@@ -1550,8 +1430,6 @@ body {
     background: #eef0f2;
 }
 
-/* No blur for readers who asked for less motion — the section still swaps,
-   just without the dissolve. Matches wiki and AI Chat. */
 @media (prefers-reduced-motion: reduce) {
     .dash-main.is-switching {
         filter: none;
@@ -1559,18 +1437,11 @@ body {
     }
 }
 
-/* ---------- Content ---------- */
-
 .dash-main {
     grid-column: 2;
     min-width: 0;
     padding-top: 4px;
 
-    /* Section change, matched to wiki's .wiki-main. The timing is
-       deliberately lopsided: the old section leaves quickly (0.18s ease-in)
-       and the new one arrives slowly (0.3s ease-out). Fast out, slow in
-       reads as a dissolve settling rather than a flash. The sidebar and
-       the rail stay sharp — only the content being replaced animates. */
     transition: filter 0.3s ease-out,
         opacity 0.3s ease-out;
 }
@@ -1727,10 +1598,6 @@ body {
     background: linear-gradient(180deg, rgba(217, 48, 37, 0.02), #ffffff);
 }
 
-/* ---------- Activity history (Data & privacy) ---------- */
-
-/* Match the setup checklist's compact heading + muted description rhythm
-   so every Data & privacy card reads the same. */
 #section-data .dash-card h2 {
     margin-bottom: 2px;
 }
@@ -1896,9 +1763,6 @@ body {
     gap: 16px;
 }
 
-/* bento grid for the overview: devices card fills the left column,
-   Data & privacy + storage stack in the right column and share any
-   extra height equally so spacing stays even */
 .bento-grid {
     display: grid;
     grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
@@ -1934,8 +1798,6 @@ body {
     min-width: 0;
 }
 
-/* Keep overview cards sized to their content and align their contents from
-   the top, avoiding large empty bands on taller screens. */
 .bento-side > .dash-card {
     flex: 0 0 auto;
     display: flex;
@@ -1957,7 +1819,6 @@ body {
     margin: 0 0 10px;
 }
 
-/* legend sits beside the donut, pushed to the right side of the card */
 .bento-grid .storage-pie-side {
     width: 100%;
     align-self: auto;
@@ -2019,7 +1880,6 @@ body {
     }
 }
 
-/* stat cards on the overview grid */
 .stat-card .stat-head {
     display: flex;
     align-items: center;
@@ -2062,8 +1922,6 @@ body {
     color: var(--text-muted);
 }
 
-/* Microsoft-style device list in the overview devices card: rows sit in
-   a soft tinted panel so the artwork reads as one contained unit */
 .ms-device-list {
     display: flex;
     flex-direction: column;
@@ -2154,8 +2012,6 @@ body {
     font-weight: 600;
     text-align: center;
 }
-
-/* ---- storage donut (overview card + storage section) ---- */
 
 .storage-overview {
     display: flex;
@@ -2278,7 +2134,6 @@ body {
     color: var(--text-muted);
 }
 
-/* storage section: simple Microsoft-style summary */
 .storage-summary {
     display: grid;
     grid-template-columns: minmax(180px, 0.55fr) minmax(320px, 1fr);
@@ -2368,8 +2223,6 @@ body {
     }
 }
 
-/* ---------- setup checklist ---------- */
-
 .setup-card .setup-head {
     display: flex;
     align-items: center;
@@ -2420,8 +2273,6 @@ body {
     transition: max-height .34s cubic-bezier(.22, .9, .35, 1), opacity .26s ease, visibility .34s;
 }
 
-/* breathing room between the subtitle and the first divider; lives inside
-   the list so it collapses with it (keeps the collapsed card symmetric) */
 .setup-list::before {
     content: "";
     display: block;
@@ -2478,8 +2329,6 @@ body {
     color: #ffffff;
     font-size: 0.7rem;
 }
-
-/* ---------- recommendations ---------- */
 
 .reco-block {
     margin: 30px 0 16px;
@@ -2602,7 +2451,6 @@ body {
     margin-bottom: 0;
 }
 
-/* Personal info */
 .account-dashboard {
     width: 100%;
     overflow-x: clip;
@@ -2754,7 +2602,6 @@ body {
     margin-left: auto;
 }
 
-/* profile card */
 .profile-card {
     display: flex;
     align-items: center;
@@ -2811,7 +2658,6 @@ body {
     color: var(--text-muted);
 }
 
-/* photo row */
 .photo-row {
     display: flex;
     align-items: center;
@@ -2827,7 +2673,6 @@ body {
     font-size: 0.84rem;
 }
 
-/* form fields */
 .field {
     margin-bottom: 14px;
 }
@@ -2857,7 +2702,6 @@ body {
     appearance: none;
 }
 
-/* segmented birthday picker — day input / custom month dropdown / year input */
 .birth-row {
     display: flex;
     gap: 8px;
@@ -3009,7 +2853,6 @@ body {
     filter: none;
 }
 
-/* utility */
 .muted {
     color: var(--text-muted);
 }
@@ -3048,7 +2891,6 @@ body {
     box-shadow: 0 8px 20px -8px rgba(217, 48, 37, 0.6);
 }
 
-/* devices */
 .device-section-head {
     display: flex;
     align-items: center;
@@ -3067,7 +2909,6 @@ body {
     border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
-/* custom confirm modal (EmeraldSuite/AI Chat-style dialog) */
 .emerald-modal-overlay {
     position: fixed;
     inset: 0;
@@ -3168,7 +3009,6 @@ body {
 .emerald-modal-btn.danger:hover { background: #e53935; }
 .emerald-modal-btn:focus-visible { outline: 2px solid var(--ui-accent-ring); outline-offset: 2px; }
 
-/* Profile photo crop editor */
 .photo-crop-dialog {
     max-width: 380px;
     max-height: calc(100vh - 32px);
@@ -3378,7 +3218,6 @@ body {
     font-size: 0.78rem;
 }
 
-/* responsive */
 @media (max-width: 900px) {
     .dash-layout {
         grid-template-columns: 1fr;
@@ -3458,13 +3297,11 @@ body {
     }
 }
 
-/* dashboard buttons default to fit-content */
 .account-dashboard .btn {
     width: auto;
     min-width: 0;
 }
 
-/* kbd hint chip inside search results */
 .dash-search-result kbd {
     width: auto;
     height: auto;
@@ -3473,13 +3310,11 @@ body {
     letter-spacing: 0;
 }
 
-/* ensure no residual shadow on the header bar itself */
 .dash-header {
     box-shadow: none !important;
     text-shadow: none !important;
 }
 
-/* responsive tweaks for the dashboard top bar */
 @media (max-width: 900px) {
     .personal-layout,
     .personal-info-card,

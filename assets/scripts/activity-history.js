@@ -1,23 +1,5 @@
-/* ── EmeraldNetwork activity history ──────────────────────────────────
-   Account-scoped record of actions taken across the EmeraldNetwork
-   suite. History lives in EmeraldIDBStorage (so the account sync engine
-   can merge it across devices) with an immediate localStorage mirror for
-   instant reads. Opening a page on its own is NOT recorded — only real
-   actions such as creating a file, exporting, or asking the AI.
 
-   Public API (window.EmeraldHistory):
-     record(label, { kind, path, title })  add an entry
-     action(label, { path, title })        shortcut for kind: 'action'
-     visit()                               record the current page (opt-in)
-     get(limit)                            newest-first entries
-     exportAll()                           copy of entries (for export)
-     clear()                               remove history everywhere
-     resetLocal()                          clear this browser only (no sync)
-     flush()                               push pending entries to storage
-     subscribe(callback)                   notified after changes
-     scope()                               current account scope
-     storageKey()                          localStorage key for that scope
-*/
+
 (function () {
     'use strict';
 
@@ -245,8 +227,6 @@
         return { path: path, title: title };
     }
 
-    /* ── IndexedDB sync storage ─────────────────────────────────────── */
-
     function storageApi() {
         return window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.setJSON === 'function'
             ? window.EmeraldIDBStorage
@@ -256,9 +236,6 @@
     function applyExternalPayload(payload) {
         if (!payload) return;
 
-        // A clear is a watermark, not a one-shot delete: entries older than
-        // the newest clear (from either side) stay gone even after this
-        // device records a brand-new action.
         var watermark = Math.max(clearedAt || 0, payload.clearedAt || 0);
         var merged = mergeEntries(entries, payload.entries, watermark);
         var mergedPayload = {
@@ -296,8 +273,7 @@
         var raw = '';
         try { raw = localStorage.getItem(targetKey) || ''; } catch (_) {}
         if (!raw) {
-            // Legacy hard delete: drop the in-memory list so it cannot be
-            // written back. New clears use the clearedAt watermark instead.
+
             if (!entries.length && !lastPersistedRaw) return;
             entries = [];
             stateUpdatedAt = 0;
@@ -398,8 +374,6 @@
         return flushNow(true);
     }
 
-    /* ── Recording ─────────────────────────────────────────────────── */
-
     function addEntry(kind, label, options) {
         options = options || {};
         var scope = currentScope();
@@ -407,8 +381,7 @@
 
         var meta = pageMeta();
         var now = Date.now();
-        // Never timestamp a new action at or before the clear watermark or
-        // the watermark would immediately filter it out again.
+
         if (now <= clearedAt) now = clearedAt + 1;
         var path = normalizePath(options.path || meta.path);
         var title = options.title ? cleanTitle(options.title) || meta.title : meta.title;
@@ -494,9 +467,6 @@
         stateUpdatedAt = now;
         dirty = true;
 
-        // Store an empty payload carrying the clear watermark. It survives
-        // new actions and lets every device drop only entries older than the
-        // clear, instead of wiping history recorded afterwards.
         persistLocal();
         notify();
 
@@ -507,9 +477,6 @@
         flushNow(true);
     }
 
-    // Wipe this browser's copy without creating a clear watermark, so the
-    // account-wide history (and other devices) stay untouched. Used by the
-    // "Delete data on this device" flow.
     function resetLocal() {
         var scope = currentScope();
         activeScope = scope;

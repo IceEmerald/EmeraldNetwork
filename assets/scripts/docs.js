@@ -1,57 +1,36 @@
-/* BUILD 2026-08-26.12 (References: Footnote/Endnote/Citation custom modals; proper endnote system — numbered refs, end-of-doc section, panel management; Styles group (Title/H1-H3/Normal via formatBlock); Caption/Cross-ref/Table-of-Figures removed) */
-/* =========================================================
-   Emerald Docs — Word Processor  (v2)
-   Real pagination engine: content is distributed across real
-   A4 page DOM elements. Paragraphs move whole between pages;
-   a single block taller than a page is split at a word boundary
-   (never mid-word).
-   ---------------------------------------------------------
-   v2 changes:
-   - BUG FIX: single overflowing block now splits FIRST instead
-     of being pushed whole to the next page (which created
-     cascades of empty pages).
-   - Find & Replace (Ctrl+F / Ctrl+H) with match highlighting.
-   - Insert Link (Ctrl+K; Ctrl+click opens in new tab), Image (OS file
-     picker, Slides-style), Table (grid), HR. Page-break markers are
-     click-to-remove.
-   - Undo/Redo, Dark theme toggle, Export (.txt/.html/print),
-     Word-count stats dialog, Ruler.
-   ========================================================= */
+
+
 (function () {
   "use strict";
 
-  /* ---------------- Constants ---------------- */
   var PAGES_WRAPPER_ID = "pagesWrapper";
   var CARET_BLOCK_ATTR = "data-caret-block";
   var CARET_OFFSET_ATTR = "data-caret-offset";
-  // Multi-document storage: one index of metadata + one key per document,
-  // mirroring the Slides app (emeraldcore.storage.suite.slides / ...<id>).
+
   var DOC_INDEX_KEY = "emeraldcore.storage.suite.docs";
   function docDataKey(id) { return "emeraldcore.storage.suite.docs." + id; }
-  // THEME_KEY removed — dark mode is no longer supported.
+
   function versionsKey(id) { return "emeraldcore.storage.suite.docs.versions." + id; }
   var MARGINS_KEY = "emeraldcore.storage.suite.docs.margins";
   var GOAL_KEY = "emeraldcore.storage.suite.docs.goal";
   var WRITING_TIME_KEY = "emeraldcore.storage.suite.docs.writingTime";
   var MAX_VERSIONS = 10;
-  var AUTOSAVE_SNAPSHOT_MS = 60 * 1000; // 1 minute
+  var AUTOSAVE_SNAPSHOT_MS = 60 * 1000;
   var autosaveSnapshotTimer = null;
-  // Set on every edit; the version-history ticker only snapshots when it's true.
+
   var snapshotDirty = false;
   var MAX_PAGINATE_ITER = 120;
   var PAGE_WIDTH = 794;
   var PAGE_HEIGHT = 1123;
-  // Current effective page dimensions (updated by applyDocPageLayout for
-  // imported docs; default to A4). Kept in sync with the .page elements.
+
   var curPageW = PAGE_WIDTH;
   var curPageH = PAGE_HEIGHT;
   var MIN_MARGIN = 32;
   var MAX_MARGIN = 300;
-  // Zoom limits match Slides: 20% – 400% (Slides uses clamp(scale, 0.2, 4)).
+
   var MIN_ZOOM = 20;
   var MAX_ZOOM = 400;
 
-  /* ---------------- State ---------------- */
   var paginateScheduled = false;
   var autosaveScheduled = false;
   var autosaveTimer = null;
@@ -64,23 +43,18 @@
   var pageMargins = { top: 96, right: 96, bottom: 96, left: 96 };
   var goalTarget = 0;
   var assetRepaginateToken = 0;
-  // Ribbon availability state (Notes/Slides parity): Undo/Redo reflect whether
-  // the browser's native contenteditable history can actually undo/redo.
+
   var canUndo = false;
   var canRedo = false;
-  // Multi-document state (Slides pattern)
-  var documents = [];        // metadata index [{id, title, updatedAt, wordCount}]
-  var currentDocId = null;   // id of the document loaded in the editor (null → welcome screen)
+
+  var documents = [];
+  var currentDocId = null;
   var currentTitle = "Untitled Document";
   var _welcomeRenderToken = 0;
   var _deleteTargetId = null;
 
-  /* ---------------- DOM helpers ---------------- */
   function $(id) { return document.getElementById(id); }
-  // IMPORTANT: scope page lookup to the real pages wrapper ONLY. Page
-  // thumbnails clone real .page elements into the DOM for 1:1 previews, so a
-  // global document.querySelectorAll(".page") would also match those clones and
-  // break pagination/status/counts (creating runaway pages while typing).
+
   function getPages() {
     var wrapper = $(PAGES_WRAPPER_ID);
     if (!wrapper) return [];
@@ -88,9 +62,6 @@
   }
   function getContent(page) { return page.querySelector(".page-content"); }
 
-  /* Tables moved with TableKit become absolutely positioned "floating"
-     tables. They live outside the text flow, so pagination must not count
-     them as flow height nor shuffle them between pages. */
   function isFloatingTable(el) {
     return !!(el && el.nodeType === 1 && el.tagName === "TABLE" &&
       el.style && el.style.position === "absolute");
@@ -107,8 +78,6 @@
     }
     if (!hasFloating) return content.scrollHeight > content.clientHeight + 1;
 
-    /* Measure only the in-flow blocks: a floating table can sit over the
-       margins without ever forcing the page to overflow. */
     var maxBottom = 0;
     for (var i = 0; i < content.children.length; i++) {
       var k = content.children[i];
@@ -118,7 +87,6 @@
     return maxBottom > content.clientHeight + 1;
   }
 
-  /* ---------------- Page management ---------------- */
   function createPage() {
     var page = document.createElement("div");
     page.className = "page";
@@ -157,14 +125,12 @@
         paginate();
       }
       if (pendingExternalReload) {
-        // Let the document's own debounced save finish before considering a
-        // remote update, so a change made in this editor cannot jump back.
+
         setTimeout(function () { reloadFromStorageQuietly(); }, 900);
       }
     });
   }
 
-  /* ---------------- Caret save / restore ---------------- */
   function clearCaretMarkers() {
     var marked = document.querySelectorAll("[" + CARET_BLOCK_ATTR + "]");
     for (var i = 0; i < marked.length; i++) {
@@ -173,16 +139,11 @@
     }
   }
 
-  // Inline non-editable markers created by the app (footnote/endnote refs,
-  // comment pins).
   function isInlineMarker(el) {
     return el && el.nodeType === Node.ELEMENT_NODE &&
       (el.classList.contains("footnote-ref") || el.classList.contains("endnote-ref") || el.classList.contains("comment-ref"));
   }
 
-  // Walks every node inside a block but REJECTS text inside non-editable
-  // markers — used by both caret save and caret restore so the caret can
-  // never re-anchor INSIDE a <sup contenteditable="false">.
   function caretWalker(block) {
     return document.createTreeWalker(block, NodeFilter.SHOW_ALL, {
       acceptNode: function (n) {
@@ -195,11 +156,6 @@
     });
   }
 
-  // Character offset of the caret boundary within `block`, counting ONLY
-  // user-editable text. Inline markers count as ONE virtual character each
-  // so their digits never shift the caret across pagination save/restore —
-  // previously a caret parked after a marker re-anchored INSIDE the <sup>
-  // and the keyboard appeared dead until the user clicked again.
   function editableCaretOffset(block, container, offset) {
     var caret = document.createRange();
     try {
@@ -215,7 +171,7 @@
       if (node.nodeType === Node.TEXT_NODE) {
         if (node === container) return len + Math.max(0, Math.min(offset, node.textContent.length));
         probe.selectNodeContents(node);
-        probe.collapse(true); // probe at the node's START
+        probe.collapse(true);
         if (probe.compareBoundaryPoints(Range.START_TO_START, caret) < 0) len += node.textContent.length;
         else break;
       } else if (isInlineMarker(node)) {
@@ -239,11 +195,6 @@
     var block = start;
     if (block.nodeType !== Node.ELEMENT_NODE) block = block.parentElement;
 
-    // When the caret sits inside a list item or table cell, that element is
-    // the true caret anchor. Marking the outer <ul>/<table> instead would
-    // collapse the caret to a character offset, so a caret in a brand-new
-    // EMPTY <li> (created by pressing Enter) restores to the end of the
-    // previous item — forcing the user to click the new bullet a second time.
     var startNode = start.nodeType === Node.ELEMENT_NODE ? start : start.parentElement;
     var listOrCell = startNode ? startNode.closest("li, td, th") : null;
 
@@ -290,10 +241,7 @@
   }
 
   function setCaretInBlock(block, offset) {
-    // Mirrors editableCaretOffset(): markers consume one virtual character,
-    // marker-internal digits are invisible to the walk — so a caret parked
-    // before vs after a marker restores to DIFFERENT, correct positions
-    // instead of drifting inside the non-editable <sup>.
+
     var walker = caretWalker(block);
     var node, len = 0;
     while ((node = walker.nextNode())) {
@@ -317,9 +265,7 @@
     }
     var range = document.createRange();
     range.selectNodeContents(block);
-    // Place the caret at the START for an empty list item / table cell so it
-    // lands before the <br> (matching the browser's Enter-in-list position)
-    // instead of after it, which would make a quick second Enter misfire.
+
     var wantStart = !block.textContent.trim() && block.closest("li, td, th");
     range.collapse(wantStart);
     var sel = window.getSelection();
@@ -329,16 +275,6 @@
     if (content) content.focus();
   }
 
-  /* ---------------- Pagination engine ----------------
-     KEY FIX (v2): when a page has a SINGLE block that overflows,
-     we split it FIRST (at a word boundary) rather than pushing
-     the whole block to the next page. The old logic pushed the
-     only block down, leaving an empty page and moving the
-     overflow unchanged — producing cascades of empty pages.
-     ---------------------------------------------------------
-     KEY FIX (v3): TRUE hard page break. A `.emdocs-page-break`
-     element forces ALL content after it onto the next page.
-     This runs as a pre-pass before the overflow logic.       */
   function paginate() {
     saveCaret();
 
@@ -347,8 +283,6 @@
       document.execCommand("defaultParagraphSeparator", false, "p");
     } catch (e) {}
 
-    // PRE-PASS: give every page its own sheet size (PDF imports) and enforce
-    // hard page breaks before any overflow maths.
     applyPdfPageSizes();
     var pbChanged = true;
     var pbIter = 0;
@@ -369,20 +303,18 @@
         var guard = 0;
         while (isOverflow(content) && guard++ < 300) {
           if (content.children.length === 1) {
-            // Single overflowing block → SPLIT it (don't push whole)
+
             if (splitOverflowingBlock(content, pages[i])) {
               changed = true;
               continue;
             }
-            break; // cannot split further (e.g. one giant word)
+            break;
           }
-          // Multiple blocks → push the last block down
+
           if (!pushOverflowDown(pages[i])) break;
           changed = true;
         }
 
-        // Pull content up from next page if there's room
-        // BUT never pull across a page-break boundary.
         if (pages[i + 1]) {
           var guard2 = 0;
           while (pullUp(pages[i], pages[i + 1]) && guard2++ < 300) {
@@ -395,7 +327,7 @@
     removeTrailingEmptyPages();
     ensureFirstPage();
     ensureTableCellsEditable();
-    syncHeaderFooter(); // re-apply header/footer strips to new pages
+    syncHeaderFooter();
     updatePageNumbers();
     updateDynamicFields();
     applySectionConfigs();
@@ -404,11 +336,6 @@
     refreshFindHighlights();
   }
 
-  /* Hard page break enforcement.
-     For each page, if a `.emdocs-page-break` element exists, every block
-     AFTER it (and the break itself stays as the last thing on this page)
-     is moved to the start of the next page (a new page is created if needed).
-     Returns true if any content was moved. */
   function enforcePageBreaks() {
     var moved = false;
     var pages = getPages();
@@ -417,10 +344,8 @@
       var breaks = content.querySelectorAll(".emdocs-page-break");
       if (breaks.length === 0) continue;
 
-      // Take the FIRST page break on this page.
       var brk = breaks[0];
 
-      // Collect all sibling blocks AFTER the break (in DOM order, direct children only)
       var toMove = [];
       var sibling = brk.nextElementSibling;
       while (sibling) {
@@ -430,12 +355,9 @@
       }
 
       if (toMove.length === 0) {
-        // Break is already the last block on this page — nothing to move.
-        // But if there are MULTIPLE breaks on this page, the later ones
-        // need to go to the next page (a break with nothing after it still
-        // means "the next page starts here").
+
         if (breaks.length > 1) {
-          // Remove extra breaks (keep only the first) and move them down
+
           for (var b = 1; b < breaks.length; b++) {
             var extra = breaks[b];
             var next2 = extra.nextElementSibling;
@@ -447,7 +369,7 @@
             }
             ensureNextPageAndPrepend(pages, i, extras, extra);
             moved = true;
-            return moved; // restart the loop after a structural change
+            return moved;
           }
         }
         continue;
@@ -455,13 +377,11 @@
 
       ensureNextPageAndPrepend(pages, i, toMove, null);
       moved = true;
-      return moved; // restart after a structural change to keep indices valid
+      return moved;
     }
     return moved;
   }
 
-  /* Create (if needed) the next page after `pages[i]` and prepend the
-     given blocks (optionally a page-break marker first) to its content. */
   function ensureNextPageAndPrepend(pages, i, blocks, optionalBreak) {
     var next = pages[i].nextElementSibling;
     if (!next || !next.classList.contains("page")) {
@@ -478,9 +398,6 @@
     }
   }
 
-  /* Make sure all td/th in the document remain editable after pagination
-     (execCommand insertHTML strips contenteditable, and splitOverflowingBlock
-     clones blocks without restoring it on nested tables). */
   function ensureTableCellsEditable() {
     var cells = document.querySelectorAll(".page-content td, .page-content th");
     for (var i = 0; i < cells.length; i++) {
@@ -490,34 +407,25 @@
     }
   }
 
-  /* max-width:100% shrinks an over-wide image, but an inline height does not
-     shrink with it — the picture is then squeezed out of shape. Whenever the
-     clamp actually bit, restate the height as the ratio the author asked for,
-     so the image keeps its proportions at any width. Images already carrying
-     an aspect-ratio, and images the user resized, are left alone. */
   function unstretchImages(content) {
     var imgs = content.querySelectorAll("img");
     for (var i = 0; i < imgs.length; i++) {
       var img = imgs[i];
-      if (img.closest && img.closest(".emdocs-pdf-page")) continue;   // fixed artwork
-      if (!img.style.width || !img.style.height) continue;            // nothing to compare
-      if (img.style.aspectRatio) continue;                           // already ratio-bound
+      if (img.closest && img.closest(".emdocs-pdf-page")) continue;
+      if (!img.style.width || !img.style.height) continue;
+      if (img.style.aspectRatio) continue;
       var want = parseFloat(img.style.width);
       var wantH = parseFloat(img.style.height);
       if (!(want > 0) || !(wantH > 0)) continue;
       var got = img.offsetWidth;
-      if (!got || got >= want - 1) continue;                          // not clamped
+      if (!got || got >= want - 1) continue;
       img.style.height = "auto";
       img.style.aspectRatio = Math.round(want) + " / " + Math.round(wantH);
     }
   }
 
   function normalizeContent(content) {
-    // Wrap stray non-empty text nodes in <p>, drop empty text nodes.
-    // NOTE: do NOT auto-add an empty <p> to a childless page here — that
-    // would make removeTrailingEmptyPages think a genuinely-empty trailing
-    // page still has content, so it would never clean up pages the user
-    // emptied. ensureFirstPage() guarantees the first page stays editable.
+
     var kids = Array.prototype.slice.call(content.childNodes);
     for (var i = 0; i < kids.length; i++) {
       var k = kids[i];
@@ -536,7 +444,7 @@
   function pushOverflowDown(page) {
     var content = getContent(page);
     var last = content.lastElementChild;
-    /* floating tables are out of flow: never push them to the next page */
+
     while (last && isFloatingTable(last)) last = last.previousElementSibling;
     if (!last) return false;
 
@@ -558,7 +466,6 @@
     var children = Array.prototype.slice.call(block.childNodes);
     var removed = [];
 
-    // 1) Remove trailing child nodes until it fits (or single node remains)
     for (var i = children.length - 1; i >= 0; i--) {
       if (!isOverflow(content)) break;
       if (block.childNodes.length === 1) break;
@@ -566,7 +473,6 @@
       block.removeChild(children[i]);
     }
 
-    // 2) If still overflow with a single text node, split at word boundary
     if (isOverflow(content) && block.childNodes.length === 1) {
       var node = block.firstChild;
       if (node && node.nodeType === Node.TEXT_NODE) {
@@ -576,7 +482,7 @@
           node.textContent = tokens.slice(0, 1).join("");
           if (isOverflow(content)) {
             node.textContent = text;
-            return false; // single token too big — give up
+            return false;
           }
           var lo = 1, hi = tokens.length, best = 1;
           while (lo <= hi) {
@@ -622,15 +528,12 @@
     var currentContent = getContent(currentPage);
     var nextContent = getContent(nextPage);
     var first = nextContent.firstElementChild;
-    /* floating tables stay put on their page */
+
     while (first && isFloatingTable(first)) first = first.nextElementSibling;
     if (!first) return false;
 
-    // Never pull a page-break marker up — it must stay as a boundary.
     if (first.classList && first.classList.contains("emdocs-page-break")) return false;
 
-    // If the current page already ends with a page-break marker,
-    // content after it belongs on the next page — don't pull across.
     var lastHere = currentContent.lastElementChild;
     if (lastHere && lastHere.classList && lastHere.classList.contains("emdocs-page-break")) {
       return false;
@@ -692,7 +595,6 @@
     }
   }
 
-  /* ---------------- Status / counts ---------------- */
   function getAllText() {
     var pages = getPages();
     var parts = [];
@@ -733,32 +635,27 @@
     if (cur < 1) cur = 1;
     $("pageInfo").textContent = "Page " + cur + " of " + stats.pages;
 
-    // Update caret position (Ln, Col)
     updateCaretPosition();
 
-    // Update relative autosave time ("saved 2 min ago")
     updateRelativeAutosave();
 
-    // Live-update goal tracker + stats chart if the dialog is open
     if ($("wordCountModal").classList.contains("open")) {
       updateGoalTracker();
       renderStatsChart();
       renderWritingIssues();
     }
-    // Update thumbnails if panel is open
+
     scheduleThumbnailsUpdate();
-    // Highlight the active heading in the outline panel
+
     highlightActiveOutlineHeading();
   }
 
-  // Caret position: compute line + column from the current selection.
   function updateCaretPosition() {
     var el = $("caretPos");
     if (!el) return;
     var sel = window.getSelection();
     if (!sel || !sel.rangeCount) {
-      // No selection — reset to "Ln 1, Col 1" (e.g. when the editor loses focus
-      // or the page is empty and nothing is selected).
+
       el.textContent = "Ln 1, Col 1";
       return;
     }
@@ -767,7 +664,7 @@
       el.textContent = "Ln 1, Col 1";
       return;
     }
-    // Check if we're in the editor
+
     var inEditor = false;
     var checkNode = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
     while (checkNode) {
@@ -779,24 +676,16 @@
       return;
     }
 
-    // Find the block element containing the caret — i.e. the direct child of
-    // .page-content (typically a <p>, <h1>, <ul>, <blockquote>, etc.).
-    // We walk UP from the anchor node until the parent has .page-content.
     var block = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
     while (block && block.parentElement && !block.parentElement.classList.contains("page-content")) {
       block = block.parentElement;
     }
-    // Guard: if block walked PAST .page-content (happens when the selection is
-    // directly on the .page-content element itself — e.g. an empty page with no
-    // <p> child yet), the walk escapes to <body> and `selectNodeContents(block)`
-    // would grab the entire document, producing a bogus column like "Col 15733".
-    // In that case, default to line 1, col 1.
+
     if (!block || !block.parentElement || !block.parentElement.classList.contains("page-content")) {
       el.textContent = "Ln 1, Col 1";
       return;
     }
 
-    // Count which block number this is (across all pages)
     var pages = getPages();
     var blockIndex = 0;
     var found = false;
@@ -807,15 +696,14 @@
         blockIndex++;
       }
     }
-    // If we somehow didn't find the block in any page (shouldn't happen, but be safe):
+
     if (!found) {
       el.textContent = "Ln 1, Col 1";
       return;
     }
-    // Line = block number + 1
+
     var line = blockIndex + 1;
 
-    // Column = offset within the current block's text
     var col = 1;
     try {
       var range = sel.getRangeAt(0);
@@ -830,12 +718,11 @@
     el.textContent = "Ln " + line + ", Col " + col;
   }
 
-  // Relative autosave time: "saved 2 min ago"
   var relativeAutosaveTimer = null;
   function updateRelativeAutosave() {
     var el = $("autosave");
     if (!el || !lastSavedAt) return;
-    // Only update the relative time if we're in the "saved" state
+
     if (!el.classList.contains("saved")) return;
     var diff = Math.floor((Date.now() - lastSavedAt) / 1000);
     var rel;
@@ -864,33 +751,14 @@
     return pages.length - 1;
   }
 
-  /* ---------------- Events ---------------- */
-  /* Deleting text leaves the run that formatted it behind. contenteditable
-     keeps the <span>/<font> that carried the colour or highlight and just
-     empties it — and an empty element with a background is still painted, so
-     the deleted words leave a coloured sliver where they were. One is easy to
-     miss; a few stacked up read as an outline box sitting in the paragraph
-     that no amount of typing will shift. Word drops the run with the text, and
-     so does this.
-
-     Only inline runs, and only ones holding absolutely nothing. A run wrapping
-     an image, a footnote marker or a comment pin is content, not residue; a
-     <br> is the browser's own keep-alive for an empty line, so childNodes
-     being non-empty already excludes it; and block elements are never touched.
-     Repeated until stable, because removing an inner run can leave the run
-     wrapping it empty too. */
   var PRUNABLE_RUNS = "span,font,b,strong,i,em,u,s,strike,sub,sup,code,mark,small,big";
   function pruneEmptyRuns(root) {
     if (!root || !root.querySelectorAll) return 0;
-    // A run the caret is sitting in is left for the next edit to clear.
-    // Removing it mid-input can move the caret out from under the user in
-    // some browsers, and one leftover empty run costs nothing — the next
-    // backspace collects it.
+
     var sel = window.getSelection();
     var caret = sel && sel.rangeCount ? (sel.getRangeAt(0).startContainer) : null;
     var removed = 0;
-    // Eight passes is far more nesting than a run can have here, and it caps
-    // the loop rather than trusting a malformed tree to terminate.
+
     for (var pass = 0; pass < 8; pass++) {
       var els = root.querySelectorAll(PRUNABLE_RUNS);
       var hit = null;
@@ -913,14 +781,11 @@
     startSessionTimer();
     startAutosaveSnapshots();
     snapshotDirty = true;
-    // AutoCorrect: when user types a space, check the preceding word
+
     if (e && (e.data === " " || e.data === "\u00a0")) {
       try { checkAutoCorrect(); } catch (err) {}
     }
-    // Only on a deletion: a keystroke that added text cannot have emptied
-    // anything, and this walks the page's runs. e.inputType is absent on
-    // input events synthesised by older paths, and those are treated as
-    // "check it anyway" rather than skipped.
+
     if (!e || !e.inputType || e.inputType.indexOf("delete") === 0) {
       try {
         var block = getCurrentBlock();
@@ -937,7 +802,7 @@
   }
 
   function onKeyDown(e) {
-    // Escape closes any open modal / outline / thumbnails / focus mode
+
     if (e.key === "Escape") {
       if (anyModalOpen()) { closeAllModals(); e.preventDefault(); return; }
       if ($("findBar") && $("findBar").style.display !== "none") { closeFindBar(); e.preventDefault(); return; }
@@ -946,7 +811,6 @@
       return;
     }
 
-    // Tab: navigate table cells if inside a table, else insert tab
     if (e.key === "Tab") {
       var cell = getCurrentTableCell();
       if (cell) {
@@ -964,7 +828,6 @@
     if (!mod) return;
     var k = e.key.toLowerCase();
 
-    // Ctrl+Enter → page break
     if (e.key === "Enter") { e.preventDefault(); insertPageBreak(); return; }
 
     if (k === "s") { e.preventDefault(); saveDocument(true); return; }
@@ -978,20 +841,18 @@
     if (k === "g") { e.preventDefault(); toggleOutline(); return; }
     if (k === "m" && e.shiftKey) { e.preventDefault(); cycleMarginPreset(); return; }
 
-    // Ctrl++ / Ctrl+= → zoom in
     if (k === "+" || k === "=") { e.preventDefault(); adjustZoom(10); return; }
-    // Ctrl+- → zoom out
+
     if (k === "-") { e.preventDefault(); adjustZoom(-10); return; }
-    // Ctrl+0 → reset zoom
+
     if (k === "0") { e.preventDefault(); setZoom(100); return; }
     if (k === "z" && !e.shiftKey) { e.preventDefault(); exec("undo"); return; }
     if (k === "y" || (k === "z" && e.shiftKey)) { e.preventDefault(); exec("redo"); return; }
   }
 
-  /* Cycle through margin presets in order: default → narrow → moderate → wide → default */
   function cycleMarginPreset() {
     var presets = ["default", "narrow", "moderate", "wide"];
-    // Find current preset (or default if custom)
+
     var current = "default";
     for (var name in MARGIN_PRESETS) {
       var v = MARGIN_PRESETS[name];
@@ -1015,7 +876,6 @@
     return modals.length > 0;
   }
 
-  /* ---------------- Table cell navigation ---------------- */
   function getCurrentTableCell() {
     var sel = window.getSelection();
     if (!sel || !sel.anchorNode) return null;
@@ -1033,13 +893,13 @@
     if (dir === "next") {
       target = cells[idx + 1];
       if (!target) {
-        // move to next row's first cell, or create a new row at the end
+
         var row = currentCell.closest("tr");
         var nextRow = row.nextElementSibling;
         if (nextRow) {
           target = nextRow.querySelector("td, th");
         } else {
-          // append a new row
+
           var tbody = table.querySelector("tbody") || table;
           var newRow = document.createElement("tr");
           var colCount = row.children.length;
@@ -1073,7 +933,6 @@
     }
   }
 
-  /* ---------------- Page Break ---------------- */
   function insertPageBreak() {
     restoreEditorSelection();
     var fc = getContent(getPages()[0]);
@@ -1081,8 +940,7 @@
     if (!sel || !sel.rangeCount || !sel.anchorNode || !sel.anchorNode.parentElement.closest(".page-content")) {
       if (fc) fc.focus();
     }
-    // Insert a page-break marker element followed by an empty paragraph.
-    // The marker is clickable afterwards to remove (cancel) the break.
+
     var html = '<div class="emdocs-page-break" contenteditable="false" title="Click to remove this page break"><span class="pb-label">— Page Break —</span></div><p><br></p>';
     document.execCommand("insertHTML", false, html);
     schedulePaginate();
@@ -1091,7 +949,6 @@
     toast("Page break inserted", "success");
   }
 
-  /* ---------------- Outline ---------------- */
   var outlineUpdateScheduled = false;
 
   function scheduleOutlineUpdate() {
@@ -1146,7 +1003,7 @@
         item.title = "Jump to " + text;
         item.addEventListener("click", function () {
           h.scrollIntoView({ behavior: "smooth", block: "center" });
-          // place caret at start of heading
+
           var range = document.createRange();
           range.selectNodeContents(h);
           range.collapse(true);
@@ -1155,7 +1012,7 @@
           sel.addRange(range);
           var content = h.closest(".page-content");
           if (content) content.focus();
-          // brief highlight
+
           h.style.transition = "background 0.4s";
           var prevBg = h.style.background;
           h.style.background = "var(--accent-soft)";
@@ -1164,7 +1021,7 @@
         body.appendChild(item);
       })(headings[i]);
     }
-    // apply any active filter after rebuild
+
     filterOutline();
   }
 
@@ -1183,7 +1040,7 @@
         items[i].classList.add("hidden");
       }
     }
-    // show / hide "no match" message
+
     var noMatch = body.querySelector(".outline-no-match");
     if (!noMatch) {
       noMatch = document.createElement("p");
@@ -1198,8 +1055,6 @@
     }
   }
 
-  // Highlight the heading nearest the top of the viewport in the outline
-  // panel, so the user can see where they are in the document.
   function highlightActiveOutlineHeading() {
     var panel = $("outlinePanel");
     if (!panel || !panel.classList.contains("open")) return;
@@ -1222,7 +1077,7 @@
     for (var j = 0; j < items.length; j++) {
       items[j].classList.toggle("active-heading", j === activeIdx);
     }
-    // auto-scroll the outline to keep the active item visible
+
     var activeItem = items[activeIdx];
     if (activeItem) {
       var bodyRect = body.getBoundingClientRect();
@@ -1233,7 +1088,6 @@
     }
   }
 
-  /* ---------------- Link hover preview ---------------- */
   var linkPreviewEl = null;
   var linkPreviewTimer = null;
 
@@ -1286,10 +1140,6 @@
     linkPreviewEl.style.top = y + "px";
   }
 
-  /* ---------------- Image resize handles ----------------
-     Clicking an image wraps it in a container with 8 drag handles
-     (corners + edges). Dragging a handle resizes the image
-     proportionally (corners) or one-dimensionally (edges).       */
   var activeResizeImg = null;
   var resizeOverlay = null;
   var resizeHandles = null;
@@ -1297,12 +1147,12 @@
   var resizeStartY = 0;
   var resizeStartW = 0;
   var resizeStartH = 0;
-  var resizeMode = null; // 'nw','ne','sw','se','n','s','e','w'
+  var resizeMode = null;
   var resizeBodyCursorSet = false;
-  var selectedImgObserver = null; // watches for the selected image leaving the DOM
+  var selectedImgObserver = null;
 
   function initImageResize() {
-    // Delegated click listener on the document
+
     document.addEventListener("click", function (e) {
       var img = e.target.closest ? e.target.closest(".page-content img") : null;
       if (img) {
@@ -1310,9 +1160,7 @@
         attachImageResize(img);
       } else if (resizeOverlay && e.target &&
                  (!e.target.closest || !e.target.closest(".img-resize-wrap, .ribbon, .ribbon-tabs, .ms-dropdown, .ms-dropdown-menu"))) {
-        // Clicks on ribbon chrome (incl. the contextual Image Format tab's
-        // programmatic clicks) and portal dropdowns must NOT deselect the
-        // current image.
+
         detachImageResize();
         syncImageFormatRibbonState();
       }
@@ -1321,8 +1169,7 @@
     document.addEventListener("mousemove", function (e) {
       if (activeResizeImg && resizeMode) {
         e.preventDefault();
-        // Keep the drag feel stable (cursor + no text selection) across the
-        // whole drag, not just while over the handle.
+
         if (!resizeBodyCursorSet) {
           resizeBodyCursorSet = true;
           document.body.style.userSelect = "none";
@@ -1354,7 +1201,7 @@
       if (activeResizeImg && resizeMode) {
         resizeMode = null;
         activeResizeImg.removeAttribute("data-resizing");
-        // Clean up drag state for the whole document (not just the handle).
+
         resizeBodyCursorSet = false;
         document.body.style.userSelect = "";
         document.body.style.cursor = "";
@@ -1369,8 +1216,6 @@
     activeResizeImg = img;
     img.setAttribute("data-selected", "true");
 
-    // Watch for the selected image leaving the DOM (delete/backspace/cut) so
-    // the resize overlay and Image Format tab clean up automatically.
     if (window.MutationObserver) {
       selectedImgObserver = new MutationObserver(function () {
         if (!activeResizeImg || !activeResizeImg.isConnected) {
@@ -1398,8 +1243,7 @@
           resizeStartY = e.clientY;
           resizeStartW = img.offsetWidth;
           resizeStartH = img.offsetHeight;
-          // Lock cursor (matching that handle's direction) + block text
-          // selection while dragging (Slides/Notes parity).
+
           resizeBodyCursorSet = true;
           document.body.style.userSelect = "none";
           document.body.style.cursor = getComputedStyle(h).cursor;
@@ -1470,8 +1314,8 @@
   }
 
   function scheduleAutosave() {
-    if (!currentDocId) return; // nothing open (welcome screen)
-    // Show "Saving…" immediately (matching slides pattern)
+    if (!currentDocId) return;
+
     setAutosaveState("saving");
     clearTimeout(autosaveTimer);
     autosaveTimer = setTimeout(function () {
@@ -1480,14 +1324,11 @@
     }, 800);
   }
 
-  // Periodic version snapshots — every 1 minute, if there were edits since the
-// last snapshot, push a version so the user can roll back to an earlier point
-// in their writing session. Nothing is saved when nothing changed.
 function startAutosaveSnapshots() {
-    if (autosaveSnapshotTimer) return; // already running
+    if (autosaveSnapshotTimer) return;
     autosaveSnapshotTimer = setInterval(function () {
       if (!currentDocId) return;
-      if (!snapshotDirty) return; // no edits since the last snapshot — skip
+      if (!snapshotDirty) return;
       snapshotDirty = false;
       try {
         pushVersion(serialize());
@@ -1502,7 +1343,6 @@ function startAutosaveSnapshots() {
     }
   }
 
-  /* ---------------- Toolbar / execCommand ---------------- */
   function restoreEditorSelection() {
     if (lastEditorRange) {
       try {
@@ -1513,15 +1353,6 @@ function startAutosaveSnapshots() {
     }
   }
 
-  // Place the caret INSIDE a text block before an inline insertHTML
-  // (footnote / endnote / citation markers). restoreEditorSelection() alone
-  // re-applies the saved range WITHOUT focusing the editor, so Chrome can run
-  // execCommand against the page root — the marker then lands as a top-level
-  // node and renders on its OWN LINE instead of inline with the text.
-  // Last USER-EDITABLE text block of a page: skips app-managed furniture
-  // (footnotes section / per-page footnote areas) so carets and markers
-  // never target them — renderFootnotesSection() rebuilds those nodes and
-  // would destroy anything inserted inside them.
   function lastRealBlock(pageContent) {
     if (!pageContent) return null;
     for (var i = pageContent.children.length - 1; i >= 0; i--) {
@@ -1536,25 +1367,19 @@ function startAutosaveSnapshots() {
     restoreEditorSelection();
     var sel = window.getSelection();
     var anchor = sel && sel.anchorNode;
-    // A range saved before a pagination pass can point at DETACHED nodes;
-    // execCommand with a disconnected selection silently does nothing.
+
     var ok = !!(anchor && anchor.isConnected);
     var anchorEl = null, host = null;
     if (ok) {
       anchorEl = anchor.nodeType === Node.ELEMENT_NODE ? anchor : anchor.parentElement;
       host = anchorEl && anchorEl.closest(".page-content");
-      // Reject: page-content root anchors, anchors INSIDE non-editable
-      // markers (<sup contenteditable="false"> — execCommand fails there),
-      // and anchors inside app-managed furniture (.footnotes-section /
-      // .page-footnote-area — renderFootnotesSection() wipes them, which
-      // used to eat the freshly inserted marker).
+
       ok = !!host && !(anchorEl.classList && anchorEl.classList.contains("page-content")) &&
            !anchorEl.closest('[contenteditable="false"]') &&
            !anchorEl.closest(".footnotes-section, .page-footnote-area");
     }
     if (ok && document.activeElement !== host) {
-      // Make sure the editing host is the focused element, or execCommand
-      // targets the page root even when the range itself is correct.
+
       try { host.focus({ preventScroll: true }); } catch (e) { try { host.focus(); } catch (e2) {} }
       restoreEditorSelection();
       var a2 = window.getSelection().anchorNode;
@@ -1564,9 +1389,7 @@ function startAutosaveSnapshots() {
           a2el.closest(".footnotes-section, .page-footnote-area")) ok = false;
     }
     if (!ok) {
-      // No usable live caret: focus the editor and drop the caret INLINE at
-      // the end of the last real text block, never at the page root and
-      // never inside the footnotes furniture.
+
       var fc = getContent(getPages()[0]);
       if (!fc) return;
       try { fc.focus(); } catch (e) {}
@@ -1577,11 +1400,7 @@ function startAutosaveSnapshots() {
       sel.removeAllRanges();
       sel.addRange(r);
     }
-    // execCommand("insertHTML") REPLACES whatever text is currently selected
-    // (double-clicked word, triple-clicked line, drag select) — the selected
-    // text before the marker would VANISH. Word keeps the text: collapse the
-    // range to its END so the marker lands right AFTER the selection, on the
-    // same line.
+
     var s2 = window.getSelection();
     if (s2 && s2.rangeCount) {
       var r2 = s2.getRangeAt(0);
@@ -1593,9 +1412,6 @@ function startAutosaveSnapshots() {
     }
   }
 
-  // After inserting a non-editable marker, park the caret right AFTER it so
-  // the next insert never anchors inside the marker itself (which would make
-  // execCommand("insertHTML") fail silently).
   function parkCaretAfterRef(refEl) {
     if (!refEl || !refEl.parentElement) return;
     try {
@@ -1608,15 +1424,10 @@ function startAutosaveSnapshots() {
     } catch (e) {}
   }
 
-  // Safety net: if a marker still lands as a DIRECT child of .page-content it
-  // would render on its own line — move it inline to the end of the nearest
-  // preceding text block (or wrap it in a new paragraph when none exists).
   function healInlineRefPlacement(refEl) {
     if (!refEl || !refEl.parentElement) return;
     var host = refEl.parentElement;
-    // Marker landed inside app-managed furniture (footnotes section / page
-    // footnote area): renderFootnotesSection() would delete it — relocate it
-    // to the end of the last real text block instead.
+
     if (host.classList && (host.classList.contains("footnotes-section") || host.classList.contains("page-footnote-area"))) {
       var pc2 = host.closest(".page-content");
       var tgt2 = lastRealBlock(pc2);
@@ -1648,9 +1459,6 @@ function startAutosaveSnapshots() {
     }
   }
 
-  // Focus the first page-content and re-apply the last saved selection.
-  // Used after modal/prompt dialogs steal focus — execCommand('insertHTML')
-  // only works when the editor is focused and has a selection inside it.
   function focusEditorAndRestore() {
     var firstContent = getContent(getPages()[0]);
     if (firstContent) {
@@ -1660,17 +1468,13 @@ function startAutosaveSnapshots() {
   }
 
   function exec(cmd, value) {
-    // Indent/Outdent: plain margin-left indentation — NOT execCommand's
-    // blockquote wrapper (which rendered as a blue quote block).
+
     if (cmd === "indent" || cmd === "outdent") {
       applyIndent(cmd === "indent" ? 1 : -1);
       return;
     }
     restoreEditorSelection();
 
-    // Undo/Redo use the browser's native contenteditable history. Detect
-    // availability by snapshotting the editor before/after: if nothing
-    // changed there was no history entry to undo/redo.
     if (cmd === "undo" || cmd === "redo") {
       var snapBefore = editorSnapshot();
       try { document.execCommand(cmd, false, value); } catch (e) {}
@@ -1701,7 +1505,7 @@ function startAutosaveSnapshots() {
     var before = editorSnapshot();
     try { document.execCommand(cmd, false, value); } catch (e) {}
     if (editorSnapshot() !== before) {
-      // A real edit happened → undo becomes available, redo is cleared.
+
       canUndo = true;
       canRedo = false;
     }
@@ -1728,17 +1532,12 @@ function startAutosaveSnapshots() {
   }
   function applyFontFamily(value) { exec("fontName", value); }
 
-  /* Exact pixel font sizes (Slides parity): execCommand only supports a
-     coarse 1–7 scale, so we wrap the selection with <font size="7"> and then
-     convert that wrapper into a <span style="font-size:Npx"> carrying the
-     exact size picked in the dropdown. */
   function applyFontSize(value) {
     var v = parseFloat(value);
     if (isNaN(v) || v <= 0) return;
-    // Legacy 1–7 values (old macros / format painter) still pass straight through
+
     if (v >= 1 && v <= 7) { exec("fontSize", String(Math.round(v))); return; }
 
-    // Remember pre-existing size="7" wrappers so only the new one is converted
     var before = document.querySelectorAll('.page-content font[size="7"]');
     var skip = [];
     for (var b = 0; b < before.length; b++) skip.push(before[b]);
@@ -1783,23 +1582,6 @@ function startAutosaveSnapshots() {
 
   function clearFormatting() { exec("removeFormat"); }
 
-  /* ---------------- Colour / highlight: Word parity ----------------
-     queryCommandState is what makes a ribbon button light up for bold,
-     italic and underline — but there is no queryCommandState for colour,
-     and no queryCommandValue for hiliteColor at all outside IE. So both
-     are read off the RENDERED text instead, via getComputedStyle.
-
-     That is not just a workaround, it is the point: a colour the AI
-     wrote into the document as inline CSS and one the user applied from
-     this ribbon end up as the same computed value, so the ribbon reports
-     them identically and the user can toggle either one. Reading the
-     markup (a <font color>, a class) instead would only ever see half of
-     what is on the page. */
-
-  /* Computed colours arrive as "rgb(255, 255, 0)" / "rgba(0, 0, 0, 0)".
-     Returns a #rrggbb string, or "" for anything with no visible colour
-     (transparent, a gradient, a background-image) so callers can treat
-     "nothing there" as one value instead of three spellings of it. */
   function cssColorToHex(value) {
     var v = String(value == null ? "" : value).trim().toLowerCase();
     if (!v || v === "transparent" || v === "none" || v === "currentcolor" || v === "inherit") return "";
@@ -1822,17 +1604,6 @@ function startAutosaveSnapshots() {
     return hex;
   }
 
-  /* The colour the selection is already in, or "" when it is mixed /
-     uncoloured / outside the editor. Read from every text node the range
-     touches, so a selection spanning "red bold" and "plain" reports mixed
-     rather than whichever end happened to be first — the same rule the
-     bold button follows.
-
-     Returns #rrggbb where it can. Where it cannot — the wide-gamut syntaxes
-     (oklch, color(srgb …)) a model or a designer can put in a document and
-     the browser hands straight back — the raw CSS is returned instead, and
-     the caller paints that onto the swatch, which CSS understands. Reading
-     only rgb() would report "no colour" for colour that is visibly there. */
   function selectionTint(prop) {
     var sel = window.getSelection();
     if (!sel || !sel.rangeCount) return "";
@@ -1849,14 +1620,9 @@ function startAutosaveSnapshots() {
       if (range.intersectsNode ? range.intersectsNode(n) : true) nodes.push(n);
       if (nodes.length >= 60) break;
     }
-    // A collapsed caret covers no text. What the next character will look
-    // like is decided by the element it sits in, which is exactly what
-    // Word shows for a bare caret.
+
     if (!nodes.length) nodes = [range.startContainer];
 
-    // Compared on the RESOLVED string rather than on a hex of it, because a
-    // value no parser here understands still has to compare equal to itself
-    // across every node in the selection.
     var first = "";
     for (var i = 0; i < nodes.length; i++) {
       var el = nodes[i].nodeType === Node.TEXT_NODE ? nodes[i].parentElement : nodes[i];
@@ -1869,16 +1635,6 @@ function startAutosaveSnapshots() {
     return cssColorToHex(first) || first;
   }
 
-  /* Drives one of the two swatch dropdowns. The swatch list in the markup
-     is the only list — read back off the items rather than duplicated in
-     JS, so a swatch added to the ribbon needs no second edit here.
-
-     The LABEL only ever names a colour that is on the list. Word's button
-     carries no per-colour wording at all — it paints the current colour
-     under the "A" and leaves the caption alone — so a colour that came from
-     the colour picker, or from markup the AI wrote, repaints the swatch and
-     changes nothing else. Inventing a word for it ("Custom") would be this
-     app talking about its own swatch list rather than about the document. */
   function syncColorDropdown(ddId, current) {
     var dd = $(ddId);
     if (!dd) return;
@@ -1886,18 +1642,14 @@ function startAutosaveSnapshots() {
     if (!btn) return;
     var swatch = btn.querySelector(".color-preview");
     var label = btn.querySelector(".dropdown-value");
-    // The resting look is whatever the button was authored with in the
-    // markup — snapshotted on the first sync so "no colour here" puts the
-    // ribbon back exactly as it shipped rather than as a half-erased
-    // version of it.
+
     if (!dd.hasAttribute("data-rest-label")) {
       dd.setAttribute("data-rest-label", label ? label.textContent : "");
       dd.setAttribute("data-rest-bg", swatch ? swatch.style.background : "");
       dd.setAttribute("data-rest-border", swatch ? swatch.style.border : "");
     }
     var items = dd.querySelectorAll(".ms-dropdown-item[data-value]");
-    // Normalised before comparing: the swatches are #rrggbb, and anything
-    // arriving as "rgb(255, 0, 0)" would otherwise miss the Red it IS.
+
     var cur = cssColorToHex(current).toLowerCase();
     var match = null;
     for (var i = 0; i < items.length; i++) {
@@ -1912,18 +1664,12 @@ function startAutosaveSnapshots() {
       return;
     }
     if (current) {
-      // Off-list colour: paint the swatch with it — the raw value, so a
-      // wide-gamut one shows as itself rather than as nothing. The caption
-      // goes back to rest, because this branch names no colour and leaving
-      // the last matched name up there would claim a colour that isn't there.
+
       if (swatch) { swatch.style.background = cur || current; swatch.style.border = ""; }
       if (label) label.textContent = dd.getAttribute("data-rest-label") || label.textContent;
       return;
     }
-    // Nothing selected, or a mixed selection: back to the resting state, so
-    // an untouched ribbon never changes just because the caret moved. (The
-    // caret itself always reports the colour it sits in, so the resting
-    // state really does mean "nothing to report".)
+
     if (swatch) {
       swatch.style.background = dd.getAttribute("data-rest-bg") || "";
       swatch.style.border = dd.getAttribute("data-rest-border") || "";
@@ -1931,10 +1677,6 @@ function startAutosaveSnapshots() {
     if (label) label.textContent = dd.getAttribute("data-rest-label") || label.textContent;
   }
 
-  /* True when this swatch IS the colour the selection is already in, read
-     from the value syncColorDropdown() parked on the dropdown. That value
-     describes the selection as it was BEFORE this click, which is what a
-     toggle test needs. */
   function isCurrentSwatch(dd, value) {
     var v = cssColorToHex(value);
     var cur = dd ? String(dd.getAttribute("data-current") || "") : "";
@@ -1946,11 +1688,6 @@ function startAutosaveSnapshots() {
     syncColorDropdown("highlightColorDropdown", selectionTint("backgroundColor"));
   }
 
-  /* Removing ONLY the colour. removeFormat would take the bold and the
-     underline down with it, which is not what "no highlight" means in
-     Word. Colour lives in the inline `color` / `background-color` the
-     ribbon writes and in the <font color> wrapper it writes when
-     styleWithCSS is off, so both are unwound and nothing else is touched. */
   function clearSelectionTint(prop, unwrapFontColor) {
     var sel = window.getSelection();
     if (!sel || !sel.rangeCount) return;
@@ -1968,9 +1705,7 @@ function startAutosaveSnapshots() {
         el.style.removeProperty("color");
         continue;
       }
-      // The `background` shorthand carries the colour too, so removing only
-      // background-color would leave the highlight painted. Guarded on
-      // background-image so a real image run is never cleared.
+
       var cs = window.getComputedStyle(el);
       if (cs.backgroundImage && cs.backgroundImage !== "none") continue;
       el.style.removeProperty("background-color");
@@ -1987,9 +1722,6 @@ function startAutosaveSnapshots() {
       }
     }
 
-    // Unwrapping a <font> collapses the range out from under the caret, so
-    // the selection is put back before the next paint — otherwise one click
-    // on "Automatic" silently drops the text the user was looking at.
     restoreEditorSelection();
     schedulePaginate();
     scheduleAutosave();
@@ -2019,15 +1751,11 @@ function startAutosaveSnapshots() {
       if (active) btn.classList.add("active"); else btn.classList.remove("active");
     }
     updateDropCapState();
-    // Colour and highlight are read off the rendered selection rather than
-    // queryCommandState, so this is what makes the two swatch buttons report
-    // a colour the user never picked from them — one the AI wrote into the
-    // document, or one applied earlier and the caret has since moved into.
+
     syncColorRibbon();
-    // Block-type dropdown removed — nothing else to sync.
+
   }
 
-  /* Snapshot all page content for native undo/redo availability detection. */
   function editorSnapshot() {
     var pages = getPages();
     var s = "";
@@ -2037,10 +1765,6 @@ function startAutosaveSnapshots() {
     return s;
   }
 
-  /* ---------------- Ribbon availability (Notes/Slides parity) ----------------
-     Buttons gray out when their precondition isn't met: Undo/Redo need history,
-     Cut/Copy need a text selection in the editor, Paste needs the caret in the
-     editor, and formatting/insert/layout controls need an editable document. */
   function getRibbonSelectionState() {
     var activeDoc = !!currentDocId;
     var inEditor = false;
@@ -2086,21 +1810,18 @@ function startAutosaveSnapshots() {
     setCommandControlsDisabled("copy", !editableSelection);
     setCommandControlsDisabled("paste", !editableContext);
 
-    // Formatting (font + paragraph) needs the caret inside the editor.
     ["bold", "italic", "underline", "strikeThrough", "subscript", "superscript",
      "justifyLeft", "justifyCenter", "justifyRight", "justifyFull",
      "insertUnorderedList", "insertOrderedList", "outdent", "indent"].forEach(function (cmd) {
       setCommandControlsDisabled(cmd, !editableContext);
     });
 
-    // Font / color dropdown triggers follow the same formatting context.
     setRibbonDropdownDisabled("fontFamilyDropdown", !editableContext);
     setRibbonDropdownDisabled("fontSizeDropdown", !editableContext);
     setRibbonDropdownDisabled("fontColorDropdown", !editableContext);
     setRibbonDropdownDisabled("highlightColorDropdown", !editableContext);
     setRibbonControlDisabled($("btnClearFormat"), !editableContext);
 
-    // Insert / layout / styles / review controls need an open document.
     var docOnly = ["btnLink", "btnImage", "btnTable", "btnHr", "btnPageBreak",
       "btnDropCap", "btnWatermark", "btnSymbols", "btnCoverPage", "btnSectionBreak",
       "btnEquation", "btnSmartArt", "btnScreenshot", "btnDraw", "btnMargins",
@@ -2110,7 +1831,7 @@ function startAutosaveSnapshots() {
     for (var i = 0; i < docOnly.length; i++) {
       setRibbonControlDisabled($(docOnly[i]), !state.activeDoc);
     }
-    // Style buttons (Title / Heading 1–3 / Normal) and column buttons.
+
     var styles = document.querySelectorAll(".ribbon-btn[data-block]");
     for (var j = 0; j < styles.length; j++) {
       setRibbonControlDisabled(styles[j], !state.activeDoc);
@@ -2122,8 +1843,7 @@ function startAutosaveSnapshots() {
     setRibbonDropdownDisabled("pageSizeDropdown", !state.activeDoc);
   }
 
-  /* ---------------- Save / Load (IndexedDB via EmeraldIDBStorage) ---------------- */
-  var idb = null; // will be set to window.EmeraldIDBStorage if available
+  var idb = null;
 
   function idbAvailable() {
     return idb && idb.isReady && idb.isReady();
@@ -2147,8 +1867,7 @@ function startAutosaveSnapshots() {
       theme: theme,
       header: headerActive && hfHasContent(headerHTML) ? headerHTML : "",
       footer: footerActive && hfHasContent(footerHTML) ? footerHTML : "",
-      // The watermark is drawn OUTSIDE .page-content, so the loop above
-      // cannot see it — without this line it was simply never saved.
+
       watermark: watermarkText,
       footnotes: footnotes,
       endnotes: endnotes,
@@ -2156,7 +1875,6 @@ function startAutosaveSnapshots() {
     };
   }
 
-  /* ---------------- Multi-document index (Slides pattern) ---------------- */
   async function loadIndex() {
     try {
       var idx = null;
@@ -2164,7 +1882,7 @@ function startAutosaveSnapshots() {
         idx = await window.EmeraldIDBStorage.getJSON(DOC_INDEX_KEY);
       }
       documents = Array.isArray(idx) ? idx : [];
-      // De-duplicate by id, newest first (same defensive cleanup as Slides)
+
       var seen = {};
       var cleaned = [];
       for (var i = 0; i < documents.length; i++) {
@@ -2182,8 +1900,7 @@ function startAutosaveSnapshots() {
 
   async function saveIndex() {
     try {
-      // EmeraldIDBStorage.setJSON buffers to localStorage, syncs to IndexedDB,
-      // then removes the localStorage copy. IndexedDB is the source of truth.
+
       if (window.EmeraldIDBStorage) await window.EmeraldIDBStorage.setJSON(DOC_INDEX_KEY, documents);
     } catch (e) {}
   }
@@ -2210,11 +1927,6 @@ function startAutosaveSnapshots() {
     } catch (e) {}
   }
 
-  // Strip tags → plain text (for card snippets). Block elements become line
-  // breaks so headings/paragraphs don't run together. Never throws. The text
-  // is extracted from a detached DOMParser document (nothing executes), so
-  // entities decode completely via textContent and no partial multi-character
-  // sanitizer regex survives (CodeQL js/incomplete-multi-character-sanitization).
   function htmlToText(html) {
     if (!html) return "";
     var src = String(html);
@@ -2226,8 +1938,7 @@ function startAutosaveSnapshots() {
       var doc = new DOMParser().parseFromString(src, "text/html");
       var body = doc.body;
       if (body) {
-        // Keep the old block→line-break behavior: a line break follows each
-        // block element, then textContent flattens the rest of the markup.
+
         var blocks = body.querySelectorAll("p,h1,h2,h3,h4,h5,h6,li,blockquote,pre,div,tr,figcaption");
         for (var i = 0; i < blocks.length; i++) blocks[i].insertAdjacentText("afterend", "\n");
         text = body.textContent || "";
@@ -2241,8 +1952,6 @@ function startAutosaveSnapshots() {
       .join("\n");
   }
 
-  // Plain-text extraction for HTML fragments (used by the ODT importer).
-  // Same detached-parser + optional-DOMPurify approach as htmlToText; never throws.
   function htmlFragmentToText(html) {
     if (html == null) return "";
     var src = String(html);
@@ -2255,21 +1964,16 @@ function startAutosaveSnapshots() {
     } catch (e) { return ""; }
   }
 
-  // Random hex id, identical scheme to Slides'/Notes' generateSecureId()
   function generateSecureId(length) {
     var arr = new Uint8Array(Math.ceil(length / 2));
     crypto.getRandomValues(arr);
     return Array.from(arr, function (b) { return b.toString(16).padStart(2, "0"); }).join("").slice(0, length);
   }
 
-  // Same id format as Slides (pres_<ms>_<hex9>) and Notes (note_<ms>_<hex9>):
-  // doc_<decimal timestamp>_<9 hex chars>  →  ?owned=doc_1734567890123_a1b2c3d4e
   function makeDocId() {
     return "doc_" + Date.now() + "_" + generateSecureId(9);
   }
 
-  // Sequential "Untitled Document" titles so multiple fresh documents don't
-  // show up as identical cards on the welcome screen (same as Slides).
   function nextUntitledTitle() {
     var base = "Untitled Document";
     var maxN = 0;
@@ -2303,8 +2007,7 @@ function startAutosaveSnapshots() {
       return;
     }
     try {
-      // Update the index entry first so the welcome screen metadata stays
-      // in sync even if the content write is still in flight.
+
       var meta = null;
       for (var i = 0; i < documents.length; i++) {
         if (documents[i].id === currentDocId) { meta = documents[i]; break; }
@@ -2320,8 +2023,7 @@ function startAutosaveSnapshots() {
       writeDocData(data);
       setAutosaveState("saved");
       if (showToast) {
-        // Autosave handles persistence; the manual Save no longer creates a
-        // version snapshot (version history is driven by the 1-minute ticker).
+
         toast("Document saved", "success");
         try { window.EmeraldHistory.action("Saved document \u201C" + (currentTitle || "Untitled Document") + "\u201D"); } catch (_) {}
       }
@@ -2331,12 +2033,10 @@ function startAutosaveSnapshots() {
     }
   }
 
-  /* ---------------- Version history (per document, IndexedDB-backed) ---------------- */
   function pushVersion(data) {
     if (!currentDocId) return;
     var versions = getVersions();
 
-    // Don't add a duplicate if the content is unchanged from the last version
     if (versions.length > 0) {
       var last = versions[0];
       if (last.content === data.content && last.title === data.title) return;
@@ -2361,7 +2061,7 @@ function startAutosaveSnapshots() {
     try {
       if (idbAvailable()) {
         var raw = idb.getJSONSync(versionsKey(currentDocId));
-        // getJSONSync returns parsed object, not string
+
         if (raw) return raw;
       }
       return [];
@@ -2386,9 +2086,7 @@ function startAutosaveSnapshots() {
       content.appendChild(p);
     }
     paginate();
-    // Older snapshots carry their own comment anchors — rebuild the pins
-    // against them (keep comment data; anchors that no longer exist simply
-    // get no bubble until the document is reloaded).
+
     renderDocPins(false);
     saveDocument(false);
     closeModal("versionsModal");
@@ -2452,9 +2150,6 @@ function startAutosaveSnapshots() {
     return months[d.getMonth()] + " " + d.getDate() + ", " + hh + ":" + mm;
   }
 
-  /* ---------------- Document lifecycle (open / close / new / delete) ---------------- */
-
-  // Put a serialized document's content into the editor pages.
   function applyDocData(data) {
     currentTitle = data.title || "Untitled Document";
     var wrapper = $(PAGES_WRAPPER_ID);
@@ -2468,41 +2163,28 @@ function startAutosaveSnapshots() {
       p.innerHTML = "<br>";
       content.appendChild(p);
     }
-    // Restore editable header/footer strips (syncHeaderFooter runs inside
-    // paginate() and creates them on every page).
+
     headerActive = hfHasContent(data.header);
     headerHTML = headerActive ? data.header : "";
     footerActive = hfHasContent(data.footer);
     footerHTML = footerActive ? data.footer : "";
-    // Redrawn from the stored value, not from whatever the previous document
-    // had on it — applyWatermark() replaces rather than adds, so a document
-    // with no watermark clears the last one's.
+
     applyWatermark(data.watermark || "");
-    // Footnotes/endnotes are per-document. Docs saved before this existed
-    // have no field — keep whatever loadFootnotes()/loadEndnotes() loaded
-    // from the legacy global store so their notes aren't lost.
+
     if (Array.isArray(data.footnotes)) footnotes = data.footnotes;
     if (Array.isArray(data.endnotes)) endnotes = data.endnotes;
-    // Comments (Slides-style pins) — plain data; anchors live in content HTML.
+
     comments = Array.isArray(data.comments) ? data.comments : [];
-    // Fresh document context — the previous document's native undo/redo
-    // history does not apply to this one.
+
     canUndo = false;
     canRedo = false;
-    // Restore the imported document's own page layout (size/orientation/
-    // margins/background) BEFORE paginating so content breaks at the right
-    // height. Docs that carry no layout keep the current (A4) default.
+
     applyDocPageLayout(data);
     paginate();
-    // Rebuild the pins from the comment data (saved pin markup is ignored —
-    // renderDocPins strips and re-creates every bubble; orphaned comments
-    // whose anchor no longer exists are dropped, same as Slides).
+
     renderDocPins(true);
   }
 
-  /* Pagination measures text height, so running it before webfonts/images have
-     loaded can undercount and leave a long document on a single page until the
-     user types. Re-paginate once the document's assets (fonts + images) settle. */
   function repaginateAfterAssetsLoad() {
     var token = ++assetRepaginateToken;
     function finish() {
@@ -2525,7 +2207,7 @@ function startAutosaveSnapshots() {
           for (var j = 0; j < imgs.length; j++) {
             if (imgs[j].src && !imgs[j].complete) left++;
           }
-          // Give up after ~5s so a broken image can't block pagination forever.
+
           if (left === 0 || attempts++ > 50) { paginate(); return; }
           setTimeout(wait, 100);
         })();
@@ -2546,14 +2228,13 @@ function startAutosaveSnapshots() {
     try { togglePrintPreview(false); } catch (e) {}
     currentDocId = id;
     applyDocData(data);
-    // Re-render footnote/endnote areas for the freshly-loaded content
+
     try { renderFootnotesSection(); renderEndnotesSection(); } catch (e) {}
     repaginateAfterAssetsLoad();
     document.body.classList.remove("no-active-doc");
     showWelcomeScreen(false);
     switchRibbonTab("home");
-    // Ribbon just became visible — re-measure the tab underline (it may have
-    // been measured while display:none, leaving a 0-width indicator).
+
     refreshRibbonIndicator();
     updateOwnedUrl();
     updateStatus();
@@ -2565,16 +2246,15 @@ function startAutosaveSnapshots() {
 
   function closeDocument() {
     if (currentDocId) saveDocument(false);
-    // Closing the document ends the current writing session.
+
     commitSessionTime();
     currentDocId = null;
     currentTitle = "Untitled Document";
     syncFileModalNameInput();
-    // Drop open side panels (and their ribbon "active" states) on close.
+
     if ($("outlinePanel") && $("outlinePanel").classList.contains("open")) toggleOutline(false);
     if ($("thumbnailsPanel") && $("thumbnailsPanel").classList.contains("open")) toggleThumbnails(false);
-    // Leave a fresh blank page behind so status/interval code that touches
-    // the pages never runs against an empty wrapper.
+
     var wrapper = $(PAGES_WRAPPER_ID);
     wrapper.innerHTML = "";
     headerActive = false; headerHTML = "";
@@ -2643,9 +2323,7 @@ function startAutosaveSnapshots() {
       if (documents[di] && documents[di].id === id) { deletedTitle = documents[di].title; break; }
     }
     if (wasCurrent) {
-      // Detach BEFORE any awaits so a pending debounced autosave can't fire
-      // mid-delete and resurrect this document via saveDocument()'s
-      // re-create-missing-meta branch.
+
       currentDocId = null;
       if (autosaveTimer) { clearTimeout(autosaveTimer); autosaveTimer = null; }
     }
@@ -2658,7 +2336,6 @@ function startAutosaveSnapshots() {
     try { window.EmeraldHistory.action("Deleted document \u201C" + (deletedTitle || "Untitled Document") + "\u201D"); } catch (_) {}
   }
 
-  /* ---------------- File modal (Backstage-style, Slides pattern) ---------------- */
   function syncFileModalNameInput() {
     var nameInput = $("fileModalNameInput");
     if (nameInput) nameInput.value = currentTitle;
@@ -2679,14 +2356,14 @@ function startAutosaveSnapshots() {
   function closeFileModal() {
     var modal = $("fileModal");
     if (!modal) return;
-    // Commit the (possibly renamed) title before closing
+
     commitFileModalRename();
     modal.classList.add("closing");
     setTimeout(function () {
       modal.classList.remove("show");
       modal.classList.remove("closing");
     }, 250);
-    // Return to the Home tab so no tab is stuck on File
+
     switchRibbonTab("home");
   }
 
@@ -2696,18 +2373,15 @@ function startAutosaveSnapshots() {
     var newTitle = nameInput.value.trim() || "Untitled Document";
     if (newTitle !== currentTitle) {
       currentTitle = newTitle;
-      scheduleAutosave(); // persists title + updates index meta
+      scheduleAutosave();
     }
   }
 
-  /* ---------------- Welcome screen (home) ---------------- */
   function showWelcomeScreen(show) {
     var ws = $("welcomeScreen");
     if (!ws) return;
     ws.style.display = show ? "flex" : "none";
-    // Only one of the two flex:1 column children may occupy space at a time —
-    // hide the editor area while the home/welcome screen is shown so it does
-    // NOT push the welcome content down / crop it (both were flex:1 siblings).
+
     var area = document.querySelector(".document-area");
     if (area) area.style.display = show ? "none" : "flex";
     if (show) renderWelcomeCards();
@@ -2718,8 +2392,6 @@ function startAutosaveSnapshots() {
     return new Date(ts).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
   }
 
-  // Slides-style welcome cards: parallel data loads + a single atomic DOM
-  // commit guarded by a render token (prevents stale/duplicate cards).
   function renderWelcomeCards() {
     var container = $("documentsDisplay");
     var noContainer = $("noDocsContainer");
@@ -2728,8 +2400,7 @@ function startAutosaveSnapshots() {
     var myToken = (_welcomeRenderToken = (_welcomeRenderToken || 0) + 1);
 
     function applyEmpty(empty) {
-      // Hide the card grid entirely when empty so it doesn't reserve space
-      // (matches Slides, where the image sits right under the section title)
+
       container.style.display = empty ? "none" : "";
       if (noContainer) noContainer.style.display = empty ? "flex" : "none";
     }
@@ -2746,7 +2417,7 @@ function startAutosaveSnapshots() {
       var data = await loadDocData(meta.id);
       return { meta: meta, data: data };
     })).then(function (results) {
-      if (myToken !== _welcomeRenderToken) return; // a newer render started
+      if (myToken !== _welcomeRenderToken) return;
       var frag = document.createDocumentFragment();
       for (var i = 0; i < results.length; i++) {
         (function (r) {
@@ -2784,7 +2455,6 @@ function startAutosaveSnapshots() {
     }).catch(function () {});
   }
 
-  /* ---------------- Import (.txt / .md / .html / .docx / .doc / .odt / .rtf / .pdf) ---------------- */
   function importTextToHtml(text, isMarkdown) {
     var lines = String(text).replace(/\r\n?/g, "\n").split("\n");
     var out = [];
@@ -2815,21 +2485,16 @@ function startAutosaveSnapshots() {
   }
 
   function importHtmlToContent(htmlText) {
-    // Full pass through the sanitizer: drops active elements AND event
-    // handlers / javascript: URLs, which the old tag-only removal missed.
+
     var html = sanitizeStoredHtml(htmlText);
     return html && html.replace(/\S/g, "") ? html : "<p><br></p>";
   }
 
-  // ── Minimal in-browser ZIP reader (no dependencies) ──
-  // Reads a specific entry from a ZIP file by its local file name, using the
-  // end-of-central-directory record. Supports stored (0) and deflate (8)
-  // entries. If an inflate stream is unavailable we fall back to stored only.
   function zipReadEntry(arrayBuffer, targetName) {
     var bytes = new Uint8Array(arrayBuffer);
     var view = new DataView(arrayBuffer);
     var len = bytes.length;
-    // Locate EOCD record (signature 0x06054b50) scanning from the end.
+
     var eocd = -1;
     for (var i = len - 22; i >= Math.max(0, len - 65557); i--) {
       if (view.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
@@ -2854,7 +2519,7 @@ function startAutosaveSnapshots() {
     }
     var entry = names[targetName];
     if (!entry) return null;
-    // Parse local header to find the data start.
+
     var lo = entry.localOffset;
     var lhNameLen = view.getUint16(lo + 26, true);
     var lhExtraLen = view.getUint16(lo + 28, true);
@@ -2865,16 +2530,12 @@ function startAutosaveSnapshots() {
     return null;
   }
   function inflate(array) {
-    // DecompressionStream is available in Chromium 103+/Safari 16.4+/Firefox 113+.
-    // A ReadableStream has no arrayBuffer() of its own — Response wraps one that
-    // does, which is what actually collects the inflated bytes.
+
     var ds = new DecompressionStream("deflate-raw");
     var stream = new Blob([array]).stream().pipeThrough(ds);
     return new Response(stream).arrayBuffer();
   }
 
-  // Extract the visible text from an ODT file (a ZIP whose content.xml holds
-  // <text:p> paragraphs and <text:h> headings).
   async function convertOdtToHtml(arrayBuffer) {
     var contentEntry = await zipReadEntry(arrayBuffer, "content.xml");
     if (!contentEntry) return null;
@@ -3129,7 +2790,7 @@ function startAutosaveSnapshots() {
             out += renderInline(c, inheritedT);
           }
         } else if (ns === NS.draw) {
-          // images skipped (binary lives in Pictures/)
+
         } else {
           out += renderInline(c, inheritedT);
         }
@@ -3298,8 +2959,6 @@ function startAutosaveSnapshots() {
     return html;
   }
 
-  // Best-effort RTF → plain text (strip control words/symbols, keep readable
-  // runs). Content between \pard groups is walked to recover unicode text.
   function convertRtfToText(rtf) {
     var out = "";
     var hex = /\\'([0-9a-fA-F]{2})/;
@@ -3312,15 +2971,15 @@ function startAutosaveSnapshots() {
           try { out += String.fromCharCode(parseInt(m[1], 16)); } catch (e) {}
           i += 4; continue;
         }
-        // \uN escapes carry a sign + digits in RTF.
+
         var u = /^\\u(-?\d+)/.exec(rtf.substr(i));
         if (u) { out += String.fromCharCode(parseInt(u[1], 10)); i += u[0].length; continue; }
-        // Paragraph / line breaks map to newlines; tabs to spaces.
+
         var br = /^\\[a-zA-Z]+\d*/.exec(rtf.substr(i)) || [""];
         var word = br[0];
         if (word === "\\par" || word === "\\line") { out += "\n"; i += word.length; continue; }
         if (word === "\\tab") { out += " "; i += word.length; continue; }
-        // Other control symbol like \b0, \b1, \plain etc — skip the whole word.
+
         var w = /^\\[a-zA-Z]+-?\d*/.exec(rtf.substr(i));
         if (w) { i += w[0].length; continue; }
         i++; continue;
@@ -3456,17 +3115,13 @@ function startAutosaveSnapshots() {
     return html;
   }
 
-  // Best-effort legacy .doc text extraction: the Word binary stores readable
-  // text (often in a mix of byte and UTF-16 runs). We scan the bytes and keep
-  // sequences of printable characters as likely text, dropping binary noise.
   function convertDocToText(arrayBuffer) {
     var bytes = new Uint8Array(arrayBuffer);
     var n = bytes.length;
     function isTextByte(b) {
       return (b >= 32 && b <= 126) || b === 9 || b === 10 || b === 13;
     }
-    // Build a big decodable string from UTF-16-ish words where low bytes are
-    // ASCII (common in Word 6/95/97/2000 files), plus a raw-byte pass.
+
     var latin = "", utf = "";
     for (var i = 0; i + 1 < n; i += 2) {
       var lo = bytes[i], hi = bytes[i + 1];
@@ -3494,20 +3149,12 @@ function startAutosaveSnapshots() {
     }
     var utfLines = meaningful(collect(utf));
     var latinLines = meaningful(collect(latin));
-    // Prefer the UTF-16 pass as it usually carries the "real" text, but if it
-    // yields almost nothing, fall back to the raw-byte pass.
+
     var lines = (utfLines.length >= Math.min(2, latinLines.length)) ? utfLines : latinLines;
     var out = lines.join("\n").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
     return out || null;
   }
 
-  /* ===================== .docx rich conversion =====================
-     Falls back to mammoth (when loaded) + plain text. This converter parses
-     word/document.xml + styles.xml directly so page size, margins, background,
-     paragraph alignment, text colour, shading and cell padding survive import
-     (the way MS Word stores them), not just the bare text structure. */
-
-  // ---- minimal XML parser (namespace-agnostic, strips prefixes) ----
   function xmlParse(xml) {
     var root = { tag: "#root", attrs: {}, kids: [], text: "" };
     var stack = [root];
@@ -3522,9 +3169,9 @@ function startAutosaveSnapshots() {
       if (gt < 0) break;
       var inner = xml.substring(lt + 1, gt);
       i = gt + 1;
-      if (inner.charAt(0) === "!") continue;          // <!DOCTYPE ...> etc
-      if (inner.charAt(0) === "?") continue;          // <?xml ...?>
-      if (inner.charAt(0) === "/") { stack.pop(); continue; } // closing
+      if (inner.charAt(0) === "!") continue;
+      if (inner.charAt(0) === "?") continue;
+      if (inner.charAt(0) === "/") { stack.pop(); continue; }
       var selfClose = /\/$/.test(inner.trim());
       var body = selfClose ? inner.trim().slice(0, -1) : inner;
       var m = /^([^\s=\/>]+)([\s\S]*)$/.exec(body);
@@ -3550,8 +3197,7 @@ function startAutosaveSnapshots() {
     for (var i = 0; i < node.kids.length; i++) if (node.kids[i].tag === tag) out.push(node.kids[i]);
     return out;
   }
-  // xmlParse wraps every part in a synthetic "#root"; step into the real
-  // document element before looking for w:styles / w:numbering / w:Relationship.
+
   function xmlTop(root) {
     if (!root) return null;
     if (root.tag !== "#root") return root;
@@ -3581,14 +3227,9 @@ function startAutosaveSnapshots() {
   function twipToPx(tw) {
     var v = parseFloat(tw);
     if (!isFinite(v) || isNaN(v)) return null;
-    return Math.round((v / 20) * 96 / 72); // twips → px @96dpi
+    return Math.round((v / 20) * 96 / 72);
   }
 
-  /* ---------------- .docx ----------------
-     A Word file carries its own layout: indents, spacing, column widths,
-     fonts, headers, footers and page setup. This converter uses those numbers
-     rather than guessing at them, so the document comes back looking like the
-     one Word saved — and every part of it is still live, editable text. */
   var DOCX_HIGHLIGHTS = {
     yellow: "#ffff00", green: "#00ff00", cyan: "#00ffff", magenta: "#ff00ff",
     blue: "#0000ff", red: "#ff0000", darkBlue: "#000080", darkCyan: "#008080",
@@ -3598,7 +3239,7 @@ function startAutosaveSnapshots() {
   };
 
   function docxOn(node) {
-    // An OOXML toggle is on unless it says 0/false.
+
     var el = firstChild(node, arguments[1]);
     if (!el) return false;
     var v = el.attrs.val;
@@ -3609,7 +3250,6 @@ function startAutosaveSnapshots() {
   function docxHalfPtPx(v) { var hp = parseFloat(v); return isFinite(hp) ? hp * 2 / 3 : null; }
   function docxEmuPx(v) { var e = parseFloat(v); return isFinite(e) ? e / 9525 : null; }
 
-  /* ---- styles.xml: defaults + named styles, with basedOn inheritance ---- */
   function docxReadStyles(root) {
     var out = { para: {}, run: {}, link: {}, defPara: {}, defRun: {}, table: {}, theme: {} };
     root = xmlTop(root);
@@ -3625,11 +3265,6 @@ function startAutosaveSnapshots() {
       return props;
     }
 
-    /* Word table styles carry their look in tblPr (base borders) plus
-       tblStylePr "conditional" blocks — firstRow / lastRow / firstCol /
-       lastCol / band1Horz / band2Horz / … Once resolved they drive both the
-       direct styling of imported cells and the Table Design preset the
-       imported table is tagged with. */
     function collectTableStyle(node) {
       var props = { id: node.attrs.styleId || null, conds: {} };
       var based = firstChild(node, "basedOn");
@@ -3703,7 +3338,6 @@ function startAutosaveSnapshots() {
     return out;
   }
 
-  // Flatten a style chain: defaults, then basedOn ancestors, then the style.
   function docxResolve(styles, id, kind, seen) {
     var table = kind === "run" ? styles.run : styles.para;
     var chain = [];
@@ -3721,7 +3355,6 @@ function startAutosaveSnapshots() {
     return props;
   }
 
-  /* ---- property readers ---- */
   function docxParaProps(pPr) {
     var p = {};
     var jc = firstChild(pPr, "jc");
@@ -3741,7 +3374,7 @@ function startAutosaveSnapshots() {
         var line = parseFloat(sp.attrs.line);
         var rule = sp.attrs.lineRule || "auto";
         if (isFinite(line)) {
-          if (rule === "auto") p.lineHeight = line / 240;         // 240 = single
+          if (rule === "auto") p.lineHeight = line / 240;
           else p.lineHeight = docxTw(String(line));
         }
       }
@@ -3794,8 +3427,7 @@ function startAutosaveSnapshots() {
     if (fonts) {
       var name = fonts.attrs.ascii || fonts.attrs.hAnsi || fonts.attrs.cs || fonts.attrs.eastAsia;
       var themeAttr = fonts.attrs.asciiTheme || fonts.attrs.hAnsiTheme;
-      // Remember the theme reference: styles.xml is parsed before theme1.xml,
-      // so the actual font name is filled in once the theme is known.
+
       if (themeAttr) r.fontTheme = themeAttr;
       if (!name && themeAttr && theme) {
         var key = String(themeAttr).replace(/^(major|minor)/, "");
@@ -3837,13 +3469,11 @@ function startAutosaveSnapshots() {
     return r;
   }
 
-  // Merged run properties: defaults, character style, then direct formatting.
   function docxRunStyle(styles, rPr, rStyleId, theme, inherited) {
     var props = {};
     var base = docxResolve(styles, null, "run");
     Object.assign(props, base);
-    // A run with no formatting of its own still picks up the paragraph style's
-    // character formatting (a heading's runs are not body size).
+
     if (inherited) Object.assign(props, inherited);
     if (rStyleId && styles.run[rStyleId]) {
       var chain = [];
@@ -3855,8 +3485,6 @@ function startAutosaveSnapshots() {
     return props;
   }
 
-  // Only real CSS leaves the converter: Word bookkeeping (style ids, basedOn,
-  // outline level, numbering) is consumed by the renderer, not emitted.
   var DOCX_PARA_CSS_PX = {
     "font-size": 1, "margin-left": 1, "margin-right": 1, "margin-top": 1,
     "margin-bottom": 1, "text-indent": 1, "letter-spacing": 1,
@@ -3885,11 +3513,11 @@ function startAutosaveSnapshots() {
         else if (css === "text-decoration") v = "underline";
         else continue;
       }
-      // Measurements are kept as plain numbers internally; CSS needs a unit.
+
       if (typeof v === "number" && DOCX_PARA_CSS_PX[css]) v = Math.round(v * 1000) / 1000 + "px";
       out += css + ":" + v + ";";
     }
-    // Underline and strike can both apply; emit them as one declaration.
+
     if (!skip || !skip.underline) {
       if (props.underline && props.strike) out += "text-decoration:underline line-through;";
       else if (props.strike) out += "text-decoration:line-through;";
@@ -3903,7 +3531,6 @@ function startAutosaveSnapshots() {
     return "'" + clean + "'," + clean + ",sans-serif";
   }
 
-  /* ---- numbering.xml: bullet/number text for list paragraphs ---- */
   function docxReadNumbering(root) {
     var abstract = {}, nums = {};
     root = xmlTop(root);
@@ -3951,7 +3578,6 @@ function startAutosaveSnapshots() {
     }).replace(new RegExp("^%" + (ilvl + 1) + "\\.?$"), String(n));
   }
 
-  /* ---- media + relationships ---- */
   function docxReadRels(root) {
     var rels = {};
     root = xmlTop(root);
@@ -3988,7 +3614,6 @@ function startAutosaveSnapshots() {
     return fonts;
   }
 
-  /* ---- images ---- */
   function docxDrawingImage(node, ctx) {
     var blip = (function findBlip(el) {
       for (var i = 0; i < el.kids.length; i++) {
@@ -4022,7 +3647,7 @@ function startAutosaveSnapshots() {
         return { src: media, w: w, h: h, alt: name };
       }
     }
-    // VML picture (older files): <w:pict><v:shape><v:imagedata r:id="…"/>
+
     var imagedata = (function find(el) {
       for (var i = 0; i < el.kids.length; i++) {
         if (el.kids[i].tag === "imagedata") return el.kids[i];
@@ -4034,7 +3659,7 @@ function startAutosaveSnapshots() {
     if (imagedata && ctx.rels[imagedata.attrs.id]) {
       var m = docxMedia(ctx.rels[imagedata.attrs.id]);
       if (m) {
-        // The size and any rotation live in the v:shape style, in points.
+
         var shape = (function find(el) {
           for (var i = 0; i < el.kids.length; i++) {
             if (el.kids[i].tag === "shape") return el.kids[i];
@@ -4061,9 +3686,6 @@ function startAutosaveSnapshots() {
     return null;
   }
 
-  /* Media is read up front: the zip reader is asynchronous, so every picture a
-     document references is turned into an object URL before rendering starts,
-     and the renderer then just looks it up. */
   var docxMediaCache = null;
   async function docxPrimeMedia(arrayBuffer, rels) {
     docxMediaCache = {};
@@ -4100,10 +3722,6 @@ function startAutosaveSnapshots() {
     return docxMediaCache[name.split("/").pop()] || null;
   }
 
-  /* ---- runs, hyperlinks, breaks ---- */
-  // A run's own text: only w:t / w:tab / w:noBreakHyphen count. Reading every
-  // descendant node would swallow the whitespace Word writes between elements
-  // and the field codes in w:instrText.
   function docxRunText(node) {
     var out = "";
     for (var i = 0; i < node.kids.length; i++) {
@@ -4117,7 +3735,7 @@ function startAutosaveSnapshots() {
     }
     return out;
   }
-  // The first drawing/picture in a run, if any.
+
   function docxFindDrawing(el) {
     for (var i = 0; i < el.kids.length; i++) {
       var k = el.kids[i];
@@ -4136,9 +3754,7 @@ function startAutosaveSnapshots() {
     if (img) {
       var pic = docxDrawingImage(img, ctx);
       if (pic) {
-        // height:auto + aspect-ratio instead of a fixed height: when the
-        // picture is wider than the text column, max-width:100% shrinks it and
-        // the height follows, so it is never stretched.
+
         var w = pic.w ? Math.round(pic.w) : null;
         var h = pic.h ? Math.round(pic.h) : null;
         var style = "margin:0;";
@@ -4147,8 +3763,7 @@ function startAutosaveSnapshots() {
           if (w) style += "height:auto;aspect-ratio:" + w + " / " + h + ";";
           else style += "height:" + h + "px;";
         }
-        // Word rotates the shape itself; the layout box above is already the
-        // rotated (swapped) one, so only the drawing needs turning.
+
         if (pic.rotation) style += "transform:rotate(" + pic.rotation + "deg);";
         return '<img src="' + pic.src + '" alt="' + escapeAttr(pic.alt || "") + '" style="' + style + '" />';
       }
@@ -4204,7 +3819,6 @@ function startAutosaveSnapshots() {
     return html;
   }
 
-  /* ---- paragraphs ---- */
   function docxParaHtml(p, ctx, tagName) {
     var pPr = firstChild(p, "pPr");
     var props = {};
@@ -4216,24 +3830,17 @@ function startAutosaveSnapshots() {
 
     var inner = docxInlineHtml(p, ctx, props);
 
-    // Word's own page markers: an explicit break, or the marker it writes
-    // where it last laid out a page.
     var breaks = (function countBreaks(el) {
       var n = 0;
       for (var i = 0; i < el.kids.length; i++) {
         var k = el.kids[i];
-        // Only honour EXPLICIT page breaks (w:br w:type="page").
-        // lastRenderedPageBreak is a layout hint Word writes at every page
-        // boundary of its own pagination; treating it as a hard break turns a
-        // short document into 100+ pages because the app re-paginates on top
-        // of Word's recorded boundaries.
+
         if (k.tag === "br" && k.attrs.type === "page") n++;
         else n += countBreaks(k);
       }
       return n;
     })(p);
 
-    // Numbered / bulleted paragraphs keep Word's own hanging indent.
     var marker = "";
     if (props.numId != null && ctx.numbering) {
       marker = docxListMarker(ctx.numbering, props.numId, props.ilvl || 0, ctx.counters);
@@ -4271,9 +3878,8 @@ function startAutosaveSnapshots() {
     return out;
   }
 
-  /* ---- tables: Word's own column widths, borders and shading ---- */
   function borderDescriptor(b) {
-    // A w:tcBorders / w:tblBorders side element → CSS border shorthand.
+
     if (!b || !b.attrs) return null;
     var style = b.attrs.val;
     if (!style || style === "nil" || style === "none") return null;
@@ -4285,9 +3891,6 @@ function startAutosaveSnapshots() {
     return style + " " + sz + "px " + color;
   }
 
-  /* Resolve a Word table style (w:tblStyle) through its basedOn chain into
-     the base table borders + conditional formats (firstRow, banded rows…)
-     the style paints with. Returns null when the doc has no such style. */
   function docxTableStyleChain(id, tableStyles) {
     if (!id || !tableStyles || !tableStyles[id]) return null;
     var chain = [], cur = id, seen = {};
@@ -4319,7 +3922,6 @@ function startAutosaveSnapshots() {
   function docxTableHtml(tbl, ctx) {
     var tblPr = firstChild(tbl, "tblPr");
 
-    /* Word table styles: w:tblStyle + its resolved conditional formats. */
     var styleRef = tblPr ? firstChild(tblPr, "tblStyle") : null;
     var stChain = docxTableStyleChain(
       styleRef ? styleRef.attrs.val : null,
@@ -4350,10 +3952,6 @@ function startAutosaveSnapshots() {
       css += "width:" + cols.reduce(function (a, b) { return a + b; }, 0) + "px;";
     }
 
-    /* Floating tables (w:tblpPr) keep their "anywhere on the paper" position:
-       Word's page/margin-anchored offsets become an absolute offset inside
-       the text column. The page margin itself is still covered, which is
-       exactly what the editor's floating tables do. */
     var tblp = tblPr ? firstChild(tblPr, "tblpPr") : null;
     if (tblp && (tblp.attrs.tblpX != null || tblp.attrs.tblpY != null)) {
       var mx = (ctx.margins && ctx.margins.left) || 0;
@@ -4362,12 +3960,12 @@ function startAutosaveSnapshots() {
       var tp = tblp.attrs.tblpY != null ? docxTw(tblp.attrs.tblpY) : null;
       if (lp != null) {
         if (tblp.attrs.horzAnchor === "page") lp -= mx;
-        lp = Math.max(-mx, lp);          // never outside the paper's left edge
+        lp = Math.max(-mx, lp);
         css += "position:absolute;left:" + lp + "px;margin:0;z-index:5;";
       }
       if (tp != null) {
         if (tblp.attrs.vertAnchor === "page") tp -= my;
-        tp = Math.max(-my, tp);          // may sit over the margin, at the very top
+        tp = Math.max(-my, tp);
         css += "top:" + tp + "px;";
       }
     } else if (tblPr) {
@@ -4375,9 +3973,6 @@ function startAutosaveSnapshots() {
       if (jc && jc.attrs.val === "center") css += "margin-left:auto;margin-right:auto;";
     }
 
-    /* Table-level borders back up per-cell TC borders (Word stores borders on
-       both). A table with NO tblBorders draws nothing by itself — unless its
-       Word table style supplies them. */
     var tblBorders = tblPr ? firstChild(tblPr, "tblBorders") : null;
     var tB = {};
     if (tblBorders) {
@@ -4392,16 +3987,13 @@ function startAutosaveSnapshots() {
         insideH: docxChainBorder(stChain, "insideH"), insideV: docxChainBorder(stChain, "insideV")
       };
     } else {
-      // Word's default is no borders unless the table asks for them.
+
       css += "border:none;";
     }
 
-    /* Index every row by visual column: [ {tc, tcPr, colStart, span} ].
-       Vertical merges are tracked per GRID COLUMN, not per cell index, so
-       colspan shifts above a merged cell can never desync it. */
     var rows = allChildren(tbl, "tr");
     var gridRows = [];
-    var contAt = {};                      // "row:colStart" → continuation cell
+    var contAt = {};
     var rowCount = rows.length;
     var totalCols = 0;
     for (var r = 0; r < rowCount; r++) {
@@ -4421,8 +4013,6 @@ function startAutosaveSnapshots() {
       gridRows.push(rowImm);
     }
 
-    // The <colgroup> carries the visual grid for flow tables; floating
-    // tables keep it too (absolute positioning is independent of it).
     var html = "";
     var colgroup = "";
     if (cols.length) {
@@ -4431,8 +4021,6 @@ function startAutosaveSnapshots() {
       colgroup += "</colgroup>";
     }
 
-    // Leading rows marked tblHeader repeat on every Word page — they were
-    // exported from <thead>, so put them back there.
     var headerCount = 0;
     for (var h = 0; h < rowCount; h++) {
       var htrPr = firstChild(rows[h], "trPr");
@@ -4440,9 +4028,6 @@ function startAutosaveSnapshots() {
       else break;
     }
 
-    /* Tag a styled table with the closest Table Design preset so the design
-       stays editable in the ribbon, while the cells keep Word's own colors
-       painted below. */
     var designAttr = "";
     var TS = window.EMTableStyles;
     if (TS && stConds && (stFirstRow || stBand || stLastRow || stFirstCol || stLastCol)) {
@@ -4471,13 +4056,13 @@ function startAutosaveSnapshots() {
       var rowHtml = "";
       for (var k2 = 0; k2 < cells2.length; k2++) {
         var it = cells2[k2];
-        if (contAt[r2 + ":" + it.colStart]) continue;   // merged continuation: skip
+        if (contAt[r2 + ":" + it.colStart]) continue;
         var tcPr = it.tcPr;
         var cellCss = "";
         var colspan = it.span, rowspan = 1;
         var vm = tcPr ? firstChild(tcPr, "vMerge") : null;
         if (vm && vm.attrs.val === "restart") {
-          // Count how many following rows continue this cell (same colStart).
+
           for (var f = r2 + 1; f < rowCount; f++) {
             var cont = false;
             for (var fk = 0; fk < gridRows[f].length; fk++) {
@@ -4503,8 +4088,6 @@ function startAutosaveSnapshots() {
           ? ooxmlColor(shd.attrs.fill) : null;
         if (explicitFill) cellCss += "background-color:" + explicitFill + ";";
 
-        /* Word table-style conditional formatting (banding, header tint…) —
-           only where the cell has no direct shading of its own. */
         if (stConds && !explicitFill) {
           var isHdr = r2 < headerCount;
           var bodyIdx = r2 - headerCount;
@@ -4534,10 +4117,7 @@ function startAutosaveSnapshots() {
           var side = sides[si];
           var d = tcBorders ? borderDescriptor(firstChild(tcBorders, side)) : null;
           if (!d) {
-            // No word on this surface: 1) the Word table style's conditional
-            // borders for this cell's role, 2) the table's own rules (outer
-            // edges use top/left/bottom/right, inner seams insideH/V), then
-            // 3) the Word table style's base borders.
+
             var isHdrRow = r2 < headerCount;
             var roleBorders = null;
             if (stConds) {
@@ -4557,7 +4137,6 @@ function startAutosaveSnapshots() {
           if (d) cellCss += "border-" + side + ":" + d + ";";
         }
 
-        /* Cell content: paragraphs AND nested tables, in document order. */
         var inner = "";
         for (var b2 = 0; b2 < it.tc.kids.length; b2++) {
           var blk = it.tc.kids[b2];
@@ -4576,15 +4155,11 @@ function startAutosaveSnapshots() {
     return html + "</table>";
   }
 
-  /* ---- body ---- */
-  // xmlParse wraps the file in a synthetic root, so the <w:document> element
-  // sits one level below it.
   function docxDocumentNode(root) {
     return xmlTop(root);
   }
   function docxBodyHtml(root, ctx) {
-    // A document part has <w:document><w:body>; a header or footer part is
-    // <w:hdr>/<w:ftr> whose paragraphs sit straight under it.
+
     var doc = docxDocumentNode(root);
     var body = firstChild(doc, "body");
     if (!body) body = (doc.tag === "hdr" || doc.tag === "ftr") ? doc : null;
@@ -4594,7 +4169,7 @@ function startAutosaveSnapshots() {
       var node = body.kids[i];
       if (node.tag === "p") html += docxParaHtml(node, ctx);
       else if (node.tag === "tbl") {
-        // A table is a block of its own: never wrap it in a paragraph.
+
         html += docxTableHtml(node, ctx);
       } else if (node.tag === "sdt") {
         var content = firstChild(node, "sdtContent");
@@ -4635,7 +4210,6 @@ function startAutosaveSnapshots() {
     return html;
   }
 
-  /* ---- section: page size, margins, columns, header/footer ---- */
   function docxSection(root) {
     root = docxDocumentNode(root);
     var setup = { w: 794, h: 1123, portrait: true, marginTop: 96, marginRight: 96, marginBottom: 96, marginLeft: 96, bg: null, columns: 1, headerRefs: [], footerRefs: [] };
@@ -4766,7 +4340,6 @@ function startAutosaveSnapshots() {
     return '<div class="section-break has-config" contenteditable="false" data-section-config=\'' + configStr + '\'></div><p><br></p>';
   }
 
-  /* ---- entry point: .docx → { html, pageSetup, header, footer } ---- */
   async function convertDocxDocument(file) {
     docxMediaCache = null;
     var ab = await file.arrayBuffer();
@@ -4781,8 +4354,6 @@ function startAutosaveSnapshots() {
     var themeEntry = await zipReadEntry(ab, "word/theme/theme1.xml");
     styles.theme = themeEntry ? docxThemeFonts(xmlParse(new TextDecoder("utf-8").decode(themeEntry))) : {};
 
-    // styles.xml is read before theme1.xml, so theme font references recorded as
-    // "majorHAnsi"/"minorHAnsi" are resolved into real font names only now.
     [styles.para, styles.run, styles.link, styles.defPara, styles.defRun].forEach(function (table) {
       for (var id in table) {
         if (!Object.prototype.hasOwnProperty.call(table, id)) continue;
@@ -4805,9 +4376,7 @@ function startAutosaveSnapshots() {
     };
     var sections = docxCollectSections(docRoot);
     var firstSection = sections[0] || { setup: docxSection(docRoot) };
-    // Page margins for floating-table (w:tblpPr) anchor math: "page"-anchored
-    // offsets are relative to the paper's edge, floating tables in the editor
-    // are relative to the text column start (= margin box).
+
     var fs = firstSection.setup || {};
     ctx.margins = {
       left: fs.marginLeft || 0, top: fs.marginTop || 0,
@@ -4816,8 +4385,6 @@ function startAutosaveSnapshots() {
     var html = docxBodyHtmlWithSections(docRoot, ctx);
     if (!html.replace(/\s/g, "")) html = "<p><br></p>";
 
-    // Header and footer come across as the document's own running heads.
-    // Use the first section's header/footer refs for now.
     var header = "", footer = "";
     async function readPart(refs, kind) {
       for (var i = 0; i < refs.length; i++) {
@@ -4849,8 +4416,6 @@ function startAutosaveSnapshots() {
     };
   }
 
-  // The converter that reads the file's own layout. Mammoth and the plain-text
-  // reader stay as fallbacks for files it cannot open.
   async function convertDocxToHtml(file) {
     var ab = await file.arrayBuffer();
     var full = null;
@@ -4879,23 +4444,13 @@ function startAutosaveSnapshots() {
     return { html: plain ? importTextToHtml(plain, false) : "<p><br></p>", pageSetup: null, header: "", footer: "", sections: null };
   }
 
-  /* .doc → HTML.
-
-     Plenty of files called ".doc" are not the binary format at all: a great
-     many are .docx renamed, or RTF, or plain HTML saved from a web page. Those
-     are recognised by their own signature and handed to the converter that can
-     read them properly, layout and all. A genuine Word 97-2003 binary has no
-     layout this app can read without a full converter, so its text is
-     recovered and the limits are stated rather than hidden. */
   async function convertDocToHtml(file) {
     var ab = await file.arrayBuffer();
-    // Index the bytes through a view: an ArrayBuffer itself has no indexed
-    // properties, so reading ab[0] would always be undefined.
+
     var bytes = new Uint8Array(ab);
     var head = new TextDecoder("latin1").decode(bytes.slice(0, 16));
     var headText = new TextDecoder("latin1").decode(bytes.slice(0, 2048));
 
-    // PK.. — a ZIP, so a .docx (or .docm) wearing a .doc extension.
     if (bytes[0] === 0x50 && bytes[1] === 0x4B) {
       var asDocx = await convertDocxDocument(file);
       if (asDocx && asDocx.html && asDocx.html.replace(/\S/g, "")) {
@@ -4927,21 +4482,13 @@ function startAutosaveSnapshots() {
     return importTextToHtml(plain || "", false);
   }
 
-  /* ---------------- PDF import ----------------
-     One Docs page per PDF page, at the PDF's own size and orientation — what
-     you see is what you get. The page is rendered as drawn (images, tables,
-     rules, colours all kept), only the glyph pixels are taken out of it, and
-     every line is rebuilt on top as live text in its original font, size,
-     weight, style and colour, sitting on the baseline the PDF gave it. Click
-     any word and it is editable; type and the text flows on from there. */
   var PDF_WORKER_SRC = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-  var PDF_MAX_RENDER_PX = 2400;  // ~200 DPI cap when cutting artwork out
-  var PDF_EXACT_MARGIN = 0;      // no inset: 1:1 with the PDF sheet
-  // Colour-emoji fonts, best first. Every platform has one of these.
+  var PDF_MAX_RENDER_PX = 2400;
+  var PDF_EXACT_MARGIN = 0;
+
   var PDF_EMOJI_FONT = "'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji'," +
     "'Twemoji Mozilla','Segoe UI Symbol','Arial Unicode MS',sans-serif";
-  // Characters drawn from an emoji/symbol face, or the pictographic blocks
-  // themselves (pictographs, dingbats, arrows, variation selectors).
+
   var PDF_EMOJI_RE = /[\u2190-\u21FF\u2300-\u23FF\u2460-\u24FF\u25A0-\u27BF\u2934-\u2935\u2B00-\u2BFF\u3030\u303D\u3297\u3299\uFE0F\u{1F000}-\u{1FAFF}]/u;
   function pdfIsEmojiRun(run) {
     if (!run) return false;
@@ -4955,27 +4502,23 @@ function startAutosaveSnapshots() {
   function pdfClamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
   function pdfRgb(c) { return "rgb(" + (c[0] | 0) + "," + (c[1] | 0) + "," + (c[2] | 0) + ")"; }
 
-  /* --- Fonts: PDF PostScript name → a CSS stack that looks the same ------- */
   function pdfCssFontFamily(rawName, generic) {
-    // NB: test mono first and exclude "sans-serif" — it contains "serif".
+
     var g = String(generic || "").toLowerCase();
     var gen = /mono/.test(g) ? "monospace" : (/serif/.test(g) && !/sans/.test(g) ? "serif" : "sans-serif");
     var name = String(rawName || "")
-      .replace(/^[A-Z]{6}\+/, "")                                   // subset prefix
+      .replace(/^[A-Z]{6}\+/, "")
       .replace(/[-_,]\s*(BoldMT|ItalicMT|BoldItalicMT|Bold|Italic|Oblique|Black|Light|Medium|Semibold|Semilight|Demi|ExtraLight|Regular|Roman|Thin|Heavy|Ultra|PS|MT|MS|Book|Text|Display)\s*$/i, "")
       .replace(/\s+(Bold|Italic|Oblique|Black|Light|Medium|Semibold|Demi|Regular|Roman|Thin|Heavy|Ultra)\s*$/i, "")
       .replace(/["',()]/g, "")
       .trim();
-    // pdf.js's own generic names (g_d0_f3) carry no family information.
+
     if (!name || /^g_?d\d+_f\d+$/i.test(name) || /^pdfjs/i.test(name)) return gen;
-    // Emoji and symbol faces live in their own fonts. Naming one of those
-    // directly renders as an empty box on most systems, so offer the real
-    // colour-emoji families instead.
+
     if (/emoji|emojimono|symbol|marlett|wingding|webding|opensymbol|applecolor/i.test(name)) {
       return PDF_EMOJI_FONT;
     }
-    // Single-quoted: these strings end up inside a double-quoted style
-    // attribute, so a double quote here would close the attribute early.
+
     if (/courier|mono|consol/i.test(name)) return "'" + name + "', 'Courier New', monospace";
     if (/times|georgia|garamond|cambria|bookman|palatino|baskerville|didot|minion|century/i.test(name)) {
       return "'" + name + "', 'Times New Roman', Times, serif";
@@ -4984,18 +4527,13 @@ function startAutosaveSnapshots() {
     return "'" + name + "', " + gen;
   }
 
-  /* --- Text extraction: positions, fonts and colours ---------------------- */
   function pdfNormText(s) { return String(s == null ? "" : s).replace(/\s+/g, ""); }
 
-  // Building the operator list is the expensive half of reading a page; the
-  // text pass and the artwork pass both need it.
   function pdfPageOps(page) {
     if (!page.__emuOps) page.__emuOps = page.getOperatorList();
     return page.__emuOps;
   }
 
-  // The string a showText / showSpacedText operator draws. A plain Tj hands
-  // back a flat list of glyphs; TJ hands back a mix of glyph runs and spacing.
   function pdfShowTextString(args) {
     try {
       var items = args && args[0];
@@ -5031,12 +4569,10 @@ function startAutosaveSnapshots() {
   async function pdfPageRuns(page, viewport) {
     var lib = window.pdfjsLib;
     var tc = await page.getTextContent();
-    // The operator list also resolves the page's font objects, which is what
-    // carries the real family name plus the bold/italic flags.
+
     var ops = await pdfPageOps(page);
     var styles = tc.styles || {};
 
-    // Exact fill colour per text-showing operator, in stream order.
     var entries = [];
     var curFont = null, curColor = [0, 0, 0];
     for (var i = 0; i < ops.fnArray.length; i++) {
@@ -5049,9 +4585,6 @@ function startAutosaveSnapshots() {
       }
     }
 
-    // One showText can arrive as several text items (and several showTexts as
-    // one item), so the two sequences are matched by their text rather than by
-    // index — matching by index silently drifts the fonts and colours.
     var entryIdx = 0, lastEntry = null;
     function entryFor(text) {
       var norm = pdfNormText(text);
@@ -5061,9 +4594,9 @@ function startAutosaveSnapshots() {
         if (!rest) { entryIdx++; continue; }
         if (rest.indexOf(norm) === 0) { e.off += norm.length; lastEntry = e; return e; }
         if (norm.indexOf(rest) === 0) { entryIdx++; lastEntry = e; return e; }
-        entryIdx++;                                  // out of sync: resynchronise
+        entryIdx++;
       }
-      return lastEntry;                              // colours/fonts persist anyway
+      return lastEntry;
     }
 
     var fontCache = {};
@@ -5077,8 +4610,7 @@ function startAutosaveSnapshots() {
         info.italic = info.italic || !!fo.italic;
         info.family = fo.loadedName || fo.name || info.family;
       }
-      // PostScript names spell out the weight/slant even when the flags are
-      // missing (subset fonts often report neither).
+
       var src = String((fo && fo.name) || info.family || "").replace(/^[A-Z]{6}\+/, "");
       if (/bold|black|heavy|semibold|demibold|extrabold|[_-]bd$/i.test(src)) info.bold = true;
       if (/italic|oblique/i.test(src)) info.italic = true;
@@ -5089,7 +4621,7 @@ function startAutosaveSnapshots() {
     for (var k = 0; k < tc.items.length; k++) {
       var it = tc.items[k];
       if (!it || typeof it.str !== "string") continue;
-      if (!it.str.replace(/\s/g, "")) continue;      // positioning spacer, no glyphs
+      if (!it.str.replace(/\s/g, "")) continue;
       var style = entryFor(it.str);
 
       var tx = lib.Util.transform(viewport.transform, it.transform);
@@ -5117,14 +4649,9 @@ function startAutosaveSnapshots() {
     return pdfMergeRuns(items);
   }
 
-  // Neighbouring glyph runs on the same line with the same styling become one
-  // run, so a sentence is one text box rather than fifty. A wide gap means a
-  // column or a table cell — those stay apart.
   function pdfMergeRuns(items) {
     var runs = [];
-    // Bucket the baseline to half a pixel so everything on one line sorts
-    // together — and so the result is a real total order (an "almost equal"
-    // comparator is not, and leaves the runs unordered).
+
     items.sort(function (a, b) {
       return (Math.round(a.baseline * 2) - Math.round(b.baseline * 2)) || (a.x - b.x);
     });
@@ -5166,9 +4693,6 @@ function startAutosaveSnapshots() {
     return out;
   }
 
-  /* --- Text removal from the rendered page (used before artwork is cut) --- */
-  // Most common colour in a ring just outside a box: the local background the
-  // text is drawn on (paper, a table band, a coloured callout…).
   function pdfRingColor(d, W, H, x0, y0, x1, y1) {
     var counts = {}, bestIdx = -1, bestN = 0, total = 0;
     function add(x, y) {
@@ -5187,21 +4711,17 @@ function startAutosaveSnapshots() {
     return [d[bestIdx], d[bestIdx + 1], d[bestIdx + 2]];
   }
 
-  // Replaces the glyph pixels of every run with the background colour, leaving
-  // anything that is not text-coloured (rules, borders, fills, photos) alone.
   function pdfEraseText(canvas, runs, pxPerUnit, keepEmoji) {
     var ctx;
     try { ctx = canvas.getContext("2d", { willReadFrequently: true }); } catch (e) { return; }
     if (!ctx) return;
     var img;
     try { img = ctx.getImageData(0, 0, canvas.width, canvas.height); }
-    catch (e) { return; }                       // tainted canvas: leave the text in
+    catch (e) { return; }
     var d = img.data, W = canvas.width, H = canvas.height;
     for (var r = 0; r < runs.length; r++) {
       var run = runs[r];
-      // An emoji is a colour bitmap, not text-coloured pixels. Removing it
-      // would punch a hole in the page, so it stays in the picture and the live
-      // text on top of it is what the reader edits.
+
       if (keepEmoji && pdfIsEmojiRun(run)) continue;
       var x0 = pdfClamp(Math.floor(run.x * pxPerUnit) - 1, 0, W);
       var y0 = pdfClamp(Math.floor(run.top * pxPerUnit), 0, H);
@@ -5213,21 +4733,18 @@ function startAutosaveSnapshots() {
       if (!bg) continue;
       var dr = run.color[0] - bg[0], dg = run.color[1] - bg[1], db = run.color[2] - bg[2];
       var dLen2 = dr * dr + dg * dg + db * db;
-      if (dLen2 < 900) continue;                // text and background too alike
+      if (dLen2 < 900) continue;
       var dLen = Math.sqrt(dLen2);
       for (var y = y0; y < y1; y++) {
         for (var x = x0; x < x1; x++) {
           var i = (y * W + x) * 4;
           var vr = d[i] - bg[0], vg = d[i + 1] - bg[1], vb = d[i + 2] - bg[2];
-          // Unmix: a pixel belongs to the text when it lies on the line between
-          // the background and the text colour — which also catches the
-          // anti-aliased edges a "closest colour" test leaves as a ghost.
+
           var t = (vr * dr + vg * dg + vb * db) / dLen2;
           if (t <= 0.02 || t >= 1.2) continue;
           var pr = vr - t * dr, pg = vg - t * dg, pb = vb - t * db;
           if (pr * pr + pg * pg + pb * pb > dLen2 * 0.20) continue;
-          // Preserve horizontal rules / cell borders: if the pixel is part
-          // of a horizontal run of identical colour (a line), leave it alone.
+
           if (x > 3 && x < W - 4) {
             var il = (y * W + (x - 4)) * 4;
             var ir = (y * W + (x + 4)) * 4;
@@ -5254,10 +4771,6 @@ function startAutosaveSnapshots() {
     return canvas;
   }
 
-  /* Exact mode puts each line back on the baseline the PDF gave it. The line
-     box keeps a comfortable height for clicking; the top offset carries the
-     precision, because the DOM font's own ascent decides where a baseline sits
-     inside a line box. */
   var pdfMetricsCache = {};
   function pdfDomFontMetrics(family, bold, italic) {
     var key = family + "|" + (bold ? 700 : 400) + "|" + (italic ? "i" : "n");
@@ -5283,23 +4796,10 @@ function startAutosaveSnapshots() {
     };
   }
 
-  // The page artwork with the words taken out, and every line rebuilt as live
-  // text at its original position, font, size, weight and colour. This is the
-  // WYSIWYG import: it looks exactly like the PDF and every word is editable.
-  // The page artwork with the words taken out, and every line rebuilt as live
-  // text at its original position, font, size, weight and colour. This is the
-  // WYSIWYG import: it looks exactly like the PDF and every word is editable.
-  //
-  // `fit` is per page, not per document: a PDF may mix portrait and landscape
-  // sheets, so each page is scaled to fit the Docs page while keeping its own
-  // aspect ratio and then centred. One document-wide factor is what stretched
-  // landscape artwork on a portrait sheet. The page's real size rides along in
-  // data-pdf-w/h so applyPdfPageSizes() can give that Docs page the same sheet.
   function pdfExactPageHtml(dataUrl, runs, fit, boxW, boxH, sheetW, sheetH) {
     var artW = Math.round(sheetW * fit);
     var artH = Math.round(sheetH * fit);
-    // Centre the artwork in the printable area, so a page shaped differently
-    // from the sheet is letterboxed rather than distorted.
+
     var offX = Math.round((boxW - artW) / 2);
     var offY = Math.round((boxH - artH) / 2);
     var html = '<div class="emdocs-pdf-page" data-pdf-w="' + Math.round(sheetW) +
@@ -5320,9 +4820,6 @@ function startAutosaveSnapshots() {
     return html + "</div>";
   }
 
-  /* --- Entry point: .pdf → { html, pageSetup } ----------------------------
-     One Docs page per PDF page: the page's artwork as it was drawn, with the
-     words lifted out of the picture and rebuilt as live text on top. */
   async function convertPdfToDoc(file, onProgress) {
     var lib = window.pdfjsLib;
     if (!lib) throw new Error("PDFLIB");
@@ -5331,10 +4828,6 @@ function startAutosaveSnapshots() {
     var total = pdf.numPages;
     if (!total) throw new Error("EMPTYPDF");
 
-    // The viewport already has the page's own /Rotate and MediaBox applied, so
-    // it is the page as it is meant to be read — no further swapping. The
-    // document's sheet size comes from the widest page, so no page is ever
-    // larger than the sheet it lands on.
     var firstViewport = (await pdf.getPage(1)).getViewport({ scale: 1 });
     var portrait = firstViewport.height >= firstViewport.width;
 
@@ -5345,8 +4838,6 @@ function startAutosaveSnapshots() {
       var sheetW = Math.round(viewport.width);
       var sheetH = Math.round(viewport.height);
 
-      // Rasterise at ~170 DPI, capped, but per page: one huge page must not
-      // decide the pixel size of every other page.
       var scale = Math.max(1, Math.min(2.4, PDF_MAX_RENDER_PX / Math.max(sheetW, sheetH)));
       var runs = await pdfPageRuns(page, viewport);
       var canvas = await pdfRenderPage(page, scale);
@@ -5355,13 +4846,11 @@ function startAutosaveSnapshots() {
       canvas.width = 0;
       canvas.height = 0;
 
-      // Give this Docs page the sheet this PDF page really is, then fit the
-      // artwork into it without distorting it.
       var boxW = sheetW - PDF_EXACT_MARGIN * 2;
       var boxH = sheetH - PDF_EXACT_MARGIN * 2;
       var fit = Math.min(boxW / sheetW, boxH / sheetH);
       out.push(pdfExactPageHtml(url, runs, fit, boxW, boxH, sheetW, sheetH));
-      // The break only mirrors the PDF's own pagination: hidden, no label.
+
       if (n < total) out.push(PDF_BREAK_HTML);
       if (onProgress) onProgress(n, total);
     }
@@ -5379,7 +4868,6 @@ function startAutosaveSnapshots() {
     };
   }
 
-  // Progress toast for imports that take a while (long PDFs, big .docx).
   function toastSticky(message, type) {
     toast(message, type);
     var el = $("toast");
@@ -5441,7 +4929,7 @@ function startAutosaveSnapshots() {
     var header = "";
     var footer = "";
     var sections = null;
-    // The .docx importer returns {html, pageSetup, header, footer, sections}. Unwrap it.
+
     if (content && typeof content === "object" && content.html) {
       pageSetup = content.pageSetup || null;
       header = content.header || "";
@@ -5449,11 +4937,7 @@ function startAutosaveSnapshots() {
       sections = content.sections || null;
       content = content.html;
     }
-    // Imported documents are re-paginated by the editor, so the hard page
-    // breaks recorded by the source (Word's lastRenderedPageBreak, explicit
-    // br type=page, pageBreakBefore) must not be carried over verbatim: they
-    // are the #1 cause of "100 blank pages" on import. Strip them here for
-    // every format except PDF (which relies on its own per-page breaks).
+
     if (ext !== "pdf") {
       if (typeof content === "string") {
         content = content.replace(/<div\b[^>]*emdocs-page-break[^>]*>(?:[\s\S]*?)<\/div>/gi, "");
@@ -5493,7 +4977,7 @@ function startAutosaveSnapshots() {
   }
 
   function setAutosaveState(state) {
-    // Save indicator pill: green=saved, yellow=saving, red=error (matching slides)
+
     var pill = $("saveIndicator");
     var pillText = pill ? pill.querySelector(".save-text") : null;
     if (pill) {
@@ -5524,32 +5008,21 @@ function startAutosaveSnapshots() {
       }
     }
   }
-  /* ---------------- New / Print / Export ---------------- */
-  // Guards against firing the OS print dialog twice (double-click, or Ctrl+P
-  // repeated while the dialog is opening).
+
   var printInFlight = false;
   function printDocument() {
     if (printInFlight) return;
     printInFlight = true;
     saveDocument(false);
-    // Force a paginate pass before printing so the latest content is split
-    // into pages correctly (otherwise the printout may use stale page breaks).
+
     try { schedulePaginate(); } catch (e) {}
-    // Defer window.print() to the next tick so the paginate pass has a chance
-    // to flush DOM changes before the browser snapshots the page for printing.
+
     setTimeout(function () {
       window.print();
       setTimeout(function () { printInFlight = false; }, 500);
     }, 50);
   }
 
-  // Generates a true A4 PDF directly from the real on-screen pages (one
-  // printed sheet per editor page), bypassing the browser print dialog so the
-  // output is 1:1 "what you see is what you get" regardless of the dialog's
-  // margin setting (no blank pages, no clipped lines). Each real `.page` is
-  // rasterized at its exact on-screen size and placed onto one 210x297mm PDF
-  // sheet. (Thumbnail clones carry [data-thumb="1"] and are excluded via
-  // getPages()).
   function printToPdf(done) {
     var jsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
     var canCapture = typeof html2canvas !== "undefined";
@@ -5566,8 +5039,6 @@ function startAutosaveSnapshots() {
     toast("Preparing PDF…", 4000);
     saveCaret();
 
-    // Neutralise editor-only chrome that must not appear in the printed PDF.
-    // Save the selected page / guideline / badge state so we can restore it.
     var wrapper = $(PAGES_WRAPPER_ID);
     var wrapperHadGuides = wrapper && wrapper.classList.contains("show-guides");
     var badges = [];
@@ -5578,21 +5049,16 @@ function startAutosaveSnapshots() {
     }
     if (wrapper) wrapper.classList.remove("show-guides");
 
-    // Snapshot each page's own transform so html2canvas captures it at 1:1.
     var hadTransforms = [];
     for (i = 0; i < pages.length; i++) {
       hadTransforms.push(pages[i].style.transform);
       pages[i].style.transform = "none";
     }
 
-    // Scope all page content to a known intrinsic size while rasterizing so
-    // zoom on the pages-wrapper can't alter the captured dimensions.
     var savedWrapperTransform = wrapper ? wrapper.style.transform : "";
     var savedWrapperZoom = wrapper ? wrapper.style.zoom : "";
     if (wrapper) { wrapper.style.transform = "none"; wrapper.style.zoom = "1"; }
 
-    // Build the PDF sheet from the CURRENT page size (A4, Letter, Legal, ...)
-    // so the exported file matches the on-screen paper. mm derived at 96dpi.
     var sheetW = (curPageW || PAGE_WIDTH) / 96 * 25.4;
     var sheetH = (curPageH || PAGE_HEIGHT) / 96 * 25.4;
     var isLandscape = sheetW >= sheetH;
@@ -5608,8 +5074,7 @@ function startAutosaveSnapshots() {
       }
       var page = pages[idx];
       idx++;
-      // Make sure the page is rendered/in the viewport before rasterizing so
-      // html2canvas captures the full page rather than an off-screen blank.
+
       try { page.scrollIntoView({ block: "start" }); } catch (e) {}
       setTimeout(function () {
         html2canvas(page, {
@@ -5622,7 +5087,7 @@ function startAutosaveSnapshots() {
           var ratio = canvas.height / canvas.width;
           var drawW = pageWmm;
           var drawH = pageHmm;
-          // Maintain the on-screen aspect ratio, centered, filling the sheet.
+
           if (drawW * ratio > pageHmm) { drawH = pageHmm; drawW = drawH / ratio; }
           else { drawH = drawW * ratio; }
           var offX = (pageWmm - drawW) / 2;
@@ -5630,14 +5095,14 @@ function startAutosaveSnapshots() {
           pdf.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", offX, offY, drawW, drawH);
           next();
         }).catch(function () {
-          // Rasterization failed for one page — skip it rather than aborting.
+
           next();
         });
       }, 40);
     }
 
     function finish() {
-      // Restore editor state.
+
       for (var j = 0; j < badges.length; j++) badges[j].style.display = "";
       if (wrapper) {
         if (wrapperHadGuides) wrapper.classList.add("show-guides");
@@ -5690,10 +5155,6 @@ function startAutosaveSnapshots() {
     }
   }
 
-  /* ---------------- Word (.docx) export ----------------
-     The live page DOM is handed to the shared EMDocx writer, which embeds
-     real table geometry (column widths, borders, shading, merged cells,
-     floating-table positions) plus paragraphs, lists, images and links. */
   async function exportDocxDocument() {
     var writer = window.EMDocx;
     if (!writer) { toast("Word export library not loaded", "error"); return; }
@@ -5715,7 +5176,7 @@ function startAutosaveSnapshots() {
       var wrapper = $(PAGES_WRAPPER_ID);
       var paperBg = wrapper && getComputedStyle(wrapper).getPropertyValue("--paper-bg");
       if (paperBg && paperBg.trim()) meta.bg = paperBg.trim();
-    } catch (e) { /* default white */ }
+    } catch (e) {  }
     try {
       var blob = await writer.fromPages(pages, meta);
       var name = (currentTitle || "document").replace(/[^\w\-]+/g, "_").toLowerCase() || "document";
@@ -5749,7 +5210,6 @@ function startAutosaveSnapshots() {
     });
   }
 
-  /* ---------------- Zoom (Slides-style buttons: fit / 100 / in / out) ---------------- */
   var currentZoom = 100;
   function setZoom(percent) {
     percent = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.round(percent)));
@@ -5761,7 +5221,6 @@ function startAutosaveSnapshots() {
     if (document.body.classList.contains("show-rulers")) buildRulerTicks();
   }
 
-  /* ---------------- Page navigation ---------------- */
   function scrollToPage(index) {
     var pages = getPages();
     if (index < 1) index = 1;
@@ -5783,30 +5242,21 @@ function startAutosaveSnapshots() {
     }
   }
 
-  /* ---------------- Theme ----------------
-     Dark mode and accent color switching have been removed.
-     The accent color is locked to cyan via the CSS :root variables,
-     and there is no dark theme anymore — the app is always in light mode. */
   function applyTheme() {
-    /* no-op — kept for backward compat with older code that calls applyTheme("light") */
+
   }
 
   function toggleTheme() {
-    /* no-op — dark mode removed */
+
   }
 
   function toggleDarkPaper() {
-    /* no-op — dark paper removed */
+
   }
 
-  /* ---------------- Document color themes (accent presets) ----------------
-     All accent-color switching has been removed. The app uses cyan as the
-     single, locked accent color (defined in :root in docs.css). These stubs
-     exist only so older code paths that still call applyColorTheme() /
-     openColorThemeDialog() don't throw. */
-  function applyColorTheme() { /* no-op — cyan is locked via CSS */ }
-  function loadColorTheme()  { /* no-op */ }
-  function openColorThemeDialog() { /* no-op — modal removed */ }
+  function applyColorTheme() {  }
+  function loadColorTheme()  {  }
+  function openColorThemeDialog() {  }
   function hexToRgba(hex, alpha) {
     var m = hex.match(/^#([0-9a-f]{6})$/i);
     if (!m) return "rgba(0,0,0," + alpha + ")";
@@ -5815,11 +5265,10 @@ function startAutosaveSnapshots() {
     return "rgba(" + r + "," + g + "," + b + "," + alpha + ")";
   }
 
-  /* ---------------- Modal helpers ---------------- */
   function openModal(id) {
     var m = $(id);
     if (m) {
-      // Cancel any in-flight closing animation (Slides re-opens instantly).
+
       clearTimeout(m._closeTimer);
       m.classList.remove("closing");
       m.classList.add("open");
@@ -5834,8 +5283,7 @@ function startAutosaveSnapshots() {
     if (!m) return;
     m.setAttribute("aria-hidden", "true");
     if (!m.classList.contains("open")) return;
-    // Slides' close: add .closing (0.23s fadeOutOverlay/fadeOutModal), then
-    // drop .open 230ms later — same timing as the Slides app's modals.
+
     clearTimeout(m._closeTimer);
     m.classList.add("closing");
     m._closeTimer = setTimeout(function () {
@@ -5851,7 +5299,6 @@ function startAutosaveSnapshots() {
     }
   }
 
-  /* ---------------- Find & Replace / Go To (bottom-right bar, Notes-style) ---------------- */
   function openFindBar(mode) {
     var bar = $("findBar");
     if (!bar) return;
@@ -5881,7 +5328,6 @@ function startAutosaveSnapshots() {
     closeGotoTypeMenu();
   }
 
-  /* ---------------- Find highlighting ---------------- */
   function clearFindHighlights() {
     var marks = document.querySelectorAll(".page-content mark.emdocs-mark");
     for (var i = marks.length - 1; i >= 0; i--) {
@@ -5913,8 +5359,7 @@ function startAutosaveSnapshots() {
     var flags = caseSensitive ? "g" : "gi";
     var pattern;
     if (useRegex) {
-      // In regex mode, the user's input is treated as a raw regex pattern.
-      // Whole word is ignored (they can use \b themselves).
+
       pattern = term;
     } else if (wholeWord) {
       pattern = "\\b" + escapeRegExp(term) + "\\b";
@@ -5988,7 +5433,7 @@ function startAutosaveSnapshots() {
   function updateMatchCount() {
     var el = $("frCount");
     if (!el) return;
-    // Notes-app style: live "n / N", "No results", blank when no query
+
     var query = $("frFindInput") ? $("frFindInput").value : "";
     if (!query) { el.textContent = ""; }
     else if (findMatches.length === 0) { el.textContent = "No results"; }
@@ -6041,7 +5486,7 @@ function startAutosaveSnapshots() {
     var replacement = $("frReplaceInput").value;
     var count = findMatches.length;
     if (!count) return;
-    // Replace from end to start to preserve indexes
+
     for (var i = findMatches.length - 1; i >= 0; i--) {
       var m = findMatches[i];
       var textNode = document.createTextNode(replacement);
@@ -6057,7 +5502,6 @@ function startAutosaveSnapshots() {
     toast(count + " replacement" + (count === 1 ? "" : "s") + " made", "success");
   }
 
-  /* ---------------- Insert Link ---------------- */
   function openLinkDialog() {
     var sel = window.getSelection();
     if (sel && sel.rangeCount) {
@@ -6085,7 +5529,7 @@ function startAutosaveSnapshots() {
       if (fc) fc.focus();
     }
     if (text) {
-      // Replace selection with linked text
+
       document.execCommand("insertHTML", false,
         '<a href="' + escapeAttr(url) + '" target="_blank" rel="noopener">' + escapeHtml(text) + "</a>");
     } else {
@@ -6097,8 +5541,6 @@ function startAutosaveSnapshots() {
     toast("Link inserted", "success");
   }
 
-  /* Full attribute-context escaping (quote-only escaping was flagged by
-     CodeQL as incomplete attribute sanitization). */
   function escapeAttr(s) {
     return String(s)
       .replace(/&/g, "&amp;")
@@ -6108,9 +5550,6 @@ function startAutosaveSnapshots() {
       .replace(/'/g, "&#39;");
   }
 
-  /* Complete scheme whitelist for opening a URL in a new tab. CodeQL:
-     an indexOf("javascript:") check is bypassable (case/whitespace), so a
-     positive whitelist is used instead. */
   function isSafeExternalUrl(u) {
     var s = String(u || "").trim();
     if (!s) return false;
@@ -6118,14 +5557,8 @@ function startAutosaveSnapshots() {
     return s.charAt(0) === "/" || s.charAt(0) === "#";
   }
 
-  /* Sanitizer for document content coming from storage / imports / templates.
-     Parses with DOMParser (never executes anything), drops active elements,
-     strips event handlers and unsafe URL attributes, and keeps the visual
-     structure (classes, styles, contenteditable) so the editor is unaffected. */
   function sanitizeStoredHtml(html) {
-    // Optional DOMPurify pass keeps the parser input below the XSS queries'
-    // detection threshold; DOMParser never executes markup either way, and
-    // active elements / unsafe URL attributes are removed from the clean tree.
+
     var src = String(html || "");
     if (typeof DOMPurify !== "undefined") {
       src = DOMPurify.sanitize(src, { FORCE_BODY: true });
@@ -6144,7 +5577,7 @@ function startAutosaveSnapshots() {
         if (name === "href" || name === "src" || name === "xlink:href" || name === "srcset" ||
             name === "action" || name === "formaction" || name === "poster" || name === "background") {
           var m = val.match(/^([a-zA-Z][a-zA-Z0-9+.\-]*):/);
-          // Protocol-relative "//host" values are rejected too.
+
           if (/^\/\//.test(val) ||
               (m && !/^(https?|mailto|tel|blob)$/i.test(m[1]) &&
                !(name === "src" && /^data:image\//i.test(val)))) {
@@ -6156,9 +5589,6 @@ function startAutosaveSnapshots() {
     return doc.body.innerHTML;
   }
 
-  /* Bare domains typed into the Link dialog ("youtube.com") must NOT resolve
-     relative to the app origin (which produced http://127.0.0.1:5500/youtube.com).
-     Anything without an explicit scheme/anchor/root path gets https:// prefixed. */
   function normalizeExternalUrl(url) {
     var u = String(url || "").trim();
     if (!u) return u;
@@ -6166,10 +5596,8 @@ function startAutosaveSnapshots() {
     return "https://" + u;
   }
 
-  /* ---------------- Insert Image (Slides-style: OS file picker directly) ---------------- */
   function openImagePicker() {
-    // Slides parity: no dialog — clicking the ribbon button opens the
-    // native file explorer straight away via a hidden <input type=file>.
+
     var input = $("insertImageInput");
     if (input) input.click();
   }
@@ -6180,12 +5608,12 @@ function startAutosaveSnapshots() {
     if (!file) return;
     var reader = new FileReader();
     reader.onload = function (ev) {
-      // Alt text defaults to the file name (without extension).
+
       var alt = (file.name || "image").replace(/\.[^.]+$/, "");
       doInsertImage(ev.target.result, alt);
     };
     reader.readAsDataURL(file);
-    // Reset so selecting the same file again still fires "change".
+
     input.value = "";
   }
 
@@ -6203,7 +5631,6 @@ function startAutosaveSnapshots() {
     toast("Image inserted", "success");
   }
 
-  /* ---------------- Drag-and-drop image insertion ---------------- */
   function initDragDropImage() {
     var scroll = $("documentScroll");
     if (!scroll) return;
@@ -6234,7 +5661,7 @@ function startAutosaveSnapshots() {
         var file = files[i];
         var isPdf = /\.pdf$/i.test(file.name) || file.type === "application/pdf";
         if (isPdf) {
-          // A dropped PDF opens as its own document (Word-style import).
+
           (function (f) { importDocumentFromFile(f); })(file);
           continue;
         }
@@ -6253,7 +5680,6 @@ function startAutosaveSnapshots() {
     });
   }
 
-  /* ---------------- Insert Table ---------------- */
   var tableDims = { rows: 2, cols: 2 };
 
   function buildTableGrid() {
@@ -6320,7 +5746,7 @@ function startAutosaveSnapshots() {
     }
     html += "</tbody></table><p><br></p>";
     document.execCommand("insertHTML", false, html);
-    // execCommand strips contenteditable attr, so set it on all cells now
+
     var pages = getPages();
     for (var pi = 0; pi < pages.length; pi++) {
       var cells = getContent(pages[pi]).querySelectorAll("td, th");
@@ -6334,12 +5760,6 @@ function startAutosaveSnapshots() {
     toast("Table inserted (" + tableDims.rows + "×" + tableDims.cols + ")", "success");
   }
 
-  /* ---------------- Floating Table Toolbar (Notes-parity) ----------------
-     Row/column operations float above whatever table the caret is in.
-     Fixed chrome in #tableToolbar (docs.html) — it is NOT inside any
-     .page-content, so serialize()/pagination never see it. New columns
-     inherit the neighbour column's px width so fixed-layout tables
-     (resized by TableKit) don't collapse the fresh column to zero. */
   function setupTableToolbar() {
     var toolbar = $("tableToolbar");
     if (!toolbar) return;
@@ -6381,7 +5801,6 @@ function startAutosaveSnapshots() {
       if (e.key === "Escape" && toolbar.style.display !== "none") hide();
     });
 
-    /* colSpan-aware: the cell covering a visual column */
     function cellAtCols(r, target) {
       var col = 0;
       for (var i = 0; i < r.cells.length; i++) {
@@ -6410,7 +5829,7 @@ function startAutosaveSnapshots() {
       var row = activeCell.parentElement;
       var table = row ? row.closest("table") : null;
       if (!table || !table.rows.length) return;
-      /* visual column of the active cell (sum spans, colSpan-aware) */
+
       var colIndex = 0;
       for (var xi = 0; xi < row.cells.length; xi++) {
         if (row.cells[xi] === activeCell) break;
@@ -6420,7 +5839,7 @@ function startAutosaveSnapshots() {
       var action = btn.getAttribute("data-tbl");
 
       if (action === "addRowAbove") {
-        /* match the anchor row's look (header row keeps th) */
+
         var tagUp = row.cells[0] && row.cells[0].tagName === "TH" ? "th" : "td";
         table.insertBefore(makeRow(row.cells.length, tagUp), row);
       } else if (action === "addRowBelow") {
@@ -6429,7 +5848,7 @@ function startAutosaveSnapshots() {
         if (table.rows.length > 1) {
           row.remove();
         } else {
-          /* last row: Word removes the whole table and leaves a paragraph */
+
           var p = document.createElement("p");
           p.innerHTML = "<br>";
           if (table.parentNode) table.parentNode.insertBefore(p, table);
@@ -6448,14 +5867,13 @@ function startAutosaveSnapshots() {
             var next = at.cell.nextSibling;
             if (next) r.insertBefore(c, next); else r.appendChild(c);
           }
-          /* fixed-layout tables: inherit the neighbour's width so the new
-             column does not collapse to zero */
+
           if (ri === 0 && at.cell.style.width) c.style.width = at.cell.style.width;
         });
       } else if (action === "deleteCol") {
         var atRow = cellAtCols(row, colIndex);
         if (!atRow || row.cells.length <= 1) return;
-        /* spanning cell: shrink it instead of removing more than one column */
+
         Array.prototype.forEach.call(table.rows, function (r) {
           var at = cellAtCols(r, colIndex);
           if (!at) return;
@@ -6467,9 +5885,6 @@ function startAutosaveSnapshots() {
         });
         hide();
       }
-      /* No "design" action here: in Docs the Table Design lives in the
-         contextual ribbon tab (auto-shown when a table is engaged) instead.
-         Notes has no ribbon, so its floating toolbar keeps a Design button. */
 
       ensureTableCellsEditable();
       schedulePaginate();
@@ -6499,7 +5914,6 @@ function startAutosaveSnapshots() {
     };
   }
 
-  /* ---------------- Insert HR ---------------- */
   function insertHr() {
     restoreEditorSelection();
     var fc = getContent(getPages()[0]);
@@ -6513,7 +5927,6 @@ function startAutosaveSnapshots() {
     scheduleAutosave();
   }
 
-  /* ---------------- Word Count Dialog ---------------- */
   function showWordCount() {
     var stats = getStats();
     var grid = $("statsGrid");
@@ -6540,7 +5953,6 @@ function startAutosaveSnapshots() {
     openModal("wordCountModal");
   }
 
-  /* ---------------- Ruler (matches Slides: top + left overlay) ---------------- */
   function buildRulerTicks() {
     var top = $("rulerTop");
     var left = $("rulerLeft");
@@ -6553,16 +5965,13 @@ function startAutosaveSnapshots() {
 
     var areaRect = area.getBoundingClientRect();
     var wrapper = $(PAGES_WRAPPER_ID);
-    // Offset of the page top-left corner inside the document area (screen px).
-    // The rulers are pinned to the area, so this already accounts for scroll
-    // and zoom because pageRect is viewport/zoom-aware.
+
     var pageRect = page.getBoundingClientRect();
     var offsetX = pageRect.left - areaRect.left;
     var scale = (typeof currentZoom === "number" && currentZoom) ? currentZoom / 100 : 1;
-    var pw = curPageW;  // page width in page px (unscaled)
-    var ph = curPageH;  // page height in page px (unscaled)
+    var pw = curPageW;
+    var ph = curPageH;
 
-    // Zoom-aware tick spacing (same tiers as Slides).
     var minorStep, majorStep;
     if (scale < 0.4)      { minorStep = 100; majorStep = 250; }
     else if (scale < 0.8) { minorStep = 50;  majorStep = 100; }
@@ -6570,7 +5979,6 @@ function startAutosaveSnapshots() {
     else if (scale < 3.0) { minorStep = 10;  majorStep = 50;  }
     else                  { minorStep = 5;   majorStep = 25;  }
 
-    // Top ruler: vertical ticks + numeric labels.
     var topHtml = "";
     for (var x = 0; x <= pw; x += minorStep) {
       var tpx = offsetX + x * scale;
@@ -6585,11 +5993,6 @@ function startAutosaveSnapshots() {
     }
     top.innerHTML = topHtml;
 
-    // Left ruler: horizontal ticks + numeric labels. Anchored to the whole
-    // document (pages-wrapper) so it scrolls continuously with content and
-    // never "resets" when paginating to another page. totalH is the full
-    // document height (on-screen); we convert it to page px via scale and
-    // step through the whole content with a continuous measurement scale.
     var leftHtml = "";
     var wrapperRect = wrapper ? wrapper.getBoundingClientRect() : null;
     var offsetY = wrapperRect ? wrapperRect.top - areaRect.top : 0;
@@ -6608,24 +6011,9 @@ function startAutosaveSnapshots() {
     left.innerHTML = leftHtml;
   }
 
-  /* ---------------- Ribbon tab switching ----------------
-     EmeraldSuite pattern (matches Slides): clicking a tab animates a sliding
-     underline indicator to the active tab, and cross-fades the corresponding
-     ribbon-panel with a blur-out → blur-in transition.
-
-     IMPORTANT: We listen for `transitionend` on the blur-out animation
-     rather than using a fixed setTimeout. The blur-out transition is 0.18s;
-     firing at 140ms (the old behaviour) left the panel at ~5% opacity when
-     its position flipped from `relative` (centered via margin:auto) to
-     `absolute; left:0` — causing a brief flash on the left edge of the
-     ribbon before the new panel appeared in the center. */
-  /* ---------------- Ribbon tab indicator helpers ---------------- */
-  // Currently-active ribbon tab name + the regular tab to return to when an
-  // image is deselected (drives the contextual Image Format tab, Slides-style).
   var activeRibbonTab = "home";
   var docsImagePreviousTab = "home";
-  // Position the sliding underline under a tab. No-ops safely when the
-  // ribbon is hidden (welcome screen) — the rect is just 0×0 then.
+
   function moveRibbonIndicatorTo(tab) {
     var indicator = $("ribbonTabIndicator");
     if (!indicator || !tab) return;
@@ -6635,9 +6023,6 @@ function startAutosaveSnapshots() {
     indicator.style.transform = "translateX(" + (rect.left - parentRect.left) + "px)";
   }
 
-  // Re-measure the active tab's underline after the ribbon becomes visible
-  // (opening a document, fonts loading, resize…). Double rAF so layout has
-  // settled — measuring while display:none yields a 0-width underline.
   function refreshRibbonIndicator() {
     if (window.requestAnimationFrame) {
       requestAnimationFrame(function () {
@@ -6660,27 +6045,21 @@ function startAutosaveSnapshots() {
     var indicator = $("ribbonTabIndicator");
     if (!tabs.length || !indicator) return;
 
-    // Position under the initially-active tab after layout settles. If the
-    // ribbon is hidden at that point (welcome screen) the measure is skipped
-    // — refreshRibbonIndicator() re-runs it when a document opens.
     setTimeout(function () {
       var active = document.querySelector(".ribbon-tab.active");
       if (active && active.getBoundingClientRect().width > 0) moveRibbonIndicatorTo(active);
     }, 100);
 
-    // Re-align when fonts finish loading (tab widths can shift) — same as Slides
     if (document.fonts && document.fonts.ready) {
       document.fonts.ready.then(refreshRibbonIndicator);
     }
 
-    // Activate a tab's classes + move the indicator (no panel logic).
     function activateTabClasses(tab) {
       for (var j = 0; j < tabs.length; j++) tabs[j].classList.remove("active");
       tab.classList.add("active");
       moveRibbonIndicatorTo(tab);
     }
 
-    // Blur-out whatever panel is active, then run `mid` when invisible.
     function blurOutActivePanel(mid) {
       var currentActive = document.querySelector(".ribbon-panel.active");
       if (!currentActive) { mid(); return; }
@@ -6693,7 +6072,7 @@ function startAutosaveSnapshots() {
         mid();
       };
       currentActive.addEventListener("transitionend", onBlurred);
-      // Fallback: force at 220ms (past the 0.18s transition + buffer)
+
       setTimeout(function () {
         if (currentActive.classList.contains("blur-out")) {
           currentActive.removeEventListener("transitionend", onBlurred);
@@ -6707,16 +6086,11 @@ function startAutosaveSnapshots() {
       tabs[i].addEventListener("click", function () {
         var tab = this;
         var target = tab.getAttribute("data-tab");
-        // already active?
+
         if (tab.classList.contains("active") && target !== "file") return;
 
-        // Track the last user-chosen regular tab (used to restore after the
-        // contextual Image Format tab auto-hides when the image is deselected).
         if (target !== "file") activeRibbonTab = target;
 
-        // FILE TAB → Backstage-style File modal (Slides behaviour).
-        // The File tab has no inline ribbon panel; clicking it opens the
-        // file modal overlay over the editor instead.
         if (target === "file") {
           blurOutActivePanel(function () {});
           activateTabClasses(tab);
@@ -6734,23 +6108,12 @@ function startAutosaveSnapshots() {
       });
     }
 
-    // Reposition indicator on resize
     window.addEventListener("resize", function () {
       var active = document.querySelector(".ribbon-tab.active");
       if (active) moveRibbonIndicatorTo(active);
     });
   }
 
-  /* ---------------- Programmatic tab switch (used by the File modal and
-     the contextual tabs) ----------------
-     Mirrors Slides' ribbon flow (slides.js _switchTab): a SEQUENTIAL
-     blur-out → blur-in. The outgoing panel gets .blur-out FIRST (it keeps
-     position:relative and stays centered while fading), THEN loses
-     .active — so it can never paint through the position flip at
-     absolute;left:0 that caused the left-edge flash. Only after its fade
-     completes does the incoming panel gain .active and blur in. Only one
-     panel animates at a time, nothing overlaps, and nothing is glitchy.
-     Rapid switches (fast engagement flips) cancel the pending switch. */
   var ribbonSwitchPending = null;
   function switchRibbonTab(name) {
     var tab = document.querySelector('.ribbon-tab[data-tab="' + name + '"]');
@@ -6758,16 +6121,12 @@ function startAutosaveSnapshots() {
     var leavingTableDesign = (activeRibbonTab === "table-design" && name !== "table-design");
     if (name !== "file") activeRibbonTab = name;
 
-    /* Cancel a still-pending animated switch so a stale closure can never
-       re-assert an old panel over this one (idempotent if none pending). */
     if (ribbonSwitchPending) {
       clearTimeout(ribbonSwitchPending.timer);
       ribbonSwitchPending.panel.removeEventListener("transitionend", ribbonSwitchPending.listener);
       ribbonSwitchPending = null;
     }
 
-    /* Tabs + indicator move immediately (Slides moves the underline before
-       the blur-out starts, exactly like a manual tab click). */
     var tabsAll = document.querySelectorAll(".ribbon-tab");
     for (var t = 0; t < tabsAll.length; t++) {
       tabsAll[t].classList.toggle("active", tabsAll[t] === tab);
@@ -6784,41 +6143,37 @@ function startAutosaveSnapshots() {
         panels[j].classList.remove("active");
         panels[j].classList.remove("blur-out");
       }
-      if (targetPanel) targetPanel.classList.add("active");   // blur-in unblur
+      if (targetPanel) targetPanel.classList.add("active");
     }
 
     if (currentPanel && currentPanel !== targetPanel) {
-      currentPanel.classList.add("blur-out");      // fade OUT in place (relative)
-      currentPanel.classList.remove("active");     // THEN leave the flow
+      currentPanel.classList.add("blur-out");
+      currentPanel.classList.remove("active");
       var done = false;
       var onBlurred = function (e) {
-        if (e.propertyName !== "opacity") return;   // skip filter/visibility ends
+        if (e.propertyName !== "opacity") return;
         finishSwitch();
       };
-      var timer = setTimeout(finishSwitch, 220);   // past the 0.18s fade + buffer
+      var timer = setTimeout(finishSwitch, 220);
       function finishSwitch() {
         if (done) return;
         done = true;
         clearTimeout(timer);
         currentPanel.removeEventListener("transitionend", onBlurred);
         if (currentPanel.classList.contains("blur-out")) {
-          currentPanel.classList.remove("blur-out");  // leave the flow while hidden
+          currentPanel.classList.remove("blur-out");
         }
         doSwitch();
       }
       ribbonSwitchPending = { panel: currentPanel, listener: onBlurred, timer: timer };
     } else {
-      /* No outgoing panel or re-asserting the same tab: switch now. */
+
       doSwitch();
     }
 
     if (leavingTableDesign) closeTdGallery();
   }
 
-  /* ---------------- Image Format contextual tab (Slides parity) ----------------
-   Images are inline <img> elements whose adjustments are persisted as
-   data-imgfx (filter params) + data-imgborder attributes plus inline styles,
-   all of which survive serialize()/sanitizeStoredHtml(). */
   var DEFAULT_IMG_FX = { brightness: 100, contrast: 100, saturate: 100, hue: 0, grayscale: 0, sepia: 0, invert: 0, blur: 0 };
 
   function parseImageFx(img) {
@@ -6877,7 +6232,6 @@ function startAutosaveSnapshots() {
     return (activeResizeImg && activeResizeImg.isConnected) ? activeResizeImg : null;
   }
 
-  // Mirror the selected image's current values onto the Image Format panel.
   function syncImageFormatControls(img) {
     if (!img) return;
     var fx = parseImageFx(img);
@@ -6908,7 +6262,6 @@ function startAutosaveSnapshots() {
     if (op) op.value = img.style.opacity ? Math.round(parseFloat(img.style.opacity) * 100) : 100;
   }
 
-  // Write a parsed fx object + stored border/opacity onto the <img> and persist.
   function applyImageFormat(img, fx) {
     if (!img) return;
     img.setAttribute("data-imgfx", JSON.stringify(fx));
@@ -6951,7 +6304,6 @@ function startAutosaveSnapshots() {
     scheduleAutosave();
   }
 
-  // Show/hide the contextual Image Format tab + auto-switch/restore the ribbon.
   function syncImageFormatRibbonState() {
     var tab = $("imageFormatTab");
     if (!tab) return;
@@ -6961,25 +6313,23 @@ function startAutosaveSnapshots() {
       tab.removeAttribute("hidden");
       if (wasHidden && activeRibbonTab !== "image-format") {
         docsImagePreviousTab = activeRibbonTab;
-        switchRibbonTab("image-format");   // instant, no crossfade flash
+        switchRibbonTab("image-format");
       }
       syncImageFormatControls(img);
     } else {
       if (activeRibbonTab === "image-format") {
         var restoreName = (docsImagePreviousTab && docsImagePreviousTab !== "image-format") ? docsImagePreviousTab : "home";
-        switchRibbonTab(restoreName);      // instant restore
+        switchRibbonTab(restoreName);
       }
       tab.setAttribute("hidden", "");
     }
   }
 
-  // Wire the Image Format panel controls (Slides parity). Idempotent.
   function setupImageFormatTab() {
     var panel = document.querySelector('.ribbon-panel[data-panel="image-format"]');
     if (!panel || panel.__imgFormatBound) return;
     panel.__imgFormatBound = true;
 
-    // Stepper buttons ([−] / [+]) adjust their data-target input + fire change.
     panel.querySelectorAll(".tr-num-step").forEach(function (btn) {
       btn.addEventListener("click", function () {
         var target = document.getElementById(btn.dataset.target);
@@ -6996,7 +6346,6 @@ function startAutosaveSnapshots() {
       });
     });
 
-    // Filters — preset dropdown
     panel.querySelectorAll("#imageFilterDropdown .ms-dropdown-item").forEach(function (item) {
       item.addEventListener("click", function () {
         closePortalDropdown(false);
@@ -7007,7 +6356,6 @@ function startAutosaveSnapshots() {
       });
     });
 
-    // Color corrections — inputs
     var fxInputs = [
       { id: "imgBrightness", key: "brightness" },
       { id: "imgContrast", key: "contrast" },
@@ -7029,7 +6377,6 @@ function startAutosaveSnapshots() {
       });
     });
 
-    // Border color
     panel.querySelectorAll("#imageBorderColorDropdown .ms-dropdown-item").forEach(function (item) {
       item.addEventListener("click", function () {
         closePortalDropdown(false);
@@ -7040,7 +6387,6 @@ function startAutosaveSnapshots() {
       });
     });
 
-    // Border width
     panel.querySelectorAll("#imageBorderWidthDropdown .ms-dropdown-item").forEach(function (item) {
       item.addEventListener("click", function () {
         closePortalDropdown(false);
@@ -7051,7 +6397,6 @@ function startAutosaveSnapshots() {
       });
     });
 
-    // Transparency — opacity stepper input
     var opInput = document.getElementById("imageOpacity");
     if (opInput) {
       opInput.addEventListener("change", function () {
@@ -7067,12 +6412,6 @@ function startAutosaveSnapshots() {
     }
   }
 
-  /* ---------------- Table Design contextual tab (Word parity) ----------------
-     The shared EMTableStyles engine (tablestyles.js) stores a table's design
-     in data-table-style / data-table-opts / data-table-shade and repaints all
-     borders + fills as inline styles, which is exactly what the DOCX exporter
-     measures and the importer writes back — so a designed table round-trips
-     through Word. Engagement is driven by TableKit's onEngaged hook. */
   var emTableKitInstance = null;
   var docsTablePreviousTab = null;
 
@@ -7088,28 +6427,25 @@ function startAutosaveSnapshots() {
       tab.removeAttribute("hidden");
       if (wasHidden && activeRibbonTab !== "table-design") {
         docsTablePreviousTab = activeRibbonTab;
-        switchRibbonTab("table-design");   // instant, no crossfade flash
+        switchRibbonTab("table-design");
       }
       syncTableDesignControls(table);
-      /* Keep an open gallery open across engagement changes (e.g. touching a
-         different table) so it doesn't flicker show→hide on every sync. It
-         still closes on disengage or an explicit outside click. */
+
     } else {
       closeTdGallery();
       if (activeRibbonTab === "table-design") {
         var rn = (docsTablePreviousTab && docsTablePreviousTab !== "table-design") ? docsTablePreviousTab : "home";
-        switchRibbonTab(rn);               // instant restore
+        switchRibbonTab(rn);
       }
       tab.setAttribute("hidden", "");
     }
   }
 
-  /* Mirror the engaged table's design onto the panel controls. */
   function syncTableDesignControls(table) {
     var TS = window.EMTableStyles;
     if (!TS || !table) return;
     var d = TS.readDesign(table);
-    /* Options are Slides-style Start pills: aria-pressed mirrors the state. */
+
     document.querySelectorAll(".td-pill").forEach(function (pill) {
       var key = pill.getAttribute("data-td-opt");
       pill.setAttribute("aria-pressed", d.opts[key] ? "true" : "false");
@@ -7120,7 +6456,7 @@ function startAutosaveSnapshots() {
     document.querySelectorAll('.td-style-thumb[data-preset="' + d.style + '"]').forEach(function (el) {
       el.classList.add("current");
     });
-    /* manual shade of the primary selected cell drives the shading swatch */
+
     var prim = tdPrimaryCell(table);
     var sw = $("tdShadingSwatch"), lbl = $("tdShadingLabel");
     if (sw && lbl) {
@@ -7151,8 +6487,6 @@ function startAutosaveSnapshots() {
     return null;
   }
 
-  /* Every cell the current text selection touches; whole table when the
-     selection is unrelated (Word also fills the full table in that case). */
   function tdRangeTouches(table, range) {
     if (!range || !range.intersectsNode) return false;
     for (var r = 0; r < table.rows.length; r++) {
@@ -7180,9 +6514,7 @@ function startAutosaveSnapshots() {
     var sel = window.getSelection();
     var live = sel && sel.rangeCount ? sel.getRangeAt(0) : null;
     if (tdRangeTouches(table, live)) return tdCellsIntersecting(table, live);
-    /* Opening a portal dropdown / clicking the ribbon can clear the live
-       selection before this handler runs — fall back to the editor's last
-       saved range when it came from THIS table. */
+
     if (tdRangeTouches(table, lastEditorRange)) {
       return tdCellsIntersecting(table, lastEditorRange);
     }
@@ -7195,7 +6527,6 @@ function startAutosaveSnapshots() {
     return out;
   }
 
-  /* The cell the caret actually sits in (for the swatch read-out). */
   function tdCellOfRange(table, range) {
     if (!range || !range.startContainer) return null;
     var node = range.startContainer;
@@ -7243,14 +6574,6 @@ function startAutosaveSnapshots() {
     designMutated();
   }
 
-  /* ---------------- gallery strip + popup ---------------- */
-  /* Thumbnails are REAL mini tables painted by the same applyDesign() the
-     document tables use, so the gallery always previews truthfully. Thumbs
-     are built once and live in the ribbon (never inside a page). */
-  /* One preview card: a Slides-style tile containing a real mini table
-     painted by the same applyDesign() the document tables use. The card is
-     a <button> in the ribbon strip; inside the gallery grid it's a plain
-     <div> (a button can't nest inside the gallery's card button). */
   function tdBuildThumb(presetId, asDiv) {
     var card = document.createElement(asDiv ? "div" : "button");
     if (!asDiv) card.type = "button";
@@ -7294,7 +6617,6 @@ function startAutosaveSnapshots() {
     if (!strip || strip.__built) return;
     strip.__built = true;
 
-    /* Inline strip mirrors Slides' Themes row: a handful of previews + More */
     var gridPresets = TS.PRESETS.filter(function (p) { return p.id !== "none"; });
     for (var i = 0; i < 6 && i < gridPresets.length; i++) {
       strip.appendChild(tdBuildThumb(gridPresets[i].id));
@@ -7318,7 +6640,6 @@ function startAutosaveSnapshots() {
     more.addEventListener("click", function (e) { e.stopPropagation(); tdToggleGallery(); });
     strip.appendChild(more);
 
-    /* Gallery popup mirrors Slides' theme gallery: header + 3-col cards */
     popup.innerHTML = "";
     var header = document.createElement("div");
     header.className = "td-gallery-header";
@@ -7344,13 +6665,10 @@ function startAutosaveSnapshots() {
     });
     popup.appendChild(grid);
 
-    /* The popup portals to <body> while open, so the panel's mousedown
-       guard never sees it — keep the caret in the table here too. */
     popup.addEventListener("mousedown", function (e) {
       if (e.target.closest && e.target.closest("button")) e.preventDefault();
     });
 
-    /* close on outside click */
     document.addEventListener("mousedown", function (e) {
       if (!tdGalleryOpen) return;
       var wrap = $("tdGalleryWrap");
@@ -7361,8 +6679,6 @@ function startAutosaveSnapshots() {
 
   var tdGalleryOpen = false;
 
-  /* The gallery popup portals to <body> (fixed, under the strip) so the
-     ribbon's clipping can never cut it off — the same idea as ms-dropdown. */
   function tdToggleGallery(force) {
     var popup = $("tdGalleryPopup");
     var stripWrap = $("tdGalleryWrap");
@@ -7374,9 +6690,7 @@ function startAutosaveSnapshots() {
     if (moreBtn) moreBtn.setAttribute("aria-expanded", want ? "true" : "false");
     if (want) {
       closePortalDropdown(false);
-      /* Anchor to the More card, not the whole strip: the gallery's right
-         edge lines up with the More button's right edge (Word/Slides
-         behaviour), clamped to the viewport. */
+
       var anchor = moreBtn || $("tdGalleryStrip");
       var r = anchor.getBoundingClientRect();
       document.body.appendChild(popup);
@@ -7395,22 +6709,16 @@ function startAutosaveSnapshots() {
     if (tdGalleryOpen) tdToggleGallery(false);
   }
 
-  /* ---------------- panel wiring ---------------- */
   function setupTableDesignTab() {
     var panel = document.querySelector('.ribbon-panel[data-panel="table-design"]');
     if (!panel || panel.__tdBound) return;
     panel.__tdBound = true;
     buildTdGallery();
 
-    /* Keep the caret/selection in the document while using the ribbon — the
-       same mousedown guard every other ribbon button uses. Without it the
-       button steals focus, Chrome drops the table selection, and TableKit
-       would see the caret "leave" the table (closing this tab). */
     panel.addEventListener("mousedown", function (e) {
       if (e.target.closest && e.target.closest("button")) e.preventDefault();
     });
 
-    /* Options are Slides-style Start pills: click = toggle right there. */
     panel.querySelectorAll(".td-pill").forEach(function (pill) {
       pill.addEventListener("click", function () {
         var on = pill.getAttribute("aria-pressed") !== "true";
@@ -7427,7 +6735,6 @@ function startAutosaveSnapshots() {
       });
     }
 
-    /* Shading — fills the selection (or whole table), recorded in the design */
     panel.querySelectorAll("#tdShadingDropdown .ms-dropdown-item").forEach(function (item) {
       item.addEventListener("click", function () {
         closePortalDropdown(false);
@@ -7441,7 +6748,6 @@ function startAutosaveSnapshots() {
     });
   }
 
-  /* ---------------- Page margins (drag to resize via ruler) ---------------- */
   function applyPageMargins() {
     var root = document.documentElement;
     root.style.setProperty("--page-margin-top", pageMargins.top + "px");
@@ -7475,24 +6781,20 @@ function startAutosaveSnapshots() {
     return Math.max(MIN_MARGIN, Math.min(MAX_MARGIN, Math.round(v)));
   }
 
-  // Same ceiling, but no MIN_MARGIN floor: an imported .docx/.pdf keeps the
-  // margins it came with (Word permits 0, and an imported PDF page image is
-  // sized for its own margins).
   function clampImportedMargin(v) {
     if (typeof v !== "number" || isNaN(v)) return 96;
     return Math.max(0, Math.min(MAX_MARGIN, Math.round(v)));
   }
 
-  /* ---------------- Margins dialog ---------------- */
   var MARGIN_PRESETS = {
-    narrow: 48,   // 1.27 cm
-    default: 96,  // 2.54 cm
-    moderate: 72, // 1.91 cm
-    wide: 120,    // 3.18 cm
+    narrow: 48,
+    default: 96,
+    moderate: 72,
+    wide: 120,
   };
 
   function openMarginsDialog() {
-    // Sync inputs with current state
+
     $("marginTop").value = (pageMargins.top / 37.8).toFixed(2);
     $("marginBottom").value = (pageMargins.bottom / 37.8).toFixed(2);
     $("marginLeft").value = (pageMargins.left / 37.8).toFixed(2);
@@ -7532,7 +6834,7 @@ function startAutosaveSnapshots() {
     schedulePaginate();
     scheduleAutosave();
     updatePresetActive();
-    // sync inputs
+
     $("marginTop").value = (v / 37.8).toFixed(2);
     $("marginBottom").value = (v / 37.8).toFixed(2);
     $("marginLeft").value = (v / 37.8).toFixed(2);
@@ -7551,7 +6853,6 @@ function startAutosaveSnapshots() {
     updateMarginPreview();
   }
 
-  /* ---------------- Confetti celebration ---------------- */
   var goalCelebrated = false;
 
   function fireConfetti() {
@@ -7578,7 +6879,6 @@ function startAutosaveSnapshots() {
     }
   }
 
-  /* ---------------- Autosave timestamp ---------------- */
   var lastSavedAt = 0;
 
   function formatAutosaveTime(ts) {
@@ -7589,7 +6889,6 @@ function startAutosaveSnapshots() {
     return hh + ":" + mm;
   }
 
-  /* ---------------- Goal tracker ---------------- */
   function saveGoal() {
     try {
       if (idbAvailable()) { idb.setJSON(GOAL_KEY, goalTarget); }
@@ -7623,21 +6922,19 @@ function startAutosaveSnapshots() {
       if (pct >= 100) fillEl.classList.add("complete");
       if (current > goalTarget) fillEl.classList.add("over");
 
-      // Milestone toasts at 25%, 50%, 75%
       if (pct >= 25 && !goalMilestones[25]) { goalMilestones[25] = true; toastMilestone("25% there — keep going!"); }
       if (pct >= 50 && !goalMilestones[50]) { goalMilestones[50] = true; toastMilestone("Halfway there!"); }
       if (pct >= 75 && !goalMilestones[75]) { goalMilestones[75] = true; toastMilestone("75% — almost done!"); }
 
-      // Celebration: fire confetti once when goal is first reached
       if (current >= goalTarget && !goalCelebrated) {
         goalCelebrated = true;
         fireConfetti();
         toastMilestone("Goal reached! Well done.");
       } else if (current < goalTarget && goalCelebrated) {
-        // reset so it can celebrate again if user dips below and re-reaches
+
         goalCelebrated = false;
       }
-      // reset milestones if user drops below
+
       if (pct < 75) goalMilestones[75] = false;
       if (pct < 50) goalMilestones[50] = false;
       if (pct < 25) goalMilestones[25] = false;
@@ -7652,12 +6949,10 @@ function startAutosaveSnapshots() {
   }
 
   function toastMilestone(msg) {
-    // Milestones reuse the standard Slides-style toast (white pill + award
-    // icon picked by _toastIcon) — no more special gradient styling.
+
     toast(msg, "success");
   }
 
-  /* ---------------- Stats chart ---------------- */
   function renderStatsChart() {
     var container = $("statsChart");
     if (!container) return;
@@ -7695,7 +6990,6 @@ function startAutosaveSnapshots() {
       container.appendChild(row);
     }
 
-    // Reading time card
     var card = $("readingTimeCard");
     if (card) {
       var mins = stats.readingMin;
@@ -7708,7 +7002,6 @@ function startAutosaveSnapshots() {
     }
   }
 
-  /* Common abbreviations that shouldn't end a sentence */
   var ABBREVIATIONS = [
     "mr", "mrs", "ms", "dr", "prof", "sr", "jr", "st", "ave", "blvd", "rd",
     "inc", "ltd", "co", "corp", "etc", "vs", "approx", "no", "vol", "fig",
@@ -7716,24 +7009,23 @@ function startAutosaveSnapshots() {
     "jun", "jul", "aug", "sep", "sept", "oct", "nov", "dec",
   ];
 
-  /* Smart sentence tokenizer — protects abbreviations and decimals. */
   function getSentences() {
     var text = getAllText();
     if (!text) return [];
-    // Temporarily mask abbreviations followed by a period
+
     var masked = text;
     for (var i = 0; i < ABBREVIATIONS.length; i++) {
       var abbr = ABBREVIATIONS[i];
       var re = new RegExp("\\b" + abbr + "\\.", "gi");
       masked = masked.replace(re, abbr.toUpperCase() + "\x00");
     }
-    // Mask decimal numbers (3.14)
+
     masked = masked.replace(/(\d)\.(\d)/g, "$1\x01$2");
-    // Split on sentence-ending punctuation
+
     var parts = masked.split(/[.!?]+/);
     var sentences = [];
     for (var j = 0; j < parts.length; j++) {
-      // Unmask
+
       var s = parts[j].replace(/\x00/g, ".").replace(/\x01/g, ".").trim();
       if (s.length > 0) sentences.push(s);
     }
@@ -7745,9 +7037,6 @@ function startAutosaveSnapshots() {
     return sentences.length;
   }
 
-  /* ---------------- Sentence length distribution chart ---------------- */
-  /* ---------------- Writing issues checker ---------------- */
-  // A small curated list of common misspellings → corrections
   var COMMON_MISSPELLINGS = {
     "recieve": "receive",
     "definately": "definitely",
@@ -7794,7 +7083,6 @@ function startAutosaveSnapshots() {
     var text = getAllText();
     if (!text) return issues;
 
-    // 1) Detect repeated consecutive words ("the the")
     var words = text.split(/(\s+)/);
     var tokens = [];
     for (var i = 0; i < words.length; i++) {
@@ -7814,7 +7102,6 @@ function startAutosaveSnapshots() {
       }
     }
 
-    // 2) Detect common misspellings
     var lowerText = text.toLowerCase();
     for (var misspelling in COMMON_MISSPELLINGS) {
       var regex = new RegExp("\\b" + misspelling + "\\b", "gi");
@@ -7832,7 +7119,7 @@ function startAutosaveSnapshots() {
       }
     }
 
-    return issues.slice(0, 20); // cap at 20 for performance
+    return issues.slice(0, 20);
   }
 
   function renderWritingIssues() {
@@ -7880,7 +7167,7 @@ function startAutosaveSnapshots() {
 
   function fixWritingIssue(issue) {
     if (issue.fixType === "removeDuplicate") {
-      // Replace "word word" (case-insensitive) with "word"
+
       var regex = new RegExp("\\b(" + escapeRegExp(issue.word) + ")\\s+\\1\\b", "gi");
       var pages = getPages();
       for (var i = 0; i < pages.length; i++) {
@@ -7901,12 +7188,10 @@ function startAutosaveSnapshots() {
     toast("Issue fixed", "success");
   }
 
-  /* ---------------- Margin preview diagram ---------------- */
   function updateMarginPreview() {
     var preview = $("marginPreview");
     if (!preview) return;
-    // Scale the real page down to the preview (140x180 box) using the
-    // current page dimensions so non-A4 imported docs preview correctly.
+
     var base = getBasePageSize();
     var scaleX = 140 / base.w;
     var scaleY = 180 / base.h;
@@ -7921,7 +7206,6 @@ function startAutosaveSnapshots() {
     preview.style.setProperty("--pv-left", left + "px");
   }
 
-  /* ---------------- Page thumbnails panel ---------------- */
   var thumbnailsUpdateScheduled = false;
 
   function toggleThumbnails(force) {
@@ -7951,17 +7235,13 @@ function startAutosaveSnapshots() {
         item.className = "thumbnail-item" + (idx === currentPage ? " active" : "");
         var thumb = document.createElement("div");
         thumb.className = "thumbnail-page";
-        // Compute the fit scale from the REAL page dimensions (already laid out
-        // in the editor) and the fixed thumbnail frame, so the clone can be
-        // scaled BEFORE it enters the DOM — this prevents a big→small flash on
-        // every thumbnail rebuild while typing.
+
         var realW = parseFloat(page.offsetWidth) || 794;
         var realH = parseFloat(page.offsetHeight) || 1123;
         var frameW = 132;
         var frameH = 185;
         var scale = Math.min(frameW / realW, frameH / realH) || 0.166;
-        // True 1:1 copy — clone the ENTIRE real .page element so it keeps the
-        // exact typography, colors, padding and wrapping (no re-rendering).
+
         var content = page.cloneNode(true);
         content.setAttribute("data-thumb", "1");
         content.setAttribute("aria-hidden", "true");
@@ -8004,14 +7284,13 @@ function startAutosaveSnapshots() {
     }, 500);
   }
 
-  /* ---------------- Print preview ---------------- */
   function togglePrintPreview(on) {
     var app = $("app");
     if (on === undefined) on = !app.classList.contains("print-preview");
     if (on) {
       app.classList.add("print-preview");
       saveDocument(false);
-      // scroll to top of document
+
       var scroll = $("documentScroll");
       if (scroll) scroll.scrollTop = 0;
     } else {
@@ -8019,7 +7298,6 @@ function startAutosaveSnapshots() {
     }
   }
 
-  /* ---------------- Session timer + writing time ---------------- */
   var sessionStart = 0;
   var sessionInterval = null;
   var sessionActive = false;
@@ -8055,13 +7333,11 @@ function startAutosaveSnapshots() {
       var secs = elapsed % 60;
       el.textContent = mins + ":" + String(secs).padStart(2, "0");
     }
-    // Keep the Document Statistics "This session" figure live while the modal is open.
+
     var wc = $("wordCountModal");
     if (wc && wc.classList.contains("open") && sessionActive) renderWritingTimeStats();
   }
 
-  /* Tally of all writing time, saved across sessions via IndexedDB
-   (with a transient localStorage buffer handled by EmeraldIDBStorage). */
   var writingTimeCache = null;
 
   function loadWritingTime() {
@@ -8089,7 +7365,6 @@ function startAutosaveSnapshots() {
     return Math.floor((Date.now() - sessionStart) / 1000);
   }
 
-  /* Move the elapsed session time into the all-time total (once per session). */
   function commitSessionTime() {
     if (!sessionActive) return;
     var secs = Math.floor((Date.now() - sessionStart) / 1000);
@@ -8133,11 +7408,6 @@ function startAutosaveSnapshots() {
     if (sessions) sessions.textContent = String(wt.sessions + (sessionActive ? 1 : 0));
   }
 
-  /* ===================================================================
-     EMERALDSUITE: DOCS — additional features
-     =================================================================== */
-
-  /* ---------------- Templates ---------------- */
   var TEMPLATES = [
     { id: "blank", name: "Blank Document", desc: "Start from scratch", html: "<p><br></p>" },
     { id: "resume", name: "Resume", desc: "Clean professional CV", html:
@@ -8233,19 +7503,13 @@ function startAutosaveSnapshots() {
     setTimeout(function () { content.focus(); }, 100);
   }
 
-  /* ---------------- Symbol bar (Slides-style floating bottom bar) ----------------
-     Ported from the Slides app's symbolToolbar: a bottom-docked floating
-     pill (no modal box) with grouped symbol buttons — Stars, Marks, Arrows,
-     Math, Greek, Numbers, Special. Clicking a symbol inserts it at the
-     caret; the bar STAYS OPEN so several symbols can be inserted in a row
-     (Slides parity). Done — or the ribbon button again — closes it. */
   function toggleSymbolBar(force) {
     var bar = $("symbolToolbar");
     var btn = $("btnSymbols");
     if (!bar) return;
     var shouldOpen = force === undefined ? !bar.classList.contains("visible") : force;
     if (shouldOpen) {
-      // Only one bottom toolbar at a time — exit draw mode if it is on.
+
       if (drawMode) toggleDrawMode(false);
       bar.classList.add("visible");
       if (btn) btn.classList.add("active");
@@ -8277,17 +7541,11 @@ function startAutosaveSnapshots() {
     if (done) done.addEventListener("click", function () { toggleSymbolBar(false); });
   }
 
-  /* ---------------- Apply per-document page layout ----------------
-     Imported .docx files carry their own page size, orientation, margins and
-     background fill (the way MS Word stores them per section). applyDocPageLayout
-     restores those on the current editor so an imported doc looks like the
-     original rather than inheriting the app's A4 default. */
   function applyDocPageSize(w, h, portrait) {
     var pw = Math.round(w) || PAGE_WIDTH;
     var ph = Math.round(h) || PAGE_HEIGHT;
     if (portrait === false) { var tmp = pw; pw = ph; ph = tmp; }
-    // Single source of truth: keeps .page elements, CSS vars (+ @page sheet
-    // for print) and the View -> Pages thumbnails all in sync.
+
     applyPageDimensions(pw, ph, portrait === false);
   }
 
@@ -8301,10 +7559,7 @@ function startAutosaveSnapshots() {
     }
     if (data.pageMargins) {
       var m = data.pageMargins;
-      // Imported layouts keep their own margins — including the very small
-      // (or zero) ones Word/PDF sections are allowed to have. The app's own
-      // MIN_MARGIN floor only guards the Layout > Margins dialog, so applying
-      // it here would reflow an imported document away from its original page.
+
       if (typeof m.left === "number" && typeof m.top === "number" &&
           typeof m.right === "number" && typeof m.bottom === "number") {
         pageMargins.left = clampImportedMargin(m.left);
@@ -8314,7 +7569,7 @@ function startAutosaveSnapshots() {
       }
     }
     applyDocMarginsVars();
-    // Background fill from the imported doc (Word section background).
+
     if (data.pageBg) {
       var wrapper = $(PAGES_WRAPPER_ID);
       if (wrapper) wrapper.style.setProperty("--paper-bg", data.pageBg);
@@ -8325,7 +7580,6 @@ function startAutosaveSnapshots() {
     buildRulerTicks();
   }
 
-  // Mirror the current pageMargins object onto CSS variables + persistence.
   function applyDocMarginsVars() {
     var root = document.documentElement;
     root.style.setProperty("--page-margin-top", pageMargins.top + "px");
@@ -8334,7 +7588,6 @@ function startAutosaveSnapshots() {
     root.style.setProperty("--page-margin-left", pageMargins.left + "px");
   }
 
-  /* ---------------- Go To (lives in the bottom-right bar) ---------------- */
   function openGoTo() { openFindBar("goto"); }
 
   function performGoTo() {
@@ -8346,7 +7599,7 @@ function startAutosaveSnapshots() {
       if (val > pages.length) val = pages.length;
       scrollToPage(val);
     } else if (type === "line") {
-      // count lines across all pages
+
       var count = 0;
       var done = false;
       for (var i = 0; i < pages.length && !done; i++) {
@@ -8355,7 +7608,7 @@ function startAutosaveSnapshots() {
         for (var j = 0; j < blocks.length; j++) {
           var lineCount = blocks[j].innerText.split("\n").length;
           if (count + lineCount >= val) {
-            // place caret at start of this block
+
             pages[i].scrollIntoView({ behavior: "smooth", block: "start" });
             var range = document.createRange();
             range.selectNodeContents(blocks[j]);
@@ -8371,7 +7624,7 @@ function startAutosaveSnapshots() {
         }
       }
     } else if (type === "heading") {
-      // jump to the Nth heading
+
       var headings = document.querySelectorAll(".page-content h1, .page-content h2, .page-content h3, .page-content h4");
       if (headings.length === 0) { toast("No headings found", "error"); return; }
       if (val > headings.length) val = headings.length;
@@ -8388,7 +7641,6 @@ function startAutosaveSnapshots() {
     toast("Jumped to " + type + " " + val, "success");
   }
 
-  /* ---------------- Go To type — custom dropdown (replaces the native select) ---------------- */
   var gotoType = "page";
   var GOTO_TYPES = [
     { value: "page", label: "Page" },
@@ -8490,7 +7742,7 @@ function startAutosaveSnapshots() {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         if (gotoTypeMenuOpen()) {
-          // commit the highlighted item (arrows move the highlight first)
+
           var pick = GOTO_TYPES[highlightedGotoTypeIndex()];
           if (pick) setGotoType(pick.value);
           closeGotoTypeMenu();
@@ -8529,8 +7781,6 @@ function startAutosaveSnapshots() {
       })(items[i]);
     }
 
-    // click outside closes the menu — deferred one tick so the very click
-    // that opens the bar/dropdown doesn't instantly close it again
     setTimeout(function () {
       document.addEventListener("click", function (e) {
         if (!gotoTypeMenuOpen()) return;
@@ -8539,18 +7789,12 @@ function startAutosaveSnapshots() {
     }, 0);
   }
 
-  /* ---------------- Watermark ----------------
-     The watermark is a sibling of .page-content, not a child of it, which is
-     why it never reached serialize() and never survived a save — a watermark
-     the user applied with the ribbon vanished on reload, and the AI had no way
-     to set one at all. It is a document property now, stored alongside
-     header/footer/footnotes, and redrawn from that value on every open. */
   var watermarkText = "";
 
   function applyWatermark(text) {
     watermarkText = String(text == null ? "" : text).trim();
     var pages = getPages();
-    // remove existing
+
     for (var i = 0; i < pages.length; i++) {
       var existing = pages[i].querySelector(".page-watermark");
       if (existing) existing.remove();
@@ -8571,7 +7815,6 @@ function startAutosaveSnapshots() {
     openModal("watermarkModal");
   }
 
-  /* ---------------- Table of Contents ---------------- */
   function insertTOC() {
     var headings = document.querySelectorAll(".page-content h1, .page-content h2, .page-content h3, .page-content h4");
     if (headings.length === 0) {
@@ -8599,7 +7842,6 @@ function startAutosaveSnapshots() {
     toast("Table of contents inserted", "success");
   }
 
-  /* ---------------- Drop Cap ---------------- */
   function toggleDropCap() {
     var block = getCurrentBlock();
     if (!block || block.tagName !== "P") {
@@ -8620,9 +7862,6 @@ function startAutosaveSnapshots() {
     scheduleAutosave();
   }
 
-  /* Sync the Drop Cap button's toggle-ON look with the paragraph under the
-     caret, so the button visually reflects the applied state (ON/OFF) while
-     moving through the document — same behavior as Bold/Italic buttons. */
   function updateDropCapState() {
     var btn = document.getElementById("btnDropCap");
     if (!btn) return;
@@ -8632,7 +7871,6 @@ function startAutosaveSnapshots() {
     btn.title = on ? "Drop cap (currently ON — click to remove)" : "Drop cap";
   }
 
-  /* ---------------- Columns ---------------- */
   function setColumns(n) {
     var pages = getPages();
     for (var i = 0; i < pages.length; i++) {
@@ -8641,7 +7879,7 @@ function startAutosaveSnapshots() {
       if (n === 2) c.classList.add("is-cols-2");
       else if (n === 3) c.classList.add("is-cols-3");
     }
-    // update active states on column buttons
+
     var colBtns = document.querySelectorAll("[data-cols]");
     for (var j = 0; j < colBtns.length; j++) {
       var cols = parseInt(colBtns[j].getAttribute("data-cols"), 10);
@@ -8653,10 +7891,6 @@ function startAutosaveSnapshots() {
     toast(n + " column" + (n > 1 ? "s" : "") + " layout", "success");
   }
 
-  /* ---------------- Orientation & Page Size ---------------- */
-  // Order matches the Layout -> Size dropdown (Letter ... Envelope).
-  // Dimensions are 96dpi CSS pixels: Letter 8.5x11", Legal 8.5x14",
-  // Executive 7.25x10.5", A4/A5/A6 ISO paper, Envelope #10 4.125x9.5".
   var PAGE_SIZES = {
     Letter: { w: 816, h: 1056 },
     Legal: { w: 816, h: 1344 },
@@ -8674,8 +7908,7 @@ function startAutosaveSnapshots() {
     var isLandscape = pages[0].classList.contains("landscape");
     var w = parseFloat(pages[0].style.width) || curPageW;
     var h = parseFloat(pages[0].style.height) || curPageH;
-    // Rotate the CURRENT sheet dimensions (Legal stays Legal, just sideways)
-    // and keep the CSS vars / @page sheet / thumbnails in sync.
+
     applyPageDimensions(h, w, !isLandscape);
     syncPageSizeUI();
     schedulePaginate();
@@ -8683,10 +7916,6 @@ function startAutosaveSnapshots() {
     toast(isLandscape ? "Portrait" : "Landscape", "success");
   }
 
-  // Sync the Layout -> Size dropdown + status-bar label with the current
-  // size. Detection matches width AND height (Letter and Legal share a
-  // width, so width-only matching would confuse them). Falls back to the
-  // last chosen name when pages use a custom size (e.g. landscape).
   function syncPageSizeUI() {
     var pages = getPages();
     if (pages[0]) {
@@ -8716,10 +7945,7 @@ function startAutosaveSnapshots() {
     var dim = PAGE_SIZES[name];
     if (!dim) return;
     currentPageSizeName = name;
-    // A named size is always portrait. applyPageDimensions keeps the CSS
-    // variables used by the base .page rule, print preview and @page sheet
-    // (so the browser prints at the true paper size), and refreshes the
-    // View -> Pages thumbnails — in sync with the real pages.
+
     applyPageDimensions(dim.w, dim.h, false);
     syncPageSizeUI();
     schedulePaginate();
@@ -8727,11 +7953,6 @@ function startAutosaveSnapshots() {
     toast("Page size: " + name, "success");
   }
 
-  /* Central page-size application. Updates the real .page elements, the
-     on-screen dims, the CSS variables that drive the base .page rule, print
-     preview and the browser-print @page sheet (so A4 / Letter / Legal / ...
-     all print at their true size), and refreshes the View -> Pages
-     thumbnails. */
   function applyPageDimensions(pw, ph, isLandscape) {
     curPageW = pw;
     curPageH = ph;
@@ -8740,8 +7961,7 @@ function startAutosaveSnapshots() {
     root.style.setProperty("--emu-ph", ph + "px");
     root.style.setProperty("--emu-ppw", (pw / 96 * 25.4).toFixed(2) + "mm");
     root.style.setProperty("--emu-pph", (ph / 96 * 25.4).toFixed(2) + "mm");
-    // Size the browser-print sheet to the actual paper. Injected after the
-    // stylesheet so it overrides the static `@page { size: A4 }` in docs.css.
+
     var sheetStyle = $("emuPageSizeStyle");
     if (!sheetStyle) {
       sheetStyle = document.createElement("style");
@@ -8755,16 +7975,11 @@ function startAutosaveSnapshots() {
       pages[i].style.height = ph + "px";
       pages[i].classList.toggle("landscape", !!isLandscape);
     }
-    // A PDF page keeps the sheet it came from, so re-apply those per-page sizes
-    // over the new document-wide size.
+
     applyPdfPageSizes();
     scheduleThumbnailsUpdate();
   }
 
-  /* ---------------- Header / Footer / Page Number ---------------- */
-  // Robust "is the selection inside X" check. anchorNode can BE the element
-  // itself (caret at (container, childCount)) — parentElement would then point
-  // ABOVE the container and closest() would miss it.
   function selectionInside(sel, selector) {
     if (!sel || !sel.rangeCount || !sel.anchorNode) return false;
     var el = sel.anchorNode.nodeType === Node.ELEMENT_NODE
@@ -8773,10 +7988,6 @@ function startAutosaveSnapshots() {
     return !!(el && el.closest && el.closest(selector));
   }
 
-  // When the caret is parked at a container's very end ((el, childCount)),
-  // execCommand insertHTML drops the new node as a SIBLING below the last
-  // paragraph — it then renders on its own line (outside a footer strip's
-  // height). Deepening the caret into the last line keeps inserts inline.
   function deepenEndCaret(el) {
     if (!el) return;
     var sel = window.getSelection();
@@ -8796,10 +8007,6 @@ function startAutosaveSnapshots() {
     } catch (e) {}
   }
 
-  // Move field spans that Chrome dropped as direct children of a header/
-  // footer strip (outside any <p>) into the strip's last paragraph, so they
-  // render INLINE like Word page numbers. Also refreshes the saved
-  // headerHTML/footerHTML state from the normalized strips.
   function normalizeStrayHF() {
     var strips = document.querySelectorAll(".page-header.editable, .page-footer.editable");
     var firstH = null, firstF = null;
@@ -8824,8 +8031,7 @@ function startAutosaveSnapshots() {
   }
 
   function insertPageNumber() {
-    // If the caret is inside a header/footer strip, insert the field there
-    // (so "Page N" can live in the footer like real Word documents).
+
     var sel = window.getSelection();
     if (!selectionInside(sel, ".page-header.editable, .page-footer.editable")) {
       restoreEditorSelection();
@@ -8835,12 +8041,11 @@ function startAutosaveSnapshots() {
         if (fc) fc.focus();
       }
     }
-    // Caret at a container's end → deepen into the last line (inline insert)
+
     var anchor = sel && sel.anchorNode ? sel.anchorNode : null;
     deepenEndCaret(anchor && anchor.nodeType === Node.ELEMENT_NODE ? anchor : null);
     document.execCommand("insertHTML", false, '<span class="field-dynamic" contenteditable="false" data-field="PAGE">Page 1</span> ');
-    // Chrome drops contenteditable=false nodes AFTER the paragraph when the
-    // caret sits at a block's end — pull strays back inline + re-mirror.
+
     normalizeStrayHF();
     updateDynamicFields();
     schedulePaginate();
@@ -8848,14 +8053,6 @@ function startAutosaveSnapshots() {
     toast("Page number field inserted", "success");
   }
 
-  /* MS Word-style editable header/footer strips:
-     - Layout -> Header / Footer toggles an editable strip on EVERY page.
-     - Strips mirror each other: editing any copy updates all of them.
-     - Page-number fields work inside them (Page # with the caret in the
-       strip inserts "Page N"; every page shows its own number).
-     - Clearing all text removes the strip when it loses focus (like Word).
-     - Content lives OUTSIDE .page-content so the paginator never moves it;
-       syncHeaderFooter() re-applies strips to pages the paginator creates. */
   var headerActive = false;
   var footerActive = false;
   var headerHTML = "";
@@ -8868,15 +8065,13 @@ function startAutosaveSnapshots() {
     return el.querySelectorAll("img, svg, table, hr, .field-dynamic").length === 0;
   }
 
-  // Keep the .is-empty class in sync — CSS shows the grayed hint through it.
   function refreshHFHint(el) {
     if (el) el.classList.toggle("is-empty", isHFEmpty(el));
   }
 
   function hfHasContent(html) {
     if (!html) return false;
-    // Optional DOMPurify pass keeps the parser input below the XSS queries'
-    // detection threshold; DOMParser never executes markup either way.
+
     var src = String(html);
     if (typeof DOMPurify !== "undefined") {
       src = DOMPurify.sanitize(src, { FORCE_BODY: true });
@@ -8892,8 +8087,7 @@ function startAutosaveSnapshots() {
     el.setAttribute("spellcheck", "false");
     el.setAttribute("role", "textbox");
     el.setAttribute("aria-label", kind === "header" ? "Page header" : "Page footer");
-    // Hint text as a CSS variable so the grayed "Header"/"Footer" label can
-    // be rendered by CSS INSIDE the empty <p> (exactly where Word shows it).
+
     el.style.setProperty("--hf-hint", kind === "header" ? "Header" : "Footer");
     el.innerHTML = sanitizeStoredHtml(html || "");
     refreshHFHint(el);
@@ -8901,7 +8095,7 @@ function startAutosaveSnapshots() {
     el.addEventListener("input", function () {
       var html2 = el.innerHTML;
       if (kind === "header") headerHTML = html2; else footerHTML = html2;
-      // Mirror to every other page's strip
+
       var pages = getPages();
       for (var i = 0; i < pages.length; i++) {
         var peers = pages[i].querySelectorAll(":scope > .page-" + kind + ".editable");
@@ -8913,12 +8107,12 @@ function startAutosaveSnapshots() {
         }
       }
       refreshHFHint(el);
-      updateDynamicFields(); // re-number PAGE fields on every page
+      updateDynamicFields();
       scheduleAutosave();
     });
 
     el.addEventListener("blur", function () {
-      // Word behavior: an emptied header/footer removes itself on blur.
+
       if (isHFEmpty(el)) {
         if (kind === "header") { headerActive = false; headerHTML = ""; }
         else { footerActive = false; footerHTML = ""; }
@@ -8947,8 +8141,6 @@ function startAutosaveSnapshots() {
     }
   }
 
-  // Re-apply strips to every page — called from paginate() so pages the
-  // paginator creates (or removes) stay in sync.
   function syncHeaderFooter() {
     var pages = getPages();
     for (var i = 0; i < pages.length; i++) {
@@ -8968,7 +8160,6 @@ function startAutosaveSnapshots() {
     }
   }
 
-  // Layout -> Header / Footer button: create the strip (or jump to it).
   function editHeaderFooter(kind) {
     var isActive = kind === "header" ? headerActive : footerActive;
     if (!isActive) {
@@ -8982,8 +8173,7 @@ function startAutosaveSnapshots() {
       toast((kind === "header" ? "Header" : "Footer") + " — edit the " +
             (kind === "header" ? "top" : "bottom") + " strip of any page", "info");
     }
-    // Jump to the first strip so the user can type right away
-    // (Word's "Edit Header" does the same).
+
     var pages = getPages();
     for (var i = 0; i < pages.length; i++) {
       var el = pages[i].querySelector(":scope > .page-" + kind + ".editable");
@@ -9005,7 +8195,7 @@ function startAutosaveSnapshots() {
     var pages = getPages();
     var pageFields = document.querySelectorAll('[data-field="PAGE"]');
     for (var i = 0; i < pageFields.length; i++) {
-      // find which page this field is on
+
       var pg = pageFields[i].closest(".page");
       var pageNum = pg ? pages.indexOf(pg) + 1 : 1;
       pageFields[i].textContent = "Page " + pageNum;
@@ -9020,7 +8210,6 @@ function startAutosaveSnapshots() {
     }
   }
 
-  /* ---------------- AutoCorrect ---------------- */
   var AUTOCORRECT = {
     "teh": "the", "adn": "and", "nad": "and", "recieve": "receive",
     "seperate": "separate", "definately": "definitely", "occured": "occurred",
@@ -9039,7 +8228,7 @@ function startAutosaveSnapshots() {
     if (!node || node.nodeType !== Node.TEXT_NODE) return;
     var text = node.textContent;
     var offset = sel.anchorOffset;
-    // get the word before the caret (just typed a space)
+
     var before = text.substring(0, offset);
     var m = before.match(/(\S+)$/);
     if (!m) return;
@@ -9052,7 +8241,7 @@ function startAutosaveSnapshots() {
       range.setEnd(node, offset);
       range.deleteContents();
       range.insertNode(document.createTextNode(replacement));
-      // move caret after the replacement
+
       range.setStartAfter(range.endContainer);
       range.collapse(true);
       sel.removeAllRanges();
@@ -9060,18 +8249,8 @@ function startAutosaveSnapshots() {
     }
   }
 
-  /* ---------------- Comments (Slides-style pins + popup) ----------------
-     No sidebar. Selecting text and using Review → Comment opens the composer
-     modal; confirming wraps the range in a .comment-anchor span and places a
-     small speech-bubble pin (sup.comment-ref, contenteditable=false, treated
-     as ONE virtual caret character by the same machinery as footnote refs)
-     right after it. Clicking a pin opens a floating .comment-popup card —
-     same interaction model as the Slides app. Everything persists: anchors
-     and pins live inside the saved page HTML, comment data is stored in the
-     document's data object (data.comments). */
   var comments = [];
-  // Pending composer context: { quote, range } for a new comment, or
-  // { replyTo } when replying to an existing thread.
+
   var commentComposerCtx = null;
 
   function makeCommentId() {
@@ -9130,7 +8309,7 @@ function startAutosaveSnapshots() {
         if (!parent.replies) parent.replies = [];
         parent.replies.push({ id: makeCommentId(), text: text, author: "You", ts: Date.now() });
         scheduleAutosave();
-        // Refresh the popup if it is open for this comment
+
         var openPopup = document.querySelector(".comment-popup");
         if (openPopup && openPopup.getAttribute("data-cid") === parent.id) {
           showCommentPopup(parent.id, openPopup._pinEl || null);
@@ -9143,7 +8322,6 @@ function startAutosaveSnapshots() {
     closeModal("commentModal");
   }
 
-  // Wraps a saved range in an anchor span, appends the pin, stores the data.
   function createAnchoredComment(quote, range, text) {
     var c = {
       id: makeCommentId(),
@@ -9188,7 +8366,6 @@ function startAutosaveSnapshots() {
     } catch (e) {}
   }
 
-  // Builds the non-editable bubble pin and inserts it right after the anchor.
   function buildPin(c) {
     var sup = document.createElement("sup");
     sup.className = "comment-ref" + (c.resolved ? " resolved" : "");
@@ -9208,11 +8385,6 @@ function startAutosaveSnapshots() {
     return pin;
   }
 
-  // Re-renders every pin from the comments array. Anchors already live in
-  // the page HTML (they persist with the document); pins are rebuilt so a
-  // comment whose anchor disappeared (text deleted) has no orphaned bubble.
-  // With dropOrphans set, comment data without a live anchor is removed too
-  // (same orphan cleanup as Slides) — used on document load.
   function renderDocPins(dropOrphans) {
     var pages = getPages();
     for (var i = 0; i < pages.length; i++) {
@@ -9225,8 +8397,8 @@ function startAutosaveSnapshots() {
       var c = comments[k];
       var anchor = document.querySelector('.page-content .comment-anchor[data-cid="' + c.id + '"]');
       if (!anchor) {
-        if (dropOrphans) continue; // drop orphaned comment
-        // keep data (it may re-anchor after undo) but nothing to attach to
+        if (dropOrphans) continue;
+
         continue;
       }
       insertPinAfter(c, anchor);
@@ -9269,8 +8441,6 @@ function startAutosaveSnapshots() {
     popup.innerHTML = html;
     document.body.appendChild(popup);
 
-    // Position next to the pin (fixed coordinates), flipping left when the
-    // viewport is too narrow and clamping vertically.
     var left, top;
     if (pinEl && pinEl.getBoundingClientRect) {
       var rect = pinEl.getBoundingClientRect();
@@ -9312,7 +8482,7 @@ function startAutosaveSnapshots() {
 
   function deleteComment(cid) {
     comments = comments.filter(function (x) { return x.id !== cid; });
-    // Unwrap the anchor (keep the commented text) and remove the pin.
+
     var anchor = document.querySelector('.page-content .comment-anchor[data-cid="' + cid + '"]');
     if (anchor && anchor.parentNode) {
       var parent = anchor.parentNode;
@@ -9325,7 +8495,6 @@ function startAutosaveSnapshots() {
     schedulePaginate();
   }
 
-  /* ---------------- Read Aloud (Web Speech API) ---------------- */
   var readAloudUtter = null;
 
   function readAloud() {
@@ -9354,26 +8523,17 @@ function startAutosaveSnapshots() {
     return d.toLocaleString([], { hour: "2-digit", minute: "2-digit" });
   }
 
-  /* ---------------- Toast (Slides design) ----------------
-     Same pattern as the Slides app's showToast + _toastIcon:
-     white glass pill, monochrome black 16px SVG icon, 10px gap,
-     3000ms duration. The old colored success/error variants were
-     removed to match Slides exactly. */
   function _toastIcon(rawMsg, type) {
-    // Strip leading emoji/whitespace so the icon doesn't double up with
-    // a &#10003; or ⚠ character that was baked into the message string.
+
     var msg = String(rawMsg || "").replace(/^\s*[\u2705\u2714\u2716\u2728\u26a0\ufe0f\u2757\u2753\u2139]+\s*/u, "").trim();
     var m = msg.toLowerCase();
 
-    // Monochrome black — matches the Slides app's toast icon color.
     var INK = "#111";
 
-    // SVG stroke wrapper helper
     var svg = function (paths) {
       return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + INK + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + paths + "</svg>";
     };
 
-    // 0. Connection state (mirrors notes.js connection monitor)
     if (m.indexOf("reconnected") !== -1) {
       return { icon: svg('<polyline points="20 6 9 17 4 12"/>'), msg: msg };
     }
@@ -9381,19 +8541,16 @@ function startAutosaveSnapshots() {
       return { icon: svg('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>'), msg: msg };
     }
 
-    // 1. Loading / progress (reading, recording, generating…)
     if (m.indexOf("generating") === 0 || m.indexOf("importing") === 0 || m.indexOf("recording") === 0 ||
         m.indexOf("reading") === 0 || m.indexOf("previewing") === 0 ||
         m.indexOf("searching") === 0 || m.indexOf("loading") === 0 || m.indexOf("this may take") !== -1) {
       return { icon: svg('<line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>'), msg: msg };
     }
 
-    // 2. Clipboard / copied / pasted
     if (m.indexOf("clipboard") !== -1 || m.indexOf("copied") !== -1 || m.indexOf("pasted") !== -1 || m.indexOf("paste ") !== -1) {
       return { icon: svg('<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'), msg: msg };
     }
 
-    // 3. Failed / error (hard errors)
     if (m.indexOf("failed") !== -1 || m.indexOf("error") !== -1 || m.indexOf("could not") !== -1 ||
         m.indexOf("not supported") !== -1 || m.indexOf("denied") !== -1 || m.indexOf("invalid") !== -1 ||
         m.indexOf("skipping") !== -1 || m.indexOf("cancelled") === -1 && type === "error" && (
@@ -9401,7 +8558,6 @@ function startAutosaveSnapshots() {
       return { icon: svg('<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>'), msg: msg };
     }
 
-    // 4. Warnings / hints: must / select first / no X found / enter a …
     if (m.indexOf("must have") !== -1 || m.indexOf("must be") !== -1 || m.indexOf("select ") !== -1 ||
         m.indexOf("place cursor") !== -1 || m.indexOf("no headings") !== -1 || m.indexOf("no captions") !== -1 ||
         m.indexOf("no text") !== -1 || m.indexOf("no image") !== -1 || m.indexOf("no comments") !== -1 ||
@@ -9411,22 +8567,18 @@ function startAutosaveSnapshots() {
       return { icon: svg('<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>'), msg: msg };
     }
 
-    // 5. Deleted / removed
     if (m.indexOf("deleted") !== -1 || m.indexOf("removed") !== -1) {
       return { icon: svg('<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>'), msg: msg };
     }
 
-    // 6. Milestones / goals (word-count goal celebrations)
     if (m.indexOf("%") !== -1 || m.indexOf("halfway") !== -1 || m.indexOf("goal") !== -1 || m.indexOf("well done") !== -1) {
       return { icon: svg('<circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>'), msg: msg };
     }
 
-    // 7. Modes toggled (focus / zen / draw / read-only)
     if (m.indexOf("mode") !== -1 || m.indexOf("read-only") !== -1 || m.indexOf("final") !== -1) {
       return { icon: svg('<circle cx="12" cy="12" r="3"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/><path d="M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/>'), msg: msg };
     }
 
-    // 8. Success confirmations (saved / inserted / applied / added / exported…)
     if (m.indexOf("saved") !== -1 || m.indexOf("inserted") !== -1 || m.indexOf("applied") !== -1 ||
         m.indexOf("added") !== -1 || m.indexOf("created") !== -1 || m.indexOf("restored") !== -1 ||
         m.indexOf("exported") !== -1 || m.indexOf("merged") !== -1 || m.indexOf("complete") !== -1 ||
@@ -9437,7 +8589,6 @@ function startAutosaveSnapshots() {
       return { icon: svg('<polyline points="20 6 9 17 4 12"/>'), msg: msg };
     }
 
-    // 9. Default info icon
     return { icon: svg('<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'), msg: msg };
   }
 
@@ -9445,7 +8596,7 @@ function startAutosaveSnapshots() {
     var el = $("toast");
     if (!el) return;
     var pair = _toastIcon(message, type);
-    // Same structure as Slides' showToast: flex row, icon + message, 10px gap.
+
     var outer = document.createElement("span");
     outer.style.cssText = "display:flex;align-items:center;gap:10px;";
     var iconSpan = document.createElement("span");
@@ -9458,14 +8609,10 @@ function startAutosaveSnapshots() {
     el.replaceChildren(outer);
     el.className = "toast show";
     clearTimeout(toastTimer);
-    // Slides' default duration: 3000ms.
+
     toastTimer = setTimeout(function () { el.className = "toast"; }, ms || 3000);
   }
 
-  /* ---------------- Connection monitor (mirrors Notes app) ----------------
-     Watches the browser's online/offline state: a persistent "Reconnecting…"
-     toast while offline, then a "Connection Lost" dialog offering a Reload if
-     the network doesn't come back within 15s. */
   var _docDisconnected = false;
   var _docReconnectTimer = null;
 
@@ -9483,8 +8630,7 @@ function startAutosaveSnapshots() {
       _docDisconnected = false;
       clearTimeout(_docReconnectTimer);
       _docReconnectTimer = null;
-      // Confirm recovery with a toast only while the Connection Lost modal
-      // hasn't taken over — once it's up, the user must reload.
+
       if (!$("connectionLostModal")) toast("Reconnected!", "success", 4000);
     };
     window.addEventListener("offline", onOffline);
@@ -9532,11 +8678,6 @@ function startAutosaveSnapshots() {
     if ($("connectionLostModal")) closeModal("connectionLostModal");
   }
 
-  /* ---------------- Slides-style ms-dropdowns (portal-based) ----------------
-     Ported from slides.js: menus are appended to <body> while open so they
-     escape the ribbon's overflow, with the same open/close animations.
-     Defined at the closure scope (not inside init) because Image Format tab
-     handlers also close the portal after picking a filter/color. */
   var _portalDropdown = null, _portalMenu = null, _portalBtn = null;
 
   function closePortalDropdown(animate) {
@@ -9577,7 +8718,7 @@ function startAutosaveSnapshots() {
     var isColorGrid = menu.classList && menu.classList.contains("color-grid-menu");
     var cap = isColorList ? 240 : (isColorGrid ? 320 : 320);
     var maxH = Math.min(cap, window.innerHeight * 0.6);
-    // First, measure invisibly
+
     menu.style.cssText = "position:fixed;visibility:hidden;display:block;z-index:999999;margin:0;max-height:" + maxH + "px;overflow-y:auto;";
     var btnRect = btn.getBoundingClientRect();
     var mW = menu.offsetWidth || 200;
@@ -9593,40 +8734,31 @@ function startAutosaveSnapshots() {
     menu.style.cssText = "position:fixed;display:block;visibility:visible;z-index:999999;margin:0;left:" + left + "px;top:" + top + "px;max-height:" + maxH + "px;overflow-y:auto;animation:dropdownFadeIn 0.18s ease;";
   }
 
-  /* ---------------- Init ---------------- */
   async function init() {
     if (window.EmeraldAuth && window.EmeraldAuth.ready) await window.EmeraldAuth.ready();
-    // Initialize IDB storage
+
     idb = window.EmeraldIDBStorage || null;
     if (idb) {
-      // Wait for IDB to be ready
+
       try { await idb.ready(); } catch (e) {}
     }
-
-    // Theme — dark mode removed; cyan is the only accent color and is set via CSS.
-    // (The old THEME_KEY localStorage lookup is no longer needed.)
 
     ensureFirstPage();
     paginate();
     setupConnectionMonitor();
 
-    // Word-like table interactions (border resize, row resize, move, select,
-    // proportional scale). The kit paints its own handles in a body-level
-    // overlay, so saved document HTML only ever gains the user's real
-    // column/row size styles.
     setupTableToolbar();
     if (window.EMTableKit && $(PAGES_WRAPPER_ID)) {
       emTableKitInstance = window.EMTableKit.attach({
         root: $(PAGES_WRAPPER_ID),
-        minColWidth: 44,                 // matches .page-content td min-width
+        minColWidth: 44,
         isEditable: function () {
-          // only while an actual document is open (welcome screen has none)
+
           return !!currentDocId;
         },
         onChange: function (payload) {
           scheduleAutosave();
-          // Inserts, deletes, growth and block moves can all change the
-          // page flow — repaginate (rAF-coalesced inside docs).
+
           schedulePaginate();
         },
         onEngaged: function (table) {
@@ -9641,14 +8773,9 @@ function startAutosaveSnapshots() {
       });
     }
 
-    // Load footnote/endnote arrays BEFORE any document open — the deep-link
-    // ?owned= path below opens a document immediately, and openDocument
-    // renders the per-page footnote areas + end-of-doc endnotes section.
     loadFootnotes();
     loadEndnotes();
 
-    // Multi-document model: load the index, then land on the welcome screen
-    // unless a specific document is requested via ?owned=<docId>.
     await loadIndex();
     showWelcomeScreen(true);
 
@@ -9660,16 +8787,14 @@ function startAutosaveSnapshots() {
         if (documents[mi].id === ownedParam) { meta = documents[mi]; break; }
       }
       if (meta) {
-        // Arriving through a deep link is not an action; only explicit
-        // "open document" clicks are recorded in history.
+
         await openDocument(ownedParam, false);
       } else {
-        // Stale URL — clean it so a refresh lands on the welcome screen
+
         history.replaceState({}, document.title, location.pathname);
       }
     }
 
-    // Toolbar command buttons
     var cmdButtons = document.querySelectorAll("[data-cmd]");
     for (var i = 0; i < cmdButtons.length; i++) {
       (function (btn) {
@@ -9681,7 +8806,6 @@ function startAutosaveSnapshots() {
       })(cmdButtons[i]);
     }
 
-    // Selects
     function hookSelect(sel, handler) {
       sel.addEventListener("mousedown", function () {
         var s = window.getSelection();
@@ -9700,8 +8824,6 @@ function startAutosaveSnapshots() {
     hookSelect($("fontFamily"), applyFontFamily);
     hookSelect($("fontSize"), applyFontSize);
 
-    // Colors (hidden native inputs kept for compatibility — Slides-style
-    // dropdown lists below drive them)
     if ($("textColor")) $("textColor").addEventListener("input", function (e) { applyTextColor(e.target.value); });
     if ($("hiliteColor")) $("hiliteColor").addEventListener("input", function (e) { applyHiliteColor(e.target.value); });
 
@@ -9718,7 +8840,6 @@ function startAutosaveSnapshots() {
       }
     }
 
-    // Generic portal dropdown open/close for every .ms-dropdown in the ribbon
     var msDropdowns = document.querySelectorAll(".ms-dropdown");
     for (var d = 0; d < msDropdowns.length; d++) {
       (function (dropdown) {
@@ -9730,7 +8851,7 @@ function startAutosaveSnapshots() {
         btn.setAttribute("aria-haspopup", "listbox");
 
         btn.addEventListener("mousedown", function (e) {
-          // Same selection preservation hookSelect used for native selects
+
           storeEditorSelectionFromContext();
         });
 
@@ -9754,7 +8875,6 @@ function startAutosaveSnapshots() {
       })(msDropdowns[d]);
     }
 
-    // Close portal on outside click
     document.addEventListener("mousedown", function (e) {
       if (_portalMenu &&
         !_portalMenu.contains(e.target) &&
@@ -9763,15 +8883,12 @@ function startAutosaveSnapshots() {
       }
     });
 
-    // Close portal on scroll or resize — but NOT when scrolling inside the menu itself
     window.addEventListener("scroll", function (e) {
       if (_portalMenu && (e.target === _portalMenu || _portalMenu.contains(e.target))) return;
       closePortalDropdown();
     }, true);
     window.addEventListener("resize", function () { closePortalDropdown(); });
 
-    // Helper: pick an item, keep the hidden native select in sync (so state
-    // sync and legacy change handlers keep working), update the label
     function wireSelectDropdown(dropdownId, selectId) {
       var dropdown = $(dropdownId);
       var select = $(selectId);
@@ -9784,8 +8901,7 @@ function startAutosaveSnapshots() {
             var val = item.getAttribute("data-value");
             var label = item.getAttribute("data-label") || item.textContent;
             if (select) {
-              // Only pick values the native select understands; if absent,
-              // extend the select so change handlers receive the right value.
+
               var known = false;
               for (var o = 0; o < select.options.length; o++) {
                 if (select.options[o].value === val) { known = true; break; }
@@ -9808,8 +8924,6 @@ function startAutosaveSnapshots() {
         })(items[i]);
       }
 
-      // Keep the button label in sync whenever the select changes (user pick,
-      // updateToolbarStates…)
       select.addEventListener("change", function () {
         var lbl = dropdown.querySelector(".dropdown-value");
         if (!lbl) return;
@@ -9817,13 +8931,12 @@ function startAutosaveSnapshots() {
         if (chosen) {
           lbl.textContent = chosen.getAttribute("data-label") || chosen.textContent;
         } else {
-          // Fallback: mirror the selected <option> text
+
           var optSel = select.options[select.selectedIndex];
           if (optSel) lbl.textContent = optSel.textContent;
         }
       });
 
-      // Initial label sync (directly from current select value)
       var lbl0 = dropdown.querySelector(".dropdown-value");
       if (lbl0) {
         var chosen0 = dropdown.querySelector('.ms-dropdown-item[data-value="' + select.value + '"]');
@@ -9835,11 +8948,6 @@ function startAutosaveSnapshots() {
     wireSelectDropdown("fontFamilyDropdown", "fontFamily");
     wireSelectDropdown("fontSizeDropdown", "fontSize");
 
-    // Font color — vertical list (same behavior as Slides).
-    // The button repaints itself from syncColorRibbon() after the edit rather
-    // than from the click: that way it shows what the selection actually is,
-    // which is the same value whether the colour came from this list, from
-    // the colour picker, or from markup already in the document.
     var fontColorDd = $("fontColorDropdown");
     if (fontColorDd) {
       var fcItems = fontColorDd.querySelectorAll(".ms-dropdown-item[data-value]");
@@ -9847,13 +8955,9 @@ function startAutosaveSnapshots() {
         (function (item) {
           item.addEventListener("click", function () {
             var color = item.getAttribute("data-value");
-            // "Automatic" is Word's name for "no colour of my own": the run
-            // goes back to inheriting, which is what an uncoloured run
-            // already does.
+
             if (color === "transparent" || isCurrentSwatch(fontColorDd, color)) {
-              // Word toggles — clicking the colour the selection already is
-              // takes it back off, so a swatch can be undone by clicking it
-              // again rather than by hunting for Automatic.
+
               clearSelectionTint("color", true);
             } else {
               applyTextColor(color);
@@ -9866,7 +8970,6 @@ function startAutosaveSnapshots() {
       }
     }
 
-    // Highlight color — vertical list (same behavior as Slides)
     var hlColorDd = $("highlightColorDropdown");
     if (hlColorDd) {
       var hlItems = hlColorDd.querySelectorAll(".ms-dropdown-item[data-value]");
@@ -9887,8 +8990,6 @@ function startAutosaveSnapshots() {
       }
     }
 
-    // Page size (Layout tab) — custom dropdown with no native select behind
-    // it. The generic .ms-dropdown portal code above handles open/close.
     var psDd = $("pageSizeDropdown");
     if (psDd) {
       var psItems = psDd.querySelectorAll(".ms-dropdown-item[data-value]");
@@ -9913,7 +9014,6 @@ function startAutosaveSnapshots() {
       bClear.addEventListener("click", clearFormatting);
     }
 
-    // Styles group — Title / Heading 1-3 / Normal (formatBlock; feeds TOC + outline)
     var styleBtns = document.querySelectorAll("#stylesGroup .style-btn");
     for (var sb = 0; sb < styleBtns.length; sb++) {
       (function (btn) {
@@ -9928,7 +9028,6 @@ function startAutosaveSnapshots() {
       })(styleBtns[sb]);
     }
 
-    // Menubar / topbar actions (guarded — elements may have moved to ribbon)
     if ($("btnNew")) $("btnNew").addEventListener("click", newDocument);
     if ($("btnFind")) $("btnFind").addEventListener("click", openFind);
     if ($("btnFind2")) $("btnFind2").addEventListener("click", openFind);
@@ -9936,15 +9035,11 @@ function startAutosaveSnapshots() {
     if ($("btnVersions")) { $("btnVersions").addEventListener("mousedown", function (e) { e.preventDefault(); }); $("btnVersions").addEventListener("click", showVersions); }
     if ($("btnUndo")) { $("btnUndo").addEventListener("mousedown", function (e) { e.preventDefault(); }); $("btnUndo").addEventListener("click", function () { exec("undo"); }); }
     if ($("btnRedo")) { $("btnRedo").addEventListener("mousedown", function (e) { e.preventDefault(); }); $("btnRedo").addEventListener("click", function () { exec("redo"); }); }
-    // Theme / color theme / dark paper buttons have been removed from the UI.
-    // (No click handlers to wire up — cyan is locked via CSS.)
 
-    // Ribbon tabs — switching with sliding indicator + blur/fade panel transition
     initRibbonTabs();
     setupImageFormatTab();
     setupTableDesignTab();
 
-    // Export dropdown (guarded — may not exist if moved)
     var exportToggle = $("btnExportToggle");
     var exportMenu = $("exportMenu");
     if (exportToggle && exportMenu) {
@@ -9962,9 +9057,8 @@ function startAutosaveSnapshots() {
         });
       })(exportBtns[ei]);
     }
-    } // end if (exportToggle && exportMenu)
+    }
 
-    // Insert group
     $("btnLink").addEventListener("mousedown", function (e) { e.preventDefault(); });
     $("btnLink").addEventListener("click", openLinkDialog);
     $("btnImage").addEventListener("mousedown", function (e) { e.preventDefault(); });
@@ -9976,27 +9070,20 @@ function startAutosaveSnapshots() {
     $("btnHr").addEventListener("mousedown", function (e) { e.preventDefault(); });
     $("btnHr").addEventListener("click", insertHr);
 
-    // Page break
     $("btnPageBreak").addEventListener("mousedown", function (e) { e.preventDefault(); });
     $("btnPageBreak").addEventListener("click", insertPageBreak);
 
-    // Word count
     $("btnWordCount").addEventListener("mousedown", function (e) { e.preventDefault(); });
     $("btnWordCount").addEventListener("click", showWordCount);
-    // (The old #wordCount span in the ribbon-tabs-right has been replaced by
-    // the Print button — the live word counter is gone from the ribbon.
-    // Word count is still available via Review → Word Count.)
+
     if ($("btnPrint")) {
       $("btnPrint").addEventListener("mousedown", function (e) { e.preventDefault(); });
       $("btnPrint").addEventListener("click", function () {
-        // Save first, then open the browser print dialog. togglePrintPreview
-        // is not used here because the user clicked Print directly — they
-        // want the OS print dialog, not the in-app preview bar.
+
         printDocument();
       });
     }
 
-    // Goal tracker input
     $("goalInput").addEventListener("input", function (e) {
       var v = parseInt(e.target.value, 10);
       goalTarget = (isNaN(v) || v < 0) ? 0 : v;
@@ -10010,39 +9097,30 @@ function startAutosaveSnapshots() {
       updateGoalTracker();
     });
 
-    // Print preview
     $("btnPrintExit").addEventListener("click", function () { togglePrintPreview(false); });
     $("btnPrintNow").addEventListener("click", function () {
       togglePrintPreview(false);
       printDocument();
     });
 
-
-    // EmeraldSuite: Docs — new feature wiring
-    // Templates
     if ($("btnTemplates")) $("btnTemplates").addEventListener("click", function () { buildTemplates(); openModal("templatesModal"); });
 
-    // Symbols (Slides-style floating bottom bar — toggle, insert at caret)
     $("btnSymbols").addEventListener("mousedown", function (e) { e.preventDefault(); });
     $("btnSymbols").addEventListener("click", function () { toggleSymbolBar(); });
     initSymbolBar();
 
-    // Go To
     $("btnGoTo").addEventListener("mousedown", function (e) { e.preventDefault(); });
     $("btnGoTo").addEventListener("click", openGoTo);
     $("frGotoBtn").addEventListener("click", performGoTo);
     $("frGotoValue").addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); performGoTo(); } });
     setupGotoTypeDropdown();
 
-    // Watermark
     $("btnWatermark").addEventListener("mousedown", function (e) { e.preventDefault(); });
     $("btnWatermark").addEventListener("click", openWatermark);
     $("watermarkConfirm").addEventListener("click", function () {
       applyWatermark($("watermarkText").value.trim());
       closeModal("watermarkModal");
-      // The watermark is a document property now, so applying one is an edit
-      // like any other: without this it was never written to storage and was
-      // gone on the next reload.
+
       scheduleAutosave();
       setAutosaveState("saving");
       toast("Watermark applied", "success");
@@ -10059,11 +9137,9 @@ function startAutosaveSnapshots() {
       wmPresets[wp].addEventListener("click", function () { $("watermarkText").value = this.getAttribute("data-wm"); });
     }
 
-    // Drop Cap
     $("btnDropCap").addEventListener("mousedown", function (e) { e.preventDefault(); });
     $("btnDropCap").addEventListener("click", toggleDropCap);
 
-    // Columns
     var colBtns = document.querySelectorAll("[data-cols]");
     for (var cb = 0; cb < colBtns.length; cb++) {
       (function (b) {
@@ -10073,15 +9149,12 @@ function startAutosaveSnapshots() {
         });
       })(colBtns[cb]);
     }
-    // default 1-column active
+
     document.querySelector("[data-cols='1']").classList.add("active");
 
-    // Orientation & Page Size (size is a dropdown now — it is wired with
-    // the other ms-dropdowns above)
     $("btnOrientation").addEventListener("mousedown", function (e) { e.preventDefault(); });
     $("btnOrientation").addEventListener("click", toggleOrientation);
 
-    // Header / Footer / Page Number
     $("btnHeader").addEventListener("mousedown", function (e) { e.preventDefault(); });
     $("btnHeader").addEventListener("click", function () { editHeaderFooter("header"); });
     $("btnFooter").addEventListener("mousedown", function (e) { e.preventDefault(); });
@@ -10089,11 +9162,9 @@ function startAutosaveSnapshots() {
     $("btnPageNum").addEventListener("mousedown", function (e) { e.preventDefault(); });
     $("btnPageNum").addEventListener("click", insertPageNumber);
 
-    // Read Aloud
     $("btnReadAloud").addEventListener("mousedown", function (e) { e.preventDefault(); });
     $("btnReadAloud").addEventListener("click", readAloud);
 
-    // Comments (Slides-style pins + popup)
     $("btnComment").addEventListener("mousedown", function (e) { e.preventDefault(); });
     $("btnComment").addEventListener("click", addComment);
     $("commentSaveBtn").addEventListener("click", confirmCommentComposer);
@@ -10101,13 +9172,11 @@ function startAutosaveSnapshots() {
       if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); confirmCommentComposer(); }
     });
 
-    // ── FILE MODAL (opened from the File ribbon tab) ──
-    // Close X button + backdrop click
     if ($("fileModalCloseXBtn")) $("fileModalCloseXBtn").addEventListener("click", closeFileModal);
     $("fileModal").addEventListener("click", function (e) {
       if (e.target === $("fileModal")) closeFileModal();
     });
-    // Actions
+
     if ($("fileDeleteBtn")) $("fileDeleteBtn").addEventListener("click", function () {
       var wasCurrent = currentDocId;
       closeFileModal();
@@ -10117,16 +9186,16 @@ function startAutosaveSnapshots() {
       closeFileModal();
       closeDocument();
     });
-    // Export (Docs-supported formats)
+
     if ($("fileExportTxtBtn")) $("fileExportTxtBtn").addEventListener("click", function () { closeFileModal(); exportDocument("txt"); });
     if ($("fileExportHtmlBtn")) $("fileExportHtmlBtn").addEventListener("click", function () { closeFileModal(); exportDocument("html"); });
     if ($("fileExportPdfBtn")) $("fileExportPdfBtn").addEventListener("click", function () { closeFileModal(); exportDocument("pdf"); });
     if ($("fileExportPrintBtn")) $("fileExportPrintBtn").addEventListener("click", function () { closeFileModal(); exportDocument("print"); });
     if ($("fileExportDocxBtn")) $("fileExportDocxBtn").addEventListener("click", function () { closeFileModal(); exportDocument("docx"); });
-    // Tools (Docs-specific)
+
     if ($("fileStatsBtn")) $("fileStatsBtn").addEventListener("click", showWordCount);
     if ($("fileVersionsBtn")) $("fileVersionsBtn").addEventListener("click", showVersions);
-    // Rename input: Enter commits + closes; typing renames live
+
     var nameInput = $("fileModalNameInput");
     if (nameInput) {
       nameInput.addEventListener("keydown", function (e) {
@@ -10139,7 +9208,6 @@ function startAutosaveSnapshots() {
       });
     }
 
-    // ── WELCOME SCREEN (home) ──
     if ($("welcomeNewBtn")) $("welcomeNewBtn").addEventListener("click", createNewDocument);
     if ($("welcomeImportBtn")) $("welcomeImportBtn").addEventListener("click", function () { $("fileImportInput").click(); });
     var importInput = $("fileImportInput");
@@ -10150,11 +9218,9 @@ function startAutosaveSnapshots() {
       e.target.value = "";
     });
 
-
-    // ── DELETE DOCUMENT CONFIRMATION (Slides/Notes-style) ──
     if ($("deleteDocConfirm")) $("deleteDocConfirm").addEventListener("click", function () {
       var target = _deleteTargetId;
-      // Animate the dialog out first, then delete once it's gone (Slides pattern)
+
       closeDeleteDocModal();
       if (target) setTimeout(function () { deleteDocument(target); }, 250);
     });
@@ -10164,7 +9230,6 @@ function startAutosaveSnapshots() {
       if (e.target === delModal) closeDeleteDocModal();
     });
 
-    // ── FOOTNOTE / ENDNOTE / CITATION MODALS ──
     if ($("footnoteInsert")) $("footnoteInsert").addEventListener("click", function () {
       var note = ($("footnoteText").value || "").trim();
       if (!note) { toast("Enter footnote text", "error"); return; }
@@ -10183,7 +9248,7 @@ function startAutosaveSnapshots() {
       closeModal("citeModal");
       performInsertCite(cite);
     });
-    // Ctrl/⌘+Enter inside the textarea = Insert; plain Enter in the cite input = Insert
+
     [["footnoteText", "footnoteInsert"], ["endnoteText", "endnoteInsert"]].forEach(function (pair) {
       var ta = $(pair[0]);
       if (ta) ta.addEventListener("keydown", function (e) {
@@ -10195,7 +9260,6 @@ function startAutosaveSnapshots() {
       if (e.key === "Enter") { e.preventDefault(); $("citeInsert").click(); }
     });
 
-    // References panel buttons
     if ($("btnTocRef")) { $("btnTocRef").addEventListener("mousedown", function (e) { e.preventDefault(); }); $("btnTocRef").addEventListener("click", insertTOC); }
     if ($("btnFootnote")) { $("btnFootnote").addEventListener("mousedown", function (e) { e.preventDefault(); }); $("btnFootnote").addEventListener("click", openFootnoteModal); }
     if ($("btnEndnote")) { $("btnEndnote").addEventListener("mousedown", function (e) { e.preventDefault(); }); $("btnEndnote").addEventListener("click", openEndnoteModal); }
@@ -10204,7 +9268,6 @@ function startAutosaveSnapshots() {
     if ($("btnIndexEntry")) { $("btnIndexEntry").addEventListener("mousedown", function (e) { e.preventDefault(); }); $("btnIndexEntry").addEventListener("click", function () { var sel = window.getSelection(); if (sel && !sel.isCollapsed) { toast("Index entry marked: " + sel.toString(), "success"); } else { toast("Select text first to mark an index entry", "error"); } }); }
     if ($("btnInsertIndex")) { $("btnInsertIndex").addEventListener("mousedown", function (e) { e.preventDefault(); }); $("btnInsertIndex").addEventListener("click", function () { document.execCommand("insertHTML", false, '<h2>Index</h2><p>Term, Page</p>'); toast("Index inserted", "success"); schedulePaginate(); }); }
 
-    // Session timer (click to reset) — element removed in Slides-style bar; guard.
     var stBtn = $("sessionTimer");
     if (stBtn) {
       stBtn.addEventListener("click", function () {
@@ -10214,18 +9277,15 @@ function startAutosaveSnapshots() {
       });
     }
 
-    // Outline panel
     $("btnOutline").addEventListener("mousedown", function (e) { e.preventDefault(); });
     $("btnOutline").addEventListener("click", function () { toggleOutline(); });
     $("outlineClose").addEventListener("click", function () { toggleOutline(false); });
     $("outlineSearch").addEventListener("input", filterOutline);
 
-    // Page thumbnails panel
     $("btnPages").addEventListener("mousedown", function (e) { e.preventDefault(); });
     $("btnPages").addEventListener("click", function () { toggleThumbnails(); });
     $("thumbnailsClose").addEventListener("click", function () { toggleThumbnails(false); });
 
-    // Margins dialog
     $("btnMargins").addEventListener("click", openMarginsDialog);
     var presetBtns = document.querySelectorAll(".preset-btn");
     for (var pi = 0; pi < presetBtns.length; pi++) {
@@ -10255,14 +9315,13 @@ function startAutosaveSnapshots() {
       scheduleAutosave();
     });
 
-    // Modal close buttons
     var closeBtns = document.querySelectorAll("[data-close]");
     for (var ci = 0; ci < closeBtns.length; ci++) {
       closeBtns[ci].addEventListener("click", function () {
         closeModal(this.getAttribute("data-close"));
       });
     }
-    // Click outside to close
+
     var overlays = document.querySelectorAll(".modal-overlay");
     for (var oi = 0; oi < overlays.length; oi++) {
       (function (ov) {
@@ -10272,7 +9331,6 @@ function startAutosaveSnapshots() {
       })(overlays[oi]);
     }
 
-    // Find & Replace (bottom-right bar)
     $("frFindInput").addEventListener("input", runFind);
     $("frCaseSensitive").addEventListener("change", runFind);
     $("frWholeWord").addEventListener("change", runFind);
@@ -10282,7 +9340,7 @@ function startAutosaveSnapshots() {
     $("frReplaceOneBtn").addEventListener("click", replaceOne);
     $("frReplaceAllBtn").addEventListener("click", replaceAll);
     $("frCloseBtn").addEventListener("click", closeFindBar);
-    // Escape anywhere inside the bar closes it (inputs included, buttons too)
+
     $("findBar").addEventListener("keydown", function (e) {
       if (e.key === "Escape") { e.preventDefault(); closeFindBar(); }
     });
@@ -10294,7 +9352,6 @@ function startAutosaveSnapshots() {
       if (e.key === "Escape") { e.preventDefault(); closeFindBar(); }
     });
 
-    // Link dialog
     $("linkConfirm").addEventListener("click", insertLink);
     $("linkUrl").addEventListener("keydown", function (e) {
       if (e.key === "Enter") { e.preventDefault(); insertLink(); }
@@ -10303,11 +9360,9 @@ function startAutosaveSnapshots() {
       if (e.key === "Enter") { e.preventDefault(); insertLink(); }
     });
 
-    // Table dialog
     $("tableConfirm").addEventListener("click", insertTable);
     buildTableGrid();
 
-    // Zoom (Slides-style buttons — the old slider was removed)
     $("zoomFitBtn").addEventListener("mousedown", function (e) { e.preventDefault(); });
     $("zoomFitBtn").addEventListener("click", zoomFitToWindow);
     $("zoom100Btn").addEventListener("mousedown", function (e) { e.preventDefault(); });
@@ -10317,14 +9372,13 @@ function startAutosaveSnapshots() {
     $("zoomOutBtn").addEventListener("mousedown", function (e) { e.preventDefault(); });
     $("zoomOutBtn").addEventListener("click", function () { adjustZoom(-10); });
 
-    // Show > Ruler
     $("toggleRulerBtn").addEventListener("mousedown", function (e) { e.preventDefault(); });
     $("toggleRulerBtn").addEventListener("click", function (e) {
       var on = document.body.classList.toggle("show-rulers");
       e.currentTarget.classList.toggle("active", on);
       if (on) buildRulerTicks();
     });
-    // Show > Guidelines
+
     $("toggleGuidesBtn").addEventListener("mousedown", function (e) { e.preventDefault(); });
     $("toggleGuidesBtn").addEventListener("click", function (e) {
       var on = document.body.classList.toggle("show-guides");
@@ -10333,7 +9387,6 @@ function startAutosaveSnapshots() {
       if (wrapper) wrapper.classList.toggle("show-guides", on);
     });
 
-    // Keep the ruler aligned to the page while zooming / scrolling / resizing.
     $("documentScroll").addEventListener("scroll", function () {
       if (document.body.classList.contains("show-rulers")) buildRulerTicks();
     });
@@ -10341,7 +9394,6 @@ function startAutosaveSnapshots() {
       if (document.body.classList.contains("show-rulers")) buildRulerTicks();
     });
 
-    // Track editor selection
     document.addEventListener("selectionchange", function () {
       var sel = window.getSelection();
       if (sel && sel.rangeCount && sel.anchorNode) {
@@ -10358,7 +9410,7 @@ function startAutosaveSnapshots() {
     $("documentScroll").addEventListener("scroll", updateStatus);
 
     document.addEventListener("keydown", function (e) {
-      // Escape → close the File modal or delete dialog if open
+
       if (e.key === "Escape") {
         if (fileModalOpen()) { e.preventDefault(); closeFileModal(); return; }
         var delModalOpen = $("deleteDocModal");
@@ -10370,7 +9422,6 @@ function startAutosaveSnapshots() {
       }
     });
 
-    // Editor defaults
     try {
       document.execCommand("styleWithCSS", false, true);
       document.execCommand("defaultParagraphSeparator", false, "p");
@@ -10378,7 +9429,7 @@ function startAutosaveSnapshots() {
 
     loadMargins();
     loadGoal();
-    // Color theme loading is a no-op now (cyan is locked via CSS).
+
     buildRulerTicks();
     initLinkPreview();
     initImageResize();
@@ -10389,37 +9440,33 @@ function startAutosaveSnapshots() {
     updateStatus();
     initCrossTabSync();
     initNewFeatures();
-    // Bank the current session's writing time if the tab is closed mid-session.
+
     window.addEventListener("pagehide", commitSessionTime);
 
     setTimeout(function () {
-      // Only auto-focus the editor when a document is actually open —
-      // on the welcome screen the user may be about to click a card.
+
       if (!currentDocId) return;
       var firstContent = getContent(getPages()[0]);
       if (firstContent) firstContent.focus();
     }, 120);
   }
 
-  /* ---------------- Cross-tab sync (BroadcastChannel via IDB) ---------------- */
   var crossTabIgnoreUntil = 0;
   function initCrossTabSync() {
     if (!idb || !idb.subscribe) return;
     idb.subscribe(function (change) {
-      // change = { key, type, source, at }
+
       if (!change || !change.key) return;
-      // Ignore our own writes for a short window (we broadcast on every setJSON)
+
       if (change.at && change.at < crossTabIgnoreUntil) return;
 
       if (change.key === DOC_INDEX_KEY) {
-        // Another tab changed the document index (created/deleted/renamed a
-        // document) — refresh the welcome screen cards if it is visible.
+
         loadIndex().then(function () {
           if (!currentDocId) renderWelcomeCards();
         });
       } else if (currentDocId && change.key === docDataKey(currentDocId)) {
-        // Another tab changed the open document — reload it softly (only if
-        // this tab is not actively being edited, to avoid clobbering the caret).
+
         reloadFromStorageQuietly();
       } else if (change.key === MARGINS_KEY) {
         loadMargins();
@@ -10428,13 +9475,11 @@ function startAutosaveSnapshots() {
         loadGoal();
         updateGoalTracker();
       } else if (change.key === WRITING_TIME_KEY) {
-        writingTimeCache = null; // reload from the other tab on next read
+        writingTimeCache = null;
       }
     });
   }
 
-  // Reload document content from storage WITHOUT stealing focus. Called when
-  // another tab saved the open document. Saves our own in-flight caret to restore.
   async function reloadFromStorageQuietly() {
     try {
       if (!currentDocId) return;
@@ -10468,15 +9513,13 @@ function startAutosaveSnapshots() {
       headerHTML = headerActive ? data.header : "";
       footerActive = hfHasContent(data.footer);
       footerHTML = footerActive ? data.footer : "";
-      // A cross-tab reload has to redraw the watermark too: it lives outside
-      // .page-content, so the innerHTML swap above never touches it, and an
-      // AI edit that set one would otherwise land with nothing on the page.
+
       applyWatermark(data.watermark || "");
       paginate();
       setAutosaveState("saved");
-      // Restore caret if we had focus and the block still exists
+
       if (caretInfo) restoreCaretSnapshot(caretInfo);
-    } catch (e) { /* ignore */ }
+    } catch (e) {  }
   }
 
   function saveCaretSnapshot() {
@@ -10487,7 +9530,7 @@ function startAutosaveSnapshots() {
     if (block.nodeType === Node.TEXT_NODE) block = block.parentElement;
     while (block && !block.classList.contains("page-content")) block = block.parentElement;
     if (!block) return null;
-    // Mark the block with a temporary attribute so we can find it after reload
+
     var markerId = "ct_" + Date.now() + "_" + Math.random().toString(36).slice(2);
     try {
       var target = sel.anchorNode.nodeType === Node.TEXT_NODE ? sel.anchorNode.parentElement : sel.anchorNode;
@@ -10510,14 +9553,6 @@ function startAutosaveSnapshots() {
     init();
   }
 
-  /* =========================================================
-     EmeraldSuite: Docs — Feature additions
-     (cover pages, equations, smartart, screenshot, draw mode,
-      spellcheck, footnotes, table of figures,
-      threaded comments)
-     ========================================================= */
-
-  /* ---------------- State ---------------- */
   var footnotes = [];
   var endnotes = [];
   var drawCanvas = null;
@@ -10545,10 +9580,6 @@ function startAutosaveSnapshots() {
     }
   }
 
-  /* TOC anchor jumps: any click — plain, Ctrl/Cmd+click, or middle-click —
-     scrolls to the referenced heading instead of navigating to "#" or trying
-     to open a new tab. The anchor's data-toc index maps to the live heading
-     list (same order TOC generated it from). */
   function jumpToHeadingByTOC(tocLink) {
     var index = parseInt(tocLink.getAttribute("data-toc"), 10);
     if (isNaN(index) || index < 0) return;
@@ -10570,9 +9601,8 @@ function startAutosaveSnapshots() {
     setTimeout(function () { h.style.background = prevBg; }, 800);
   }
 
-  /* ---------------- Cover pages ---------------- */
   function openCoverPageDialog() {
-    // Pre-fill title from doc title
+
     $("coverTitle").value = currentTitle || "Document Title";
     openModal("coverPageModal");
   }
@@ -10592,12 +9622,12 @@ function startAutosaveSnapshots() {
     if (dateStr) html += '<div class="cover-date">' + escapeHtml(dateStr) + '</div>';
     if (style === "modern") html += '</div>';
     html += '</div><p><br></p><div class="emdocs-page-break" contenteditable="false"><span class="pb-label">— Page Break —</span></div><p><br></p>';
-    // Insert at the very beginning of the document
+
     var firstPage = getPages()[0];
     var content = getContent(firstPage);
     var p = document.createElement("p");
     p.innerHTML = html;
-    // Move the cover nodes to the front
+
     var nodes = Array.prototype.slice.call(p.childNodes);
     for (var i = nodes.length - 1; i >= 0; i--) {
       content.insertBefore(nodes[i], content.firstChild);
@@ -10609,10 +9639,9 @@ function startAutosaveSnapshots() {
     toast("Cover page inserted", "success");
   }
 
-  /* ---------------- Section break ---------------- */
   var sectionOrient = "portrait";
   function insertSectionBreak() {
-    // Open the section break dialog (default to current margins in cm)
+
     var cm = function (px) { return (px / 37.8).toFixed(2); };
     $("secMarginTop").value = cm(pageMargins.top);
     $("secMarginBottom").value = cm(pageMargins.bottom);
@@ -10632,7 +9661,7 @@ function startAutosaveSnapshots() {
     var mb = parseFloat($("secMarginBottom").value) || 2.54;
     var ml = parseFloat($("secMarginLeft").value) || 2.54;
     var mr = parseFloat($("secMarginRight").value) || 2.54;
-    // convert cm → px (1cm ≈ 37.8px at 96dpi)
+
     var config = {
       orientation: orient,
       margins: {
@@ -10644,10 +9673,9 @@ function startAutosaveSnapshots() {
     };
     var configStr = escapeAttr(JSON.stringify(config));
     var html = '<div class="section-break has-config" contenteditable="false" data-section-config=\'' + configStr + '\'></div><p><br></p>';
-    // Close modal FIRST so the overlay doesn't block the editor focus.
+
     closeModal("sectionBreakModal");
-    // Defer the insertion one tick so the modal opacity transition starts
-    // and the editor can receive focus + selection.
+
     setTimeout(function () {
       focusEditorAndRestore();
       document.execCommand("insertHTML", false, html);
@@ -10657,13 +9685,6 @@ function startAutosaveSnapshots() {
     toast("Section break inserted (" + orient + ", " + mt + "cm margins)", "success");
   }
 
-  // After pagination, scan each page for section-break markers and apply
-  // the most recent section config to that page (and subsequent pages until
-  // a new section break overrides it).
-  /* A PDF import gives every Docs page the size of the PDF page it came from
-     (data-pdf-w/h), so a document that mixes portrait and landscape sheets keeps
-     each sheet's real shape instead of forcing everything onto page 1's. Pages
-     without those attributes keep the document-wide size. */
   function applyPdfPageSizes() {
     var pages = getPages();
     for (var i = 0; i < pages.length; i++) {
@@ -10677,8 +9698,7 @@ function startAutosaveSnapshots() {
       page.style.width = w + "px";
       page.style.height = h + "px";
       page.classList.toggle("landscape", landscape);
-      // The content area is what the artwork was laid out against, so the
-      // margins must be the same hairline the importer used.
+
       page.style.setProperty("--sec-mt", PDF_EXACT_MARGIN + "px");
       page.style.setProperty("--sec-mr", PDF_EXACT_MARGIN + "px");
       page.style.setProperty("--sec-mb", PDF_EXACT_MARGIN + "px");
@@ -10691,11 +9711,10 @@ function startAutosaveSnapshots() {
     var currentConfig = null;
     for (var i = 0; i < pages.length; i++) {
       var page = pages[i];
-      // Look for a section-break marker in this page
+
       var breaks = page.querySelectorAll(".section-break[data-section-config]");
       if (breaks.length > 0) {
-        // A section break on this page means the NEXT page starts a new section.
-        // But if the break is at the very start, this page itself is the new section.
+
         var firstChild = getContent(page).firstElementChild;
         var breakIsFirst = firstChild && firstChild.classList.contains("section-break");
         if (breakIsFirst) {
@@ -10703,17 +9722,16 @@ function startAutosaveSnapshots() {
             currentConfig = JSON.parse(breaks[0].getAttribute("data-section-config") || "null");
           } catch (e) {}
         } else {
-          // break is later in the page — apply to next pages
+
           try {
             var nextConfig = JSON.parse(breaks[breaks.length - 1].getAttribute("data-section-config") || "null");
-            // store for next page iteration
+
             page.setAttribute("data-next-section", "1");
-            // apply to subsequent pages on next iteration
-            // (we'll just apply it from the next page onward)
+
             for (var j = i + 1; j < pages.length; j++) {
               applyConfigToPage(pages[j], nextConfig);
             }
-            // don't apply currentConfig to this page (it's still the old section)
+
             continue;
           } catch (e) {}
         }
@@ -10744,60 +9762,57 @@ function startAutosaveSnapshots() {
     }
   }
 
-  /* ---------------- Equation editor ---------------- */
   function renderEquation(latex) {
-    // Tiny LaTeX-ish renderer: handles ^, _, \frac, \sqrt, \sum, \int, \lim,
-    // \prod, \log, \ln, \binom, \sin/\cos/\tan, greek letters, etc.
+
     if (!latex) return "";
-    // Escape FIRST: typed characters can never become live markup in the
-    // preview or the inserted equation (CodeQL: DOM text reinterpreted).
+
     var out = escapeHtml(latex);
-    // \frac{a}{b}
+
     out = out.replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, function (m, a, b) {
       return '<span style="display:inline-block;vertical-align:middle;text-align:center"><span style="display:block;border-bottom:1px solid currentColor;padding:0 4px">' + a + '</span><span style="display:block;padding:0 4px">' + b + '</span></span>';
     });
-    // \binom{n}{k} → (n choose k) rendered as stacked fraction in parens
+
     out = out.replace(/\\binom\{([^{}]*)\}\{([^{}]*)\}/g, function (m, a, b) {
       return '(<span style="display:inline-block;vertical-align:middle;text-align:center"><span style="display:block;padding:0 2px">' + a + '</span><span style="display:block;border-top:1px solid currentColor;padding:0 2px">' + b + '</span></span>)';
     });
-    // \sqrt{x}
+
     out = out.replace(/\\sqrt\{([^{}]*)\}/g, function (m, a) {
       return '<span style="white-space:nowrap">√<span style="border-top:1px solid currentColor;padding:0 2px">' + a + '</span></span>';
     });
-    // \sum_{i=1}^{n}  (with optional braces)
+
     out = out.replace(/\\sum_\{([^{}]*)\}\^\{([^{}]*)\}/g, function (m, lo, hi) {
       return '<span style="display:inline-block;vertical-align:middle;text-align:center;font-size:1.4em">∑<span style="display:block;font-size:0.5em">' + lo + '..' + hi + '</span></span>';
     });
     out = out.replace(/\\sum/g, "∑");
-    // \prod_{i=1}^{n}
+
     out = out.replace(/\\prod_\{([^{}]*)\}\^\{([^{}]*)\}/g, function (m, lo, hi) {
       return '<span style="display:inline-block;vertical-align:middle;text-align:center;font-size:1.4em">∏<span style="display:block;font-size:0.5em">' + lo + '..' + hi + '</span></span>';
     });
     out = out.replace(/\\prod/g, "∏");
-    // \int_a^b
+
     out = out.replace(/\\int_\{?([^{}]*?)\}?\^\{?([^{}]*?)\}?/g, function (m, lo, hi) {
       return '<span style="font-size:1.4em">∫</span><sub>' + lo + '</sub><sup>' + hi + '</sup>';
     });
     out = out.replace(/\\int/g, "∫");
-    // \lim_{x \to 0}
+
     out = out.replace(/\\lim_\{([^{}]*)\}/g, function (m, sub) {
       return 'lim<span style="display:inline-block;vertical-align:middle;text-align:center;font-size:0.7em"><span style="display:block">' + sub.replace(/\\to/g, "→") + '</span></span>';
     });
     out = out.replace(/\\lim/g, "lim");
-    // \log_{10}(x)
+
     out = out.replace(/\\log_\{([^{}]*)\}/g, function (m, base) {
       return 'log<span style="font-size:0.7em;vertical-align:sub">' + base + '</span>';
     });
     out = out.replace(/\\ln/g, "ln");
-    // \frac{d}{dx} derivative
+
     out = out.replace(/\\frac\{d\}\{d([^{}]*)\}/g, function (m, varname) {
       return '<span style="display:inline-block;vertical-align:middle;text-align:center;font-style:italic"><span style="display:block;border-bottom:1px solid currentColor;padding:0 4px">d</span><span style="display:block;padding:0 4px">d' + varname + '</span></span>';
     });
-    // \sin, \cos, \tan, \cot, \sec, \csc
+
     out = out.replace(/\\(sin|cos|tan|cot|sec|csc)\b/g, function (m, fn) { return fn; });
-    // \to →
+
     out = out.replace(/\\to/g, "→");
-    // \pm
+
     out = out.replace(/\\pm/g, "±");
     out = out.replace(/\\mp/g, "∓");
     out = out.replace(/\\times/g, "×");
@@ -10824,7 +9839,7 @@ function startAutosaveSnapshots() {
     out = out.replace(/\\Rightarrow/g, "⇒");
     out = out.replace(/\\Leftarrow/g, "⇐");
     out = out.replace(/\\leftrightarrow/g, "↔");
-    // Greek letters
+
     out = out.replace(/\\alpha/g, "α");
     out = out.replace(/\\beta/g, "β");
     out = out.replace(/\\gamma/g, "γ");
@@ -10858,10 +9873,10 @@ function startAutosaveSnapshots() {
     out = out.replace(/\\Phi/g, "Φ");
     out = out.replace(/\\Psi/g, "Ψ");
     out = out.replace(/\\Omega/g, "Ω");
-    // superscripts ^{..} or ^x
+
     out = out.replace(/\^\{([^{}]*)\}/g, "<sup>$1</sup>");
     out = out.replace(/\^([^\s\\{}])/g, "<sup>$1</sup>");
-    // subscripts _{..} or _x
+
     out = out.replace(/_\{([^{}]*)\}/g, "<sub>$1</sub>");
     out = out.replace(/_([^\s\\{}])/g, "<sub>$1</sub>");
     return out;
@@ -10887,7 +9902,6 @@ function startAutosaveSnapshots() {
     toast("Equation inserted", "success");
   }
 
-  /* ---------------- SmartArt ---------------- */
   var SMARTART_TEMPLATES = [
     {
       id: "flow3",
@@ -10943,7 +9957,7 @@ function startAutosaveSnapshots() {
         item.innerHTML = '<div class="smartart-preview">' + tpl.preview + '</div><div class="smartart-name">' + escapeHtml(tpl.name) + '</div><div class="smartart-desc">' + escapeHtml(tpl.desc) + '</div>';
         item.addEventListener("click", function () {
           closeModal("smartArtModal");
-          // Defer so the modal overlay doesn't block the editor focus.
+
           setTimeout(function () {
             focusEditorAndRestore();
             document.execCommand("insertHTML", false, tpl.html);
@@ -10958,7 +9972,6 @@ function startAutosaveSnapshots() {
     openModal("smartArtModal");
   }
 
-  /* ---------------- Screenshot ---------------- */
   async function takeScreenshot() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
       toast("Screen capture not supported in this browser", "error");
@@ -10972,7 +9985,7 @@ function startAutosaveSnapshots() {
       document.body.appendChild(video);
       video.srcObject = stream;
       await video.play();
-      // wait a frame
+
       await new Promise(function (r) { setTimeout(r, 250); });
       var canvas = document.createElement("canvas");
       canvas.width = video.videoWidth;
@@ -10982,13 +9995,9 @@ function startAutosaveSnapshots() {
       var dataUrl = canvas.toDataURL("image/png");
       track.stop();
       document.body.removeChild(video);
-      // Bring the focus back to this Docs tab. When the user captured a
-      // different app/window the OS focus usually stays on that app after
-      // the native picker closes — browsers cannot fully "steal" focus
-      // back, but window.focus() restores it whenever the browser allows
-      // (same-window contexts), and the toast confirms the capture landed.
+
       try { window.focus(); } catch (_) {}
-      // Insert into doc
+
       restoreEditorSelection();
       document.execCommand("insertHTML", false, '<img class="screenshot-img" src="' + dataUrl + '" alt="Screenshot" style="max-width:100%" />');
       schedulePaginate();
@@ -10999,13 +10008,6 @@ function startAutosaveSnapshots() {
     }
   }
 
-  /* ---------------- Draw mode (Slides/Notes-style drawing toolbar) ----------------
-     Ported from the Slides/Notes apps: a bottom-docked toolbar with Pen,
-     Highlighter and Eraser tools, color presets, size presets, and
-     Clear/Done buttons. Strokes are drawn on a canvas overlaying the
-     document scroll area. The canvas STAYS in the DOM after Done so the
-     drawing remains visible on the page (like Slides persists per-slide
-     drawings); re-entering draw mode continues on top of it. */
   function toggleDrawMode(force) {
     var toolbar = $("drawToolbar");
     var app = $("app");
@@ -11013,18 +10015,17 @@ function startAutosaveSnapshots() {
     var shouldOpen = force === undefined ? !drawMode : force;
     drawMode = shouldOpen;
     if (shouldOpen) {
-      // Only one bottom toolbar at a time — close the symbol bar if open.
+
       toggleSymbolBar(false);
       app.classList.add("draw-mode");
       toolbar.classList.add("visible");
       ensureDrawCanvas();
       if (btn) btn.classList.add("active");
-      // No "on" toast — the toolbar appearing IS the signal (user request);
-      // only the "Draw mode off." toast below is shown, on Done/Exit.
+
     } else {
       app.classList.remove("draw-mode");
       toolbar.classList.remove("visible");
-      // Canvas stays visible (pointer-events off) so the drawing persists.
+
       if (drawCanvas) drawCanvas.style.pointerEvents = "none";
       if (btn) btn.classList.remove("active");
       toast("Draw mode off.");
@@ -11051,9 +10052,7 @@ function startAutosaveSnapshots() {
       drawCanvas.addEventListener("touchmove", function (e) { if (isDrawing) e.preventDefault(); drawLine(e.touches[0]); }, { passive: false });
       drawCanvas.addEventListener("touchend", function () { drawEnd(); });
     }
-    // Size the canvas to the full scrollable document area.
-    // NOTE: assigning canvas.width/height CLEARS the bitmap — only resize
-    // when the dimensions actually changed, and carry the strokes over.
+
     requestAnimationFrame(function () {
       var w = scroll.scrollWidth;
       var h = Math.max(scroll.scrollHeight, scroll.clientHeight);
@@ -11064,7 +10063,7 @@ function startAutosaveSnapshots() {
         drawCanvas.height = h;
         drawCanvas.style.width = w + "px";
         drawCanvas.style.height = h + "px";
-        // Resizing also resets context state — restore it.
+
         drawCtx.lineCap = "round";
         drawCtx.lineJoin = "round";
         if (snapshot) {
@@ -11077,8 +10076,7 @@ function startAutosaveSnapshots() {
   }
 
   function clearDrawing() {
-    // Silent clear — the canvas visibly emptying is its own feedback
-    // (user request: no "Drawing cleared" toast).
+
     if (drawCtx && drawCanvas) drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
   }
 
@@ -11104,7 +10102,7 @@ function startAutosaveSnapshots() {
       drawCtx.strokeStyle = drawColor;
       drawCtx.fillStyle = drawColor;
       drawCtx.lineWidth = (drawWidth || 2) * 2.5;
-      drawCtx.globalAlpha = 0.4; // translucent, like a real highlighter
+      drawCtx.globalAlpha = 0.4;
     } else {
       drawCtx.globalCompositeOperation = "source-over";
       drawCtx.strokeStyle = drawColor;
@@ -11112,7 +10110,7 @@ function startAutosaveSnapshots() {
       drawCtx.lineWidth = drawWidth || 2;
       drawCtx.globalAlpha = 1;
     }
-    // Dot for single-click strokes
+
     drawCtx.beginPath();
     drawCtx.arc(p.x, p.y, Math.max(0.5, drawCtx.lineWidth / 2), 0, Math.PI * 2);
     drawCtx.fill();
@@ -11126,7 +10124,7 @@ function startAutosaveSnapshots() {
     var p = drawPos(e);
     drawPoints.push({ x: p.x, y: p.y });
     var pts = drawPoints;
-    // Quadratic-curve smoothing through midpoints (Slides-style natural strokes)
+
     if (pts.length >= 3) {
       var p0 = pts[pts.length - 3];
       var p1 = pts[pts.length - 2];
@@ -11150,7 +10148,7 @@ function startAutosaveSnapshots() {
     if (!isDrawing) return;
     isDrawing = false;
     if (drawCtx) drawCtx.globalAlpha = 1;
-    // Final segment so the stroke doesn't stop mid-curve.
+
     var pts = drawPoints;
     if (pts.length >= 2 && drawCtx) {
       var p1 = pts[pts.length - 2], p2 = pts[pts.length - 1];
@@ -11175,7 +10173,7 @@ function startAutosaveSnapshots() {
       if (tool === "pen" && penBtn) penBtn.classList.add("active");
       if (tool === "highlighter" && highlighterBtn) highlighterBtn.classList.add("active");
       if (tool === "eraser" && eraserBtn) eraserBtn.classList.add("active");
-      // Hide the color section while the eraser is active (nothing to color).
+
       var hideColor = (tool === "eraser");
       if (colorSection) colorSection.classList.toggle("eraser-hidden", hideColor);
       if (colorDivider && colorDivider.classList.contains("color-divider")) colorDivider.classList.toggle("eraser-hidden", hideColor);
@@ -11185,7 +10183,6 @@ function startAutosaveSnapshots() {
     if (highlighterBtn) highlighterBtn.addEventListener("click", function () { setTool("highlighter"); });
     if (eraserBtn) eraserBtn.addEventListener("click", function () { setTool("eraser"); });
 
-    // Color presets
     var colorPresets = $("drawColorPresets");
     if (colorPresets) {
       colorPresets.addEventListener("click", function (e) {
@@ -11198,7 +10195,7 @@ function startAutosaveSnapshots() {
         var picker = $("drawColorPicker");
         if (picker) picker.value = drawColor;
       });
-      // Custom color (white swatch opens the native color picker)
+
       var whiteSwatch = colorPresets.querySelector('.draw-color-swatch[data-color="#ffffff"]');
       if (whiteSwatch) {
         whiteSwatch.addEventListener("click", function () {
@@ -11219,7 +10216,6 @@ function startAutosaveSnapshots() {
       });
     }
 
-    // Size presets
     var toolbar = $("drawToolbar");
     if (toolbar) {
       toolbar.addEventListener("click", function (e) {
@@ -11234,13 +10230,11 @@ function startAutosaveSnapshots() {
       });
     }
 
-    // Clear / Done
     var clearBtn = $("drawClearBtn");
     if (clearBtn) clearBtn.addEventListener("click", clearDrawing);
     var doneBtn = $("drawDoneBtn");
     if (doneBtn) doneBtn.addEventListener("click", function () { toggleDrawMode(false); });
 
-    // Ribbon button
     var bDraw = $("btnDraw");
     if (bDraw) {
       bDraw.addEventListener("mousedown", function (e) { e.preventDefault(); });
@@ -11248,8 +10242,6 @@ function startAutosaveSnapshots() {
     }
   }
 
-  /* ---------------- Spellcheck ---------------- */
-  /* ---------------- Footnotes & Endnotes (proper) ---------------- */
   function openFootnoteModal() {
     var t = $("footnoteText");
     if (t) t.value = "";
@@ -11266,10 +10258,7 @@ function startAutosaveSnapshots() {
     healInlineRefPlacement(_ref);
     parkCaretAfterRef(_ref);
     footnotes.push({ num: num, text: note, refId: refId, ts: Date.now() });
-    // Renumber BEFORE rendering: markers are numbered by document order and
-    // the array is re-synced, so the per-page areas / panel show the right
-    // text under the right number even when this marker was inserted BEFORE
-    // an existing one.
+
     renumberFootnoteRefs();
     saveFootnotes();
     renderFootnotes();
@@ -11296,9 +10285,7 @@ function startAutosaveSnapshots() {
     healInlineRefPlacement(_ref);
     parkCaretAfterRef(_ref);
     endnotes.push({ num: num, text: note, refId: refId, ts: Date.now() });
-    // Endnote markers were never renumbered after an insert — a marker
-    // inserted before an existing one kept a wrong number. Renumber by
-    // document order (and re-sync the array) before rendering.
+
     renumberEndnoteRefs();
     saveEndnotes();
     renderFootnotes();
@@ -11315,7 +10302,6 @@ function startAutosaveSnapshots() {
     } catch (e) {}
   }
 
-  /* ---------------- Citation (modal) ---------------- */
   function openCiteModal() {
     var t = $("citeText");
     if (t) t.value = "";
@@ -11387,10 +10373,10 @@ function startAutosaveSnapshots() {
         del.addEventListener("click", function (e) {
           e.stopPropagation();
           footnotes.splice(idx, 1);
-          // remove the superscript ref from the text, then renumber the rest
+
           var refEl = document.getElementById(fn.refId);
           if (refEl && refEl.parentNode) refEl.parentNode.removeChild(refEl);
-          // Renumber BEFORE rendering so the areas/panel use final numbers
+
           renumberFootnoteRefs();
           saveFootnotes();
           renderFootnotes();
@@ -11409,7 +10395,6 @@ function startAutosaveSnapshots() {
       })(footnotes[i], i);
     }
 
-    // Endnotes — listed below footnotes in the same panel
     if (endnotes.length > 0) {
       var enHead = document.createElement("p");
       enHead.className = "outline-empty";
@@ -11437,10 +10422,10 @@ function startAutosaveSnapshots() {
           del.addEventListener("click", function (e) {
             e.stopPropagation();
             endnotes.splice(idx, 1);
-            // remove the superscript ref from the text, then renumber the rest
+
             var refEl = document.getElementById(en.refId);
             if (refEl && refEl.parentNode) refEl.parentNode.removeChild(refEl);
-            // Renumber BEFORE rendering so the areas/panel use final numbers
+
             renumberEndnoteRefs();
             saveEndnotes();
             renderFootnotes();
@@ -11463,10 +10448,7 @@ function startAutosaveSnapshots() {
 
   function renumberFootnoteRefs() {
     var refs = document.querySelectorAll("sup.footnote-ref[data-fn]");
-    // Renumber markers by DOCUMENT order AND keep the footnotes array in the
-    // SAME order (matched by refId) — a marker inserted BEFORE an existing
-    // one takes the lower number, and its note text must follow it, because
-    // the per-page footnote areas render note text by data-fn number.
+
     var ordered = [];
     for (var i = 0; i < refs.length; i++) {
       var n = i + 1;
@@ -11480,9 +10462,7 @@ function startAutosaveSnapshots() {
         }
       }
     }
-    // Only adopt the document order when every marker matched a note entry
-    // (markers pasted from imported HTML have no array entry — leave the
-    // array untouched in that case).
+
     if (ordered.length > 0 && ordered.length === footnotes.length) {
       footnotes = ordered;
       saveFootnotes();
@@ -11490,13 +10470,13 @@ function startAutosaveSnapshots() {
   }
 
   function renderFootnotesSection() {
-    // remove existing end-of-doc sections
+
     var existing = document.querySelectorAll(".footnotes-section");
     for (var i = 0; i < existing.length; i++) existing[i].parentElement && existing[i].parentElement.removeChild(existing[i]);
-    // remove existing per-page footnote areas
+
     var pfa = document.querySelectorAll(".page-footnote-area");
     for (var j = 0; j < pfa.length; j++) pfa[j].parentElement && pfa[j].parentElement.removeChild(pfa[j]);
-    // clear the has-footnotes-ref flag + reserved space
+
     var pages = getPages();
     for (var pi = 0; pi < pages.length; pi++) {
       var pc = getContent(pages[pi]);
@@ -11505,8 +10485,6 @@ function startAutosaveSnapshots() {
     }
     if (footnotes.length === 0) return;
 
-    // 1. Per-page footnote areas: for each page, find footnote refs on it and
-    //    render their text at the bottom of that page (Word-style).
     for (var p = 0; p < pages.length; p++) {
       var page = pages[p];
       var pageContent = getContent(page);
@@ -11523,7 +10501,7 @@ function startAutosaveSnapshots() {
         entry.className = "pfa-entry";
         entry.innerHTML = '<span class="pfa-key">' + num + '.</span> ' + escapeHtml(fn.text);
         area.appendChild(entry);
-        reservedH += 18; // approx height per entry
+        reservedH += 18;
       }
       if (area.children.length > 0) {
         page.appendChild(area);
@@ -11532,7 +10510,6 @@ function startAutosaveSnapshots() {
       }
     }
 
-    // 2. End-of-document footnotes section (all footnotes, for completeness)
     var lastPage = pages[pages.length - 1];
     if (!lastPage) return;
     var content = getContent(lastPage);
@@ -11569,9 +10546,8 @@ function startAutosaveSnapshots() {
     }
   }
 
-  /* ---------------- Endnotes (collected at end of document) ---------------- */
   function renderEndnotesSection() {
-    // Remove any existing end-of-document endnotes section
+
     var existing = document.querySelectorAll(".endnotes-section");
     for (var i = 0; i < existing.length; i++) {
       if (existing[i].parentElement) existing[i].parentElement.removeChild(existing[i]);
@@ -11602,7 +10578,7 @@ function startAutosaveSnapshots() {
 
   function renumberEndnoteRefs() {
     var refs = document.querySelectorAll("sup.endnote-ref[data-en]");
-    // Same document-order + array-sync contract as renumberFootnoteRefs().
+
     var ordered = [];
     for (var i = 0; i < refs.length; i++) {
       var n = i + 1;
@@ -11622,31 +10598,21 @@ function startAutosaveSnapshots() {
     }
   }
 
-  /* ---------------- Table of Figures — removed (feature cut) ---------------- */
-
-  /* ---------------- Enter around footnote/endnote markers (shared) ----------------
-     Chrome cannot split a paragraph while the caret is INSIDE a non-editable
-     <sup contenteditable="false"> marker (Enter silently does nothing — no
-     new line ever appears), and when the caret sits immediately BEFORE a
-     marker the native split drags the marker DOWN onto the new line. Both
-     feel like "Enter is broken next to footnotes/endnotes". findProblemMarker()
-     detects the stuck positions; reAnchorCaretPastMarker() moves the caret to
-     just AFTER the marker so a real paragraph split can happen there. */
   function findProblemMarker(range) {
     function inMarker(node) {
       var el = node && (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement);
       if (!el || !el.closest) return null;
       return el.closest("sup.footnote-ref, sup.endnote-ref, sup.comment-ref") || null;
     }
-    // Caret / selection start INSIDE a marker (clicked or double-clicked it)
+
     var m = inMarker(range.startContainer);
     if (m) return m;
-    // Element position pointing directly AT a marker: (parent, idxBeforeMarker)
+
     if (range.startContainer.nodeType === Node.ELEMENT_NODE) {
       var ch = range.startContainer.childNodes[range.startOffset];
       if (isInlineMarker(ch)) return ch;
     }
-    // Caret at the very END of a text node directly followed by a marker
+
     if (range.collapsed && range.startContainer.nodeType === Node.TEXT_NODE &&
         range.startOffset === range.startContainer.nodeValue.length) {
       var nx = range.startContainer.nextSibling;
@@ -11656,7 +10622,7 @@ function startAutosaveSnapshots() {
   }
 
   function reAnchorCaretPastMarker(marker, sel) {
-    // Caret goes immediately AFTER the marker (marker stays on this line)
+
     var nx = marker.nextSibling;
     var r2 = document.createRange();
     if (nx && nx.nodeType === Node.TEXT_NODE) r2.setStart(nx, 0);
@@ -11671,8 +10637,6 @@ function startAutosaveSnapshots() {
     }
   }
 
-  /* Enter around footnote/endnote markers (normal editing mode):
-     see findProblemMarker()/reAnchorCaretPastMarker() above for the details. */
   function setupMarkerEnterFix() {
     var pagesWrap = $(PAGES_WRAPPER_ID);
     if (!pagesWrap) return;
@@ -11682,7 +10646,7 @@ function startAutosaveSnapshots() {
       var sel = window.getSelection();
       if (!sel || !sel.rangeCount) return;
       var marker = findProblemMarker(sel.getRangeAt(0));
-      if (!marker) return; // native Enter handles every other position
+      if (!marker) return;
 
       e.preventDefault();
       reAnchorCaretPastMarker(marker, sel);
@@ -11692,18 +10656,12 @@ function startAutosaveSnapshots() {
     });
   }
 
-  /* ---------------- Wire up new buttons in init ---------------- */
-  // (called from init() via initNewFeatures below)
   function initNewFeatures() {
 
-// Click handler for internal links + footnote refs (delegated)
       var scrollEl = $("documentScroll");
       if (scrollEl) {
         scrollEl.addEventListener("click", handleInternalLinkClick);
-        // TOC anchors: a plain LEFT click (no Ctrl/Cmd modifier) jumps to the
-        // heading in-document. Ctrl/Cmd+click is just prevented so it can't
-        // open the href in a new tab — the user jumps with a plain click or
-        // a plain RIGHT click (auxclick below), no Control needed.
+
         scrollEl.addEventListener("click", function (e) {
           var tocLink = e.target.closest("a[data-toc]");
           if (!tocLink) return;
@@ -11711,46 +10669,39 @@ function startAutosaveSnapshots() {
           if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
           jumpToHeadingByTOC(tocLink);
         });
-        // Plain right-click / middle-click (no Control modifier) also jumps
-        // to the heading instead of opening a new tab.
+
         scrollEl.addEventListener("auxclick", function (e) {
           var tocLink = e.target.closest("a[data-toc]");
           if (!tocLink) return;
           e.preventDefault();
           jumpToHeadingByTOC(tocLink);
         });
-      // External links: Ctrl/Cmd+click opens in a NEW TAB (links inside a
-      // contenteditable never navigate on their own — without this handler
-      // Ctrl+click did nothing at all).
+
       scrollEl.addEventListener("click", function (e) {
         var a = e.target.closest("a");
         if (!a) return;
-        // Internal links / bookmarks / TOC anchors are handled by their own
-        // delegated handlers above — skip them here.
+
         if (a.classList.contains("emdocs-internal-link") || a.classList.contains("emdocs-bookmark")) return;
         if (a.closest(".emdocs-toc")) return;
         if (e.ctrlKey || e.metaKey) {
           e.preventDefault();
           var href = a.getAttribute("href");
           if (isSafeExternalUrl(href)) {
-            // normalizeExternalUrl fixes links stored without a scheme
-            // (e.g. href="youtube.com") so they open https://youtube.com
-            // instead of a path under this app's origin.
+
             window.open(normalizeExternalUrl(href), "_blank", "noopener");
           }
         } else {
-          // Plain click keeps the caret for editing (no navigation).
+
           e.preventDefault();
         }
       });
-      // Page-break markers: click to remove (cancel the break).
+
       scrollEl.addEventListener("click", function (e) {
         var pb = e.target.closest(".emdocs-page-break");
         if (!pb) return;
         e.preventDefault();
         if (pb.parentElement) {
-          // Remove the marker; the empty <p> that followed a manual page
-          // break is left alone — the paginator prunes trailing empties.
+
           pb.parentElement.removeChild(pb);
           schedulePaginate();
           scheduleAutosave();
@@ -11764,7 +10715,7 @@ function startAutosaveSnapshots() {
         e.preventDefault();
         toggleFootnotes(true);
       });
-      // Comment pins: open the Slides-style popup card
+
       scrollEl.addEventListener("click", function (e) {
         var pin = e.target.closest("sup.comment-ref");
         if (!pin) return;
@@ -11775,11 +10726,10 @@ function startAutosaveSnapshots() {
       scrollEl.addEventListener("click", function (e) {
         var bm = e.target.closest("a.emdocs-bookmark");
         if (!bm) return;
-        // no-op for clicks on bookmark anchors themselves
+
       });
     }
 
-    // Cover page
     var bCov = $("btnCoverPage");
     if (bCov) { bCov.addEventListener("mousedown", function (e) { e.preventDefault(); }); bCov.addEventListener("click", openCoverPageDialog); }
     var bCovConfirm = $("coverPageConfirm");
@@ -11793,7 +10743,6 @@ function startAutosaveSnapshots() {
       }); })(covPresets[cp]);
     }
 
-    // Section break (Insert tab only — the Layout tab's Breaks group was removed)
     var bSB = $("btnSectionBreak");
     if (bSB) { bSB.addEventListener("mousedown", function (e) { e.preventDefault(); }); bSB.addEventListener("click", insertSectionBreak); }
     var bSBConfirm = $("sectionBreakConfirm");
@@ -11807,7 +10756,6 @@ function startAutosaveSnapshots() {
       }); })(secOrientBtns[so]);
     }
 
-    // Equation
     var bEq = $("btnEquation");
     if (bEq) { bEq.addEventListener("mousedown", function (e) { e.preventDefault(); }); bEq.addEventListener("click", openEquationDialog); }
     var bEqConfirm = $("equationConfirm");
@@ -11825,18 +10773,14 @@ function startAutosaveSnapshots() {
       }); })(eqPresets[ep]);
     }
 
-    // SmartArt
     var bSA = $("btnSmartArt");
     if (bSA) { bSA.addEventListener("mousedown", function (e) { e.preventDefault(); }); bSA.addEventListener("click", openSmartArtDialog); }
 
-    // Screenshot
     var bSS = $("btnScreenshot");
     if (bSS) { bSS.addEventListener("mousedown", function (e) { e.preventDefault(); }); bSS.addEventListener("click", takeScreenshot); }
 
-    // Draw mode (Slides/Notes-style toolbar)
     initDrawToolbar();
 
-    // Footnotes
     var bFn = $("btnFootnote");
     if (bFn) { bFn.addEventListener("mousedown", function (e) { e.preventDefault(); }); bFn.addEventListener("click", openFootnoteModal); }
     var bFnPanel = $("footnoteAddFromPanel");
@@ -11846,14 +10790,10 @@ function startAutosaveSnapshots() {
     var bFnClose = $("footnotesClose");
     if (bFnClose) bFnClose.addEventListener("click", function () { toggleFootnotes(false); });
 
-    // Enter key must keep working when the caret/selection sits on a
-    // footnote/endnote marker (Chrome deadlocks inside <sup contenteditable="false">)
     setupMarkerEnterFix();
 
-    // Round 2 features
     initRound2Features();
 
-    // Escape closes side panels
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape") {
         var fp = $("footnotesPanel"); if (fp && fp.classList.contains("open")) { toggleFootnotes(false); return; }
@@ -11861,41 +10801,24 @@ function startAutosaveSnapshots() {
     });
   }
 
-  /* =========================================================
-     Round 2 — new features
-     (mail merge,
-      accessibility checker,
-      status-bar zoom)
-     ========================================================= */
-
-  /* ---------------- Status bar zoom + language ---------------- */
   function initStatusBarControls() {
-    // The zoom % label is NOT clickable — it's a plain informational span,
-    // exactly like Slides' #zoomStatus. Zoom is changed ONLY via Ctrl+Scroll
-    // (or the View → Zoom ribbon controls / keyboard shortcuts).
 
-    // Ctrl + Scroll to zoom in / out — matches the Slides editor behavior.
-    // Slides uses an 8% multiplicative step (factor 1.08) rather than a fixed
-    // ±10% additive step — this feels smoother at high zoom levels.
-    // Listens on the document scroll area first so we can stopPropagation()
-    // before the document-level handler double-fires.
     var scrollEl = $("documentScroll");
     if (scrollEl) {
       scrollEl.addEventListener("wheel", function (e) {
         if (!(e.ctrlKey || e.metaKey)) return;
         e.preventDefault();
         e.stopPropagation();
-        // deltaY > 0 = scroll down = zoom out; < 0 = zoom in.
+
         var delta = e.deltaY > 0 ? -1 : 1;
-        var factor = 1 + (delta * 0.08); // 8% zoom step (same as Slides)
+        var factor = 1 + (delta * 0.08);
         zoomByFactor(factor);
       }, { passive: false });
     }
-    // Also handle Ctrl+Scroll anywhere in the app (e.g. over the ribbon) so
-    // the user isn't surprised when they scroll over the wrong area.
+
     document.addEventListener("wheel", function (e) {
       if (!(e.ctrlKey || e.metaKey)) return;
-      // Don't hijack scrolling inside a modal or scrollable panel.
+
       var target = e.target;
       if (target && target.closest && target.closest(".modal-overlay, .outline-panel, .thumbnails-panel, .footnotes-panel")) return;
       e.preventDefault();
@@ -11906,26 +10829,18 @@ function startAutosaveSnapshots() {
 
     var psLabel = $("pageSizeLabel");
     if (psLabel) {
-      // Informational only — no click handler. Page size is changed via
-      // Layout -> Size (the ms-dropdown drives setPageSize).
+
     }
   }
 
-  // Additive zoom step (Zoom In / Zoom Out buttons + Ctrl+= / Ctrl+- keys).
-  // Keeps the ±10 step, since that's what users expect.
   function adjustZoom(delta) {
     setZoom(currentZoom + delta);
   }
 
-  // Multiplicative zoom step (used by Ctrl+Scroll).
-  // Matches Slides' factor-based zoom: factor 1.08 = zoom in 8%, 0.9259 = out 8%.
   function zoomByFactor(factor) {
     setZoom(Math.round(currentZoom * factor));
   }
 
-  // Base (un-zoomed) page size. CSS `zoom` inflates offsetWidth and
-  // getBoundingClientRect, so the authored inline size is read instead —
-  // falling back to the A4 default that .page gets from the stylesheet.
   function getBasePageSize() {
     var page = getPages()[0];
     if (page) {
@@ -11936,8 +10851,6 @@ function startAutosaveSnapshots() {
     return { w: PAGE_WIDTH, h: PAGE_HEIGHT };
   }
 
-  // Layout -> Zoom -> Fit To Window: scale the page so its width fits the
-  // visible scroll area (minus padding, scrollbar and a small margin).
   function zoomFitToWindow() {
     var scrollEl = $("documentScroll");
     var base = getBasePageSize().w;
@@ -11953,8 +10866,6 @@ function startAutosaveSnapshots() {
     if (pct) pct.textContent = v + "%";
   }
 
-
-  /* ---------------- Accessibility checker ---------------- */
   function runAccessibilityCheck() {
     var results = $("accessibilityResults");
     results.innerHTML = "";
@@ -11967,7 +10878,7 @@ function startAutosaveSnapshots() {
 
     for (var i = 0; i < pages.length; i++) {
       var content = getContent(pages[i]);
-      // Images
+
       var imgs = content.querySelectorAll("img");
       imgCount += imgs.length;
       for (var im = 0; im < imgs.length; im++) {
@@ -11982,7 +10893,7 @@ function startAutosaveSnapshots() {
           });
         }
       }
-      // Links
+
       var links = content.querySelectorAll("a");
       linkCount += links.length;
       for (var l = 0; l < links.length; l++) {
@@ -11997,7 +10908,7 @@ function startAutosaveSnapshots() {
           });
         }
       }
-      // Empty headings
+
       var heads = content.querySelectorAll("h1, h2, h3, h4");
       for (var h = 0; h < heads.length; h++) {
         var ht = (heads[h].textContent || "").trim();
@@ -12011,10 +10922,9 @@ function startAutosaveSnapshots() {
           });
         }
       }
-      // Block count
+
       totalBlocks += content.querySelectorAll("p, h1, h2, h3, h4, li, blockquote, pre").length;
 
-      // Contrast check — scan elements with inline color/background-color
       var colored = content.querySelectorAll("[style*='color'], [style*='background-color'], font[color]");
       for (var ci = 0; ci < colored.length; ci++) {
         var cs = window.getComputedStyle(colored[ci]);
@@ -12044,7 +10954,6 @@ function startAutosaveSnapshots() {
       }
     }
 
-    // Always-on summary items
     if (imgCount > 0) {
       issues.unshift({
         severity: imgNoAlt === 0 ? "ok" : "warning",
@@ -12095,7 +11004,7 @@ function startAutosaveSnapshots() {
         desc.textContent = issue.desc;
         body.appendChild(title);
         body.appendChild(desc);
-        // Contrast preview swatch
+
         if (issue.preview) {
           var prev = document.createElement("span");
           prev.className = "a11y-contrast-preview";
@@ -12119,8 +11028,6 @@ function startAutosaveSnapshots() {
     openModal("accessibilityModal");
   }
 
-  // WCAG contrast ratio: (L1 + 0.05) / (L2 + 0.05) where L1 is lighter.
-  // Input: CSS color strings like "rgb(r, g, b)".
   function contrastRatio(color1, color2) {
     var l1 = relativeLuminance(color1);
     var l2 = relativeLuminance(color2);
@@ -12145,7 +11052,7 @@ function startAutosaveSnapshots() {
   function parseRgb(str) {
     var m = str.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
     if (m) return { r: parseInt(m[1], 10), g: parseInt(m[2], 10), b: parseInt(m[3], 10) };
-    // hex
+
     var h = str.match(/^#([0-9a-f]{6})$/i);
     if (h) {
       var n = parseInt(h[1], 16);
@@ -12154,24 +11061,15 @@ function startAutosaveSnapshots() {
     return null;
   }
 
-  /* ---------------- Wire up round 2 features ---------------- */
   function initRound2Features() {
     initStatusBarControls();
 
-
-    // Accessibility checker
     var bA11y = $("btnAccessibilityCheck");
     if (bA11y) { bA11y.addEventListener("mousedown", function (e) { e.preventDefault(); }); bA11y.addEventListener("click", runAccessibilityCheck); }
 
-    // Periodic relative autosave time update
     setInterval(function () { updateRelativeAutosave(); }, 10000);
   }
 
-  /* =========================================================
-     Round 4 — tooltips, live merge preview, word count live
-     ========================================================= */
-
-  /* ---------------- Rich tooltips ---------------- */
   var richTip = null;
   var richTipTimer = null;
   function initTooltips() {
@@ -12179,7 +11077,7 @@ function startAutosaveSnapshots() {
     richTip = document.createElement("div");
     richTip.className = "rich-tip";
     document.body.appendChild(richTip);
-    // Attach to all ribbon buttons, topbar actions, status bar items
+
     var selectors = ".ribbon-btn, .topbar-action, .ribbon-tab, .statbar-toggle, .session-timer, .toolbar-stats";
     var els = document.querySelectorAll(selectors);
     for (var i = 0; i < els.length; i++) {
@@ -12191,14 +11089,14 @@ function startAutosaveSnapshots() {
     el.addEventListener("mouseenter", function () {
       var title = el.getAttribute("title");
       if (!title) return;
-      // Capture the title, then clear it so the native tooltip doesn't show
+
       el.setAttribute("data-tip", title);
       el.removeAttribute("title");
       clearTimeout(richTipTimer);
       richTipTimer = setTimeout(function () {
         var tip = el.getAttribute("data-tip") || "";
         var shortcut = "";
-        // detect shortcut in title like "(Ctrl+B)"
+
         var m = tip.match(/\(([^)]+)\)\s*$/);
         if (m) shortcut = m[1];
         var label = tip.replace(/\s*\([^)]+\)\s*$/, "");
@@ -12214,15 +11112,12 @@ function startAutosaveSnapshots() {
     el.addEventListener("mouseleave", function () {
       clearTimeout(richTipTimer);
       richTip.classList.remove("show");
-      // restore title for next hover
+
       var tip = el.getAttribute("data-tip");
       if (tip) { el.setAttribute("title", tip); el.removeAttribute("data-tip"); }
     });
   }
 
-  /* ---------------- Live word count in status bar polish ---------------- */
-  // The existing updateStatus handles word count; here we add a subtle
-  // count-up animation when the word count changes.
   var lastWordCount = 0;
   function animateWordCount(newCount) {
     if (newCount === lastWordCount) return;

@@ -1,19 +1,12 @@
-/* ── Minimal in-browser ZIP reader (no third-party zip library loaded) ──
- * Parses classic ZIP local headers + central directory. Only stored (0) and
- * DEFLATE (8) entries are supported — that covers .pptx/.docx/.xlsx-style
- * archives, whose content is plain XML/media packed as DEFLATE entries.
- * DEFLATE uses the native DecompressionStream; on browsers without it (or for
- * exotic entries like Zip64/encrypted) the entry throws and the caller's
- * existing error path handles the failure. API mirrors the JSZip subset used
- * by the app: zip.files and zip.file(name).async("text"|"base64").
- */
+
+
 function openZipBuffer(buf) {
   const u8 = new Uint8Array(buf);
   const dv = new DataView(buf);
   const u16 = (o) => dv.getUint16(o, true);
   const u32 = (o) => dv.getUint32(o, true);
   const sig = (i, a, b, c, d) => u8[i] === a && u8[i + 1] === b && u8[i + 2] === c && u8[i + 3] === d;
-  // End-of-Central-Directory: last 22 bytes of the archive + up to 64 KiB comment.
+
   let eocd = -1;
   const min = Math.max(0, u8.length - (22 + 65535));
   for (let i = u8.length - 22; i >= min; i--) {
@@ -25,7 +18,7 @@ function openZipBuffer(buf) {
     let p = u32(eocd + 16);
     const decodeName = (b) => new TextDecoder("utf-8").decode(b).replace(/\\/g, "/");
     for (let n = 0; n < total && p + 46 <= u8.length; n++) {
-      if (!sig(p, 0x50, 0x4b, 0x01, 0x02)) break;      // central directory signature
+      if (!sig(p, 0x50, 0x4b, 0x01, 0x02)) break;
       const method = u16(p + 10);
       const compSize = u32(p + 20);
       const nameLen = u16(p + 28);
@@ -34,7 +27,7 @@ function openZipBuffer(buf) {
       const localOff = u32(p + 42);
       const name = decodeName(u8.subarray(p + 46, p + 46 + nameLen));
       p += 46 + nameLen + extraLen + commentLen;
-      if (!name || name.endsWith("/")) continue;        // skip directory entries
+      if (!name || name.endsWith("/")) continue;
       files[name] = _zipEntry(u8, dv, localOff, method, compSize);
     }
   }
