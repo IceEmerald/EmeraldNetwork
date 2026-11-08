@@ -179,12 +179,9 @@ html[data-wiki-theme="dark"] ::-webkit-scrollbar-track {
     height: 62px;
     padding: 0 24px 0 20px;
     background: transparent;
-    border-width: medium;
-    border-style: none;
-    border-color: currentcolor;
+    -webkit-backdrop-filter: blur(3px);
     backdrop-filter: blur(3px);
-    border-image: none;
-    color: rgb(210, 210, 210);
+    color: var(--w-text-soft);
 }
 
 html[data-wiki-theme="dark"] .su-top::after {
@@ -633,18 +630,22 @@ html[data-wiki-theme="dark"] .wiki-toc::-webkit-scrollbar-track {
 .wiki-hero {
     position: relative;
     overflow: hidden;
-    padding: 0 0 1.6rem;
+    padding: 0 0 1.2rem;
     margin-bottom: 1.7rem;
     border-bottom: 1px solid var(--w-line);
 }
 
 .wiki-hero h1 {
     margin: 0 0 0.6rem;
-    font-size: clamp(1.5rem, 2.6vw, 1.95rem);
+    font-size: clamp(1.6rem, 2.8vw, 2.1rem);
     line-height: 1.2;
     letter-spacing: -0.015em;
     font-weight: 700;
     color: var(--w-text);
+}
+
+.wiki-hero h1 span {
+    color: var(--w-brand-ink);
 }
 
 .wiki-hero p {
@@ -654,11 +655,8 @@ html[data-wiki-theme="dark"] .wiki-toc::-webkit-scrollbar-track {
     color: var(--w-text-soft);
 }
 
-.wiki-hero-facts {
-    margin: 0;
-    font-size: 0.85rem;
-    color: var(--w-text-faint);
-    font-variant-numeric: tabular-nums;
+.wiki-hero p:last-child {
+    margin-bottom: 0;
 }
 
 .wiki-block {
@@ -694,6 +692,7 @@ html[data-wiki-theme="dark"] .wiki-toc::-webkit-scrollbar-track {
     align-items: center;
     gap: 0.9rem;
     padding: 1.35rem 1.5rem 0.9rem;
+    background: linear-gradient(180deg, var(--w-app-soft), transparent 92%);
 }
 
 .wiki-block-icon {
@@ -703,7 +702,7 @@ html[data-wiki-theme="dark"] .wiki-toc::-webkit-scrollbar-track {
     display: grid;
     place-items: center;
     border-radius: 7px;
-    background: var(--w-app-ink-soft);
+    background: var(--w-app-soft);
     color: var(--w-app-ink);
 }
 
@@ -932,7 +931,7 @@ a.wiki-card:hover {
     letter-spacing: 0.02em;
     border-radius: 50px;
     color: var(--w-app-ink, var(--w-brand-ink));
-    background: var(--w-app-ink-soft, var(--w-brand-soft));
+    background: var(--w-app-soft, var(--w-brand-soft));
     white-space: nowrap;
 }
 
@@ -1036,7 +1035,7 @@ a.wiki-card:hover {
     font-size: 0.78rem;
     font-weight: 800;
     color: var(--w-app-ink, var(--w-brand));
-    background: var(--w-app-ink-soft, var(--w-brand-soft));
+    background: var(--w-app-soft, var(--w-brand-soft));
     border-radius: 80px;
 }
 
@@ -1176,7 +1175,7 @@ a.wiki-card:hover {
 
 .wiki-filter.is-active {
     color: var(--w-app-ink, var(--w-brand-ink));
-    background: var(--w-app-ink-soft, var(--w-brand-soft));
+    background: var(--w-app-soft, var(--w-brand-soft));
     border-color: transparent;
 }
 
@@ -1325,7 +1324,7 @@ a.wiki-crumb:hover {
     place-items: center;
     font-size: 1rem;
     color: var(--w-app-ink);
-    background: var(--w-app-ink-soft);
+    background: var(--w-app-soft);
     border-radius: 5px;
 }
 
@@ -1413,7 +1412,7 @@ a.wiki-crumb:hover {
 
 .wiki-shelves {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 0.75rem;
     margin: 0 0 1.2rem;
 }
@@ -1438,6 +1437,52 @@ a.wiki-crumb:hover {
     letter-spacing: -0.01em;
     text-transform: none;
     color: var(--w-text);
+}
+
+.wiki-figure {
+    margin: 0 0 1.2rem;
+    border: 1px solid var(--w-line);
+    border-radius: var(--w-radius);
+    overflow: hidden;
+    background: var(--w-surface-2);
+}
+
+.wiki-figure img {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.wiki-figure figcaption {
+    padding: 0.55rem 0.9rem;
+    font-size: 0.78rem;
+    color: var(--w-text-faint);
+    border-top: 1px solid var(--w-line);
+    background: var(--w-surface);
+}
+
+.wiki-figure b {
+    color: var(--w-text-soft);
+    font-weight: 600;
+}
+
+.wiki-figure--wide {
+    max-width: 880px;
+}
+
+@media (min-width: 641px) {
+    .wiki-figure--half {
+        float: right;
+        width: 46%;
+        max-width: 460px;
+        margin: 0.2rem 0 1rem 1.2rem;
+    }
+
+    .wiki-block-body::after {
+        content: "";
+        display: block;
+        clear: both;
+    }
 }
 
 .wiki-shelf p {
