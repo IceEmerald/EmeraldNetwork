@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EmeraldNetwork | Wiki</title>
-    <meta name="description" content="The complete EmeraldNetwork wiki — every feature, command, shortcut and how-to for EmeraldSuite, EmeraldStudio Flowchart, EmeraldBot AI Chat and the EmeraldBot Discord bot.">
+    <meta name="description" content="Guides to EmeraldNetwork's website, browser apps, and account features.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -71,9 +71,8 @@
             <section class="wiki-hero" data-hero>
                 <h1>EmeraldNetwork <span>wiki</span></h1>
                 <p>
-                    Documentation for every EmeraldNetwork product: the four EmeraldSuite apps,
-                    EmeraldStudio Flowchart, EmeraldBot AI Chat and the EmeraldBot Discord bot.
-                    Each page covers the commands and options in detail, and states the limits where they matter.
+                    Guides to the browser apps and account features. Some products have overview pages here,
+                    while their hosted implementations live outside this website's codebase.
                 </p>
             </section>
 
@@ -95,16 +94,19 @@
                 <div class="wiki-block-body">
 
                     <p class="wiki-lead">
-                        An EmeraldNetwork account is required to open the Suite hub, Notes, Docs, Slides,
-                        Sheets, Flowchart and AI Chat. Sign in before using them. Your work is saved in this
-                        browser, and supported app data syncs to your account when you are online. Sheets
-                        workbooks stay in browser storage and do not sync.
+                        EmeraldNetwork is a multi-page website. Its apps run in the browser and save
+                        work locally. The Suite hub, Notes, Docs, Slides, Sheets, Flowchart and AI Chat routes
+                        are guarded by a sign-in check; supported EmeraldCore data syncs to the account service
+                        while signed in and online. Sheets workbooks use separate browser storage and are not
+                        part of account sync.
                     </p>
                     <p>
-                        Once you have signed in and opened an app, most editing can continue offline; account
-                        sync and connected features wait until you are back online. Signing in on another
-                        device restores supported synced data. Keep exports of important work, especially
-                        Sheets workbooks, which must be moved by export and import.
+                        The service worker caches the offline page and a small set of shared shell assets. It
+                        tries the network for page navigations and shows the offline page if that request fails;
+                        it does not cache app pages or their scripts for a cold offline launch. An already
+                        loaded app may still be able to use its browser-side features offline, but sync and
+                        connected features need a connection. Keep exports of important work, especially Sheets
+                        workbooks, which must be moved by export and import.
                     </p>
 
                     <h3>Find what you need</h3>
@@ -140,7 +142,7 @@
                             <ul>
                                 <li><a href="#chat">Text chat</a> — models, search, files, images, quizzes</li>
                                 <li><a href="#livevoice">Live voice</a> — a spoken conversation</li>
-                                <li><a href="#discordbot">Discord bot</a> — 41 commands for your server</li>
+                                <li><a href="#discordbot">Discord bot</a> — command reference</li>
                             </ul>
                         </div>
                         <div class="wiki-shelf">
@@ -168,7 +170,7 @@
                         <li><b>On this page</b> — appears in the sidebar when you focus a single page, listing its headings.</li>
                         <li><b>Headings</b> — click the <span class="wiki-key">#</span> beside one to copy a link to that exact spot.</li>
                         <li><b>Theme</b> — the sun button switches light and dark.</li>
-                        <li><b>Right-click</b> anywhere for copy text, copy page link, and an element inspector.</li>
+                        <li><b>Right-click</b> for the site's context menu, where enabled.</li>
                     </ul>
 
                     <h3>First moves in each app</h3>
@@ -228,10 +230,13 @@
                     <div class="wiki-note">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5M12 8h.01"/></svg>
                         <div>
-                            <b>Keep an export before clearing browser data.</b> Each app has its own export — Notes as a share
-                            link, Docs as PDF/HTML/TXT, Slides as PPTX/PDF/SVG, Sheets as XLSX/CSV, chats as a link,
-                            flowcharts as <code class="wiki-code">.emeraldcore</code>. Clearing browsing data wipes the
-                            library with no way back.
+                            <b>Know what clearing browser data does.</b> It removes this browser's local copy and signs you
+                            out, but it does not delete supported data already synced to your EmeraldNetwork account.
+                            Sign in to the same account while online to restore Notes, Docs, Slides, Flowchart and AI
+                            Chat data. Sheets workbooks are browser-only, and edits that had not synced yet cannot be
+                            restored, so keep an export of important work: Notes as a share link, Docs as PDF/HTML/TXT,
+                            Slides as PPTX/PDF/SVG, Sheets as XLSX/CSV, chats as a link, and flowcharts as
+                            <code class="wiki-code">.emeraldcore</code>.
                         </div>
                     </div>
                     <div class="wiki-note">
@@ -258,9 +263,9 @@
                 </header>
                 <div class="wiki-block-body">
                     <p class="wiki-lead">
-                        Nine apps and products under one roof, and they do not behave alike. The table below is the
-                        comparison: what each is for, where it keeps your work, and whether it needs a
-                        connection.
+                        The site includes browser apps, account features, and references to products whose
+                        implementations are hosted elsewhere. The comparison below focuses on the browser apps
+                        implemented in this repository.
                     </p>
 
                     <h3>The apps</h3>
@@ -297,7 +302,7 @@
                             <img src="/assets/images/sheetsicon.webp" alt="" loading="lazy" width="36" height="36">
                             <span class="wiki-app-body">
                                 <b>EmeraldSheets</b>
-                                <span>96 functions, charts, comments, named ranges, and XLSX/CSV import and export that keeps your formatting.</span>
+                                <span>Spreadsheet editing with formulas, charts, comments, named ranges, and XLSX/CSV import and export.</span>
                             </span>
                         </a>
                         <a class="wiki-app" href="#flowchart">
@@ -311,14 +316,14 @@
                             <span class="wiki-app-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6"/><circle cx="12" cy="12" r="3.2"/></svg></span>
                             <span class="wiki-app-body">
                                 <b>EmeraldBot AI Chat</b>
-                                <span>Nine models, web search, file attachments, image generation, quizzes and memories.</span>
+                                <span>Chat with model choices, web search, file attachments, image tools, quizzes and memories.</span>
                             </span>
                         </a>
                         <a class="wiki-app" href="#discordbot">
                             <span class="wiki-app-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19.3 5.3A16 16 0 0 0 15.9 4l-.4.8a14.6 14.6 0 0 0-5.2 0L9.9 4a16 16 0 0 0-3.4 1.3C4.2 8.8 3.5 12.7 3.8 16.6a16 16 0 0 0 4.8 2.4l1-1.5c-.8-.3-1.6-.7-2.3-1.2l.6-.4a11.4 11.4 0 0 0 9.8 0l.6.4c-.7.5-1.5.9-2.3 1.2l1 1.5a16 16 0 0 0 4.8-2.4c.4-4.5-.7-8.4-2.5-11.3ZM9.5 14.2c-1 0-1.7-.9-1.7-1.9s.8-1.9 1.7-1.9 1.7.9 1.7 1.9-.7 1.9-1.7 1.9Zm5 0c-1 0-1.7-.9-1.7-1.9s.8-1.9 1.7-1.9 1.7.9 1.7 1.9-.7 1.9-1.7 1.9Z"/></svg></span>
                             <span class="wiki-app-body">
                                 <b>EmeraldBot for Discord</b>
-                                <span>Moderation, music, utilities and fun for your server. 41 commands.</span>
+                                <span>A Discord bot with a command reference for moderation, music, utilities and fun.</span>
                             </span>
                         </a>
                         <a class="wiki-app" href="#emeraldessentialsplugin">
@@ -333,6 +338,25 @@
                             <span class="wiki-app-body"><b>EmeraldNetwork account</b><span>Profile, devices, activity history, storage and supported cross-device sync.</span></span>
                         </a>
                     </div>
+
+                    <h3>How the project is built</h3>
+                    <p>
+                        Each public page is an HTML file in the repository. Shared styles, images and
+                        browser-side JavaScript live under <code class="wiki-code">assets/</code>; there is no
+                        site-wide application server in this repository. The authentication and account-sync
+                        API is a separate Cloudflare Worker whose source is
+                        <code class="wiki-code">cloudflare/auth.mjs</code>. It issues signed sessions and
+                        stores account records in Cloudflare D1 when the Worker is configured with a database.
+                        The browser calls that API through <code class="wiki-code">assets/scripts/auth-client.js</code>.
+                    </p>
+                    <p>
+                        Most app data uses the shared <code class="wiki-code">emeraldcore.storage.suite</code>
+                        IndexedDB database through the storage adapter. Sheets uses a separate
+                        <code class="wiki-code">emeraldcore.storage.suite.sheets</code> database and is not
+                        included in account sync. The Worker merges supported account snapshots and rejects
+                        snapshots larger than 8 MiB. Static hosting and the Worker are separate deployment
+                        pieces; this repository does not contain a build pipeline or Worker deployment configuration.
+                    </p>
 
                     <h3>Side by side</h3>
                     <div class="wiki-table-wrap">
@@ -414,10 +438,9 @@
                     <div class="wiki-note wiki-note--warn">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
                         <div>
-                            <b>Not documented here:</b> the Minecraft plugin <em>EmeraldEssentials</em>. It is not
-                            feature-complete, so there is no command list or configuration reference to publish,
-                            and writing one would mean inventing it. Its page says plainly what is and is not
-                            known. Everything else is documented in full.
+                            <b>Separate product:</b> this repository contains a promotional page for
+                            <em>EmeraldEssentials</em>, but no plugin source, build files, or configuration.
+                            This wiki therefore cannot verify its runtime behavior.
                         </div>
                     </div>
 
@@ -532,19 +555,16 @@
 
                     <h3>Storage meter</h3>
                     <p>
-                        The database icon in the top bar opens a <b>Storage</b> popup with <b>Used</b>,
+                        The <b>Storage</b> button in the top bar opens a <b>Storage</b> popup with <b>Used</b>,
                         <b>Available</b>, a proportional bar and a percentage line. It reads the browser's own
                         quota via the Storage API, so the number reflects your whole origin, not just the suite.
                         Browsers that do not expose a quota show
                         <em>Storage estimate unavailable in this browser.</em>
                     </p>
-                    <div class="wiki-note">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5M12 8h.01"/></svg>
-                        <div>
-                            The hub does not break usage down per app. The AI chat's Settings dialog is the
-                            only place that itemises storage.
-                        </div>
-                    </div>
+                    <p>
+                        This is an origin-wide browser estimate. The popup does not identify which app or file
+                        accounts for the usage.
+                    </p>
 
                     <h3>Keeping the hub in sync</h3>
                     <ul class="wiki-features">
@@ -950,7 +970,7 @@
                     <span class="wiki-block-icon"><img src="/assets/images/slidesicon.webp" alt=""></span>
                     <div class="wiki-block-titles">
                         <h2>EmeraldSlides</h2>
-                        <p>Presentations with 65 shapes, 37 transitions, animations, notes and PowerPoint export.</p>
+                        <p>Presentations with 74 shapes, 38 transitions, animations, notes and PowerPoint export.</p>
                     </div>
                 </header>
                 <div class="wiki-block-body">
@@ -1003,7 +1023,7 @@
                                 <tr><td>Insert</td><td><b>Text</b></td><td>Drops in a text box and starts editing immediately.</td></tr>
                                 <tr><td>Insert</td><td><b>Image</b></td><td>Opens the file picker. The image is scaled to fit and centred.</td></tr>
                                 <tr><td>Insert</td><td><b>Video</b> / <b>Audio</b></td><td>Embedded players with their own controls, sized to the media's aspect ratio.</td></tr>
-                                <tr><td>Insert</td><td><b>Shapes</b></td><td>65 shapes grouped into Rectangles, Basic, Block Arrows, Stars, Callouts, Flowchart and Lines.</td></tr>
+                                <tr><td>Insert</td><td><b>Shapes</b></td><td>74 shapes grouped into Rectangles, Basic, Block Arrows, Stars, Callouts, Flowchart and Lines.</td></tr>
                                 <tr><td>Insert</td><td><b>Icons</b></td><td>A searchable icon library with category tabs — scroll to load more.</td></tr>
                                 <tr><td>Insert</td><td><b>Link</b></td><td>Attaches a URL to the selected element. Existing links can be removed from the same dialog.</td></tr>
                                 <tr><td>Insert</td><td><b>Comment</b></td><td>Attaches a comment to a slide; comments show as dots on the thumbnail.</td></tr>
@@ -1018,7 +1038,7 @@
                     <ul class="wiki-features">
                         <li><b>Themes</b> apply a full look to <em>every</em> slide at once. Six appear in the ribbon; <b>More</b> opens the full gallery.</li>
                         <li><b>Templates</b> replace the current slide's elements with a layout. <b>More</b> opens the full gallery, and a preview shows the category and layout before you apply it.</li>
-                        <li><b>Background</b> applies instantly — 36 solid colours plus 13 gradients. <b>Open Designer</b> offers eight ready-made slide layouts.</li>
+                        <li><b>Background</b> applies instantly — 34 solid colours plus 12 gradients. <b>Open Designer</b> offers eight ready-made slide layouts.</li>
                     </ul>
                     <p>Gradients include <b>Purple Dream</b>, <b>Sunset</b>, <b>Ocean</b>, <b>Dark Slate</b>, <b>Golden Hour</b>, <b>Cotton Candy</b>, <b>Midnight Sky</b>, <b>Silver Mist</b>, <b>Fire</b>, <b>Christmas</b>, <b>Warm Glow</b> and <b>Deep Ocean</b>.</p>
 
@@ -1028,8 +1048,8 @@
                         <table class="wiki-table">
                             <thead><tr><th>Family</th><th>Transitions</th></tr></thead>
                             <tbody>
-                                <tr><td>Subtle (13)</td><td>None, Fade, Push, Wipe, Split, Reveal, Cut, Cover, Uncover, Random Bars, Shape, Blinds</td></tr>
-                                <tr><td>Exciting (19)</td><td>Morph, Fade Black, Zoom, Cube, Flip, Gallery, Vortex, Newsflash, Honeycomb, Glitch, Dissolve, Checkerboard, Clock, Ripple, Doors, Switch, Curtains, Fracture, Peel Off, Glitter, Comb</td></tr>
+                                <tr><td>Subtle (12)</td><td>None, Fade, Push, Wipe, Split, Reveal, Cut, Cover, Uncover, Random Bars, Shape, Blinds</td></tr>
+                                <tr><td>Exciting (21)</td><td>Morph, Fade Black, Zoom, Cube, Flip, Gallery, Vortex, Newsflash, Honeycomb, Glitch, Dissolve, Checkerboard, Clock, Ripple, Doors, Switch, Curtains, Fracture, Peel Off, Glitter, Comb</td></tr>
                                 <tr><td>Dynamic Content (5)</td><td>Pan, Rotate, Orbit, Fly Through, Conveyor</td></tr>
                             </tbody>
                         </table>
@@ -1137,7 +1157,7 @@
                         <li>Autofit title numbers: the first deck is <b>Untitled Presentation</b>, the second <b>Untitled Presentation 2</b>, and so on.</li>
                         <li>The Slide Sorter view closes the presenter-notes panel; turn notes back on when you return to Normal.</li>
                         <li>Present mode can be used in fullscreen — <span class="wiki-key">Esc</span> collapses an expanded video first and exits second.</li>
-                        <li>Undo history (150 steps) belongs to the presentation and is cleared when you open or create another deck.</li>
+                        <li>Undo history (50 steps) belongs to the presentation and is cleared when you open or create another deck.</li>
                     </ul>
                 </div>
             </section>
@@ -1146,8 +1166,8 @@
                 <header class="wiki-block-head">
                     <span class="wiki-block-icon"><img src="/assets/images/sheetsicon.webp" alt=""></span>
                     <div class="wiki-block-titles">
-                        <h2>EmeraldSheets</h2>
-                        <p>A spreadsheet app: 96 functions, charts, comments, named ranges and auditing tools — with XLSX/CSV that keeps your formatting.</p>
+                                <h2>EmeraldSheets</h2>
+                        <p>A spreadsheet app with formulas, charts, comments, named ranges and XLSX/CSV import and export.</p>
                     </div>
                 </header>
                 <div class="wiki-block-body">
@@ -1219,7 +1239,7 @@
                     <div class="wiki-copy">
                         <code>=SUMIFS(Q1:Sales, Q1:Region, "EU")</code>
                     </div>
-                    <h4>Function library — 96 functions in 7 categories</h4>
+                    <h4>Function library</h4>
                     <div class="wiki-table-wrap">
                         <table class="wiki-table">
                             <thead><tr><th>Category</th><th>Count</th><th>Examples</th></tr></thead>
@@ -1315,7 +1335,7 @@
                         <table class="wiki-table">
                             <thead><tr><th>Shortcut</th><th>Action</th></tr></thead>
                             <tbody>
-                                <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">Z</span> / <span class="wiki-key">Y</span></td><td>Undo / redo (150 steps)</td></tr>
+                                <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">Z</span> / <span class="wiki-key">Y</span></td><td>Undo / redo (50 steps)</td></tr>
                                 <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">X</span> <span class="wiki-key">C</span> <span class="wiki-key">V</span></td><td>Cut / copy / paste</td></tr>
                                 <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">B</span> <span class="wiki-key">I</span> <span class="wiki-key">U</span> <span class="wiki-key">A</span></td><td>Bold, italic, underline, select all</td></tr>
                                 <tr><td><span class="wiki-key">Ctrl</span>+<span class="wiki-key">F</span> / <span class="wiki-key">H</span> / <span class="wiki-key">G</span></td><td>Find / replace / go to</td></tr>
@@ -1519,7 +1539,7 @@
                     </span>
                     <div class="wiki-block-titles">
                         <h2>Text chat</h2>
-                        <p>Nine models, web search, attachments, image generation, quizzes and memories.</p>
+                        <p>Model choices, web search, attachments, image tools, quizzes and memories.</p>
                     </div>
                 </header>
                 <div class="wiki-block-body">
@@ -1709,7 +1729,7 @@
                         <li>Conversations, files, settings and memories are stored in this browser and sync with your EmeraldNetwork account when you are online.</li>
                         <li>Prompts, display name, saved memories and attachments are sent to the hosted model when you use chat. Live voice also sends audio.</li>
                         <li>AI Chat requires an EmeraldNetwork sign-in and an internet connection. The page contains no API key and uses no analytics script.</li>
-                        <li>If a request is blocked by a safety filter, that conversation is deleted from your history.</li>
+                        <li>If a request is blocked for violating EmeraldNetwork usage policies, that conversation is deleted from your history.</li>
                     </ul>
                 </div>
             </section>
@@ -1790,16 +1810,15 @@
                     </span>
                     <div class="wiki-block-titles">
                         <h2>EmeraldBot for Discord</h2>
-                        <p>41 commands across moderation, music, utilities, information and fun.</p>
+                        <p>A command reference for moderation, music, utilities, information and fun.</p>
                     </div>
                 </header>
                 <div class="wiki-block-body">
 
                     <p class="wiki-lead">
-                        Moderation, music, utilities, information and fun, configurable enough to run a
-                        community server without a second bot. Everything is prefixed
-                        <code class="wiki-code">e!</code> so it cannot collide with other bots in the same
-                        channel.
+                        This repository contains a static command reference for EmeraldBot for Discord, but
+                        not the bot implementation. The command list and behavior below describe the published
+                        reference; runtime availability and permissions are controlled by the hosted bot.
                     </p>
 
                     <p>
@@ -2105,42 +2124,20 @@
                     <div class="wiki-note wiki-note--warn">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
                         <div>
-                            <b>No command list or config reference here.</b> The plugin is not
-                            feature-complete, so publishing one would mean inventing it. Below is everything
-                            that is actually known today.
+                            <b>No command list or config reference here.</b> The repository contains no plugin
+                            source or configuration files, so this wiki cannot verify commands, compatibility,
+                            or release status.
                         </div>
                     </div>
 
                     <h3>What it is</h3>
                     <p>
-                        EmeraldEssentials is a plugin suite for Minecraft servers, positioned around two ideas:
-                        <b>wide compatibility</b> — working across server platforms and alongside other plugins
-                        rather than fighting them — and <b>stability</b>, keeping a busy server running smoothly.
-                        It follows the same visual identity as the rest of EmeraldNetwork, but it is a
-                        completely separate product from the browser apps.
+                        EmeraldEssentials is described on the site's product page as a Minecraft server plugin.
+                        This repository does not include the plugin implementation, so compatibility, features,
+                        and operational requirements cannot be verified from its source.
                     </p>
 
-                    <h3>Not available yet</h3>
-                    <ul class="wiki-features">
-                        <li>No command list — nothing to document until the command surface is settled.</li>
-                        <li>No <code class="wiki-code">config.yml</code> reference, because the config format is still changing.</li>
-                        <li>No permissions node table, and no supported-version range.</li>
-                        <li>No installation walkthrough — there is nothing public to download yet.</li>
-                    </ul>
-
-                    <h3>Getting it</h3>
-                    <p>
-                        Access is by direct contact rather than a public download. Ask in the
-                        <a href="https://discord.gg/CQqZ34T8Jn" target="_blank" rel="noopener noreferrer">EmeraldNetwork Discord server</a>
-                        and you will be told whether the plugin is ready for your server version and how to get it.
-                    </p>
-
-                    <p>
-                        The other three products are documented in full:
-                        <a href="#hub">EmeraldSuite</a> for documents and spreadsheets,
-                        <a href="#flowchart">EmeraldStudio Flowchart</a> for visual programming, and
-                        <a href="#discordbot">EmeraldBot</a> for Discord.
-                    </p>
+                    <p>For current availability and support, use the contact details on the <a href="/emeraldessentialsplugin">product page</a>.</p>
                 </div>
             </section>
 
@@ -2217,7 +2214,7 @@
                     </div>
                 </header>
                 <div class="wiki-block-body">
-                    <p class="wiki-lead">An EmeraldNetwork account is required to use the Suite hub, Notes, Docs, Slides, Sheets, Flowchart and AI Chat. If you open one while signed out, you are redirected to <a href="/account">/account</a> to sign in, then returned to the app. Work is saved in this browser; supported data also syncs to your account when online. Sheets workbooks are stored locally and are not included in account sync.</p>
+                    <p class="wiki-lead">The Suite hub, Notes, Docs, Slides, Sheets, Flowchart and AI Chat are guarded by the browser sign-in check. Signed-out visitors are sent to <a href="/account">/account</a> and returned to the requested page after signing in. App data is saved in this browser; supported data also syncs to your account when online. Sheets workbooks are stored locally and are not included in account sync.</p>
                     <h3>Create an account or sign in</h3>
                     <ol class="wiki-steps">
                         <li>Open the app you want to use. If you are signed out, it redirects you to <a href="/account">/account</a> and remembers where to send you afterward. You can also open the account page directly.</li>
@@ -2229,12 +2226,12 @@
                         <li><b>Overview</b> — see your profile, signed-in devices and storage summary, with shortcuts to finish setting up your profile.</li>
                         <li><b>Personal info</b> — edit your display name, profile photo, birthday, gender, phone number and location details. Photos must be JPG or PNG and no larger than 2 MB.</li>
                         <li><b>Devices</b> — review signed-in browsers and devices, sign out one device, or sign out every other device.</li>
-                        <li><b>Security</b> — Google sign-ins use Google for password management. Email password changes and password resets are not currently available, even though the dashboard displays a password form.</li>
-                        <li><b>Data &amp; privacy</b> — download an <code class="wiki-code">.emeraldcore</code> copy of your account data, review or clear activity history, or permanently delete account data.</li>
+                        <li><b>Security</b> — review signed-in sessions and available sign-out controls. Email password changes and resets are not provided by the account API in this repository.</li>
+                        <li><b>Data &amp; privacy</b> — download an <code class="wiki-code">.emeraldcore</code> copy of your account data, review or clear activity history, or reset synced account data.</li>
                         <li><b>Storage</b> — view an estimate of this browser's EmeraldNetwork storage use, broken down by app.</li>
                     </ul>
                     <h3>Activity history and storage</h3>
-                    <p>Activity history records actions across EmeraldNetwork apps and can sync with your account. Clearing it removes the history from your signed-in devices; it does not delete your files. The Storage page reports browser storage usage and the quota the browser makes available, so its numbers can vary by browser and device.</p>
+                    <p>Activity history records actions across EmeraldNetwork apps and can sync with your account. Clearing it removes the history from your signed-in devices; it does not delete your files. Clearing browser data is different: it removes the local browser copy and session, while supported data already synced to the account can be downloaded again after you sign in. The Storage page reports browser storage usage and the quota the browser makes available, so its numbers can vary by browser and device.</p>
                     <h3>What syncs</h3>
                     <p>Account sync includes supported Notes, Docs, Slides, Flowchart and AI Chat data, plus account profile data. Changes are saved locally first and sync while you are signed in and online; offline edits wait for a connection. Sheets workbooks use a separate database and stay in that browser, so export and import them to move them to another device.</p>
                     <div class="wiki-note wiki-note--warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 1 1.7-3h17a2 2 0 0 1 1.7 3L13.7 3.9a2 2 0 0 1-3.4 0z"/></svg><div><b>Keep independent exports for important work.</b> Account sync is a convenience and backup path, but it does not replace an export you control. EmeraldSheets must be exported separately.</div></div>
@@ -2287,7 +2284,7 @@
                     <div class="wiki-note wiki-note--danger">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
                         <div>
-                            <b>Keep an export of important work.</b> Supported shared-database data syncs to your account, but Sheets workbooks do not. Clearing browser data can remove the local copy; sign in online to restore supported synced data, and use a Sheets export to restore a workbook.
+                            <b>Clearing browser data removes the local copy.</b> It can remove the local copy, IndexedDB databases and sign-in session, but it does not erase the account snapshot. Sign in to the same account while online to restore supported shared-database data. Sheets workbooks never sync, and local edits made while offline may not have reached the account, so use an export for those.
                         </div>
                     </div>
 
@@ -2308,33 +2305,23 @@
 
                     <h3>What works offline</h3>
                     <p>
-                        All listed apps require an account sign-in. "Works offline" means you have already
-                        signed in and the app tab is open. Account sync pauses offline and resumes
-                        when the connection returns. A cold load while disconnected is not
-                        guaranteed for every app, because only the shared shell files are cached by the service
-                        worker. If you plan to work without a connection, open the app first and leave the tab
-                        open.
+                        The service worker uses network-first navigation and falls back to
+                        <code class="wiki-code">offline.html</code> if the network request fails. It caches
+                        that offline page and a short list of shared shell assets; it does not pre-cache app
+                        HTML, app scripts, or app data. An app page already loaded in a tab can still run its
+                        loaded browser code, subject to each feature's network needs. Account sync requires a
+                        connection and retries after connectivity returns.
                     </p>
-                    <div class="wiki-table-wrap">
-                        <table class="wiki-table">
-                            <thead><tr><th>App</th><th>Works offline</th><th>Still needs a connection</th></tr></thead>
-                            <tbody>
-                                <tr><td>Suite hub</td><td><span class="wiki-tag">Everything</span></td><td>Sign-in and account sync need a connection.</td></tr>
-                                <tr><td>Notes</td><td><span class="wiki-tag">Most</span></td><td>Sign-in, account sync, live sharing and web fonts.</td></tr>
-                                <tr><td>Docs</td><td><span class="wiki-tag">Most</span></td><td>Sign-in, account sync, PDF export/import, full-fidelity <b>.docx</b> import and web fonts.</td></tr>
-                                <tr><td>Slides</td><td><span class="wiki-tag">Most</span></td><td>Sign-in, account sync, PPTX/PDF export, PDF import and web fonts.</td></tr>
-                                <tr><td>Sheets</td><td><span class="wiki-tag">Most</span></td><td>Sign-in and XLSX import/export need a connection. CSV and printing work offline; workbooks do not account-sync.</td></tr>
-                                <tr><td>Flowchart</td><td><span class="wiki-tag">Most</span></td><td>Sign-in and account sync need a connection.</td></tr>
-                                <tr><td>AI Chat</td><td><span class="wiki-tag wiki-tag--danger">Chat needs internet</span></td><td>Model requests and account sync.</td></tr>
-                                <tr><td>Account</td><td><span class="wiki-tag">Dashboard pages already open</span></td><td>Sign-in, account sync and device management.</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
+                    <ul class="wiki-features">
+                        <li><b>Already loaded page:</b> browser-side editing and local reads/writes may remain available while that page stays open.</li>
+                        <li><b>Account features:</b> registration, login, account sync, device actions and restoring account data call the auth Worker and need a connection.</li>
+                        <li><b>Connected app features:</b> AI requests, Notes live sharing and any library or service fetched on demand need a connection.</li>
+                        <li><b>Cold offline navigation:</b> the service worker displays the offline page. It does not cache app HTML or app JavaScript, so it cannot launch an app from a fresh offline navigation.</li>
+                    </ul>
 
                     <h3>Limits</h3>
                     <p>
-                        None of these are bugs — they are the current shape of each app, listed here so you meet
-                        them once instead of discovering them badly.
+                        These limits are documented here only where the current implementation has a defined constraint.
                     </p>
                     <div class="wiki-table-wrap">
                         <table class="wiki-table">
@@ -2349,9 +2336,6 @@
                                 <tr><td>Account</td><td>Account sync needs a connection</td><td>Local edits remain available offline and sync after reconnection.</td></tr>
                                 <tr><td>Docs</td><td>Read aloud stops at 3,000 characters</td><td>Use it to spot-check the opening.</td></tr>
                                 <tr><td>Docs</td><td>An imported PDF keeps its layout</td><td>Pages, margins, indents and line breaks stay where the PDF drew them, so the layout does not reflow. Text you add flows on from where it is placed.</td></tr>
-                                <tr><td>Docs</td><td>An imported image looks stretched or squashed</td><td>Images used to carry a fixed height that did not shrink with the picture when it was wider than the text column. Images now keep their proportions at any width — if one still looks wrong, resize it with the corner handles, which always hold the aspect ratio.</td></tr>
-                                <tr><td>Docs</td><td>An imported PDF gained extra blank pages</td><td>Pages a different shape from the first one used to be forced onto the first page's size, which overflowed and split into empty pages. Each page now keeps its own size, so the page count matches the PDF.</td></tr>
-
                                 <tr><td>Slides</td><td>Decks grow large with media</td><td>Video and audio are stored inline, so keep an eye on size.</td></tr>
                                 <tr><td>Slides</td><td>Morph needs two slides</td><td>On a single slide it falls back to a fade.</td></tr>
                                 <tr><td>Sheets</td><td>10 sheets per workbook</td><td>Names are limited to 30 characters and must be unique.</td></tr>
@@ -2380,7 +2364,7 @@
                         <table class="wiki-table">
                             <thead><tr><th>Symptom</th><th>Try</th></tr></thead>
                             <tbody>
-                                <tr><td>The library is empty after a reload</td><td>Check you are signed in to the same account and online so supported data can sync. Sheets workbooks are local to the browser where they were saved unless you move them with an export.</td></tr>
+                                <tr><td>The library is empty after clearing browser data</td><td>Sign in to the same account and stay online while supported data is restored. Sheets workbooks are local to the browser where they were saved and cannot be restored from account sync; import an XLSX/CSV export instead.</td></tr>
                                 <tr><td>Account data has not appeared on this device</td><td>Check that you are signed in to the same account and online. Sync retries after reconnecting; Sheets is not included in account sync.</td></tr>
                                 <tr><td>"Save failed" in Sheets</td><td>Sheets uses IndexedDB only, with no localStorage fallback. Private browsing or a full disk will cause this.</td></tr>
                                 <tr><td>PDF or XLSX export fails</td><td>Those features download a library on first use. Reconnect and try again.</td></tr>
