@@ -1226,6 +1226,8 @@ body.light-mode .message-avatar-user {
     line-height: 1.65;
     min-width: 0px;
     overflow-x: visible;
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 
 .message-text.user-text {
@@ -2501,6 +2503,17 @@ body.light-mode .ai-modal {
     line-height: 1.7;
     overflow-y: visible;
     overflow-x: visible;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+.md-content pre {
+    overflow-x: auto;
+}
+
+.md-content pre code {
+    overflow-wrap: normal;
+    word-break: normal;
 }
 
 .md-content p {
