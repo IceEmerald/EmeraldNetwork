@@ -4557,6 +4557,9 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
   const url = `${CHAT_WORKER_URL}/chat?model=${encodeURIComponent(requestedId)}`;
   let res;
   try {
+    if (window.EmeraldAuth && typeof window.EmeraldAuth.ready === "function") {
+      await window.EmeraldAuth.ready().catch(() => null);
+    }
     if (window.EmeraldAuth && typeof window.EmeraldAuth.getSyncState === "function" &&
         typeof window.EmeraldAuth.syncCurrentData === "function") {
       const syncState = window.EmeraldAuth.getSyncState();
