@@ -1532,6 +1532,117 @@
         moveNavPill(false);
     }
 
+    (function initConnectionSettings() {
+        var key = 'emerald.account.connections';
+        var defaults = { createFiles: true, editFiles: true, deleteFiles: true, profileInfo: false };
+        var controls = document.querySelectorAll('[data-connection]');
+        var settings = Object.assign({}, defaults);
+        var ready = false;
+        var syncPending = false;
+
+        function normalize(value) {
+            var result = Object.assign({}, defaults);
+            if (value && typeof value === 'object') {
+                Object.keys(defaults).forEach(function (name) {
+                    if (typeof value[name] === 'boolean') result[name] = value[name];
+                });
+            }
+            return result;
+        }
+
+        async function save(syncNow) {
+            var storage = window.EmeraldIDBStorage;
+            if (!storage || typeof storage.setJSON !== 'function' ||
+                typeof storage.usingIndexedDB !== 'function' || !storage.usingIndexedDB()) {
+                throw new Error('Account storage is unavailable.');
+            }
+            await storage.setJSON(key, settings);
+            try { localStorage.removeItem(key); } catch (_) {}
+            if (syncNow && window.EmeraldAuth && typeof window.EmeraldAuth.syncCurrentData === 'function') {
+                await window.EmeraldAuth.syncCurrentData();
+            }
+        }
+
+        controls.forEach(function (control) {
+            control.disabled = true;
+            control.addEventListener('change', async function () {
+                if (!ready) return;
+                var name = control.dataset.connection;
+                var previousValue = settings[name];
+                settings[name] = control.checked;
+                controls.forEach(function (item) { item.disabled = true; });
+                setText('connectionSaveNote', 'Saving and syncing your account settings…');
+                try {
+                    await save(false);
+                    try {
+                        var syncResult = window.EmeraldAuth && typeof window.EmeraldAuth.syncCurrentData === 'function'
+                            ? await window.EmeraldAuth.syncCurrentData() : null;
+                        syncPending = !(syncResult && syncResult.ok);
+                        setText('connectionSaveNote', !syncPending
+                            ? 'Settings saved and synced with your account.'
+                            : 'Settings saved on this device. Account sync will retry when you’re online.');
+                    } catch (_) {
+                        syncPending = true;
+                        setText('connectionSaveNote', 'Settings saved on this device. Account sync will retry when your connection is available.');
+                    }
+                } catch (_) {
+                    control.checked = previousValue;
+                    settings[name] = previousValue;
+                    setText('connectionSaveNote', 'Could not save account settings. Please try again.');
+                } finally {
+                    controls.forEach(function (item) { item.disabled = false; });
+                }
+            });
+        });
+
+        (async function load() {
+            try {
+                if (window.EmeraldAuth && typeof window.EmeraldAuth.ready === 'function') await window.EmeraldAuth.ready();
+                if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.ready === 'function') await window.EmeraldIDBStorage.ready();
+                var storage = window.EmeraldIDBStorage;
+                if (storage && typeof storage.getJSON === 'function') {
+                    var saved = await storage.getJSON(key);
+                    if (saved) settings = normalize(saved);
+                    else {
+                        var legacy = null;
+                        try { legacy = JSON.parse(localStorage.getItem(key) || 'null'); } catch (_) {}
+                        if (legacy) {
+                            settings = normalize(legacy);
+                            await save(false);
+                            try {
+                                var migrationSync = window.EmeraldAuth && typeof window.EmeraldAuth.syncCurrentData === 'function'
+                                    ? await window.EmeraldAuth.syncCurrentData() : null;
+                                syncPending = !(migrationSync && migrationSync.ok);
+                            } catch (_) { syncPending = true; }
+                        }
+                    }
+                }
+                controls.forEach(function (control) {
+                    var name = control.dataset.connection;
+                    if (Object.prototype.hasOwnProperty.call(settings, name)) control.checked = settings[name];
+                });
+                ready = true;
+                controls.forEach(function (control) { control.disabled = false; });
+                setText('connectionSaveNote', syncPending
+                    ? 'Settings are saved on this device. Account sync will retry when you’re online.'
+                    : 'Connection settings sync with your EmeraldNetwork account.');
+            } catch (_) {
+                setText('connectionSaveNote', 'Could not load account settings. Refresh when your connection is available.');
+            }
+        })();
+
+        if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.subscribe === 'function') {
+            window.EmeraldIDBStorage.subscribe(function (change) {
+                if (!change || change.key !== key) return;
+                window.EmeraldIDBStorage.getJSON(key).then(function (saved) {
+                    if (!saved) return;
+                    settings = normalize(saved);
+                    controls.forEach(function (control) { control.checked = settings[control.dataset.connection]; });
+                }).catch(function () {});
+            });
+        }
+    })();
+
     var SWITCH_MS = 180;
     var switchAnimating = false;
     var switchPending = null;
@@ -2625,7 +2736,8 @@
         devices: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>',
         security: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
         data: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>',
-        storage: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>'
+        storage: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>',
+        connections: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l3-3A5 5 0 0 0 13 2.93l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3A5 5 0 0 0 11 21.07l1.71-1.72"/></svg>'
     };
 
     var items = [
@@ -2634,7 +2746,8 @@
         { label: 'Devices', key: 'devices', hint: 'Signed-in devices', words: ['device', 'sessions', 'computers'] },
         { label: 'Security', key: 'security', hint: 'Email address & password', words: ['email', 'password', 'login', 'google'] },
         { label: 'Data & privacy', key: 'data', hint: 'Download, history or delete your data', words: ['export', 'download', 'delete', 'privacy', 'history', 'activity', 'visited'] },
-        { label: 'Storage', key: 'storage', hint: 'Usage and quota', words: ['space', 'quota', 'usage'] }
+        { label: 'Storage', key: 'storage', hint: 'Usage and quota', words: ['space', 'quota', 'usage'] },
+        { label: 'Connections', key: 'connections', hint: 'Apps, EmeraldSuite, AI Chat, personalization', words: ['apps', 'integrations', 'emeraldsuite', 'ai chat', 'emerald bot', 'personalization', 'profile'] }
     ];
 
     var matches = [];

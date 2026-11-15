@@ -3619,9 +3619,14 @@ async function handleSend(opts) {
   _efResetWriteGate();
   if (!_silent) {
     try {
+      await _refreshConnectionPrefs();
       const fileCtx = await _suiteAutoContext(text);
       if (fileCtx && history.length && history[history.length - 1]?.parts?.length) {
         history[history.length - 1].parts.unshift({ text: fileCtx });
+      }
+      const profileCtx = await _accountPersonalizationContext();
+      if (profileCtx && history.length && history[history.length - 1]?.parts?.length) {
+        history[history.length - 1].parts.unshift({ text: profileCtx });
       }
     } catch (e) { console.warn("File context failed:", e); }
   }
@@ -4247,6 +4252,7 @@ async function regenerateMessage(msgEl) {
   const regenFiles = (userMsgIdx >= 0 && conv.messages[userMsgIdx] && conv.messages[userMsgIdx].files) || [];
   _efResetWriteGate();
   try {
+    await _refreshConnectionPrefs();
     const fileCtx = await _suiteAutoContext(regenUserText);
     if (fileCtx && history.length && history[history.length - 1]?.parts?.length) {
       history[history.length - 1].parts.unshift({ text: fileCtx });
@@ -4558,9 +4564,14 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
   const url = `${CHAT_WORKER_URL}/chat?model=${encodeURIComponent(requestedId)}`;
   let res;
   try {
+    const headers = { "Content-Type": "application/json" };
+    if (window.EmeraldAuth && typeof window.EmeraldAuth.getSession === "function") {
+      const session = await window.EmeraldAuth.getSession().catch(() => null);
+      if (session && session.token) headers.Authorization = "Bearer " + session.token;
+    }
     res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(reqBody),
       signal: state.abortCtrl?.signal
     });
@@ -7188,6 +7199,43 @@ function _esAppKind(data) {
   const a = String((data && data.app) || "").toLowerCase().trim();
   return _ES_APPS[a] ? a : null;
 }
+const _EMERALD_CONNECTION_DEFAULTS = { createFiles: true, editFiles: true, deleteFiles: true, profileInfo: false };
+let _emeraldConnectionSettings = Object.assign({}, _EMERALD_CONNECTION_DEFAULTS);
+function _emeraldConnectionPrefs() { return Object.assign({}, _emeraldConnectionSettings); }
+async function _refreshConnectionPrefs() {
+  try {
+    if (window.EmeraldAuth && typeof window.EmeraldAuth.ready === "function") await window.EmeraldAuth.ready();
+    const storage = window.EmeraldIDBStorage;
+    if (!storage || typeof storage.getJSON !== "function") return _emeraldConnectionPrefs();
+    if (typeof storage.ready === "function") await storage.ready();
+    const saved = await storage.getJSON("emerald.account.connections");
+    if (saved && typeof saved === "object") {
+      const next = Object.assign({}, _EMERALD_CONNECTION_DEFAULTS);
+      for (const key of Object.keys(next)) if (typeof saved[key] === "boolean") next[key] = saved[key];
+      _emeraldConnectionSettings = next;
+    }
+  } catch (_) {}
+  return _emeraldConnectionPrefs();
+}
+if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.subscribe === "function") {
+  window.EmeraldIDBStorage.subscribe(function (change) {
+    if (change && change.key === "emerald.account.connections") _refreshConnectionPrefs();
+  });
+}
+async function _accountPersonalizationContext() {
+  if (!_emeraldConnectionPrefs().profileInfo || !window.EmeraldIDBStorage || !window.EmeraldIDBStorage.getJSON) return "";
+  try {
+    const profile = await window.EmeraldIDBStorage.getJSON("emerald.account.profile");
+    if (!profile || typeof profile !== "object") return "";
+    const details = [];
+    if (typeof profile.name === "string" && profile.name.trim()) details.push("Name: " + profile.name.trim().slice(0, 100));
+    if (typeof profile.birth === "string" && profile.birth.trim()) details.push("Birthday: " + profile.birth.trim().slice(0, 20));
+    const location = [profile.city, profile.region, profile.country].filter((v) => typeof v === "string" && v.trim()).map((v) => v.trim().slice(0, 80));
+    if (location.length) details.push("Location: " + location.join(", "));
+    if (!details.length) return "";
+    return "[ACCOUNT PROFILE FOR PERSONALIZATION]\nThe user chose to share these profile details with AI Chat. Use them only when relevant to the current request; do not repeat or expose them unnecessarily.\n" + details.join("\n");
+  } catch (_) { return ""; }
+}
 function _extractEmeraldApp(text) {
   const src = String(text || "");
   const m = src.match(/<es-app(?:\s[^>]*)?>([\s\S]+?)<\/es-app\s*>/) || src.match(/<es-app(?:\s[^>]*)?>([\s\S]+)$/);
@@ -7195,6 +7243,7 @@ function _extractEmeraldApp(text) {
   const start = src.search(/<es-app(?:\s[^>]*)?>/i);
   const before = src.slice(0, start).trim();
   const after = src.slice(start + m[0].length).trim();
+  if (!_emeraldConnectionPrefs().createFiles) return { before: (before ? before + "\n\n" : "") + "File creation is turned off in Account → Connections.", after, appData: null, parseFailed: false };
   let raw = m[1];
   let appData = null;
   let parseFailed = false;
@@ -8472,6 +8521,12 @@ function _efSheetToMd(sheet) {
 async function _suiteAutoContext(userText) {
 
   if (!_suiteContextAllowed(userText)) return null;
+  const connectionPrefs = _emeraldConnectionPrefs();
+  if (!connectionPrefs.createFiles && !connectionPrefs.editFiles) return null;
+  const connectionRules = "\n[ACCOUNT CONNECTION PREFERENCES]\n" +
+    (connectionPrefs.createFiles ? "Creating new EmeraldSuite files is enabled.\n" : "Do not create EmeraldSuite files; file creation is turned off in Account → Connections.\n") +
+    (connectionPrefs.editFiles ? "Updating existing EmeraldSuite files is enabled.\n" : "Do not update existing EmeraldSuite files; file updates are turned off in Account → Connections.\n") +
+    (connectionPrefs.deleteFiles ? "Removing file content is enabled only for explicit user requests.\n" : "Do not remove file content; removal is turned off in Account → Connections.\n");
   const items = [];
   const note = async (app, id, title, upd) => {
     const r = await _efRead(app, id);
@@ -8501,7 +8556,7 @@ async function _suiteAutoContext(userText) {
   } catch (e) {}
   if (!items.length) {
 
-    return _efDirective() + "\n[EMERALDSUITE FILES]\nThe user has no files in EmeraldSuite yet.\n" +
+    return _efDirective() + connectionRules + "\n[EMERALDSUITE FILES]\nThe user has no files in EmeraldSuite yet.\n" +
       " There is nothing to edit, so CREATE the file with <es-app>{...}</es-app> — no \"id\" is needed." +
       ' Payload shapes: notes {"app":"notes","title":"...","content":"markdown"}; docs {"app":"docs","title":"...","content":"markdown"};' +
       ' slides {"app":"slides","title":"...","background":"#hex","slides":[{"title":"...","content":"...","background":"#hex","transition":{"type":"fade","duration":0.7},"animations":[{"target":0,"type":"fade","start":"click","duration":0.5}]}]};' +
@@ -8521,7 +8576,7 @@ async function _suiteAutoContext(userText) {
     if (body.length > 5000) body = body.slice(0, 5000) + "\n[...truncated...]";
     block += "\n### " + _efLabel(it.app) + " — \"" + it.title.replace(/\n/g, " ") + "\" (ID: " + it.id + ")\n" + body + "\n";
   }
-block += "\nYou may edit these files whenever it helps — decide for yourself whether this message calls for a change.\n" +
+  block += "\n" + (connectionPrefs.editFiles ? "You may edit these files when the user asks for a change.\n" : "Do not edit or change existing files; file updates are turned off in Account → Connections.\n") +
     'PREFER targeted ops: <es-edit>{"app":"the-app","id":"the-file-id","ops":[...]}</es-edit>, which changes only what it names. Use ops for recolouring, resizing, moving, inserting text/shapes/images, adding a chart, setting a border, merging, adding or animating a slide, appending to a note, and so on.\n' +
     'Use {"app":"...","id":"...","content":"full new markdown"} ONLY when the whole file should be replaced, and <es-app>{...}</es-app> to CREATE a brand-new file.\n' +
 
@@ -8531,7 +8586,7 @@ block += "\nYou may edit these files whenever it helps — decide for yourself w
       _esOpsSpec() + _esSlideSpec();
   if (block.length > 26000) block = block.slice(0, 26000) + "\n[...truncated...]";
 
-  return _efDirective() + "\n" + block;
+  return _efDirective() + connectionRules + "\n" + block;
 }
 
 function _esOpsSpec() {
@@ -8692,6 +8747,7 @@ function _extractFileEdit(text) {
   const start = src.search(/<es-edit(?:\s[^>]*)?>/i);
   const before = src.slice(0, start).trim();
   const after = src.slice(start + m[0].length).trim();
+  if (!_emeraldConnectionPrefs().editFiles) return { before: (before ? before + "\n\n" : "") + "File updates are turned off in Account → Connections.", after, edit: null, parseFailed: true };
   let raw = m[1];
   let edit = null;
   let parseFailed = false;
@@ -8765,6 +8821,10 @@ const _ES_REMOVE_SIGNAL = /\b(delete|delet(e|ing|ion)|remove|removing|removal|cl
 function _esFilterDestructive(ops, userText) {
   const list = Array.isArray(ops) ? ops : [];
   if (!list.length) return { ops: list, held: [], asked: false };
+  if (!_emeraldConnectionPrefs().deleteFiles) {
+    const held = list.filter((o) => _ES_DESTRUCTIVE_OPS.has(String((o && o.op) || "").toLowerCase())).map((o) => String(o.op).toLowerCase());
+    return { ops: list.filter((o) => !_ES_DESTRUCTIVE_OPS.has(String((o && o.op) || "").toLowerCase())), held, asked: false };
+  }
   if (_ES_REMOVE_SIGNAL.test(String(userText || ""))) return { ops: list, held: [], asked: true };
   const keep = [], held = [];
   for (const o of list) {
@@ -9955,6 +10015,7 @@ async function submitUserMsgEdit(msgId) {
   }
 
   _efResetWriteGate();
+  await _refreshConnectionPrefs();
   try {
     const fileCtx = await _suiteAutoContext(newText);
     if (fileCtx && history.length && history[history.length - 1]?.parts?.length) {

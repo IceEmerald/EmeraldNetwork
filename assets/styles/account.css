@@ -1430,6 +1430,183 @@ body {
     background: #eef0f2;
 }
 
+.connection-group {
+    margin: 1.75rem 0 2rem;
+}
+
+.connection-group-heading {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    margin: 0 0 0.85rem;
+}
+
+.connection-group-heading > div {
+    min-width: 0;
+    flex: 1;
+}
+
+.connection-group-heading h2 {
+    margin: 0 0 0.22rem;
+    color: #202923;
+    font-size: 1.05rem;
+    font-weight: 750;
+}
+
+.connection-group-heading p {
+    margin: 0;
+    color: #69716c;
+    font-size: 0.86rem;
+    line-height: 1.5;
+}
+
+.connection-app-mark {
+    display: grid;
+    flex: 0 0 42px;
+    width: 42px;
+    height: 42px;
+    place-items: center;
+    border-radius: 13px;
+    font-size: 1.25rem;
+    font-weight: 800;
+}
+
+.connection-app-mark svg {
+    width: 22px;
+    height: 22px;
+}
+
+.suite-mark {
+    color: #168447;
+    background: #e8f7ed;
+}
+
+.chat-mark {
+    color: #6654b5;
+    background: #f0edff;
+}
+
+.connection-status {
+    flex: 0 0 auto;
+    padding: 0.3rem 0.58rem;
+    border: 1px solid #dcefe2;
+    border-radius: 99px;
+    background: #f3fbf5;
+    color: #287943;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.connection-card {
+    overflow: hidden;
+    padding: 0 1.25rem;
+}
+
+.connection-setting {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    min-height: 82px;
+    padding: 1rem 0;
+    cursor: pointer;
+}
+
+.connection-setting + .connection-setting {
+    border-top: 1px solid #edf0ed;
+}
+
+.connection-setting-copy {
+    display: grid;
+    gap: 0.3rem;
+    max-width: 620px;
+}
+
+.connection-setting-copy strong {
+    color: #252b27;
+    font-size: 0.91rem;
+    font-weight: 700;
+}
+
+.connection-setting-copy > span {
+    color: #707873;
+    font-size: 0.82rem;
+    line-height: 1.55;
+}
+
+.connection-toggle {
+    appearance: none;
+    position: relative;
+    flex: 0 0 44px;
+    width: 44px;
+    height: 26px;
+    margin: 0;
+    border: 0;
+    border-radius: 99px;
+    background: #d7dcd8;
+    cursor: pointer;
+    transition: background 0.18s ease;
+}
+
+.connection-toggle::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px #0002;
+    transition: transform 0.18s ease;
+}
+
+.connection-toggle:checked {
+    background: #168447;
+}
+
+.connection-toggle:checked::after {
+    transform: translateX(18px);
+}
+
+.connection-toggle:focus-visible {
+    outline: 3px solid #16844755;
+    outline-offset: 3px;
+}
+
+.connection-save-note {
+    margin: -0.75rem 0 2rem;
+    color: #808883;
+    font-size: 0.78rem;
+}
+
+@media (max-width: 600px) {
+    .connection-group-heading {
+        align-items: flex-start;
+        gap: 0.7rem;
+    }
+
+    .connection-app-mark {
+        flex-basis: 36px;
+        width: 36px;
+        height: 36px;
+        border-radius: 11px;
+    }
+
+    .connection-status {
+        margin-left: auto;
+        font-size: 0.66rem;
+    }
+
+    .connection-card {
+        padding: 0 0.95rem;
+    }
+
+    .connection-setting {
+        gap: 0.8rem;
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .dash-main.is-switching {
         filter: none;

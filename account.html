@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/assets/styles/account.css?v=69" />
+    <link rel="stylesheet" href="/assets/styles/account.css?v=70" />
     <link rel="icon" type="image/x-icon" href="/assets/images/favicon.webp">
 </head>
 
@@ -170,6 +170,7 @@
                     <button class="dash-nav-item" data-section="security">Security</button>
                     <button class="dash-nav-item" data-section="data">Data &amp; privacy</button>
                     <button class="dash-nav-item" data-section="storage">Storage</button>
+                    <button class="dash-nav-item" data-section="connections">Connections</button>
                 </nav>
             </aside>
 
@@ -456,6 +457,52 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="dash-section" id="section-connections">
+                    <h1 class="dash-title">Connections</h1>
+                    <p class="dash-sub">Choose how EmeraldNetwork apps can work together with AI. Your choices sync with your account across devices.</p>
+                    <section class="connection-group" aria-labelledby="suiteConnectionTitle">
+                        <div class="connection-group-heading">
+                            <span class="connection-app-mark suite-mark" aria-hidden="true">E</span>
+                            <div>
+                                <h2 id="suiteConnectionTitle">EmeraldSuite</h2>
+                                <p>Give EmeraldBot a hand with your Notes, Docs, Slides, and Sheets.</p>
+                            </div>
+                            <span class="connection-status">Connected</span>
+                        </div>
+                        <div class="dash-card connection-card">
+                            <label class="connection-setting" for="connectionCreateFiles">
+                                <span class="connection-setting-copy"><strong>Create workspace files</strong><span>Turn a request into a new Note, Doc, Slide deck, or Sheet.</span></span>
+                                <input class="connection-toggle" type="checkbox" id="connectionCreateFiles" data-connection="createFiles">
+                            </label>
+                            <label class="connection-setting" for="connectionEditFiles">
+                                <span class="connection-setting-copy"><strong>Update file content</strong><span>Make requested changes to files you already have in EmeraldSuite.</span></span>
+                                <input class="connection-toggle" type="checkbox" id="connectionEditFiles" data-connection="editFiles">
+                            </label>
+                            <label class="connection-setting" for="connectionDeleteFiles">
+                                <span class="connection-setting-copy"><strong>Remove workspace content</strong><span>Carry out explicit requests to delete content inside a file. EmeraldBot still checks that you asked for a removal.</span></span>
+                                <input class="connection-toggle" type="checkbox" id="connectionDeleteFiles" data-connection="deleteFiles">
+                            </label>
+                        </div>
+                    </section>
+                    <section class="connection-group" aria-labelledby="chatConnectionTitle">
+                        <div class="connection-group-heading">
+                            <span class="connection-app-mark chat-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-6.5A7.5 7.5 0 1 1 20 11.5Z"/><path d="M8 11h.01M12 11h.01M16 11h.01" stroke-width="2.5"/></svg></span>
+                            <div>
+                                <h2 id="chatConnectionTitle">AI Chat</h2>
+                                <p>Choose what EmeraldBot can use to make replies feel more personal.</p>
+                            </div>
+                            <span class="connection-status">Connected</span>
+                        </div>
+                        <div class="dash-card connection-card">
+                            <label class="connection-setting" for="connectionProfileInfo">
+                                <span class="connection-setting-copy"><strong>Use profile details for tailored replies</strong><span>Include your name and profile details, such as your city or birthday, in AI Chat context while this is on. EmeraldBot uses them when they’re relevant.</span></span>
+                                <input class="connection-toggle" type="checkbox" id="connectionProfileInfo" data-connection="profileInfo">
+                            </label>
+                        </div>
+                    </section>
+                    <p class="connection-save-note" id="connectionSaveNote" aria-live="polite">Connection settings sync with your EmeraldNetwork account.</p>
+                </div>
             </main>
         </div>
     </section>
@@ -473,7 +520,7 @@
     <script src="/assets/scripts/activity-history.js?v=5"></script>
     <script src="/assets/scripts/idb-storage.js"></script>
     <script src="/assets/scripts/auth-client.js?v=6"></script>
-    <script src="/assets/scripts/account.js?v=59"></script>
+    <script src="/assets/scripts/account.js?v=61"></script>
     <script src="/assets/scripts/aboutgl.js?v=2"></script>
     <script src="/assets/scripts/scrollice.js"></script>
     <script src="/assets/scripts/rightclick.js"></script>
