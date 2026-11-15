@@ -194,6 +194,156 @@ select {
     font-size: 15px;
 }
 
+/* Loading lives on top of the real editor, rather than drawing a second UI. */
+.flowchart-loading {
+    display: block;
+    padding: 0;
+    background: rgba(255, 255, 255, .08);
+    pointer-events: none;
+}
+
+.flowchart-loading .flowchart-loading-stage {
+    --loading-drag-distance: calc(-50vw + 100px);
+    position: fixed;
+    inset: 0;
+    width: auto;
+    pointer-events: none;
+}
+
+.flowchart-loading {
+    pointer-events: auto;
+}
+
+.flowchart-loading-chart {
+    display: block;
+}
+
+.flowchart-loading .flowchart-loading-caption {
+    position: fixed;
+    top: 82px;
+    left: 50%;
+    margin: 0;
+    padding: 0;
+    transform: translateX(-50%);
+    color: #34424c;
+    font-size: 20px;
+    white-space: nowrap;
+}
+
+body.flowchart-loading-active .flowchart-app #shapes-layer,
+body.flowchart-loading-active .flowchart-app #connections {
+    visibility: hidden;
+}
+
+.flowchart-loading .flowchart-loading-chart {
+    position: absolute;
+    left: calc(50% - 160px);
+    top: clamp(100px, 22vh, 180px);
+    width: 320px;
+    height: 280px;
+    pointer-events: none;
+}
+
+.flowchart-loading .flowchart-loading-connections {
+    position: absolute;
+    inset: 0;
+    width: 320px;
+    height: 280px;
+}
+
+.flowchart-loading .loading-chart-start { left: 80px; top: 0; }
+.flowchart-loading .loading-chart-output { left: 80px; top: 96px; }
+.flowchart-loading .loading-chart-end { left: 80px; top: 192px; }
+
+.flowchart-loading .loading-chart-output {
+    animation-name: flowchart-demo-output-on-canvas;
+}
+
+.flowchart-loading .loading-chart-end {
+    animation-name: flowchart-demo-end-on-canvas;
+}
+
+.flowchart-loading .flowchart-loading-pointer {
+    position: fixed;
+    z-index: 2147483001;
+    left: 0;
+    top: 0;
+    width: 22px;
+    height: 30px;
+    overflow: visible;
+    filter: none;
+    opacity: 0;
+    animation: flowchart-demo-pointer 4.8s ease-in-out infinite;
+    pointer-events: none;
+}
+
+.flowchart-loading-caption {
+    position: fixed;
+    z-index: 10;
+    top: 24px;
+    left: 50%;
+    margin: 0;
+    padding: 0;
+    transform: translateX(-50%);
+    color: #394952;
+    font-size: 20px;
+    text-shadow: 0 1px 2px rgba(255,255,255,.9);
+    white-space: nowrap;
+}
+
+body.flowchart-loading-active .flowchart-app > .fc-brand-pill {
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+body.flowchart-loading-active .flowchart-app #btn-run {
+    animation: flowchart-demo-run-button 4.8s ease-in-out infinite;
+}
+
+body.flowchart-loading-active .flowchart-app #panel-console {
+    animation: flowchart-demo-console-pulse 4.8s ease-in-out infinite;
+}
+
+.flowchart-loading .flowchart-loading-pointer {
+    animation-name: flowchart-demo-pointer-on-canvas;
+}
+
+@keyframes flowchart-demo-pointer-on-canvas {
+    0%, 5% { opacity: 0; left: 7%; top: 72%; transform: scale(.9); }
+    7%, 13% { opacity: 1; left: 8%; top: 70%; transform: scale(.82); }
+    31% { opacity: 1; left: 49%; top: 36%; transform: scale(1); }
+    34% { opacity: 1; left: 50%; top: 37%; transform: scale(.82); }
+    37%, 40% { opacity: 1; left: 7%; top: 54%; transform: scale(.9); }
+    57% { opacity: 1; left: 50%; top: 50%; transform: scale(1); }
+    60% { opacity: 1; left: 50%; top: 41%; transform: scale(.82); }
+    65% { opacity: 1; left: 50%; top: 49%; transform: scale(.82); }
+    71% { opacity: 1; left: 39%; top: 95%; transform: scale(1); }
+    73% { opacity: 1; left: 39%; top: 95%; transform: scale(.82); }
+    80% { opacity: 1; left: 74%; top: 72%; transform: scale(1); }
+    92% { opacity: 1; left: 74%; top: 72%; }
+    100% { opacity: 0; left: 7%; top: 72%; transform: scale(.9); }
+}
+
+@keyframes flowchart-demo-output-on-canvas {
+    0%, 14% { opacity: 0; transform: translate(var(--loading-drag-distance), calc(78vh - 311px)) scale(.97); }
+    17% { opacity: 1; }
+    34%, 91% { opacity: 1; transform: translate(0, 0) scale(1); }
+    98%, 100% { opacity: 0; transform: translate(var(--loading-drag-distance), calc(78vh - 311px)) scale(.97); }
+}
+
+@keyframes flowchart-demo-end-on-canvas {
+    0%, 39% { opacity: 0; transform: translate(var(--loading-drag-distance), calc(10vh - 38px)) scale(.97); }
+    42% { opacity: 1; }
+    58%, 91% { opacity: 1; transform: translate(0, 0) scale(1); }
+    98%, 100% { opacity: 0; transform: translate(var(--loading-drag-distance), calc(10vh - 38px)) scale(.97); }
+}
+
+@keyframes flowchart-demo-console-pulse {
+    0%, 70%, 100% { box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+    76%, 89% { box-shadow: 0 0 0 3px rgba(35,154,77,.28), 0 8px 24px rgba(20,80,40,.18); }
+}
+
 .flowchart-loading-stage {
     --loading-palette-width: 188px;
     --loading-drag-distance: min(50vw, 540px);
@@ -593,23 +743,15 @@ select {
 }
 
 @media (max-width: 720px) {
-    .flowchart-loading { padding: 82px 12px 18px; }
-    .flowchart-loading-stage { --loading-palette-width: 116px; --loading-drag-distance: 50vw; --pointer-palette-x: 15%; --pointer-chart-x: 65%; width: calc(100vw - 24px); }
-    .flowchart-loading-window { height: min(500px, calc(100vh - 150px)); min-height: 390px; }
-    .flowchart-loading-palette { padding: 10px 4px; }
-    .flowchart-loading-panel-title { padding: 0 4px 10px; font-size: 9px; }
-    .flowchart-loading-palette-item { justify-content: center; gap: 0; padding: 0 2px; font-size: 0; }
-    .loading-palette-shape { width: 38px; flex-basis: 38px; }
-    .flowchart-loading-toolbar { height: 46px; }
-    .flowchart-loading-workarea { height: calc(100% - 46px); }
-    .loading-chart-node { left: calc(50% - 80px); }
-    .loading-chart-start { top: 42px; }
-    .loading-chart-output { top: 136px; }
-    .loading-chart-end { top: 230px; }
-    .flowchart-loading-console { right: 9px; bottom: 8px; width: 48%; min-height: 118px; }
-    .flowchart-loading-caption { margin-top: 14px; font-size: 20px; }
-    .flowchart-loading-brand .fc-brand-text { font-size: 11px; }
-    .flowchart-loading-pointer { width: 19px; }
+    .flowchart-loading .flowchart-loading-stage { --loading-drag-distance: calc(-50vw + 100px); }
+    .flowchart-loading .flowchart-loading-chart { left: calc(50% - 145px); width: 290px; }
+    .flowchart-loading .flowchart-loading-connections { width: 290px; }
+    .flowchart-loading .loading-chart-start,
+    .flowchart-loading .loading-chart-output,
+    .flowchart-loading .loading-chart-end { left: 65px; }
+    .flowchart-loading-caption { top: 76px; font-size: 18px; }
+    .flowchart-loading .flowchart-loading-pointer { width: 19px; }
+    .flowchart-loading .flowchart-loading-caption { top: 76px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

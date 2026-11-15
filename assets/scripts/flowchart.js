@@ -2754,7 +2754,10 @@ function hideFlowchartLoading() {
     return;
   }
   loading.classList.add('is-hidden');
-  window.setTimeout(() => loading.remove(), 280);
+  window.setTimeout(() => {
+    loading.remove();
+    document.body.classList.remove('flowchart-loading-active');
+  }, 280);
 }
 
 init().finally(hideFlowchartLoading);

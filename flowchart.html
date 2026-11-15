@@ -19,56 +19,26 @@
     <link rel="apple-touch-icon" href="/assets/images/favicon.webp">
 </head>
 
-<body>
+<body class="flowchart-loading-active">
     <div class="flowchart-loading" id="flowchartLoading" role="status" aria-live="polite">
-        <div class="fc-brand-pill flowchart-loading-brand">
-            <img src="/assets/images/favicon.webp" alt="" class="fc-brand-icon">
-            <span class="fc-brand-text">EmeraldStudio Flowchart</span>
-        </div>
-        <div class="flowchart-loading-stage" aria-label="Flowchart editor loading animation">
-            <section class="flowchart-loading-window">
-                <header class="flowchart-loading-toolbar">
-                    <div class="flowchart-loading-tabs"><span>File</span><span>Home</span><span>View</span></div>
-                    <button class="flowchart-loading-run" type="button" tabindex="-1">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15L19 12 7 4.5Z"></path></svg>
-                        Run
-                    </button>
-                </header>
-                <div class="flowchart-loading-workarea">
-                    <aside class="flowchart-loading-palette" aria-hidden="true">
-                        <div class="flowchart-loading-panel-title">Statements</div>
-                        <div class="flowchart-loading-palette-item loading-palette-terminal"><span class="loading-palette-shape terminal-shape"></span>Terminal</div>
-                        <div class="flowchart-loading-palette-item loading-palette-output"><span class="loading-palette-shape output-shape"></span>Output</div>
-                        <div class="flowchart-loading-palette-item loading-palette-process"><span class="loading-palette-shape process-shape"></span>Process</div>
-                    </aside>
-                    <div class="flowchart-loading-canvas" aria-hidden="true">
-                        <div class="flowchart-loading-canvas-label">Flowchart canvas</div>
-                        <svg class="flowchart-loading-connections" viewBox="0 0 700 360" preserveAspectRatio="none">
-                            <defs>
-                                <marker id="flowchartLoadingArrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-                                    <path d="M0 0L8 4L0 8Z" fill="rgba(44,62,80,.55)"></path>
-                                </marker>
-                            </defs>
-                            <path class="flowchart-loading-connection connection-one" d="M350 87V142" marker-end="url(#flowchartLoadingArrow)"></path>
-                            <path class="flowchart-loading-connection connection-two" d="M350 189V244" marker-end="url(#flowchartLoadingArrow)"></path>
-                        </svg>
-                        <div class="shape terminal loading-chart-node loading-chart-start"><div class="shape-body">Start</div></div>
-                        <div class="shape output loading-chart-node loading-chart-output"><div class="shape-body"><span>Output “Hello, world!”</span></div></div>
-                        <div class="shape terminal loading-chart-node loading-chart-end"><div class="shape-body">End</div></div>
-                    </div>
-                    <aside class="flowchart-loading-console" aria-hidden="true">
-                        <div class="flowchart-loading-console-head"><span></span><span></span><span></span><b>Console</b></div>
-                        <div class="flowchart-loading-console-body">
-                            <div class="console-line-start">&gt; Program started</div>
-                            <div class="console-line-output">Hello, world!</div>
-                            <div class="console-line-finish">&gt; Program finished</div>
-                        </div>
-                    </aside>
-                    <svg class="flowchart-loading-pointer" viewBox="0 0 24 32" aria-hidden="true">
-                        <path d="M2 1.5v24l6.4-6.4 4.5 10 4.2-1.9-4.6-9.8h9.1L2 1.5Z" fill="#17212b" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"></path>
-                    </svg>
-                </div>
-            </section>
+        <div class="flowchart-loading-stage" role="img" aria-label="Loading Flowchart: dragging statements, connecting them, and running the program">
+            <div class="flowchart-loading-chart" aria-hidden="true">
+                <svg class="flowchart-loading-connections" viewBox="0 0 320 280">
+                    <defs>
+                        <marker id="flowchartLoadingArrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+                            <path d="M0 0L8 4L0 8Z" fill="rgba(44,62,80,.55)"></path>
+                        </marker>
+                    </defs>
+                    <path class="flowchart-loading-connection connection-one" d="M160 47V97" marker-end="url(#flowchartLoadingArrow)"></path>
+                    <path class="flowchart-loading-connection connection-two" d="M160 143V193" marker-end="url(#flowchartLoadingArrow)"></path>
+                </svg>
+                <div class="shape terminal loading-chart-node loading-chart-start"><div class="shape-body">Start</div></div>
+                <div class="shape output loading-chart-node loading-chart-output"><div class="shape-body"><span>Output “Hello, world!”</span></div></div>
+                <div class="shape terminal loading-chart-node loading-chart-end"><div class="shape-body">End</div></div>
+            </div>
+            <svg class="flowchart-loading-pointer" viewBox="0 0 24 32" aria-hidden="true">
+                <path d="M2 1.5v24l6.4-6.4 4.5 10 4.2-1.9-4.6-9.8h9.1L2 1.5Z" fill="#17212b" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"></path>
+            </svg>
             <div class="flowchart-loading-caption"><span class="flowchart-loading-spinner" aria-hidden="true"></span><span>Loading<span class="flowchart-loading-dots"></span></span></div>
         </div>
     </div>
