@@ -1591,10 +1591,8 @@
                     else {
                         var legacy = null;
                         try { legacy = JSON.parse(localStorage.getItem(key) || 'null'); } catch (_) {}
-                        if (legacy) {
-                            settings = normalize(legacy);
-                            await save();
-                        }
+                        settings = normalize(legacy || defaults);
+                        await save();
                     }
                 }
                 controls.forEach(function (control) {
