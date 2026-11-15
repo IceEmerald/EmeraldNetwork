@@ -2415,6 +2415,10 @@ body.no-active-wb .welcome-screen {
   display: flex;
 }
 
+body.no-active-wb #app {
+  animation: none;
+}
+
 .screen-fade { animation: screenFade .24s ease-out; }
 @keyframes screenFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
