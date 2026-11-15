@@ -20,16 +20,44 @@
 </head>
 
 <body>
+    <div class="flowchart-loading" id="flowchartLoading" role="status" aria-live="polite">
+        <div class="flowchart-loading-card">
+            <div class="flowchart-loading-brand">
+                <img src="/assets/images/favicon.webp" alt="" width="30" height="30">
+                <span>EmeraldStudio <span class="flowchart-loading-brand-sub">Flowchart</span></span>
+            </div>
+            <svg class="flowchart-loading-diagram" viewBox="0 0 560 240" role="img" aria-label="An animated flowchart being drawn">
+                <defs>
+                    <marker id="flowchartLoadingArrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+                        <path d="M0 0L8 4L0 8Z" fill="#93a0aa"></path>
+                    </marker>
+                </defs>
+                <path class="loading-connector loading-connector-one" d="M280 62V91" marker-end="url(#flowchartLoadingArrow)"></path>
+                <path class="loading-connector loading-connector-two" d="M280 132V154H168V174" marker-end="url(#flowchartLoadingArrow)"></path>
+                <path class="loading-connector loading-connector-three" d="M280 154H392V174" marker-end="url(#flowchartLoadingArrow)"></path>
+                <rect class="loading-node loading-start" x="216" y="20" width="128" height="42" rx="21"></rect>
+                <text class="loading-node-label" x="280" y="46" text-anchor="middle">Start</text>
+                <rect class="loading-node loading-process" x="205" y="91" width="150" height="42" rx="9"></rect>
+                <text class="loading-node-label" x="280" y="117" text-anchor="middle">Process</text>
+                <rect class="loading-node loading-output" x="111" y="174" width="114" height="42" rx="8"></rect>
+                <text class="loading-node-label" x="168" y="200" text-anchor="middle">Output</text>
+                <rect class="loading-node loading-end" x="335" y="174" width="114" height="42" rx="21"></rect>
+                <text class="loading-node-label" x="392" y="200" text-anchor="middle">Finish</text>
+                <g class="flowchart-loading-cursor" aria-hidden="true">
+                    <path d="M2 1L2 25L8.5 19L13 29L17 27L12.5 17L21 17Z" fill="#17212b" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"></path>
+                    <animateMotion dur="3.4s" repeatCount="indefinite" path="M245 28 L315 55 L292 101 L218 122 L165 174 L386 174 L332 197"></animateMotion>
+                </g>
+            </svg>
+            <div class="flowchart-loading-caption"><span class="flowchart-loading-spinner" aria-hidden="true"></span><span>Loading<span class="flowchart-loading-dots"></span></span></div>
+        </div>
+    </div>
     <div class="flowchart-app">
 
         <main class="fc-canvas-wrap" id="canvas-wrap">
             <div id="canvas">
                 <div id="canvas-content">
                     <svg id="connections" xmlns="http://www.w3.org/2000/svg"></svg>
-                    <div id="shapes-layer" aria-busy="true">
-                        <div class="loading-placeholder loading-flow-node" aria-hidden="true"><span class="loading-line wide"></span><span class="loading-line short"></span></div>
-                        <div class="loading-placeholder loading-flow-node" aria-hidden="true"><span class="loading-line wide"></span><span class="loading-line short"></span></div>
-                    </div>
+                    <div id="shapes-layer"></div>
                 </div>
             </div>
 

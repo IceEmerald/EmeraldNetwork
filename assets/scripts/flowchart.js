@@ -2741,4 +2741,11 @@ async function init() {
   });
   window.addEventListener('resize', () => { ensureArrowhead($('#connections')); renderConnections(); });
 }
-init();
+function hideFlowchartLoading() {
+  const loading = document.getElementById('flowchartLoading');
+  if (!loading) return;
+  loading.classList.add('is-hidden');
+  window.setTimeout(() => loading.remove(), 280);
+}
+
+init().finally(hideFlowchartLoading);

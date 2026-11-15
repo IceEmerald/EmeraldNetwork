@@ -89,6 +89,11 @@
   padding: 8px 12px;
 }
 
+body:not(.light-mode) .loading-chat-row {
+  --loading-base: #303236;
+  --loading-highlight: #494c51;
+}
+
 .loading-chat-row .loading-line {
   height: 9px;
   margin: 0;
