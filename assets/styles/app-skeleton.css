@@ -8,10 +8,20 @@
 
 .loading-line,
 .loading-thumb {
+  position: relative;
   display: block;
-  background: linear-gradient(100deg, var(--loading-base) 25%, var(--loading-highlight) 42%, var(--loading-base) 62%);
-  background-size: 220% 100%;
-  animation: loading-shimmer 1.45s ease-in-out infinite;
+  overflow: hidden;
+  background: var(--loading-base);
+}
+
+.loading-line::after,
+.loading-thumb::after {
+  position: absolute;
+  inset: 0 auto 0 -60%;
+  width: 42%;
+  background: linear-gradient(90deg, transparent, var(--loading-highlight), transparent);
+  content: "";
+  animation: loading-shimmer 1.55s linear infinite;
 }
 
 .loading-line {
@@ -103,7 +113,8 @@
 }
 
 @keyframes loading-shimmer {
-  to { background-position: -220% 0; }
+  from { transform: translateX(0); }
+  to { transform: translateX(380%); }
 }
 
 @media (max-width: 700px) {
@@ -113,5 +124,5 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .loading-line, .loading-thumb { animation-duration: 2.8s; }
+  .loading-line::after, .loading-thumb::after { animation-duration: 3s; }
 }

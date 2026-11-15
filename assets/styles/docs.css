@@ -5403,6 +5403,11 @@ body.no-active-doc .print-preview-bar {
   display: none !important;
 }
 
+/* Render the welcome layout immediately while document storage initializes. */
+body.no-active-doc .welcome-screen {
+  display: flex;
+}
+
 .welcome-screen {
   display: none;
   align-items: stretch;

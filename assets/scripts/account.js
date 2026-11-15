@@ -2522,21 +2522,6 @@
         }
     }
 
-    var syncingToastActive = false;
-    function showSyncingToast() {
-        if (syncingToastActive) return;
-        syncingToastActive = true;
-        var toast = document.getElementById('custom-toast');
-        if (!toast) return;
-        toast.replaceChildren(createToastIcon(), document.createTextNode('Syncing\u2026'));
-        toast.classList.add('show');
-    }
-    function hideSyncingToast() {
-        syncingToastActive = false;
-        var toast = document.getElementById('custom-toast');
-        if (toast) toast.classList.remove('show');
-    }
-
     var params = new URLSearchParams(window.location.search);
     initBirthdayPicker();
     initGenderPicker();
@@ -2548,13 +2533,10 @@
     if (window.EmeraldAuth && typeof window.EmeraldAuth.getSession === 'function') {
         window.EmeraldAuth.getSession().then(function (session) {
             if (!session || !session.user || !session.token) return;
-            showSyncingToast();
             if (typeof window.EmeraldAuth.syncCurrentData === 'function') {
                 Promise.resolve(window.EmeraldAuth.syncCurrentData())
                     .catch(function () {})
-                    .then(function () { hideSyncingToast(); renderHistory(); });
-            } else {
-                setTimeout(hideSyncingToast, 1500);
+                    .then(function () { renderHistory(); });
             }
         }).catch(function () {});
     }
@@ -2564,7 +2546,6 @@
     }
 
     window.addEventListener('emerald-sync-complete', function () {
-        hideSyncingToast();
         renderHistory();
     });
 

@@ -2410,6 +2410,11 @@ body.no-active-wb #formula-row,
 body.no-active-wb #grid-row,
 body.no-active-wb #status-bar { display: none; }
 
+/* Keep the Sheets home visible while auth and IndexedDB restore the workbook. */
+body.no-active-wb .welcome-screen {
+  display: flex;
+}
+
 .screen-fade { animation: screenFade .24s ease-out; }
 @keyframes screenFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
