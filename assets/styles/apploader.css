@@ -1,9 +1,11 @@
 /* ============================================================
    EmeraldNetwork — shared app boot loader
-   Shows a branded full-screen loading overlay while an app boots,
-   hiding the (not yet interactive) UI until the app is ready.
-   Apps include this stylesheet + the #app-loader markup right
-   after <body>, then call window.EmeraldAppLoader.hide() when
+   Shows the app's own logo centered on a quiet background while
+   the app boots, hiding the (not yet interactive) UI until the
+   app is ready. No progress bar, no caption — just the logo, the
+   way Microsoft Office does it.
+   Apps include this stylesheet + the #app-loader markup (logo img)
+   right after <body>, then call window.EmeraldAppLoader.hide() when
    their boot sequence finishes. A failsafe timer auto-hides it.
    ============================================================ */
 
@@ -12,16 +14,12 @@
   inset: 0;
   z-index: 2147483000;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 24px;
   background: var(--app-loader-bg, #f6f7f9);
-  color: var(--app-loader-fg, #383838);
-  font-family: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   opacity: 1;
   visibility: visible;
-  transition: opacity 0.4s ease, visibility 0.4s ease;
+  transition: opacity 0.35s ease, visibility 0.35s ease;
   user-select: none;
   -webkit-user-select: none;
 }
@@ -33,121 +31,35 @@
 }
 
 #app-loader .app-loader-spinner {
-  position: relative;
-  width: 68px;
-  height: 68px;
-}
-
-/* Faint full ring behind the sweeping arc */
-#app-loader .app-loader-spinner::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: var(--app-loader-accent, #239a4d);
-  opacity: 0.14;
-}
-
-/* Sweeping emerald arc */
-#app-loader .app-loader-spinner::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: conic-gradient(
-    from 0deg,
-    rgba(35, 154, 77, 0) 0%,
-    var(--app-loader-accent, #239a4d) 78%
-  );
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
-  mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
-  animation: app-loader-spin 0.9s linear infinite;
-}
-
-/* Pulsing brand mark in the middle */
-#app-loader .app-loader-spinner img {
-  position: absolute;
-  inset: 15px;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  animation: app-loader-pulse 1.6s ease-in-out infinite;
-}
-
-#app-loader .app-loader-text {
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  opacity: 0.85;
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  justify-content: center;
 }
 
-#app-loader .app-loader-dots {
-  display: inline-flex;
-  gap: 4px;
-  margin-left: 6px;
-}
-
-#app-loader .app-loader-dots i {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--app-loader-accent, #239a4d);
-  animation: app-loader-dot 1.2s ease-in-out infinite;
-}
-
-#app-loader .app-loader-dots i:nth-child(2) {
-  animation-delay: 0.15s;
-}
-
-#app-loader .app-loader-dots i:nth-child(3) {
-  animation-delay: 0.3s;
+#app-loader .app-loader-spinner img {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+  animation: app-loader-float 2s ease-in-out infinite;
 }
 
 /* Dark variant (e.g. AI Chat, dark-mode Wiki) */
 #app-loader[data-loader-theme="dark"] {
   --app-loader-bg: rgb(26, 26, 26);
-  --app-loader-fg: rgb(240, 240, 240);
-  --app-loader-accent: #2bd059;
 }
 
-@keyframes app-loader-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes app-loader-pulse {
+@keyframes app-loader-float {
   0%,
   100% {
-    transform: scale(1);
-    opacity: 1;
+    transform: translateY(0) scale(1);
   }
   50% {
-    transform: scale(0.9);
-    opacity: 0.8;
-  }
-}
-
-@keyframes app-loader-dot {
-  0%,
-  60%,
-  100% {
-    opacity: 0.25;
-    transform: translateY(0);
-  }
-  30% {
-    opacity: 1;
-    transform: translateY(-3px);
+    transform: translateY(-8px) scale(1.05);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #app-loader .app-loader-spinner::before,
-  #app-loader .app-loader-spinner img,
-  #app-loader .app-loader-dots i {
+  #app-loader .app-loader-spinner img {
     animation: none;
   }
 }
