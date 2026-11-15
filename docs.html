@@ -13,12 +13,17 @@
   />
   <link rel="stylesheet" href="/assets/styles/style.css" />
   <link rel="stylesheet" href="/assets/styles/docs.css" />
-  <link rel="stylesheet" href="/assets/styles/loading.css" />
   <link rel="stylesheet" href="/assets/styles/tablekit.css" />
   <link rel="stylesheet" href="/assets/styles/suite-rail.css" />
+  <link rel="stylesheet" href="/assets/styles/app-skeleton.css" />
   <link rel="icon" type="image/x-icon" href="/assets/images/docsicon.webp">
 </head>
 <body class="no-active-doc">
+  <div class="app-skeleton" data-app-skeleton="docs" role="status" aria-label="Loading EmeraldDocs">
+    <div class="app-skeleton-topbar"><span class="app-skeleton-brand"></span><span class="app-skeleton-topline"></span><span class="app-skeleton-topline"></span></div>
+    <div class="app-skeleton-body"><div class="app-skeleton-rail"><span></span><span></span><span></span><span></span></div><div class="app-skeleton-content"><div class="app-skeleton-heading"></div><div class="app-skeleton-subheading"></div><div class="app-skeleton-editor"><div class="app-skeleton-paper"><div class="app-skeleton-line"></div><div class="app-skeleton-line"></div><div class="app-skeleton-line"></div><div class="app-skeleton-line"></div><div class="app-skeleton-line"></div></div><div class="app-skeleton-side"></div></div></div></div>
+  </div>
+  <script src="/assets/scripts/app-skeleton.js"></script>
   <div id="custom-context-menu" class="rightclick-menu">
     <div class="context-section">
       <span class="context-title"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"
@@ -878,7 +883,6 @@
         </div>
 
         <main class="document-scroll" id="documentScroll">
-          <div class="app-loading-skeleton" id="appLoading" role="status" aria-label="Loading document"><span></span><span></span><span></span><i></i></div>
           <div class="pages-wrapper" id="pagesWrapper">
 
           </div>

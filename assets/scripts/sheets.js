@@ -11645,7 +11645,6 @@ async function boot() {
       else { history.replaceState({}, document.title, location.pathname); }
     } catch (e) { history.replaceState({}, document.title, location.pathname); }
   }
-  document.getElementById('appLoading')?.remove();
 
   setInterval(() => { if (Clip.marquee) requestPaint(); }, 120);
 
@@ -11748,6 +11747,6 @@ async function boot() {
     errors: () => window.__errs || []
   };
 }
-document.addEventListener('DOMContentLoaded', () => { boot(); });
-if (document.readyState !== 'loading') { try { boot(); } catch (e) { console.error(e); } }
+document.addEventListener('DOMContentLoaded', () => { boot().then(() => window.AppSkeleton?.hide(), () => window.AppSkeleton?.hide()); });
+if (document.readyState !== 'loading') { try { boot().then(() => window.AppSkeleton?.hide(), () => window.AppSkeleton?.hide()); } catch (e) { console.error(e); window.AppSkeleton?.hide(); } }
 })();

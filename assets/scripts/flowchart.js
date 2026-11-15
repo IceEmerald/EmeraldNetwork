@@ -2726,7 +2726,6 @@ async function init() {
   renderAll();
 
   if (isFreshStart) centerViewOnShapes();
-  document.getElementById('appLoading')?.remove();
   if (window.EmeraldIDBStorage?.subscribe) {
     window.EmeraldIDBStorage.subscribe(async function (change) {
       if (!change || change.key !== STORAGE_KEY || change.type !== 'import') return;
@@ -2741,4 +2740,4 @@ async function init() {
   });
   window.addEventListener('resize', () => { ensureArrowhead($('#connections')); renderConnections(); });
 }
-init();
+init().then(() => window.AppSkeleton?.hide(), () => window.AppSkeleton?.hide());

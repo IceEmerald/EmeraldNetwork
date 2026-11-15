@@ -9083,7 +9083,7 @@ SlidesApp.memoryStorageFallback = new Map();
 
 document.addEventListener('DOMContentLoaded', () => {
     window.slidesApp = new SlidesApp();
-    window.slidesApp.ready.then(() => document.getElementById('appLoading')?.remove());
+    window.slidesApp.ready.finally(() => window.AppSkeleton?.hide());
     
     
     if (window.EmeraldIDBStorage && window.EmeraldIDBStorage.subscribe) {

@@ -10,10 +10,16 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/assets/styles/account.css?v=69" />
+    <link rel="stylesheet" href="/assets/styles/app-skeleton.css" />
     <link rel="icon" type="image/x-icon" href="/assets/images/favicon.webp">
 </head>
 
 <body>
+    <div class="app-skeleton" data-app-skeleton="account" role="status" aria-label="Loading account">
+        <div class="app-skeleton-topbar"><span class="app-skeleton-brand"></span><span class="app-skeleton-topline"></span><span class="app-skeleton-topline"></span></div>
+        <div class="app-skeleton-body"><div class="app-skeleton-rail"><span></span><span></span><span></span><span></span></div><div class="app-skeleton-content"><div class="app-skeleton-heading"></div><div class="app-skeleton-subheading"></div><div class="app-skeleton-cards"><div class="app-skeleton-card"><div class="app-skeleton-line"></div><div class="app-skeleton-line"></div></div><div class="app-skeleton-card"><div class="app-skeleton-line"></div><div class="app-skeleton-line"></div></div><div class="app-skeleton-card"><div class="app-skeleton-line"></div><div class="app-skeleton-line"></div></div></div></div></div>
+    </div>
+    <script src="/assets/scripts/app-skeleton.js"></script>
     <main class="auth-shell" id="authShell">
         <aside class="auth-visual">
             <a href="/" class="logo" aria-label="EmeraldNetwork home">

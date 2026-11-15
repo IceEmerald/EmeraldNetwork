@@ -11,10 +11,15 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
     <link rel="stylesheet" href="/assets/styles/aichat.css">
-    <link rel="stylesheet" href="/assets/styles/loading.css">
+    <link rel="stylesheet" href="/assets/styles/app-skeleton.css">
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.3/dist/purify.min.js" integrity="sha384-osZDKVu4ipZP703HmPOhWdyBajcFyjX2Psjk//TG1Rc0AdwEtuToaylrmcK3LdAl" crossorigin="anonymous"></script>
 </head>
 <body>
+    <div class="app-skeleton" data-app-skeleton="chat" role="status" aria-label="Loading EmeraldBot AI Chat">
+        <div class="app-skeleton-topbar"><span class="app-skeleton-brand"></span><span class="app-skeleton-topline"></span><span class="app-skeleton-topline"></span></div>
+        <div class="app-skeleton-body"><div class="app-skeleton-rail"><span></span><span></span><span></span><span></span></div><div class="app-skeleton-content"><div class="app-skeleton-heading"></div><div class="app-skeleton-subheading"></div><div class="app-skeleton-editor"><div class="app-skeleton-paper"><div class="app-skeleton-line"></div><div class="app-skeleton-line"></div><div class="app-skeleton-line"></div><div class="app-skeleton-line"></div></div><div class="app-skeleton-side"></div></div></div></div>
+    </div>
+    <script src="/assets/scripts/app-skeleton.js"></script>
     <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeMobileSidebar()"></div>
     <div id="custom-toast" class="custom-toast"></div>
 
@@ -108,7 +113,6 @@
         </div>
 
         <div class="chat-content" id="chatContent">
-            <div class="app-loading-skeleton" id="appLoading" role="status" aria-label="Loading AI Chat"><span></span><span></span><span></span><i></i></div>
 
             <div class="welcome-screen" id="welcomeScreen" style="display: flex;">
                 <img src="/assets/images/favicon.webp" alt="EmeraldNetwork" style="max-width: 80px; max-height: 80px;">

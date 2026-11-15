@@ -2109,4 +2109,3 @@ select {
     }
     .fc-brand-text { display: none; }
 }
-.app-loading-skeleton{position:absolute;inset:0;z-index:1000;background:var(--fc-bg,#fff);display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-content:center;padding:24px;gap:12px}.app-loading-skeleton span{height:150px;border:1px solid rgba(120,130,140,.22);border-radius:12px;background:linear-gradient(90deg,rgba(120,130,140,.06) 25%,rgba(120,130,140,.14) 45%,rgba(120,130,140,.06) 65%);background-size:250% 100%;animation:app-skeleton-shimmer 1.3s linear infinite}.app-loading-skeleton i{grid-column:1/-1;height:18px;max-width:45%;border-radius:5px;background:rgba(120,130,140,.12);animation:app-skeleton-shimmer 1.3s linear infinite}@keyframes app-skeleton-shimmer{to{background-position:-250% 0}}

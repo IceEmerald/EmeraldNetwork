@@ -11,11 +11,16 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/assets/styles/style.css" />
     <link rel="stylesheet" href="/assets/styles/emeraldsuite.css" />
-    <link rel="stylesheet" href="/assets/styles/loading.css" />
+    <link rel="stylesheet" href="/assets/styles/app-skeleton.css" />
     <link rel="icon" type="image/x-icon" href="/assets/images/favicon.webp">
 </head>
 
 <body>
+    <div class="app-skeleton" data-app-skeleton="suite" role="status" aria-label="Loading EmeraldSuite">
+        <div class="app-skeleton-topbar"><span class="app-skeleton-brand"></span><span class="app-skeleton-topline"></span><span class="app-skeleton-topline"></span></div>
+        <div class="app-skeleton-body"><div class="app-skeleton-rail"><span></span><span></span><span></span><span></span></div><div class="app-skeleton-content"><div class="app-skeleton-heading"></div><div class="app-skeleton-subheading"></div><div class="app-skeleton-cards"><div class="app-skeleton-card"><div class="app-skeleton-line"></div><div class="app-skeleton-line"></div></div><div class="app-skeleton-card"><div class="app-skeleton-line"></div><div class="app-skeleton-line"></div></div><div class="app-skeleton-card"><div class="app-skeleton-line"></div><div class="app-skeleton-line"></div></div></div></div></div>
+    </div>
+    <script src="/assets/scripts/app-skeleton.js"></script>
     <div class="suite-app">
         <header class="su-top" role="banner">
             <a href="/" class="logo" aria-label="EmeraldNetwork home">
@@ -68,7 +73,6 @@
                     <h1 class="suite-greeting" id="greeting">Welcome back.</h1>
                 </section>
 
-                <div class="app-loading-skeleton" id="appLoading" role="status" aria-label="Loading files"><span></span><span></span><span></span><i></i></div>
                 <div class="collapsible" id="recentBlock">
                     <div class="collapsible-inner">
                         <h2 class="su-section-title">Recent files</h2>

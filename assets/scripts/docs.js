@@ -8794,7 +8794,6 @@ function startAutosaveSnapshots() {
         history.replaceState({}, document.title, location.pathname);
       }
     }
-    document.getElementById("appLoading")?.remove();
 
     var cmdButtons = document.querySelectorAll("[data-cmd]");
     for (var i = 0; i < cmdButtons.length; i++) {
@@ -9549,9 +9548,11 @@ function startAutosaveSnapshots() {
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
+    document.addEventListener("DOMContentLoaded", function () {
+      Promise.resolve(init()).then(function () { window.AppSkeleton?.hide(); }, function () { window.AppSkeleton?.hide(); });
+    });
   } else {
-    init();
+    Promise.resolve(init()).then(function () { window.AppSkeleton?.hide(); }, function () { window.AppSkeleton?.hide(); });
   }
 
   var footnotes = [];

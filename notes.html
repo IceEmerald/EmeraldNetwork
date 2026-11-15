@@ -13,13 +13,18 @@
         rel="stylesheet">
     <link rel="stylesheet" href="/assets/styles/style.css" />
     <link rel="stylesheet" href="/assets/styles/notes.css" />
-    <link rel="stylesheet" href="/assets/styles/loading.css" />
     <link rel="stylesheet" href="/assets/styles/tablekit.css" />
     <link rel="stylesheet" href="/assets/styles/suite-rail.css" />
+    <link rel="stylesheet" href="/assets/styles/app-skeleton.css" />
     <link rel="icon" type="image/x-icon" href="/assets/images/notesicon.webp">
 </head>
 
 <body class="no-active-note">
+    <div class="app-skeleton" data-app-skeleton="notes" role="status" aria-label="Loading EmeraldNotes">
+        <div class="app-skeleton-topbar"><span class="app-skeleton-brand"></span><span class="app-skeleton-topline"></span><span class="app-skeleton-topline"></span></div>
+        <div class="app-skeleton-body"><div class="app-skeleton-rail"><span></span><span></span><span></span><span></span></div><div class="app-skeleton-content"><div class="app-skeleton-heading"></div><div class="app-skeleton-subheading"></div><div class="app-skeleton-editor"><div class="app-skeleton-paper"><div class="app-skeleton-line"></div><div class="app-skeleton-line"></div><div class="app-skeleton-line"></div><div class="app-skeleton-line"></div><div class="app-skeleton-line"></div></div><div class="app-skeleton-side"></div></div></div></div>
+    </div>
+    <script src="/assets/scripts/app-skeleton.js"></script>
     <div class="notes-app">
         <header class="navbar sticky-top">
             <div class="navcontainer nav-container">
@@ -591,7 +596,6 @@
                 </div>
             </aside>
             <main class="editor-area">
-                <div class="app-loading-skeleton" id="appLoading" role="status" aria-label="Loading notes"><span></span><span></span><span></span><i></i></div>
                 <div class="editor-header">
                     <textarea class="note-title" id="noteTitle" placeholder="Untitled Note" maxlength="70" rows="1" spellcheck="false"></textarea>
                     <div class="editor-actions">

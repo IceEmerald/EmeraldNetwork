@@ -5776,12 +5776,18 @@ async function init() {
   });
   $("searchInput")?.addEventListener("input", doSearch);
   _initAutoScrollListener();
-  document.getElementById("appLoading")?.remove();
+  window.AppSkeleton?.hide();
 }
 document.addEventListener("DOMContentLoaded", function() {
   initTheme();
 }, { once: true });
-document.addEventListener("DOMContentLoaded", init);
+document.addEventListener("DOMContentLoaded", function () {
+  init().catch(function (error) {
+    console.error("AI Chat initialization failed:", error);
+  }).finally(function () {
+    window.AppSkeleton?.hide();
+  });
+});
 function openMobileSidebar() {
   $("sidebar")?.classList.add("mobile-open");
   $("sidebarBackdrop")?.classList.add("visible");

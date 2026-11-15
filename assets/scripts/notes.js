@@ -5097,11 +5097,10 @@ NotesApp.memoryStorageFallback = new Map();
 document.addEventListener('DOMContentLoaded', () => {
     window.notesApp = new NotesApp();
     window.notesApp.ready.then(() => {
-        document.getElementById('appLoading')?.remove();
         if (!window.notesApp.openOwnedNoteFromUrl()) {
             window.notesApp.importNoteFromUrl();
         }
-    });
+    }).finally(() => window.AppSkeleton?.hide());
 });
 window.addEventListener('beforeunload', () => {
     const app = window.notesApp;
