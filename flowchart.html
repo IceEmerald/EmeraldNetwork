@@ -19,40 +19,17 @@
     <link rel="apple-touch-icon" href="/assets/images/favicon.webp">
 </head>
 
-<body class="flowchart-loading-active">
-    <div class="flowchart-loading" id="flowchartLoading" role="status" aria-live="polite">
-        <div class="fc-brand-pill flowchart-loading-brand">
-            <img src="/assets/images/favicon.webp" alt="" class="fc-brand-icon">
-            <span class="fc-brand-text">EmeraldStudio Flowchart</span>
-        </div>
-        <div class="flowchart-loading-stage" role="img" aria-label="Loading Flowchart: dragging statements, connecting them, and running the program">
-            <div class="flowchart-loading-chart" aria-hidden="true">
-                <svg class="flowchart-loading-connections" viewBox="0 0 320 280">
-                    <defs>
-                        <marker id="flowchartLoadingArrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-                            <path d="M0 0L8 4L0 8Z" fill="rgba(44,62,80,.55)"></path>
-                        </marker>
-                    </defs>
-                    <path class="flowchart-loading-connection connection-one" d="M160 47V97" marker-end="url(#flowchartLoadingArrow)"></path>
-                    <path class="flowchart-loading-connection connection-two" d="M160 143V193" marker-end="url(#flowchartLoadingArrow)"></path>
-                </svg>
-                <div class="shape terminal loading-chart-node loading-chart-start"><div class="shape-body">Start</div></div>
-                <div class="shape output loading-chart-node loading-chart-output"><div class="shape-body"><span>Output “Hello, world!”</span></div></div>
-                <div class="shape terminal loading-chart-node loading-chart-end"><div class="shape-body">End</div></div>
-            </div>
-            <svg class="flowchart-loading-pointer" viewBox="0 0 24 32" aria-hidden="true">
-                <path d="M2 1.5v24l6.4-6.4 4.5 10 4.2-1.9-4.6-9.8h9.1L2 1.5Z" fill="#17212b" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"></path>
-            </svg>
-            <div class="flowchart-loading-caption"><span class="flowchart-loading-spinner" aria-hidden="true"></span><span>Loading<span class="flowchart-loading-dots"></span></span></div>
-        </div>
-    </div>
+<body>
     <div class="flowchart-app">
 
         <main class="fc-canvas-wrap" id="canvas-wrap">
             <div id="canvas">
                 <div id="canvas-content">
                     <svg id="connections" xmlns="http://www.w3.org/2000/svg"></svg>
-                    <div id="shapes-layer"></div>
+                    <div id="shapes-layer" aria-busy="true">
+                        <div class="loading-placeholder loading-flow-node" aria-hidden="true"><span class="loading-line wide"></span><span class="loading-line short"></span></div>
+                        <div class="loading-placeholder loading-flow-node" aria-hidden="true"><span class="loading-line wide"></span><span class="loading-line short"></span></div>
+                    </div>
                 </div>
             </div>
 
