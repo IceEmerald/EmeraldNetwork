@@ -1476,24 +1476,24 @@ body {
 }
 
 .su-profile-btn { width: 32px; height: 32px; padding: 0; overflow: hidden; display: grid; place-items: center; border: 2px solid #e7eee9; border-radius: 50%; background: linear-gradient(145deg,#e6f5eb,#ccebd7); color: #176b3d; font: 700 12px 'DM Sans',sans-serif; cursor: pointer; transition: box-shadow .24s ease, background-color .24s ease; }
-.su-profile-btn:hover, .su-profile-btn[aria-expanded="true"] { box-shadow: 0 0 18px 5px rgba(34,145,79,.2); }
+.su-profile-btn:hover, .su-profile-btn[aria-expanded="true"] { box-shadow: 0 0 10px 3px rgba(34,145,79,.12); }
 .su-profile-btn img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .su-profile-btn img[hidden] { display: none; }
 .account-pop { position: fixed; top: 68px; right: 18px; z-index: 90; width: min(410px, calc(100vw - 24px)); background: #fff; border: 1px solid #e6eae7; border-radius: 15px; box-shadow: 0 18px 55px rgba(15,42,25,.2); overflow: hidden; animation: suPopIn .16s ease-out; }
 .account-pop[hidden] { display: none; }
-.account-pop-top { display: flex; align-items: center; justify-content: space-between; padding: 19px 22px; border-bottom: 1px solid #eef1ee; }
-.account-brand { display: flex; align-items: center; gap: 8px; color: #56635a; font-size: 16px; font-weight: 700; letter-spacing: -.2px; }
-.account-brand svg, .account-brand img { display: block; width: 20px; height: 20px; object-fit: contain; }
-.account-pop-top button { border: 0; background: none; color: #53635a; font: 600 13px 'DM Sans',sans-serif; cursor: pointer; }
+.account-pop-top { display: flex; align-items: center; justify-content: space-between; padding: 15px 18px; border-bottom: 1px solid #eef1ee; }
+.account-brand { display: flex; align-items: center; gap: 7px; color: #56635a; font-size: 14px; font-weight: 700; letter-spacing: -.2px; }
+.account-brand svg, .account-brand img { display: block; width: 18px; height: 18px; object-fit: contain; }
+.account-pop-top button { border: 0; background: none; color: #53635a; font: 600 12px 'DM Sans',sans-serif; cursor: pointer; }
 .account-pop-top button:hover { color: #167445; text-decoration: underline; }
-.account-pop-user { display: flex; align-items: center; gap: 20px; padding: 24px 22px 26px; }
-.account-pop-photo { width: 82px; height: 82px; flex: 0 0 82px; display: grid; place-items: center; overflow: hidden; border: 2px solid #e4ebe6; border-radius: 50%; background: #edf7f0; color: #176b3d; font-size: 26px; font-weight: 700; }
+.account-pop-user { display: flex; align-items: center; gap: 16px; padding: 18px; }
+.account-pop-photo { width: 68px; height: 68px; flex: 0 0 68px; display: grid; place-items: center; overflow: hidden; border: 2px solid #e4ebe6; border-radius: 50%; background: #edf7f0; color: #176b3d; font-size: 22px; font-weight: 700; }
 .account-pop-photo img { width: 100%; height: 100%; object-fit: cover; }
 .account-pop-photo img[hidden] { display: none; }
 .account-pop-details { min-width: 0; }
-.account-pop-details h2 { margin: 0 0 5px; color: #202923; font-size: 22px; line-height: 1.2; font-weight: 750; overflow-wrap: anywhere; }
-.account-pop-details p { margin: 0 0 8px; color: #535e57; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.account-pop-details a { color: #137644; font-size: 14px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.account-pop-details h2 { margin: 0 0 6px; color: #202923; font-size: 19px; line-height: 1.25; font-weight: 750; overflow-wrap: anywhere; }
+.account-pop-details p { margin: 0 0 8px; color: #535e57; font-size: 13px; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-pop-details a { display: inline-block; color: #137644; font-size: 13px; line-height: 1.35; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 @keyframes suPopIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 
 .rail-item { position: relative; z-index: 1; }
@@ -1515,9 +1515,9 @@ body {
 
 @media (max-width: 480px) {
   .account-pop { top: 62px; right: 10px; }
-  .account-pop-user { gap: 14px; padding: 20px 16px; }
-  .account-pop-photo { width: 64px; height: 64px; flex-basis: 64px; }
-  .account-pop-details h2 { font-size: 18px; }
+  .account-pop-user { gap: 13px; padding: 16px; }
+  .account-pop-photo { width: 58px; height: 58px; flex-basis: 58px; }
+  .account-pop-details h2 { font-size: 16px; }
   .account-pop-details p, .account-pop-details a { font-size: 12px; }
 }
 
