@@ -2626,6 +2626,7 @@ class SlidesApp {
         if (!list || !this.pres) return;
         const prevCount = list.children.length;
         list.innerHTML = '';
+        list.removeAttribute('aria-busy');
 
         this.pres.slides.forEach((slide, idx) => {
             const item = document.createElement('div');
@@ -7245,6 +7246,7 @@ class SlidesApp {
 
         if (this.presentations.length === 0) {
             container.innerHTML = '';
+            container.removeAttribute('aria-busy');
             if (noContainer) noContainer.style.display = 'flex';
             return;
         }
@@ -7313,8 +7315,10 @@ class SlidesApp {
             
             container.innerHTML = '';
             container.appendChild(frag);
+            container.removeAttribute('aria-busy');
         }).catch(err => {
             console.warn('renderWelcomeCards failed:', err);
+            container.removeAttribute('aria-busy');
         });
     }
 
@@ -9083,7 +9087,6 @@ SlidesApp.memoryStorageFallback = new Map();
 
 document.addEventListener('DOMContentLoaded', () => {
     window.slidesApp = new SlidesApp();
-    window.slidesApp.ready.finally(() => window.AppSkeleton?.hide());
     
     
     if (window.EmeraldIDBStorage && window.EmeraldIDBStorage.subscribe) {

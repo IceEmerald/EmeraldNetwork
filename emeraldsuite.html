@@ -16,11 +16,6 @@
 </head>
 
 <body>
-    <div class="app-skeleton" data-app-skeleton="suite" role="status" aria-label="Loading EmeraldSuite">
-        <div class="app-skeleton-topbar"><span class="app-skeleton-brand"></span><span class="app-skeleton-topline"></span><span class="app-skeleton-topline"></span></div>
-        <div class="app-skeleton-body"><div class="app-skeleton-rail"><span></span><span></span><span></span><span></span></div><div class="app-skeleton-content"><div class="app-skeleton-heading"></div><div class="app-skeleton-subheading"></div><div class="app-skeleton-cards"><div class="app-skeleton-card"><div class="app-skeleton-line"></div><div class="app-skeleton-line"></div></div><div class="app-skeleton-card"><div class="app-skeleton-line"></div><div class="app-skeleton-line"></div></div><div class="app-skeleton-card"><div class="app-skeleton-line"></div><div class="app-skeleton-line"></div></div></div></div></div>
-    </div>
-    <script src="/assets/scripts/app-skeleton.js"></script>
     <div class="suite-app">
         <header class="su-top" role="banner">
             <a href="/" class="logo" aria-label="EmeraldNetwork home">
@@ -77,7 +72,11 @@
                     <div class="collapsible-inner">
                         <h2 class="su-section-title">Recent files</h2>
                         <section class="recent-wrap" aria-label="Recent files">
-                            <div class="recent-grid" id="recentGrid" role="list"></div>
+                            <div class="recent-grid" id="recentGrid" role="list" aria-busy="true">
+                                <div class="loading-placeholder loading-card" aria-hidden="true"><span class="loading-thumb"></span><span class="loading-line wide"></span><span class="loading-line short"></span></div>
+                                <div class="loading-placeholder loading-card" aria-hidden="true"><span class="loading-thumb"></span><span class="loading-line wide"></span><span class="loading-line short"></span></div>
+                                <div class="loading-placeholder loading-card" aria-hidden="true"><span class="loading-thumb"></span><span class="loading-line wide"></span><span class="loading-line short"></span></div>
+                            </div>
                             <div class="recent-empty" id="recentEmpty" hidden>Open a file and it will show up here.</div>
                         </section>
                     </div>
@@ -144,7 +143,11 @@
                         </div>
                     </div>
 
-                    <div class="files-grid" id="filesGrid" role="list" aria-label="Your files"></div>
+                    <div class="files-grid" id="filesGrid" role="list" aria-label="Your files" aria-busy="true">
+                        <div class="loading-placeholder loading-row" aria-hidden="true"><span class="loading-thumb"></span><span class="loading-line wide"></span><span class="loading-line short"></span></div>
+                        <div class="loading-placeholder loading-row" aria-hidden="true"><span class="loading-thumb"></span><span class="loading-line wide"></span><span class="loading-line short"></span></div>
+                        <div class="loading-placeholder loading-row" aria-hidden="true"><span class="loading-thumb"></span><span class="loading-line wide"></span><span class="loading-line short"></span></div>
+                    </div>
 
                     <div class="empty-state" id="emptyState" hidden>
                         <h3 id="emptyTitle">No files here yet</h3>

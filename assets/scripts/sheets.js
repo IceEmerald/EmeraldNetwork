@@ -9221,6 +9221,7 @@ async function renderWelcomeCards() {
   docs.sort((a, b) => (b.doc.savedAt || 0) - (a.doc.savedAt || 0));
   if (!docs.length) {
     container.innerHTML = '';
+    container.removeAttribute('aria-busy');
     container.style.display = 'none';
     if (noContainer) noContainer.style.display = 'flex';
     return;
@@ -9246,6 +9247,7 @@ async function renderWelcomeCards() {
   }
   container.innerHTML = '';
   container.appendChild(frag);
+  container.removeAttribute('aria-busy');
 }
 async function openWorkbook(id, logOpen) {
   try {
@@ -11747,6 +11749,6 @@ async function boot() {
     errors: () => window.__errs || []
   };
 }
-document.addEventListener('DOMContentLoaded', () => { boot().then(() => window.AppSkeleton?.hide(), () => window.AppSkeleton?.hide()); });
-if (document.readyState !== 'loading') { try { boot().then(() => window.AppSkeleton?.hide(), () => window.AppSkeleton?.hide()); } catch (e) { console.error(e); window.AppSkeleton?.hide(); } }
+document.addEventListener('DOMContentLoaded', () => { boot(); });
+if (document.readyState !== 'loading') { try { boot(); } catch (e) { console.error(e); } }
 })();

@@ -2716,6 +2716,7 @@ class NotesApp {
     renderNotesList() {
         const notesList = document.getElementById('notesList');
         notesList.innerHTML = '';
+        notesList.removeAttribute('aria-busy');
         this.notes.forEach(note => notesList.appendChild(this.createNoteListItem(note)));
         this._updateLeaveButtonVisibility();
     }
@@ -2755,6 +2756,7 @@ class NotesApp {
         const noNotesContainer = document.getElementById('noNotesContainer');
         if (!notesListDisplay) return;
         notesListDisplay.innerHTML = '';
+        notesListDisplay.removeAttribute('aria-busy');
         if (this.notes.length === 0) {
             notesListDisplay.style.display = 'none';
             noNotesContainer.style.display = 'flex';
@@ -5100,7 +5102,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!window.notesApp.openOwnedNoteFromUrl()) {
             window.notesApp.importNoteFromUrl();
         }
-    }).finally(() => window.AppSkeleton?.hide());
+    });
 });
 window.addEventListener('beforeunload', () => {
     const app = window.notesApp;

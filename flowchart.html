@@ -20,18 +20,16 @@
 </head>
 
 <body>
-    <div class="app-skeleton" data-app-skeleton="flowchart" role="status" aria-label="Loading EmeraldStudio Flowchart">
-        <div class="app-skeleton-topbar"><span class="app-skeleton-brand"></span><span class="app-skeleton-topline"></span><span class="app-skeleton-topline"></span></div>
-        <div class="app-skeleton-body"><div class="app-skeleton-rail"><span></span><span></span><span></span></div><div class="app-skeleton-content"><div class="app-skeleton-heading"></div><div class="app-skeleton-subheading"></div><div class="app-skeleton-editor"><div class="app-skeleton-paper"><div class="app-skeleton-line"></div><div class="app-skeleton-line"></div><div class="app-skeleton-line"></div><div class="app-skeleton-line"></div></div><div class="app-skeleton-side"></div></div></div></div>
-    </div>
-    <script src="assets/scripts/app-skeleton.js"></script>
     <div class="flowchart-app">
 
         <main class="fc-canvas-wrap" id="canvas-wrap">
             <div id="canvas">
                 <div id="canvas-content">
                     <svg id="connections" xmlns="http://www.w3.org/2000/svg"></svg>
-                    <div id="shapes-layer"></div>
+                    <div id="shapes-layer" aria-busy="true">
+                        <div class="loading-placeholder loading-flow-node" aria-hidden="true"><span class="loading-line wide"></span><span class="loading-line short"></span></div>
+                        <div class="loading-placeholder loading-flow-node" aria-hidden="true"><span class="loading-line wide"></span><span class="loading-line short"></span></div>
+                    </div>
                 </div>
             </div>
 

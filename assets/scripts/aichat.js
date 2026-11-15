@@ -2371,6 +2371,7 @@ function _categorizeByTime(convs) {
 function renderRecents() {
   const container = $("sidebarHistory");
   if (!container) return;
+  container.removeAttribute("aria-busy");
   const convs = loadConvs().filter((c) => !c.isTemp);
   if (convs.length === 0) {
     container.innerHTML = `<div class="sidebar-section-title">Recents</div><div class="sidebar-empty">No conversations yet</div>`;
@@ -5776,18 +5777,11 @@ async function init() {
   });
   $("searchInput")?.addEventListener("input", doSearch);
   _initAutoScrollListener();
-  window.AppSkeleton?.hide();
 }
 document.addEventListener("DOMContentLoaded", function() {
   initTheme();
 }, { once: true });
-document.addEventListener("DOMContentLoaded", function () {
-  init().catch(function (error) {
-    console.error("AI Chat initialization failed:", error);
-  }).finally(function () {
-    window.AppSkeleton?.hide();
-  });
-});
+document.addEventListener("DOMContentLoaded", init);
 function openMobileSidebar() {
   $("sidebar")?.classList.add("mobile-open");
   $("sidebarBackdrop")?.classList.add("visible");

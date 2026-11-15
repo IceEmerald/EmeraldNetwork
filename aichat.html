@@ -15,11 +15,6 @@
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.3/dist/purify.min.js" integrity="sha384-osZDKVu4ipZP703HmPOhWdyBajcFyjX2Psjk//TG1Rc0AdwEtuToaylrmcK3LdAl" crossorigin="anonymous"></script>
 </head>
 <body>
-    <div class="app-skeleton" data-app-skeleton="chat" role="status" aria-label="Loading EmeraldBot AI Chat">
-        <div class="app-skeleton-topbar"><span class="app-skeleton-brand"></span><span class="app-skeleton-topline"></span><span class="app-skeleton-topline"></span></div>
-        <div class="app-skeleton-body"><div class="app-skeleton-rail"><span></span><span></span><span></span><span></span></div><div class="app-skeleton-content"><div class="app-skeleton-heading"></div><div class="app-skeleton-subheading"></div><div class="app-skeleton-editor"><div class="app-skeleton-paper"><div class="app-skeleton-line"></div><div class="app-skeleton-line"></div><div class="app-skeleton-line"></div><div class="app-skeleton-line"></div></div><div class="app-skeleton-side"></div></div></div></div>
-    </div>
-    <script src="/assets/scripts/app-skeleton.js"></script>
     <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeMobileSidebar()"></div>
     <div id="custom-toast" class="custom-toast"></div>
 
@@ -66,9 +61,11 @@
             </button>
         </div>
 
-        <div class="sidebar-history" id="sidebarHistory"><div class="sidebar-section-title">Recents</div>
-    <div class="history-item">
-    </div></div>
+        <div class="sidebar-history" id="sidebarHistory" aria-busy="true"><div class="sidebar-section-title">Recents</div>
+            <div class="loading-placeholder loading-chat-row" aria-hidden="true"><span class="loading-line"></span></div>
+            <div class="loading-placeholder loading-chat-row" aria-hidden="true"><span class="loading-line wide"></span></div>
+            <div class="loading-placeholder loading-chat-row" aria-hidden="true"><span class="loading-line short"></span></div>
+        </div>
 
         <div class="sidebar-footer">
             <button class="settings-btn" onclick="openSettings()">

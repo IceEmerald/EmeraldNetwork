@@ -2407,6 +2407,7 @@ function startAutosaveSnapshots() {
 
     if (documents.length === 0) {
       container.innerHTML = "";
+      container.removeAttribute("aria-busy");
       applyEmpty(true);
       return;
     }
@@ -2452,6 +2453,7 @@ function startAutosaveSnapshots() {
       }
       container.innerHTML = "";
       container.appendChild(frag);
+      container.removeAttribute("aria-busy");
     }).catch(function () {});
   }
 
@@ -9548,11 +9550,9 @@ function startAutosaveSnapshots() {
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function () {
-      Promise.resolve(init()).then(function () { window.AppSkeleton?.hide(); }, function () { window.AppSkeleton?.hide(); });
-    });
+    document.addEventListener("DOMContentLoaded", init);
   } else {
-    Promise.resolve(init()).then(function () { window.AppSkeleton?.hide(); }, function () { window.AppSkeleton?.hide(); });
+    init();
   }
 
   var footnotes = [];

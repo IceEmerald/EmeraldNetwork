@@ -490,6 +490,8 @@
         renderRecent();
         renderFilters();
         renderGrid();
+        $('recentGrid')?.removeAttribute('aria-busy');
+        $('filesGrid')?.removeAttribute('aria-busy');
     }
 
     function renderRecent() {
@@ -853,8 +855,7 @@
 
         setInterval(() => refresh({ silent: true }), 60000);
 
-        await refresh({});
-        window.AppSkeleton?.hide();
+        refresh({});
     }
 
     let forcedDaypart = null;

@@ -2542,7 +2542,7 @@
     initGenderPicker();
     activateMode(params.get('tab') === 'register' ? 'register' : 'login', false);
 
-    refreshSessionView().catch(function () {}).finally(function () { window.AppSkeleton && window.AppSkeleton.hide(); });
+    refreshSessionView().catch(function () {});
     startSessionMonitor();
 
     if (window.EmeraldAuth && typeof window.EmeraldAuth.getSession === 'function') {

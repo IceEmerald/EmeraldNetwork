@@ -291,6 +291,7 @@ const SVG_SHAPE_TYPES = ['decision', 'loop', 'for', 'do', 'breakpoint'];
 function renderShapes() {
   const layer = $('#shapes-layer');
   layer.innerHTML = '';
+  layer.removeAttribute('aria-busy');
   State.shapes.forEach(shape => {
     if (!shape.data) migrateShape(shape);
     const el = document.createElement('div');
@@ -2740,4 +2741,4 @@ async function init() {
   });
   window.addEventListener('resize', () => { ensureArrowhead($('#connections')); renderConnections(); });
 }
-init().then(() => window.AppSkeleton?.hide(), () => window.AppSkeleton?.hide());
+init();
