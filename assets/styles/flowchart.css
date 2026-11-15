@@ -168,7 +168,7 @@ select {
     inset: 0;
     display: grid;
     place-items: center;
-    padding: 24px;
+    padding: 90px 24px 24px;
     background: #fff;
     opacity: 1;
     visibility: visible;
@@ -181,97 +181,90 @@ select {
     pointer-events: none;
 }
 
-.flowchart-loading-card {
-    width: min(620px, 100%);
+.flowchart-loading-brand {
+    top: var(--fc-margin);
+    left: var(--fc-margin);
+    animation: none;
+}
+
+.flowchart-loading-brand .fc-brand-text {
+    font-size: 15px;
+}
+
+.flowchart-loading-stage {
     display: flex;
     flex-direction: column;
     align-items: center;
+    gap: 20px;
 }
 
-.flowchart-loading-brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 12px;
-    color: #27343d;
-    font: 700 15px/1.2 var(--fc-sans);
+.flowchart-loading-chart {
+    position: relative;
+    width: 320px;
+    height: 340px;
 }
 
-.flowchart-loading-brand img {
-    display: block;
-    border-radius: 8px;
-}
-
-.flowchart-loading-brand-sub {
-    color: #7b8790;
-    font-weight: 500;
-}
-
-.flowchart-loading-diagram {
-    width: min(560px, 100%);
-    height: auto;
+.flowchart-loading-connections {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
     overflow: visible;
 }
 
-.loading-connector {
+.flowchart-loading-connection {
     fill: none;
-    stroke: #a8b1b8;
+    stroke: rgba(44, 62, 80, .55);
     stroke-width: 2;
-    stroke-dasharray: 500;
-    stroke-dashoffset: 500;
-    animation: flowchart-loading-draw 700ms ease forwards;
+    stroke-dasharray: 7 9;
+    animation: flowchart-loading-flow 1.2s linear infinite;
 }
 
-.loading-connector-one { animation-delay: 180ms; }
-.loading-connector-two, .loading-connector-three { animation-delay: 520ms; }
-
-.loading-node {
-    fill: #fff;
-    stroke: #d9e0e4;
-    stroke-width: 1.5;
+.loading-chart-node {
+    z-index: 1;
+    width: 160px;
     opacity: 0;
-    transform-box: fill-box;
-    transform-origin: center;
-    animation: flowchart-loading-node-in 360ms cubic-bezier(.2,.8,.2,1) forwards;
+    animation: flowchart-loading-place 520ms cubic-bezier(.2,.8,.2,1) forwards;
 }
 
-.loading-start { fill: #eaf7ee; stroke: #8cc49a; animation-delay: 80ms; }
-.loading-process { fill: #edf7fb; stroke: #82b6cc; animation-delay: 300ms; }
-.loading-output { fill: #f4effb; stroke: #b8a0d8; animation-delay: 650ms; }
-.loading-end { fill: #fff4e8; stroke: #e2b278; animation-delay: 800ms; }
-
-.loading-node-label {
-    fill: #34424c;
-    font: 600 13px var(--fc-sans);
-    opacity: 0;
-    animation: flowchart-loading-label-in 240ms ease forwards;
+.loading-chart-node .shape-body {
+    min-width: 160px;
+    min-height: 46px;
+    box-shadow: 0 2px 5px rgba(0,0,0,.08);
 }
 
-.loading-start + .loading-node-label { animation-delay: 160ms; }
-.loading-process + .loading-node-label { animation-delay: 380ms; }
-.loading-output + .loading-node-label { animation-delay: 730ms; }
-.loading-end + .loading-node-label { animation-delay: 880ms; }
+.loading-chart-start { left: 80px; top: 16px; animation-delay: 60ms; }
+.loading-chart-output { left: 80px; top: 136px; animation-delay: 220ms; }
+.loading-chart-end { left: 80px; top: 256px; animation-delay: 380ms; }
 
-.flowchart-loading-cursor {
-    filter: drop-shadow(0 2px 2px rgba(22, 34, 44, .25));
+.loading-chart-output .shape-body {
+    min-width: 160px;
+    background: var(--shape-output-bg);
+    border: 2px solid var(--shape-output-bd);
+    border-radius: 4px;
+    transform: skewX(-15deg);
+}
+
+.loading-chart-output .shape-body > span {
+    transform: skewX(15deg);
 }
 
 .flowchart-loading-caption {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-top: 4px;
+    gap: 13px;
+    margin-top: 8px;
     color: #52616b;
-    font: 500 14px/1.4 var(--fc-sans);
+    font: 600 22px/1.4 var(--fc-sans);
 }
 
 .flowchart-loading-spinner {
-    width: 15px;
-    height: 15px;
-    border: 2px solid #dce8df;
+    width: 21px;
+    height: 21px;
+    border: 3px solid #dce8df;
     border-top-color: #239a4d;
     border-radius: 50%;
-    animation: flowchart-loading-spin 800ms linear infinite;
+    animation: flowchart-loading-spin 900ms linear infinite;
 }
 
 .flowchart-loading-dots::after {
@@ -281,30 +274,25 @@ select {
     animation: flowchart-loading-dots 1.2s steps(4, end) infinite;
 }
 
-@keyframes flowchart-loading-draw { to { stroke-dashoffset: 0; } }
-@keyframes flowchart-loading-node-in { from { opacity: 0; transform: scale(.86) translateY(5px); } to { opacity: 1; transform: scale(1) translateY(0); } }
-@keyframes flowchart-loading-label-in { to { opacity: 1; } }
+@keyframes flowchart-loading-flow { to { stroke-dashoffset: -32; } }
+@keyframes flowchart-loading-place { from { opacity: 0; transform: translateY(-26px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes flowchart-loading-spin { to { transform: rotate(360deg); } }
 @keyframes flowchart-loading-dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75%, 100% { content: "..."; } }
 @media (max-width: 600px) {
-    .flowchart-loading { padding: 16px; }
-    .flowchart-loading-brand { font-size: 14px; }
-    .flowchart-loading-diagram { transform: scale(1.04); }
+    .flowchart-loading { padding: 82px 16px 16px; }
+    .flowchart-loading-chart { transform: scale(.88); margin: -18px 0; }
+    .flowchart-loading-caption { font-size: 20px; }
+    .flowchart-loading-brand .fc-brand-text { font-size: 11px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
     .flowchart-loading *,
     .flowchart-loading *::before,
     .flowchart-loading *::after {
-        animation-duration: 2.8s !important;
-        animation-iteration-count: infinite !important;
-    }
-    .loading-node, .loading-node-label, .loading-connector {
         animation: none !important;
-        opacity: 1;
-        stroke-dashoffset: 0;
     }
-    .flowchart-loading-cursor { display: none; }
+    .loading-chart-node { animation: none !important; opacity: 1; transform: none; }
+    .flowchart-loading-connection { animation: none !important; }
 }
 
 
