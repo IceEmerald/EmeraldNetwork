@@ -5406,6 +5406,9 @@ body.no-active-doc .print-preview-bar {
 /* Render the welcome layout immediately while document storage initializes. */
 body.no-active-doc .welcome-screen {
   display: flex;
+  position: fixed;
+  z-index: 100;
+  inset: 4.5rem 0 0;
 }
 
 .welcome-screen {

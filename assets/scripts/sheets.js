@@ -9176,10 +9176,13 @@ function activateEditor() {
 function showWelcomeScreen(show) {
   const ws = $('#welcomeScreen');
   if (!ws) return;
+  const alreadyVisible = getComputedStyle(ws).display !== 'none';
   ws.style.display = show ? 'flex' : 'none';
   document.body.classList.toggle('no-active-wb', show);
   if (show) renderWelcomeCards();
-  const targets = show ? [ws] : [$('#ribbon'), $('#formula-row'), $('#grid-area')];
+  const targets = show
+    ? (alreadyVisible ? [] : [ws])
+    : [$('#ribbon'), $('#formula-row'), $('#grid-area')];
   targets.forEach(t => { if (!t) return; t.classList.remove('screen-fade'); void t.offsetWidth; t.classList.add('screen-fade'); });
 }
 function isWelcomeVisible() {

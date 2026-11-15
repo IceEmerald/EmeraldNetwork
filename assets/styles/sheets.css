@@ -2418,6 +2418,12 @@ body.no-active-wb .welcome-screen {
 .screen-fade { animation: screenFade .24s ease-out; }
 @keyframes screenFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
+/* Keep the page chrome crisp; animate the home content upward as it appears. */
+.welcome-screen.screen-fade { animation: none; }
+.welcome-screen.screen-fade .welcome-content {
+  animation: sheetsWelcomeFadeIn 520ms cubic-bezier(.2, .75, .25, 1);
+}
+
 .welcome-screen {
   display: none;
   align-items: stretch;
@@ -2443,7 +2449,7 @@ body.no-active-wb .welcome-screen {
 }
 
 @keyframes sheetsWelcomeFadeIn {
-  0%   { opacity: 0; transform: translateY(12px); }
+  0%   { opacity: 0; transform: translateY(28px); }
   100% { opacity: 1; transform: translateY(0); }
 }
 
