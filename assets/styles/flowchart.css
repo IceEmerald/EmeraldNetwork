@@ -198,12 +198,12 @@ select {
 .flowchart-loading {
     display: block;
     padding: 0;
-    background: rgba(255, 255, 255, .08);
+    background: #fff;
     pointer-events: none;
 }
 
 .flowchart-loading .flowchart-loading-stage {
-    --loading-drag-distance: calc(-50vw + 100px);
+    --loading-drag-distance: -120px;
     position: fixed;
     inset: 0;
     width: auto;
@@ -310,33 +310,33 @@ body.flowchart-loading-active .flowchart-app #panel-console {
 }
 
 @keyframes flowchart-demo-pointer-on-canvas {
-    0%, 5% { opacity: 0; left: 7%; top: 72%; transform: scale(.9); }
-    7%, 13% { opacity: 1; left: 8%; top: 70%; transform: scale(.82); }
-    31% { opacity: 1; left: 49%; top: 36%; transform: scale(1); }
+    0%, 5% { opacity: 0; left: calc(50% - 120px); top: 35%; transform: scale(.9); }
+    7%, 13% { opacity: 1; left: calc(50% - 120px); top: 35%; transform: scale(.82); }
+    31% { opacity: 1; left: 50%; top: 36%; transform: scale(1); }
     34% { opacity: 1; left: 50%; top: 37%; transform: scale(.82); }
-    37%, 40% { opacity: 1; left: 7%; top: 54%; transform: scale(.9); }
+    37%, 40% { opacity: 1; left: calc(50% - 120px); top: 48%; transform: scale(.9); }
     57% { opacity: 1; left: 50%; top: 50%; transform: scale(1); }
     60% { opacity: 1; left: 50%; top: 41%; transform: scale(.82); }
     65% { opacity: 1; left: 50%; top: 49%; transform: scale(.82); }
-    71% { opacity: 1; left: 39%; top: 95%; transform: scale(1); }
-    73% { opacity: 1; left: 39%; top: 95%; transform: scale(.82); }
-    80% { opacity: 1; left: 74%; top: 72%; transform: scale(1); }
-    92% { opacity: 1; left: 74%; top: 72%; }
-    100% { opacity: 0; left: 7%; top: 72%; transform: scale(.9); }
+    71% { opacity: 1; left: 50%; top: 36%; transform: scale(1); }
+    73% { opacity: 1; left: 50%; top: 36%; transform: scale(.82); }
+    80% { opacity: 1; left: 53%; top: 46%; transform: scale(1); }
+    92% { opacity: 1; left: 53%; top: 46%; }
+    100% { opacity: 0; left: calc(50% - 120px); top: 35%; transform: scale(.9); }
 }
 
 @keyframes flowchart-demo-output-on-canvas {
-    0%, 14% { opacity: 0; transform: translate(var(--loading-drag-distance), calc(78vh - 311px)) scale(.97); }
+    0%, 14% { opacity: 0; transform: translate(var(--loading-drag-distance), -18px) scale(.97); }
     17% { opacity: 1; }
     34%, 91% { opacity: 1; transform: translate(0, 0) scale(1); }
-    98%, 100% { opacity: 0; transform: translate(var(--loading-drag-distance), calc(78vh - 311px)) scale(.97); }
+    98%, 100% { opacity: 0; transform: translate(var(--loading-drag-distance), -18px) scale(.97); }
 }
 
 @keyframes flowchart-demo-end-on-canvas {
-    0%, 39% { opacity: 0; transform: translate(var(--loading-drag-distance), calc(10vh - 38px)) scale(.97); }
+    0%, 39% { opacity: 0; transform: translate(var(--loading-drag-distance), -20px) scale(.97); }
     42% { opacity: 1; }
     58%, 91% { opacity: 1; transform: translate(0, 0) scale(1); }
-    98%, 100% { opacity: 0; transform: translate(var(--loading-drag-distance), calc(10vh - 38px)) scale(.97); }
+    98%, 100% { opacity: 0; transform: translate(var(--loading-drag-distance), -20px) scale(.97); }
 }
 
 @keyframes flowchart-demo-console-pulse {
@@ -743,7 +743,7 @@ body.flowchart-loading-active .flowchart-app #panel-console {
 }
 
 @media (max-width: 720px) {
-    .flowchart-loading .flowchart-loading-stage { --loading-drag-distance: calc(-50vw + 100px); }
+    .flowchart-loading .flowchart-loading-stage { --loading-drag-distance: -60px; }
     .flowchart-loading .flowchart-loading-chart { left: calc(50% - 145px); width: 290px; }
     .flowchart-loading .flowchart-loading-connections { width: 290px; }
     .flowchart-loading .loading-chart-start,
