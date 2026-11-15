@@ -5776,7 +5776,6 @@ async function init() {
   });
   $("searchInput")?.addEventListener("input", doSearch);
   _initAutoScrollListener();
-  if (window.EmeraldAppLoader) window.EmeraldAppLoader.hide();
 }
 document.addEventListener("DOMContentLoaded", function() {
   initTheme();

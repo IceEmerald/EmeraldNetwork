@@ -9615,9 +9615,3 @@ body.light-mode .live-ctl-start:hover {
         animation: none;
     }
 }
-/* Boot loader (apploader.css) follows the chat theme */
-body.light-mode #app-loader {
-    --app-loader-bg: #ffffff;
-    --app-loader-fg: #1a1a1a;
-    --app-loader-accent: #239a4d;
-}

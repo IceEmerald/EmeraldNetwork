@@ -284,7 +284,6 @@
 
         setSyncing(false);
         render();
-        if (window.EmeraldAppLoader) window.EmeraldAppLoader.hide();
     }
 
     function postSync() {

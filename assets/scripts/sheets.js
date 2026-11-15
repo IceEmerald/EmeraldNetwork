@@ -11650,7 +11650,6 @@ async function boot() {
 
   setInterval(() => { if (Calc.dirty.size === 0) return; }, 5000);
   console.log('EmeraldSheets ready — sheets:', WB.sheets.length);
-  if (window.EmeraldAppLoader) window.EmeraldAppLoader.hide();
 
   window.ZS = {
     historyLen: () => H.undo.length,

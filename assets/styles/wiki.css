@@ -1750,10 +1750,3 @@ html[data-wiki-theme="dark"] body.wiki-page .footer-splitter {
         border-color: #ccc;
     }
 }
-
-/* Boot loader (apploader.css) follows the wiki theme */
-html[data-wiki-theme="dark"] #app-loader {
-    --app-loader-bg: #1a1a1a;
-    --app-loader-fg: #f0f0f0;
-    --app-loader-accent: #4ec27f;
-}

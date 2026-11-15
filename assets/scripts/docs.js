@@ -9442,7 +9442,6 @@ function startAutosaveSnapshots() {
     initNewFeatures();
 
     window.addEventListener("pagehide", commitSessionTime);
-    if (window.EmeraldAppLoader) window.EmeraldAppLoader.hide();
 
     setTimeout(function () {
 
