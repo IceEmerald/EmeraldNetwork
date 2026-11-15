@@ -1538,7 +1538,7 @@
         var controls = document.querySelectorAll('[data-connection]');
         var settings = Object.assign({}, defaults);
         var ready = false;
-        var syncPending = false;
+        var writeQueue = Promise.resolve();
 
         function normalize(value) {
             var result = Object.assign({}, defaults);
@@ -1550,7 +1550,7 @@
             return result;
         }
 
-        async function save(syncNow) {
+        async function save() {
             var storage = window.EmeraldIDBStorage;
             if (!storage || typeof storage.setJSON !== 'function' ||
                 typeof storage.usingIndexedDB !== 'function' || !storage.usingIndexedDB()) {
@@ -1558,9 +1558,6 @@
             }
             await storage.setJSON(key, settings);
             try { localStorage.removeItem(key); } catch (_) {}
-            if (syncNow && window.EmeraldAuth && typeof window.EmeraldAuth.syncCurrentData === 'function') {
-                await window.EmeraldAuth.syncCurrentData();
-            }
         }
 
         controls.forEach(function (control) {
@@ -1568,30 +1565,18 @@
             control.addEventListener('change', async function () {
                 if (!ready) return;
                 var name = control.dataset.connection;
-                var previousValue = settings[name];
                 settings[name] = control.checked;
-                controls.forEach(function (item) { item.disabled = true; });
-                setText('connectionSaveNote', 'Saving and syncing your account settings…');
-                try {
-                    await save(false);
-                    try {
-                        var syncResult = window.EmeraldAuth && typeof window.EmeraldAuth.syncCurrentData === 'function'
-                            ? await window.EmeraldAuth.syncCurrentData() : null;
-                        syncPending = !(syncResult && syncResult.ok);
-                        setText('connectionSaveNote', !syncPending
-                            ? 'Settings saved and synced with your account.'
-                            : 'Settings saved on this device. Account sync will retry when you’re online.');
-                    } catch (_) {
-                        syncPending = true;
-                        setText('connectionSaveNote', 'Settings saved on this device. Account sync will retry when your connection is available.');
+                var snapshot = Object.assign({}, settings);
+                writeQueue = writeQueue.then(function () {
+                    var storage = window.EmeraldIDBStorage;
+                    if (!storage || typeof storage.setJSON !== 'function' ||
+                        typeof storage.usingIndexedDB !== 'function' || !storage.usingIndexedDB()) {
+                        throw new Error('Account storage is unavailable.');
                     }
-                } catch (_) {
-                    control.checked = previousValue;
-                    settings[name] = previousValue;
-                    setText('connectionSaveNote', 'Could not save account settings. Please try again.');
-                } finally {
-                    controls.forEach(function (item) { item.disabled = false; });
-                }
+                    return storage.setJSON(key, snapshot);
+                }).catch(function () {
+                    showToast('Could not save this setting. Please try again.');
+                });
             });
         });
 
@@ -1608,12 +1593,7 @@
                         try { legacy = JSON.parse(localStorage.getItem(key) || 'null'); } catch (_) {}
                         if (legacy) {
                             settings = normalize(legacy);
-                            await save(false);
-                            try {
-                                var migrationSync = window.EmeraldAuth && typeof window.EmeraldAuth.syncCurrentData === 'function'
-                                    ? await window.EmeraldAuth.syncCurrentData() : null;
-                                syncPending = !(migrationSync && migrationSync.ok);
-                            } catch (_) { syncPending = true; }
+                            await save();
                         }
                     }
                 }
@@ -1623,11 +1603,9 @@
                 });
                 ready = true;
                 controls.forEach(function (control) { control.disabled = false; });
-                setText('connectionSaveNote', syncPending
-                    ? 'Settings are saved on this device. Account sync will retry when you’re online.'
-                    : 'Connection settings sync with your EmeraldNetwork account.');
             } catch (_) {
-                setText('connectionSaveNote', 'Could not load account settings. Refresh when your connection is available.');
+                controls.forEach(function (control) { control.disabled = false; });
+                ready = true;
             }
         })();
 

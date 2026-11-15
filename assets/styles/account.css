@@ -1437,8 +1437,9 @@ body {
 .connection-group-heading {
     display: flex;
     align-items: center;
-    gap: 0.9rem;
-    margin: 0 0 0.85rem;
+    gap: 10px;
+    min-height: 34px;
+    margin: 0 0 12px;
 }
 
 .connection-group-heading > div {
@@ -1461,40 +1462,13 @@ body {
 }
 
 .connection-app-mark {
-    display: grid;
-    flex: 0 0 42px;
-    width: 42px;
-    height: 42px;
-    place-items: center;
-    border-radius: 13px;
-    font-size: 1.25rem;
-    font-weight: 800;
+    margin: 0;
+    flex: 0 0 34px;
 }
 
 .connection-app-mark svg {
-    width: 22px;
-    height: 22px;
-}
-
-.suite-mark {
-    color: #168447;
-    background: #e8f7ed;
-}
-
-.chat-mark {
-    color: #6654b5;
-    background: #f0edff;
-}
-
-.connection-status {
-    flex: 0 0 auto;
-    padding: 0.3rem 0.58rem;
-    border: 1px solid #dcefe2;
-    border-radius: 99px;
-    background: #f3fbf5;
-    color: #287943;
-    font-size: 0.72rem;
-    font-weight: 700;
+    width: 18px;
+    height: 18px;
 }
 
 .connection-card {
@@ -1574,28 +1548,14 @@ body {
     outline-offset: 3px;
 }
 
-.connection-save-note {
-    margin: -0.75rem 0 2rem;
-    color: #808883;
-    font-size: 0.78rem;
-}
-
 @media (max-width: 600px) {
     .connection-group-heading {
-        align-items: flex-start;
-        gap: 0.7rem;
+        align-items: center;
+        gap: 10px;
     }
 
     .connection-app-mark {
-        flex-basis: 36px;
-        width: 36px;
-        height: 36px;
-        border-radius: 11px;
-    }
-
-    .connection-status {
-        margin-left: auto;
-        font-size: 0.66rem;
+        flex-basis: 34px;
     }
 
     .connection-card {
