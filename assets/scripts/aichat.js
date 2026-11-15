@@ -4559,19 +4559,15 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
     useUrlContext: !!options.useUrlContext,
     useWebSearch: !!options.useWebSearch,
     tools: options.tools || [],
-    thinking: isThinkingEnabled()
+    thinking: isThinkingEnabled(),
+    connectionSettings: _emeraldConnectionPrefs()
   };
   const url = `${CHAT_WORKER_URL}/chat?model=${encodeURIComponent(requestedId)}`;
   let res;
   try {
-    const headers = { "Content-Type": "application/json" };
-    if (window.EmeraldAuth && typeof window.EmeraldAuth.getSession === "function") {
-      const session = await window.EmeraldAuth.getSession().catch(() => null);
-      if (session && session.token) headers.Authorization = "Bearer " + session.token;
-    }
     res = await fetch(url, {
       method: "POST",
-      headers,
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(reqBody),
       signal: state.abortCtrl?.signal
     });
