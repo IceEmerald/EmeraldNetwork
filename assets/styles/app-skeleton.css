@@ -85,12 +85,8 @@
 .loading-list-item .loading-line { height: 8px; margin: 4px 0; }
 
 .loading-chat-row {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  min-height: 54px;
-  padding: 9px 11px;
-  border-radius: 8px;
+  min-height: 32px;
+  padding: 8px 12px;
 }
 
 body:not(.light-mode) .loading-chat-row {
@@ -99,33 +95,9 @@ body:not(.light-mode) .loading-chat-row {
 }
 
 .loading-chat-row .loading-line {
-  height: 11px;
-  margin: 5px 0;
+  height: 9px;
+  margin: 0;
   opacity: 0.75;
-}
-
-.loading-chat-icon {
-  width: 28px;
-  height: 28px;
-  flex: 0 0 28px;
-  border-radius: 8px;
-  background: var(--loading-base);
-}
-
-.loading-chat-copy {
-  display: block;
-  width: min(170px, calc(100% - 39px));
-}
-
-.loading-chat-icon::after {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(100deg, transparent 25%, var(--loading-highlight) 48%, transparent 72%);
-  content: "";
-  background-size: 220% 100%;
-  animation: loading-shimmer 1.55s linear infinite;
 }
 
 .loading-flow-node {

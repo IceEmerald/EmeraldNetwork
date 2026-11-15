@@ -2741,9 +2741,18 @@ async function init() {
   });
   window.addEventListener('resize', () => { ensureArrowhead($('#connections')); renderConnections(); });
 }
+const flowchartLoadingStartedAt = performance.now();
+
 function hideFlowchartLoading() {
   const loading = document.getElementById('flowchartLoading');
   if (!loading) return;
+  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const minimumVisibleMs = reduceMotion ? 0 : 4800;
+  const remaining = minimumVisibleMs - (performance.now() - flowchartLoadingStartedAt);
+  if (remaining > 0) {
+    window.setTimeout(hideFlowchartLoading, remaining);
+    return;
+  }
   loading.classList.add('is-hidden');
   window.setTimeout(() => loading.remove(), 280);
 }
