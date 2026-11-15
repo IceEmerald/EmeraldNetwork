@@ -794,39 +794,30 @@
         const syncEl = $('syncIndicator');
         if (syncEl) syncEl.addEventListener('click', () => refresh({}));
 
-        const sBtn = $('storageBtn'), sPop = $('storagePop');
-        if (sBtn && sPop) {
-            const fmt = (b) => b == null ? '—' : (b >= 1073741824 ? (b / 1073741824).toFixed(2) + ' GB' : b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : b >= 1024 ? (b / 1024).toFixed(1) + ' KB' : b + ' B');
-            const hidePop = () => {
-                if (sPop.hidden) return;
-                sPop.classList.add('closing');
-                setTimeout(() => { sPop.hidden = true; sPop.classList.remove('closing'); }, 150);
+        const profileBtn = $('profileBtn'), accountPop = $('accountPop');
+        if (profileBtn && accountPop) {
+            const hideAccount = () => {
+                accountPop.hidden = true;
+                profileBtn.setAttribute('aria-expanded', 'false');
             };
-            sBtn.addEventListener('click', async () => {
-                if (!sPop.hidden) { hidePop(); return; }
-                sPop.classList.remove('closing');
-                sPop.hidden = false;
-                let used = null, quota = null;
-                try {
-                    if (navigator.storage && navigator.storage.estimate) {
-                        const e = await navigator.storage.estimate();
-                        used = e.usage; quota = e.quota;
-                    }
-                } catch (e) {}
-                $('storageUsed').textContent = fmt(used);
-                $('storageFree').textContent = (quota != null && used != null) ? fmt(Math.max(0, quota - used)) : '—';
-                const pct = (quota && used != null) ? Math.min(100, (used / quota) * 100) : 0;
-                $('storageFill').style.width = pct + '%';
-                $('storagePct').textContent = quota ? Math.round(pct) + '% of estimated storage used' : 'Storage estimate unavailable in this browser.';
+            profileBtn.addEventListener('click', () => {
+                accountPop.hidden = !accountPop.hidden;
+                profileBtn.setAttribute('aria-expanded', String(!accountPop.hidden));
             });
             document.addEventListener('mousedown', (e) => {
-                if (!sPop.hidden && !sPop.contains(e.target) && !sBtn.contains(e.target)) hidePop();
+                if (!accountPop.hidden && !accountPop.contains(e.target) && !profileBtn.contains(e.target)) hideAccount();
+            });
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideAccount(); });
+            $('accountSignOut').addEventListener('click', async () => {
+                if (window.EmeraldAuth && window.EmeraldAuth.logoutCurrentDevice) await window.EmeraldAuth.logoutCurrentDevice();
+                window.location.href = '/account';
             });
         }
     }
 
     async function init() {
         if (window.EmeraldAuth && window.EmeraldAuth.ready) await window.EmeraldAuth.ready();
+        await renderAccountProfile();
         setGreeting();
         bindUI();
 
@@ -856,6 +847,37 @@
         setInterval(() => refresh({ silent: true }), 60000);
 
         refresh({});
+    }
+
+    async function renderAccountProfile() {
+        try {
+            const session = window.EmeraldAuth && window.EmeraldAuth.getSession ? await window.EmeraldAuth.getSession() : null;
+            const user = session && session.user;
+            const email = user && (user.email || user.username) || '';
+            let profile = null;
+            const store = storage();
+            if (store && store.ready) await store.ready();
+            if (store && store.getJSON) profile = await store.getJSON('emerald.account.profile');
+            if (!profile && email) {
+                try { profile = JSON.parse(localStorage.getItem('emerald.account.profile.' + email) || 'null'); } catch (_) {}
+            }
+            const name = profile && profile.name || user && (user.name || user.displayName) || (email ? email.split('@')[0] : 'Emerald user');
+            const photo = profile && typeof profile.photo === 'string' ? profile.photo : '';
+            const initial = (name.trim()[0] || 'E').toUpperCase();
+            $('profileBtn').title = name;
+            $('profileInitial').textContent = initial;
+            $('accountPopInitial').textContent = initial;
+            $('accountPopName').textContent = name;
+            $('accountPopEmail').textContent = email;
+            if (photo) {
+                $('profileAvatar').src = photo;
+                $('profileAvatar').hidden = false;
+                $('profileInitial').hidden = true;
+                $('accountPopAvatar').src = photo;
+                $('accountPopAvatar').hidden = false;
+                $('accountPopInitial').hidden = true;
+            }
+        } catch (_) {}
     }
 
     let forcedDaypart = null;
