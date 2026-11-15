@@ -13,6 +13,7 @@
         href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="assets/styles/flowchart.css">
+    <link rel="stylesheet" href="/assets/styles/loading.css">
     <link rel="icon" type="image/x-icon" href="/assets/images/favicon.ico">
     <link rel="icon" type="image/webp" href="/assets/images/favicon.webp">
     <link rel="apple-touch-icon" href="/assets/images/favicon.webp">
@@ -22,6 +23,7 @@
     <div class="flowchart-app">
 
         <main class="fc-canvas-wrap" id="canvas-wrap">
+            <div class="app-loading-skeleton" id="appLoading" role="status" aria-label="Loading Flowchart"><span></span><span></span><span></span><i></i></div>
             <div id="canvas">
                 <div id="canvas-content">
                     <svg id="connections" xmlns="http://www.w3.org/2000/svg"></svg>

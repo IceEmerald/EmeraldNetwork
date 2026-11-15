@@ -11645,6 +11645,7 @@ async function boot() {
       else { history.replaceState({}, document.title, location.pathname); }
     } catch (e) { history.replaceState({}, document.title, location.pathname); }
   }
+  document.getElementById('appLoading')?.remove();
 
   setInterval(() => { if (Clip.marquee) requestPaint(); }, 120);
 

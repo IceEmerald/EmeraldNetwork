@@ -9615,3 +9615,4 @@ body.light-mode .live-ctl-start:hover {
         animation: none;
     }
 }
+.app-loading-skeleton{position:absolute;inset:0;z-index:1000;background:var(--chat-bg,#111);display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-content:center;padding:24px;gap:12px}.app-loading-skeleton span{height:150px;border:1px solid rgba(150,150,150,.16);border-radius:12px;background:linear-gradient(90deg,rgba(150,150,150,.04) 25%,rgba(150,150,150,.12) 45%,rgba(150,150,150,.04) 65%);background-size:250% 100%;animation:app-skeleton-shimmer 1.3s linear infinite}.app-loading-skeleton i{grid-column:1/-1;height:18px;max-width:45%;border-radius:5px;background:rgba(150,150,150,.1);animation:app-skeleton-shimmer 1.3s linear infinite}@keyframes app-skeleton-shimmer{to{background-position:-250% 0}}

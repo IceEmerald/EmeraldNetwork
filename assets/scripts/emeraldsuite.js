@@ -853,7 +853,8 @@
 
         setInterval(() => refresh({ silent: true }), 60000);
 
-        refresh({});
+        await refresh({});
+        document.getElementById('appLoading')?.remove();
     }
 
     let forcedDaypart = null;

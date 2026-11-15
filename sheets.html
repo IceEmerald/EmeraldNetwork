@@ -11,6 +11,7 @@
 <link rel="icon" type="image/x-icon" href="/assets/images/sheetsicon.webp">
 <link rel="stylesheet" href="/assets/styles/style.css">
 <link rel="stylesheet" href="/assets/styles/sheets.css">
+<link rel="stylesheet" href="/assets/styles/loading.css">
 <link rel="stylesheet" href="/assets/styles/suite-rail.css">
 </head>
 <body>
@@ -108,6 +109,7 @@
 
   <div id="grid-row">
     <main id="grid-area">
+      <div class="app-loading-skeleton" id="appLoading" role="status" aria-label="Loading spreadsheet"><span></span><span></span><span></span><i></i></div>
       <canvas id="grid-canvas"></canvas>
       <textarea id="cell-editor" aria-label="Cell editor" spellcheck="false"></textarea>
       <div id="chart-layer" aria-label="Floating charts"></div>

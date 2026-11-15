@@ -8794,6 +8794,7 @@ function startAutosaveSnapshots() {
         history.replaceState({}, document.title, location.pathname);
       }
     }
+    document.getElementById("appLoading")?.remove();
 
     var cmdButtons = document.querySelectorAll("[data-cmd]");
     for (var i = 0; i < cmdButtons.length; i++) {
