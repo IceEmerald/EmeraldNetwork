@@ -1205,4 +1205,6 @@
     initCrossLinks();
     initNavToggle();
     initKeys();
+
+    if (window.EmeraldAppLoader) window.EmeraldAppLoader.hide();
 }());

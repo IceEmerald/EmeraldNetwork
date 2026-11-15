@@ -1,4 +1,4 @@
-const CACHE_NAME = "emeraldnetwork.emeraldcore.serviceWorker.v5.2026.10.14";
+const CACHE_NAME = "emeraldnetwork.emeraldcore.serviceWorker.v5.2026.11.15";
 const OFFLINE_URL = "./offline.html";
 
 const ASSETS_TO_CACHE = [
@@ -12,7 +12,10 @@ const ASSETS_TO_CACHE = [
   "./assets/scripts/rightclick.js",
 
   "./assets/scripts/dropdown.js",
-  "./assets/scripts/offline.js"
+  "./assets/scripts/offline.js",
+
+  "./assets/styles/apploader.css",
+  "./assets/scripts/apploader.js"
 ];
 
 const CACHED_PATHS = new Set(

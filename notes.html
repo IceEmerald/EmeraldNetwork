@@ -15,10 +15,18 @@
     <link rel="stylesheet" href="/assets/styles/notes.css" />
     <link rel="stylesheet" href="/assets/styles/tablekit.css" />
     <link rel="stylesheet" href="/assets/styles/suite-rail.css" />
+    <link rel="stylesheet" href="/assets/styles/apploader.css" />
     <link rel="icon" type="image/x-icon" href="/assets/images/notesicon.webp">
 </head>
 
 <body class="no-active-note">
+    <div id="app-loader">
+        <div class="app-loader-spinner" aria-hidden="true">
+            <img src="/assets/images/favicon.webp" alt="">
+        </div>
+        <p class="app-loader-text">Loading <span id="app-loader-label">Notes</span><span class="app-loader-dots" aria-hidden="true"><i></i><i></i><i></i></span></p>
+    </div>
+
     <div class="notes-app">
         <header class="navbar sticky-top">
             <div class="navcontainer nav-container">
@@ -1008,6 +1016,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.3/dist/purify.min.js" integrity="sha384-osZDKVu4ipZP703HmPOhWdyBajcFyjX2Psjk//TG1Rc0AdwEtuToaylrmcK3LdAl" crossorigin="anonymous"></script>
+    <script src="/assets/scripts/apploader.js"></script>
     <script src="/assets/scripts/idb-storage.js"></script>
     <script src="/assets/scripts/auth-client.js?v=5"></script>
     <script src="/assets/scripts/auth-guard.js"></script>

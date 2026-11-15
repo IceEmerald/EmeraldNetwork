@@ -488,6 +488,8 @@ class SlidesApp {
         if (this.presentations.length === 0) {
             
         }
+
+        if (window.EmeraldAppLoader) window.EmeraldAppLoader.hide();
     }
 
     
@@ -876,6 +878,7 @@ class SlidesApp {
         this._syncAnimationTimingUI?.();
         this.renderAnimationPane();
         this.showWelcomeScreen(false);
+        if (window.EmeraldAppLoader) window.EmeraldAppLoader.hide();
         
         
         

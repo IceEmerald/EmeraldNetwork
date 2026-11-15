@@ -2739,5 +2739,7 @@ async function init() {
     persistState();
   });
   window.addEventListener('resize', () => { ensureArrowhead($('#connections')); renderConnections(); });
+
+  if (window.EmeraldAppLoader) window.EmeraldAppLoader.hide();
 }
 init();

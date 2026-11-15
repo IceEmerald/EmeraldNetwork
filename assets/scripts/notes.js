@@ -5097,6 +5097,7 @@ NotesApp.memoryStorageFallback = new Map();
 document.addEventListener('DOMContentLoaded', () => {
     window.notesApp = new NotesApp();
     window.notesApp.ready.then(() => {
+        if (window.EmeraldAppLoader) window.EmeraldAppLoader.hide();
         if (!window.notesApp.openOwnedNoteFromUrl()) {
             window.notesApp.importNoteFromUrl();
         }
