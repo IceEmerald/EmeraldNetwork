@@ -8168,7 +8168,6 @@ body.light-mode .searching-text pre {
     --ce-bar-active: #50c878;
     --ce-label: #8a8a8a;
     --ce-label-done: #7a7a7a;
-    --ce-glyph: #8a8a8a;
     --ce-chevron: #8a8a8a;
 
     --pl-sweep-dim: #8a8a8a;
@@ -8223,12 +8222,6 @@ body.light-mode .searching-text pre {
     align-items: center;
     gap: 7px;
     min-width: 0px;
-}
-
-.codeexec-glyph {
-    color: var(--ce-glyph);
-    flex-shrink: 0;
-    opacity: 0.75;
 }
 
 .codeexec-label {
@@ -8349,7 +8342,6 @@ body.light-mode .codeexec-block {
     --ce-bar-active: #2a9d54;
     --ce-label: #555;
     --ce-label-done: #666;
-    --ce-glyph: #666;
     --ce-chevron: #888;
 
     --pl-sweep-dim: #6f6f6f;

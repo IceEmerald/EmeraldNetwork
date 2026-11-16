@@ -3480,19 +3480,18 @@ function _setCodeExecLabel(block, verb) {
   if (!label) return;
   const start = Number(block.dataset.startedAt || 0);
   if (!start) {
-    label.textContent = verb === "Ran" ? "Ran code" : "Running code";
+    label.textContent = verb === "Ran" ? "Ran code for a moment" : "Running code";
     return;
   }
   const sec = Math.max(1, Math.round((Date.now() - start) / 1000));
-  label.textContent = verb === "Ran" ? `Ran code in ${_fmtThinkingElapsed(sec)}` : `Running code — ${_fmtThinkingElapsed(sec)}`;
+  label.textContent = `${verb === "Ran" ? "Ran code" : "Running code"} for ${_fmtThinkingElapsed(sec)}`;
 }
 
 function codeExecBlockHTML(isDone) {
   return `<div class="codeexec-block${isDone ? " is-done" : ""}" data-state="${isDone ? "done" : "running"}">
     <div class="codeexec-header" role="button" tabindex="0" aria-expanded="${isDone ? "false" : "true"}" onclick="toggleCodeExecBlock(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleCodeExecBlock(this);}">
       <div class="codeexec-title">
-        <svg class="codeexec-glyph" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-        <span class="codeexec-label">${isDone ? "Ran code" : "Running code"}</span>
+        <span class="codeexec-label">${isDone ? "Ran code for a moment" : "Running code"}</span>
       </div>
       <svg class="codeexec-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
