@@ -1434,46 +1434,9 @@ body {
     margin: 1.75rem 0 2rem;
 }
 
-.connection-group-heading {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-height: 34px;
-    margin: 0 0 12px;
-}
-
-.connection-group-heading > div {
-    min-width: 0;
-    flex: 1;
-}
-
-.connection-group-heading h2 {
-    margin: 0 0 0.22rem;
-    color: #202923;
-    font-size: 1.05rem;
-    font-weight: 750;
-}
-
-.connection-group-heading p {
-    margin: 0;
-    color: #69716c;
-    font-size: 0.86rem;
-    line-height: 1.5;
-}
-
-.connection-app-mark {
-    margin: 0;
-    flex: 0 0 34px;
-}
-
-.connection-app-mark svg {
-    width: 18px;
-    height: 18px;
-}
-
 .connection-card {
     overflow: hidden;
-    padding: 0 1.25rem;
+    padding: 6px 1.25rem 0;
 }
 
 .connection-setting {
@@ -1549,17 +1512,8 @@ body {
 }
 
 @media (max-width: 600px) {
-    .connection-group-heading {
-        align-items: center;
-        gap: 10px;
-    }
-
-    .connection-app-mark {
-        flex-basis: 34px;
-    }
-
     .connection-card {
-        padding: 0 0.95rem;
+        padding: 6px 0.95rem 0;
     }
 
     .connection-setting {
