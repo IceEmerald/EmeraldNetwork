@@ -7218,7 +7218,13 @@ async function _refreshConnectionPrefs() {
     const storage = window.EmeraldIDBStorage;
     if (!storage || typeof storage.getJSON !== "function") return _emeraldConnectionPrefs();
     if (typeof storage.ready === "function") await storage.ready();
-    const saved = await storage.getJSON("emerald.account.connections");
+    let scope = null;
+    try {
+      const session = window.EmeraldAuth && typeof window.EmeraldAuth.getSession === "function"
+        ? await window.EmeraldAuth.getSession() : null;
+      scope = (session && (session.user && session.user.email || session.email)) || null;
+    } catch (_) {}
+    const saved = await storage.getJSON("emerald.account.connections", scope);
     if (saved && typeof saved === "object") {
       const next = Object.assign({}, _EMERALD_CONNECTION_DEFAULTS);
       for (const key of Object.keys(next)) if (typeof saved[key] === "boolean") next[key] = saved[key];
@@ -7235,7 +7241,13 @@ if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.subscribe === "f
 async function _accountPersonalizationContext() {
   if (!_emeraldConnectionPrefs().profileInfo || !window.EmeraldIDBStorage || !window.EmeraldIDBStorage.getJSON) return "";
   try {
-    const profile = await window.EmeraldIDBStorage.getJSON("emerald.account.profile");
+    let scope = null;
+    try {
+      const session = window.EmeraldAuth && typeof window.EmeraldAuth.getSession === "function"
+        ? await window.EmeraldAuth.getSession() : null;
+      scope = (session && (session.user && session.user.email || session.email)) || null;
+    } catch (_) {}
+    const profile = await window.EmeraldIDBStorage.getJSON("emerald.account.profile", scope);
     if (!profile || typeof profile !== "object") return "";
     const details = [];
     if (typeof profile.name === "string" && profile.name.trim()) details.push("Name: " + profile.name.trim().slice(0, 100));
@@ -7243,7 +7255,7 @@ async function _accountPersonalizationContext() {
     const location = [profile.city, profile.region, profile.country].filter((v) => typeof v === "string" && v.trim()).map((v) => v.trim().slice(0, 80));
     if (location.length) details.push("Location: " + location.join(", "));
     if (!details.length) return "";
-    return "[ACCOUNT PROFILE FOR PERSONALIZATION]\nThe user chose to share these profile details with AI Chat. Use them only when relevant to the current request; do not repeat or expose them unnecessarily.\n" + details.join("\n");
+    return "[ACCOUNT PROFILE FOR PERSONALIZATION]\nThe user chose to share these profile details with AI Chat. Use them as the source of truth when the user asks about their name, birthday, birth month, birth date, or location. Answer directly with the saved value; do not claim you lack access. Do not repeat or expose them unnecessarily.\n" + details.join("\n");
   } catch (_) { return ""; }
 }
 function _extractEmeraldApp(text) {
