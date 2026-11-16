@@ -3880,7 +3880,6 @@ async function handleSend(opts) {
   };
   const MAX_CONTINUATIONS = 4;
   let continueCount = 0;
-  let continueEl = null;
   let _groundingMetadata = null;
   let _thinkingText = "";
   let _thinkingBlock = null;
@@ -3936,7 +3935,7 @@ async function handleSend(opts) {
     appendThinkingToBlock(_thinkingBlock, chunk);
     scrollToBottom();
   };
-  const _doStream = async (h) => streamEmeraldBot(h, apiKey, (chunk) => {
+  const _doStream = async (h, o) => streamEmeraldBot(h, apiKey, (chunk) => {
 
     _markSearchingDoneOnce();
     _markThinkingDoneOnce();
@@ -3969,7 +3968,7 @@ async function handleSend(opts) {
     textEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.editStarted ? esEditLoadingCardHTML() : _sd.quizStarted ? quizLoadingCardHTML() : _sd.appStarted ? esAppLoadingCardHTML() : '<span class="stream-cursor" aria-hidden="true"></span>');
     _wrapStreamWords(textEl);
     scrollToBottom();
-  }, _streamOpts);
+  }, o || _streamOpts);
   try {
     let _streamResult = await _doStream(history);
     let finishReason = _streamResult.finishReason;
@@ -3990,18 +3989,12 @@ async function handleSend(opts) {
     }
     while ((finishReason === "MAX_TOKENS" || finishReason === "STREAM_INTERRUPTED") && continueCount < MAX_CONTINUATIONS && !state.abortCtrl?.signal?.aborted) {
       continueCount++;
-      if (!continueEl && aiDiv) {
-        continueEl = document.createElement("span");
-        continueEl.className = "continue-indicator";
-        continueEl.textContent = "\u2193 Continuing\u2026";
-        aiDiv.querySelector(".message-body").appendChild(continueEl);
-      }
       const contHistory = [
         ...history,
         { role: "model", parts: [{ text: fullText }] },
-        { role: "user", parts: [{ text: "continue" }] }
+        { role: "user", parts: [{ text: CONTINUE_PROMPT }] }
       ];
-      _streamResult = await _doStream(contHistory);
+      _streamResult = await _doStream(contHistory, { ..._streamOpts, model: _usedModelId || void 0 });
       finishReason = _streamResult.finishReason;
       if (_streamResult.groundingMetadata) {
 
@@ -4014,11 +4007,9 @@ async function handleSend(opts) {
       }
     }
     }
-    if (continueEl) continueEl.remove();
-  } catch (err) {
+   } catch (err) {
     if (err?._jailbreakBlocked) {
 
-      if (continueEl) continueEl.remove();
       _hideTypingIndicator();
       if (state.convId && !state.isTemp) {
         deleteConv(state.convId);
@@ -4037,7 +4028,6 @@ async function handleSend(opts) {
       showToast(`${_aiSvgWarn} This request cannot be processed because it violates EmeraldNetwork usage policies.`, "error");
       return;
     }
-    if (continueEl) continueEl.remove();
     _hideTypingIndicator();
     if (!aiDiv) {
       aiDiv = _viewingStreamView() ? appendAIMessageDOM("", msgId, true) : _buildAIDOM("", true);
@@ -4854,6 +4844,12 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
       } catch (readErr) {
 
         if (timedOut) break;
+        if (readErr?.name === "AbortError") throw readErr;
+        if (streamedChars >= MIN_RESUME_TEXT) {
+          streamDone = true;
+          finishReason = "STREAM_INTERRUPTED";
+          break;
+        }
         throw readErr;
       }
       _resetIdle();
@@ -4934,6 +4930,8 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
   return { finishReason, groundingMetadata, modelId: usedModelId };
 }
 
+const CONTINUE_PROMPT = "Continue your previous response exactly where it stopped. Do not repeat or rewrite any text you already wrote, do not add a greeting or transition, and do not start over \u2014 continue seamlessly mid-sentence if needed, matching the existing formatting (code blocks, lists, tables) until the response is complete.";
+
 async function streamEmeraldBotResumable(history, _unused, onChunk, options = {}, _extra = {}) {
   const MAX_RESUMES = 4;
   let accFinish = null;
@@ -4946,7 +4944,7 @@ async function streamEmeraldBotResumable(history, _unused, onChunk, options = {}
       accText += chunk;
       if (typeof onChunk === "function") onChunk(chunk);
     };
-    const res = await streamEmeraldBot(h, _unused, _progress, options, _extra);
+    const res = await streamEmeraldBot(h, _unused, _progress, (i > 0 && accModelId) ? { ...options, model: accModelId } : options, _extra);
     if (res.modelId) accModelId = res.modelId;
     if (res.groundingMetadata) {
       if (accGrounding?.groundingChunks) {
@@ -4959,7 +4957,7 @@ async function streamEmeraldBotResumable(history, _unused, onChunk, options = {}
     }
     accFinish = res.finishReason;
     if (accFinish !== "MAX_TOKENS" && accFinish !== "STREAM_INTERRUPTED") break;
-    h = [...history, { role: "model", parts: [{ text: accText }] }, { role: "user", parts: [{ text: "continue" }] }];
+    h = [...history, { role: "model", parts: [{ text: accText }] }, { role: "user", parts: [{ text: CONTINUE_PROMPT }] }];
   }
   return { finishReason: accFinish, groundingMetadata: accGrounding, modelId: accModelId };
 }
