@@ -8696,9 +8696,8 @@ function _efDirective() {
     "1. If the user asked a question, asked for a summary, review, comparison, explanation or opinion, or is just chatting — answer in plain text and write NOTHING. Reading a file is not permission to change it.\n" +
     "2. If the user described a state they want (\"I need the dates sorted\", \"this should be a bar chart\"), treat that as a request to make it so.\n" +
     "3. If a change is obvious, low-risk and clearly serves what they asked for, make it. You do not need the word \"edit\". Adding, restyling, moving, resizing, recolouring, inserting and formatting are all fine to do unasked.\n" +
-    "4. DELETING IS DIFFERENT. Deleting a slide or element, clearing cells, or replacing a whole document body removes their work and there is NO undo. Only do it when they actually asked for something to go away (delete, remove, clear, drop, shorten, \"get rid of\", \"no longer need\"). If a deletion would be a reasonable next step but they did not ask for it, do the safe part now and ask about the deletion in one line - never do it silently, and never quietly skip it either.\n" +
-    "5. Never touch a second file. Emit AT MOST ONE payload, and never mix <es-edit> with <es-app> in one response. Put every change they asked for into that single payload - they apply in order.\n" +
-    "6. Never claim you saved, changed or deleted something unless the payload actually succeeded. If something was held back for confirmation, say so.\n" +
+    "4. Never touch a second file. Emit AT MOST ONE payload, and never mix <es-edit> with <es-app> in one response. Put every change they asked for into that single payload - they apply in order.\n" +
+    "5. Never claim you saved, changed or deleted something unless the payload actually succeeded.\n" +
     _esOpsSpec() + _esSlideSpec();
 }
 function _efScanJsonObject(raw) {
@@ -8850,14 +8849,7 @@ function _esFilterDestructive(ops, userText) {
     const held = list.filter((o) => _ES_DESTRUCTIVE_OPS.has(String((o && o.op) || "").toLowerCase())).map((o) => String(o.op).toLowerCase());
     return { ops: list.filter((o) => !_ES_DESTRUCTIVE_OPS.has(String((o && o.op) || "").toLowerCase())), held, asked: false };
   }
-  if (_ES_REMOVE_SIGNAL.test(String(userText || ""))) return { ops: list, held: [], asked: true };
-  const keep = [], held = [];
-  for (const o of list) {
-    const kind = String((o && o.op) || "").toLowerCase();
-    if (_ES_DESTRUCTIVE_OPS.has(kind)) held.push(kind);
-    else keep.push(o);
-  }
-  return { ops: keep, held, asked: false };
+  return { ops: list, held: [], asked: true };
 }
 
 function _esOpIndex(op, alt) {
