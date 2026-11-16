@@ -8165,7 +8165,7 @@ body.light-mode .searching-text pre {
 
 .codeexec-block {
     --ce-bar: #6b6b6b;
-    --ce-bar-active: #4aa3ff;
+    --ce-bar-active: #50c878;
     --ce-label: #8a8a8a;
     --ce-label-done: #7a7a7a;
     --ce-glyph: #8a8a8a;
@@ -8199,8 +8199,7 @@ body.light-mode .searching-text pre {
 }
 
 .codeexec-block.is-done::before {
-    background: var(--ce-bar-active);
-    opacity: 0.6;
+    opacity: 0.85;
 }
 
 .codeexec-header {
@@ -8216,7 +8215,7 @@ body.light-mode .searching-text pre {
 }
 
 .codeexec-header:focus-visible {
-    box-shadow: rgba(74, 163, 255, 0.3) 0px 0px 0px 2px;
+    box-shadow: rgba(80, 200, 120, 0.3) 0px 0px 0px 2px;
 }
 
 .codeexec-title {
@@ -8347,7 +8346,7 @@ body.light-mode .searching-text pre {
 
 body.light-mode .codeexec-block {
     --ce-bar: #b0b0b0;
-    --ce-bar-active: #2f7fd1;
+    --ce-bar-active: #2a9d54;
     --ce-label: #555;
     --ce-label-done: #666;
     --ce-glyph: #666;
