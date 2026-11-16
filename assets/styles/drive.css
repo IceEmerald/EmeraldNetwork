@@ -107,8 +107,39 @@
 .sidebar-btn svg { flex-shrink: 0; color: rgb(102,102,102); transition: color .2s; }
 .sidebar-btn[data-drive-nav="home"] svg { width: 17px; height: 17px; }
 .sidebar-btn-label { overflow: hidden; white-space: nowrap; transition: opacity .18s; }
-.sidebar-btn.new-chat { color: rgb(68,68,68); }
-.sidebar-btn.new-chat:hover { background: rgb(240,240,240); color: rgb(26,26,26); }
+.sidebar-btn.new-chat {
+    position: relative;
+    overflow: hidden;
+    justify-content: center;
+    align-self: flex-start;
+    width: auto;
+    max-width: 100%;
+    margin: 12px 0 18px;
+    padding: 11px 24px 11px 18px;
+    border: 0;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #1f8f47, #35b96c);
+    color: #fff;
+    font-weight: 500;
+    box-shadow: none;
+    transition: box-shadow .22s ease;
+}
+.sidebar-btn.new-chat::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,.14);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .22s ease;
+}
+.sidebar-btn.new-chat svg,
+.sidebar-btn.new-chat .sidebar-btn-label { position: relative; z-index: 1; color: #fff; }
+.sidebar-btn.new-chat:hover {
+    box-shadow: none;
+}
+.sidebar-btn.new-chat:hover::before { opacity: 1; }
+.sidebar-btn.new-chat:active { box-shadow: none; }
 .sidebar-btn.active { background: transparent; border-color: transparent; color: rgb(35,154,77); }
 .sidebar-btn.active svg { color: rgb(35,154,77); }
 .sidebar-btn.active:hover { background: transparent; }
@@ -149,7 +180,10 @@ html[data-wiki-theme="dark"] .sidebar-btn { color: rgb(210,210,210); }
 html[data-wiki-theme="dark"] .sidebar-btn:hover { background: rgb(30,30,30); color: rgb(210,210,210); }
 html[data-wiki-theme="dark"] .sidebar-btn svg { color: rgb(210,210,210); }
 html[data-wiki-theme="dark"] .sidebar-btn:hover svg { color: rgb(80,200,120); }
-html[data-wiki-theme="dark"] .sidebar-btn.new-chat { color: rgb(210,210,210); }
+html[data-wiki-theme="dark"] .sidebar-btn.new-chat { color: #fff; box-shadow: none; }
+html[data-wiki-theme="dark"] .sidebar-btn.new-chat svg { color: #fff; }
+html[data-wiki-theme="dark"] .sidebar-btn.new-chat:hover { background: linear-gradient(135deg, #1f8f47, #35b96c); color: #fff; box-shadow: none; }
+html[data-wiki-theme="dark"] .sidebar-btn.new-chat:hover svg { color: #fff; }
 html[data-wiki-theme="dark"] .sidebar-btn.active { background: transparent; border-color: transparent; color: rgb(80,200,120); }
 html[data-wiki-theme="dark"] .sidebar-btn.active svg { color: rgb(80,200,120); }
 html[data-wiki-theme="dark"] .sidebar-btn.active:hover { background: transparent; }
