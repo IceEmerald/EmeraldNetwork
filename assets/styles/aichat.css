@@ -8344,6 +8344,13 @@ body.light-mode .searching-text pre {
     color: rgb(224, 130, 130);
 }
 
+.codeexec-code code.hljs,
+.codeexec-result code.hljs {
+    background: transparent;
+    padding: 0px;
+    overflow-x: visible;
+}
+
 body.light-mode .codeexec-block {
     --ce-bar: #b0b0b0;
     --ce-bar-active: #2a9d54;

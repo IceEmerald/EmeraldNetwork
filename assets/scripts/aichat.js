@@ -3474,6 +3474,16 @@ function toggleSearchingBlock(headerEl) {
 
 const _codeExecTimers = new WeakMap();
 
+function _codeExecHighlight(code) {
+  if (typeof hljs !== "undefined") {
+    try {
+      return hljs.getLanguage("python") ? hljs.highlight(code, { language: "python" }).value : hljs.highlightAuto(code).value;
+    } catch {
+    }
+  }
+  return escapeHtml(code);
+}
+
 function _setCodeExecLabel(block, verb) {
   if (!block) return;
   const label = block.querySelector(".codeexec-label");
@@ -3534,7 +3544,8 @@ function appendCodeExecToBlock(block, payload) {
     if (!codeEl) return;
     const acc = (block.dataset.codeexecCode || "") + (payload.code || "");
     block.dataset.codeexecCode = acc;
-    codeEl.textContent = acc;
+    codeEl.classList.add("hljs", "language-python");
+    codeEl.innerHTML = _codeExecHighlight(acc);
     const body = block.querySelector(".codeexec-body");
     if (body && _autoScrollSticky) body.scrollTop = body.scrollHeight;
   } else if (payload.type === "result") {
@@ -3585,7 +3596,10 @@ function renderStoredCodeExecBlock(div, data) {
   tmp.innerHTML = codeExecBlockHTML(true);
   const block = tmp.firstElementChild;
   const codeEl = block.querySelector(".codeexec-code code");
-  if (codeEl && data.code) codeEl.textContent = data.code;
+  if (codeEl && data.code) {
+    codeEl.classList.add("hljs", "language-python");
+    codeEl.innerHTML = _codeExecHighlight(data.code);
+  }
   const outEl = block.querySelector(".codeexec-result code");
   if (outEl) outEl.textContent = data.output || "";
   if (data.outcome === "OUTCOME_FAILED") block.querySelector(".codeexec-result")?.classList.add("is-failed");
