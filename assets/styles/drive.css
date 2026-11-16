@@ -215,6 +215,59 @@ html[data-wiki-theme="dark"] .drive-storage-title { color: rgb(210,210,210); }
     #driveContent.is-switching { filter: none; opacity: 0; }
 }
 
+/* ---- home welcome ---- */
+.dhome-hero {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 22px 24px;
+    margin-bottom: 24px;
+    border: 1px solid rgba(35,154,77,.16);
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(35,154,77,.13), rgba(35,154,77,.035));
+    overflow: hidden;
+}
+.dhome-hero-copy { min-width: 0; }
+.dhome-hero h1 {
+    margin: 0 0 6px;
+    font: 800 1.5rem/1.2 'DM Sans', sans-serif;
+    letter-spacing: -0.02em;
+    color: #173d28;
+}
+.dhome-hero p {
+    margin: 0;
+    max-width: 540px;
+    font: 400 .92rem/1.5 'DM Sans', sans-serif;
+    color: #4a6b57;
+}
+.dhome-hero-icon {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 18px;
+    color: #239a4d;
+    background: rgba(255,255,255,.6);
+    box-shadow: 0 6px 18px rgba(35,154,77,.12);
+}
+html[data-wiki-theme="dark"] .dhome-hero {
+    border-color: rgba(80,200,120,.16);
+    background: linear-gradient(135deg, rgba(80,200,120,.1), rgba(80,200,120,.02));
+}
+html[data-wiki-theme="dark"] .dhome-hero h1 { color: #e8f5ec; }
+html[data-wiki-theme="dark"] .dhome-hero p { color: #9fb3a6; }
+html[data-wiki-theme="dark"] .dhome-hero-icon { color: #50c878; background: rgba(255,255,255,.06); box-shadow: none; }
+
+@media (max-width: 560px) {
+    .dhome-hero { padding: 18px; }
+    .dhome-hero-icon { display: none; }
+    .dhome-hero h1 { font-size: 1.3rem; }
+}
+
 /* ---- toolbar ---- */
 .drive-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
 .drive-crumbs { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
@@ -223,7 +276,7 @@ html[data-wiki-theme="dark"] .drive-storage-title { color: rgb(210,210,210); }
     font: 600 17px 'DM Sans', sans-serif; color: #535e57; padding: 4px 6px; border-radius: 6px;
 }
 .dcrumb:hover { background: #f3f2f1; color: #202923; }
-.dcrumb.current { color: #202923; cursor: default; }
+.dcrumb.current { color: #202923; cursor: default; font-size: 1.7rem; font-weight: 800; letter-spacing: -0.02em; padding: 0 2px; }
 .dcrumb.current:hover { background: none; }
 .dcrumb-sep { color: #8a8886; }
 

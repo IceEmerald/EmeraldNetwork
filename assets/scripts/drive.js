@@ -39,6 +39,7 @@
     ];
 
     var state = { view: 'home', folderId: null, layout: 'grid', sort: 'modified', search: '' };
+    var currentUserName = '';
 
     /* ---------------- helpers ---------------- */
 
@@ -158,6 +159,31 @@
         return '<div class="dempty"><h3>' + esc(title) + '</h3><p>' + esc(text) + '</p></div>';
     }
 
+    function homeGreeting() {
+        var h = new Date().getHours();
+        var base = h < 12 ? 'Good morning' : (h < 18 ? 'Good afternoon' : 'Good evening');
+        var name = String(currentUserName || '').trim();
+        var first = name && name !== 'Emerald user' ? name.split(/\s+/)[0] : '';
+        return base + (first ? ', ' + first : '');
+    }
+
+    function updateHomeGreeting() {
+        var el = document.querySelector('.dhome-hero h1');
+        if (el) el.textContent = homeGreeting();
+    }
+
+    function homeHeroHTML() {
+        return '<section class="dhome-hero">' +
+            '<div class="dhome-hero-copy">' +
+                '<h1>' + esc(homeGreeting()) + '</h1>' +
+                '<p>Welcome back to your drive. Pick up where you left off or create something new.</p>' +
+            '</div>' +
+            '<div class="dhome-hero-icon" aria-hidden="true">' +
+                '<svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>' +
+            '</div>' +
+        '</section>';
+    }
+
     function render() {
         var box = $('driveContent');
         if (!box) return;
@@ -172,6 +198,7 @@
                 var all = filterSearch(files.filter(function (f) { return !f.trashed; }));
                 html += all.length ? layoutHTML(all) : emptyHTML('No results', 'Nothing matches your search.');
             } else {
+                html += homeHeroHTML();
                 var suggested = recent.slice(0, 3);
                 if (suggested.length) html += section('Suggested', '<div class="dchips">' + suggested.map(function (f) {
                     var m = TYPE_META[f.type] || TYPE_META.other;
@@ -253,8 +280,8 @@
     function switchPage(fn) {
         var box = $('driveContent');
         if (!box) { fn(); return; }
-        if (switchAnimating) { switchPending = fn; return; }
         switchPending = fn;
+        if (switchAnimating) return;
         switchAnimating = true;
         box.classList.add('is-switching');
 
@@ -266,7 +293,7 @@
             } finally {
                 void box.offsetWidth;
                 box.classList.remove('is-switching');
-                setTimeout(function () { switchAnimating = false; }, 200);
+                switchAnimating = false;
             }
         }, SWITCH_MS);
     }
@@ -392,6 +419,8 @@
                 try { profile = JSON.parse(localStorage.getItem('emerald.account.profile.' + email) || 'null'); } catch (_) {}
             }
             var name = (profile && profile.name) || (user && (user.name || user.displayName)) || (email ? email.split('@')[0] : 'Emerald user');
+            currentUserName = name;
+            updateHomeGreeting();
             var photo = (profile && typeof profile.photo === 'string') ? sanitizePhotoUrl(profile.photo) : '';
             var initial = (name.trim()[0] || 'E').toUpperCase();
 
