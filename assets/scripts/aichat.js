@@ -4559,7 +4559,8 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
     useWebSearch: !!options.useWebSearch,
     tools: options.tools || [],
     thinking: isThinkingEnabled(),
-    connectionSettings: _emeraldConnectionPrefs()
+    connectionSettings: _emeraldConnectionPrefs(),
+    accountProfileContext: await _accountProfileDetails()
   };
   const url = `${CHAT_WORKER_URL}/chat?model=${encodeURIComponent(requestedId)}`;
   let res;
@@ -7226,7 +7227,7 @@ async function _refreshConnectionPrefs() {
     } catch (_) {}
     const saved = await storage.getJSON("emerald.account.connections", scope);
     if (saved && typeof saved === "object") {
-      const next = Object.assign({}, _EMERALD_CONNECTION_DEFAULTS);
+      const next = Object.assign({}, _emeraldConnectionSettings);
       for (const key of Object.keys(next)) if (typeof saved[key] === "boolean") next[key] = saved[key];
       _emeraldConnectionSettings = next;
     }
@@ -7238,7 +7239,7 @@ if (window.EmeraldIDBStorage && typeof window.EmeraldIDBStorage.subscribe === "f
     if (change && change.key === "emerald.account.connections") _refreshConnectionPrefs();
   });
 }
-async function _accountPersonalizationContext() {
+async function _accountProfileDetails() {
   if (!_emeraldConnectionPrefs().profileInfo || !window.EmeraldIDBStorage || !window.EmeraldIDBStorage.getJSON) return "";
   try {
     let scope = null;
@@ -7254,9 +7255,13 @@ async function _accountPersonalizationContext() {
     if (typeof profile.birth === "string" && profile.birth.trim()) details.push("Birthday: " + profile.birth.trim().slice(0, 20));
     const location = [profile.city, profile.region, profile.country].filter((v) => typeof v === "string" && v.trim()).map((v) => v.trim().slice(0, 80));
     if (location.length) details.push("Location: " + location.join(", "));
-    if (!details.length) return "";
-    return "[ACCOUNT PROFILE FOR PERSONALIZATION]\nThe user chose to share these profile details with AI Chat. Use them as the source of truth when the user asks about their name, birthday, birth month, birth date, or location. Answer directly with the saved value; do not claim you lack access. Do not repeat or expose them unnecessarily.\n" + details.join("\n");
+    return details.length ? details.join("\n") : "";
   } catch (_) { return ""; }
+}
+async function _accountPersonalizationContext() {
+  const details = await _accountProfileDetails();
+  if (!details) return "";
+  return "[ACCOUNT PROFILE FOR PERSONALIZATION]\nThe user chose to share these profile details with AI Chat. Use them as the source of truth when the user asks about their name, birthday, birth month, birth date, or location. Answer directly with the saved value; do not claim you lack access. Do not repeat or expose them unnecessarily.\n" + details;
 }
 function _extractEmeraldApp(text) {
   const src = String(text || "");
