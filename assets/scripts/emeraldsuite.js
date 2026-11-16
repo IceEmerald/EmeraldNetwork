@@ -849,6 +849,20 @@
         refresh({});
     }
 
+    function sanitizePhotoUrl(value) {
+        if (!value || typeof value !== 'string') return '';
+        const trimmed = value.trim();
+        if (!trimmed) return '';
+        if (/^data:image\/(?:png|jpe?g|gif|webp|avif|bmp);/i.test(trimmed)) return trimmed;
+        try {
+            const parsed = new URL(trimmed, window.location.origin);
+            if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return '';
+            return parsed.href;
+        } catch (_) {
+            return '';
+        }
+    }
+
     async function renderAccountProfile() {
         try {
             const session = window.EmeraldAuth && window.EmeraldAuth.getSession ? await window.EmeraldAuth.getSession() : null;
@@ -862,7 +876,7 @@
                 try { profile = JSON.parse(localStorage.getItem('emerald.account.profile.' + email) || 'null'); } catch (_) {}
             }
             const name = profile && profile.name || user && (user.name || user.displayName) || (email ? email.split('@')[0] : 'Emerald user');
-            const photo = profile && typeof profile.photo === 'string' ? profile.photo : '';
+            const photo = profile && typeof profile.photo === 'string' ? sanitizePhotoUrl(profile.photo) : '';
             const initial = (name.trim()[0] || 'E').toUpperCase();
             $('profileBtn').title = name;
             $('profileInitial').textContent = initial;

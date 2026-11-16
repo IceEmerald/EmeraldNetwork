@@ -8286,43 +8286,50 @@ body.light-mode .searching-text pre {
 
 .codeexec-code,
 .codeexec-result {
-    margin: 4px 0px 8px;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.07);
+    margin: 8px 0px 0px;
+    border-radius: 10px;
     overflow: hidden;
+    border: 1px solid rgb(36, 36, 36);
+    background: rgb(20, 20, 20);
+}
+
+.codeexec-result {
+    margin: 8px 0px 10px;
 }
 
 .codeexec-code-lang,
 .codeexec-result-lang {
     display: flex;
     align-items: center;
-    font-size: 0.66rem;
+    padding: 7px 14px;
+    background: rgb(26, 26, 26);
+    border-bottom: 1px solid rgb(34, 34, 34);
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.73rem;
     font-weight: 600;
-    letter-spacing: 0.06em;
+    color: rgb(85, 85, 85);
     text-transform: uppercase;
-    color: #7d7d7d;
-    padding: 5px 10px 0px;
+    letter-spacing: 0.04em;
 }
 
 .codeexec-code pre,
 .codeexec-result pre {
     margin: 0px;
-    padding: 6px 12px 10px;
+    padding: 10px 14px;
     overflow-x: auto;
 }
 
 .codeexec-code code,
 .codeexec-result code {
-    font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
-    font-size: 0.74rem;
+    font-family: "Fira Code", Consolas, monospace;
+    font-size: 0.78rem;
     line-height: 1.55;
-    color: #b8e0c8;
+    color: rgb(210, 210, 210);
     white-space: pre;
 }
 
 .codeexec-result code {
-    color: #9aa8b8;
+    color: rgb(170, 170, 170);
 }
 
 .codeexec-result.is-empty {
@@ -8330,11 +8337,11 @@ body.light-mode .searching-text pre {
 }
 
 .codeexec-result.is-failed {
-    border-color: rgba(228, 110, 110, 0.35);
+    border-color: rgb(70, 42, 42);
 }
 
 .codeexec-result.is-failed code {
-    color: #d99a9a;
+    color: rgb(224, 130, 130);
 }
 
 body.light-mode .codeexec-block {
@@ -8351,29 +8358,31 @@ body.light-mode .codeexec-block {
 
 body.light-mode .codeexec-code,
 body.light-mode .codeexec-result {
-    background: rgba(0, 0, 0, 0.035);
-    border-color: rgba(0, 0, 0, 0.08);
+    background: rgb(255, 255, 255);
+    border-color: rgb(170, 170, 170);
 }
 
 body.light-mode .codeexec-code-lang,
 body.light-mode .codeexec-result-lang {
-    color: #8a8a8a;
+    background: rgb(245, 245, 247);
+    border-bottom-color: rgb(170, 170, 170);
+    color: rgb(85, 85, 85);
 }
 
 body.light-mode .codeexec-code code {
-    color: #1d5c34;
+    color: rgb(40, 40, 40);
 }
 
 body.light-mode .codeexec-result code {
-    color: #3d4a58;
+    color: rgb(96, 96, 96);
 }
 
 body.light-mode .codeexec-result.is-failed {
-    border-color: rgba(200, 60, 60, 0.4);
+    border-color: rgb(200, 150, 150);
 }
 
 body.light-mode .codeexec-result.is-failed code {
-    color: #a33a3a;
+    color: rgb(163, 58, 58);
 }
 
 @media (max-width: 640px) {
