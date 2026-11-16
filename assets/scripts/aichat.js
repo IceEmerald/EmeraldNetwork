@@ -3471,6 +3471,130 @@ function toggleSearchingBlock(headerEl) {
   const isExpanded = block.classList.contains("is-expanded");
   headerEl.setAttribute("aria-expanded", isExpanded ? "true" : "false");
 }
+
+const _codeExecTimers = new WeakMap();
+
+function _setCodeExecLabel(block, verb) {
+  if (!block) return;
+  const label = block.querySelector(".codeexec-label");
+  if (!label) return;
+  const start = Number(block.dataset.startedAt || 0);
+  if (!start) {
+    label.textContent = verb === "Ran" ? "Ran code" : "Running code";
+    return;
+  }
+  const sec = Math.max(1, Math.round((Date.now() - start) / 1000));
+  label.textContent = verb === "Ran" ? `Ran code in ${_fmtThinkingElapsed(sec)}` : `Running code — ${_fmtThinkingElapsed(sec)}`;
+}
+
+function codeExecBlockHTML(isDone) {
+  return `<div class="codeexec-block${isDone ? " is-done" : ""}" data-state="${isDone ? "done" : "running"}">
+    <div class="codeexec-header" role="button" tabindex="0" aria-expanded="${isDone ? "false" : "true"}" onclick="toggleCodeExecBlock(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleCodeExecBlock(this);}">
+      <div class="codeexec-title">
+        <svg class="codeexec-glyph" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+        <span class="codeexec-label">${isDone ? "Ran code" : "Running code"}</span>
+      </div>
+      <svg class="codeexec-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div class="codeexec-body">
+      <div class="codeexec-code"><div class="codeexec-code-lang">Python</div><pre><code></code></pre></div>
+      <div class="codeexec-result"><div class="codeexec-result-lang">Output</div><pre><code></code></pre></div>
+    </div>
+  </div>`;
+}
+
+function createCodeExecBlock(aiDiv) {
+  if (!aiDiv) return null;
+  const existing = aiDiv.querySelector(".codeexec-block");
+  if (existing) return existing;
+  const tmp = document.createElement("div");
+  tmp.innerHTML = codeExecBlockHTML(false);
+  const block = tmp.firstElementChild;
+  const sender = aiDiv.querySelector(".message-sender");
+  if (!sender) return null;
+  const anchor = aiDiv.querySelector(".thinking-block") || aiDiv.querySelector(".searching-block");
+  if (anchor) {
+    anchor.insertAdjacentElement("afterend", block);
+  } else {
+    sender.insertAdjacentElement("afterend", block);
+  }
+  block.classList.add("is-expanded");
+  block.dataset.startedAt = String(Date.now());
+  _setCodeExecLabel(block, "Running");
+  const timer = setInterval(() => {
+    if (!block.classList.contains("is-done")) _setCodeExecLabel(block, "Running");
+  }, 1000);
+  _codeExecTimers.set(block, timer);
+  return block;
+}
+
+function appendCodeExecToBlock(block, payload) {
+  if (!block || !payload) return;
+  if (payload.type === "code") {
+    const codeEl = block.querySelector(".codeexec-code code");
+    if (!codeEl) return;
+    const acc = (block.dataset.codeexecCode || "") + (payload.code || "");
+    block.dataset.codeexecCode = acc;
+    codeEl.textContent = acc;
+    const body = block.querySelector(".codeexec-body");
+    if (body && _autoScrollSticky) body.scrollTop = body.scrollHeight;
+  } else if (payload.type === "result") {
+    block.dataset.codeexecOutcome = payload.outcome || "";
+    block.dataset.codeexecOutput = payload.output || "";
+    const outWrap = block.querySelector(".codeexec-result");
+    const outEl = block.querySelector(".codeexec-result code");
+    if (outEl) outEl.textContent = payload.output || "";
+    if (outWrap && payload.outcome === "OUTCOME_FAILED") outWrap.classList.add("is-failed");
+    if (!payload.output && payload.outcome === "OUTCOME_OK") {
+      if (outWrap) outWrap.classList.add("is-empty");
+    }
+    const body = block.querySelector(".codeexec-body");
+    if (body && _autoScrollSticky) body.scrollTop = body.scrollHeight;
+  }
+}
+
+function markCodeExecDone(block) {
+  if (!block) return;
+  block.classList.add("is-done");
+  block.dataset.state = "done";
+  const timer = _codeExecTimers.get(block);
+  if (timer) { clearInterval(timer); _codeExecTimers.delete(block); }
+  _setCodeExecLabel(block, "Ran");
+  const header = block.querySelector(".codeexec-header");
+  if (header) header.setAttribute("aria-expanded", "false");
+  if (!block.classList.contains("is-user-toggled")) {
+    setTimeout(() => {
+      if (!block.classList.contains("is-user-toggled")) {
+        block.classList.remove("is-expanded");
+      }
+    }, 350);
+  }
+}
+
+function toggleCodeExecBlock(headerEl) {
+  const block = headerEl?.closest(".codeexec-block");
+  if (!block) return;
+  block.classList.toggle("is-expanded");
+  block.classList.add("is-user-toggled");
+  const isExpanded = block.classList.contains("is-expanded");
+  headerEl.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+}
+
+function renderStoredCodeExecBlock(div, data) {
+  if (!div || !data || !(data.code || data.output)) return null;
+  const tmp = document.createElement("div");
+  tmp.innerHTML = codeExecBlockHTML(true);
+  const block = tmp.firstElementChild;
+  const codeEl = block.querySelector(".codeexec-code code");
+  if (codeEl && data.code) codeEl.textContent = data.code;
+  const outEl = block.querySelector(".codeexec-result code");
+  if (outEl) outEl.textContent = data.output || "";
+  if (data.outcome === "OUTCOME_FAILED") block.querySelector(".codeexec-result")?.classList.add("is-failed");
+  const lang = block.querySelector(".codeexec-code-lang");
+  if (lang && data.language) lang.textContent = data.language;
+  div.querySelector(".message-text").insertAdjacentElement("beforebegin", block);
+  return block;
+}
 function buildAIBubbleDOM(text, msgId, streaming = false) {
   const div = document.createElement("div");
   div.className = "message";
@@ -3750,6 +3874,14 @@ async function handleSend(opts) {
   let _thinkingDone = false;
   let _searchingBlock = null;
   let _searchingDone = false;
+  let _codeExecBlock = null;
+  let _codeExecDone = false;
+  let _codeExecData = null;
+  const _markCodeExecDoneOnce = () => {
+    if (_codeExecDone) return;
+    _codeExecDone = true;
+    if (_codeExecBlock) markCodeExecDone(_codeExecBlock);
+  };
   const _markThinkingDoneOnce = () => {
     if (_thinkingDone) return;
     _thinkingDone = true;
@@ -3766,6 +3898,22 @@ async function handleSend(opts) {
     appendSearchingToBlock(_searchingBlock, chunk);
     scrollToBottom();
   };
+  _streamOpts.onCodeExecChunk = (payload) => {
+    _markSearchingDoneOnce();
+    _markThinkingDoneOnce();
+    if (!_ensureStreamDom()) return;
+    if (!_codeExecBlock) _codeExecBlock = createCodeExecBlock(aiDiv);
+    if (!_codeExecData) _codeExecData = { language: "", code: "", outcome: "", output: "" };
+    if (payload.type === "code") {
+      _codeExecData.language = payload.language || _codeExecData.language;
+      _codeExecData.code += payload.code || "";
+    } else {
+      _codeExecData.outcome = payload.outcome || "";
+      _codeExecData.output = payload.output || "";
+    }
+    appendCodeExecToBlock(_codeExecBlock, payload);
+    scrollToBottom();
+  };
   _streamOpts.onThinkingChunk = (chunk) => {
     _markSearchingDoneOnce();
 
@@ -3779,6 +3927,7 @@ async function handleSend(opts) {
 
     _markSearchingDoneOnce();
     _markThinkingDoneOnce();
+    _markCodeExecDoneOnce();
     fullText += chunk;
     clearTimeout(_saveTimeout);
     _saveTimeout = setTimeout(() => {
@@ -3889,6 +4038,7 @@ async function handleSend(opts) {
 
   _markSearchingDoneOnce();
   _markThinkingDoneOnce();
+  _markCodeExecDoneOnce();
   if (!fullText && !aiDiv) {
     aiDiv = _viewingStreamView() ? appendAIMessageDOM("", msgId, true) : _buildAIDOM("", true);
     textEl = aiDiv.querySelector(".message-text");
@@ -4018,6 +4168,7 @@ async function handleSend(opts) {
         imageMode: _imgEditPrompt ? "edit" : (_imgPrompt ? "generate" : void 0),
 
         thinking: _thinkingText || void 0,
+        codeExec: (_codeExecData && (_codeExecData.code || _codeExecData.output)) ? { language: _codeExecData.language, code: _codeExecData.code, outcome: _codeExecData.outcome, output: _codeExecData.output } : void 0,
         sources: _allSources.length ? _allSources.map(s => ({ title: s.title || '', uri: s.uri })) : void 0
       });
       conv.updatedAt = Date.now();
@@ -4299,6 +4450,14 @@ async function regenerateMessage(msgEl) {
   let _thinkingDone = false;
   let _searchingBlock = null;
   let _searchingDone = false;
+  let _codeExecBlock = null;
+  let _codeExecDone = false;
+  let _codeExecData = null;
+  const _markCodeExecDoneOnce = () => {
+    if (_codeExecDone) return;
+    _codeExecDone = true;
+    if (_codeExecBlock) markCodeExecDone(_codeExecBlock);
+  };
   const _streamViewing = () => _activeStreamTargetsView(state.streamConvId);
   const _ensureStreamDom = () => {
     if (!_streamViewing()) return false;
@@ -4324,6 +4483,7 @@ async function regenerateMessage(msgEl) {
     const _streamResult = await streamEmeraldBotResumable(history, apiKey, (chunk) => {
       _markSearchingDoneOnce();
       _markThinkingDoneOnce();
+      _markCodeExecDoneOnce();
       fullText += chunk;
       if (!_ensureStreamDom()) return;
       const _sd = _streamDisplayText(fullText);
@@ -4345,6 +4505,22 @@ textEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.editStarted
         if (!_ensureStreamDom()) return;
         if (!_thinkingBlock) _thinkingBlock = createThinkingBlock(aiDiv);
         appendThinkingToBlock(_thinkingBlock, chunk);
+        scrollToBottom();
+      },
+      onCodeExecChunk: (payload) => {
+        _markSearchingDoneOnce();
+        _markThinkingDoneOnce();
+        if (!_ensureStreamDom()) return;
+        if (!_codeExecBlock) _codeExecBlock = createCodeExecBlock(aiDiv);
+        if (!_codeExecData) _codeExecData = { language: "", code: "", outcome: "", output: "" };
+        if (payload.type === "code") {
+          _codeExecData.language = payload.language || _codeExecData.language;
+          _codeExecData.code += payload.code || "";
+        } else {
+          _codeExecData.outcome = payload.outcome || "";
+          _codeExecData.output = payload.output || "";
+        }
+        appendCodeExecToBlock(_codeExecBlock, payload);
         scrollToBottom();
       }
     }, { useWebSearch: _wsNeeded });
@@ -4375,6 +4551,7 @@ textEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.editStarted
   _hideTypingIndicator();
   _markSearchingDoneOnce();
   _markThinkingDoneOnce();
+  _markCodeExecDoneOnce();
   if (!fullText && !aiDiv) {
     aiDiv = _streamViewing() ? appendAIMessageDOM("", newId, true) : buildAIBubbleDOM("", newId, true);
     textEl = aiDiv.querySelector(".message-text");
@@ -4502,6 +4679,7 @@ textEl.innerHTML = (_sd.text ? renderMarkdown(_sd.text) : "") + (_sd.editStarted
       imagePrompt: imgPromptFinal || void 0,
       imageMode: imgEditPrompt ? "edit" : (imgPrompt ? "generate" : void 0),
       thinking: _thinkingText || void 0,
+      codeExec: (_codeExecData && (_codeExecData.code || _codeExecData.output)) ? { language: _codeExecData.language, code: _codeExecData.code, outcome: _codeExecData.outcome, output: _codeExecData.output } : void 0,
       sources: _allSources.length ? _allSources.map(s => ({ title: s.title || '', uri: s.uri })) : void 0
     };
     aiDiv.dataset.regenBranchRef = regenBranchId;
@@ -4690,6 +4868,14 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
               } else if (part.thought === true) {
                 if (part.text && typeof options.onThinkingChunk === "function") {
                   options.onThinkingChunk(part.text);
+                }
+              } else if (part.executableCode) {
+                if (typeof options.onCodeExecChunk === "function") {
+                  options.onCodeExecChunk({ type: "code", language: part.executableCode.language || "Python", code: part.executableCode.code || "" });
+                }
+              } else if (part.codeExecutionResult) {
+                if (typeof options.onCodeExecChunk === "function") {
+                  options.onCodeExecChunk({ type: "result", outcome: part.codeExecutionResult.outcome || "", output: part.codeExecutionResult.output || "" });
                 }
               } else if (part.text) {
                 streamedChars += part.text.length;
@@ -6911,6 +7097,9 @@ function appendStoredAIMessage(m) {
     block.querySelector(".thinking-text").innerHTML = renderMarkdown(_storedThinking);
     block.dataset.thinkingRaw = _storedThinking;
     div.querySelector(".message-text").insertAdjacentElement("beforebegin", block);
+  }
+  if (m.codeExec && typeof m.codeExec === "object") {
+    renderStoredCodeExecBlock(div, m.codeExec);
   }
   if (hasMemory) {
     const badge = document.createElement("div");
@@ -10072,6 +10261,14 @@ async function submitUserMsgEdit(msgId) {
   let _thinkingDone = false;
   let _searchingBlock = null;
   let _searchingDone = false;
+  let _codeExecBlock = null;
+  let _codeExecDone = false;
+  let _codeExecData = null;
+  const _markCodeExecDoneOnce = () => {
+    if (_codeExecDone) return;
+    _codeExecDone = true;
+    if (_codeExecBlock) markCodeExecDone(_codeExecBlock);
+  };
   const _streamViewing = () => _activeStreamTargetsView(state.streamConvId);
   const _ensureStreamDom = () => {
     if (!_streamViewing()) return false;
@@ -10097,6 +10294,7 @@ async function submitUserMsgEdit(msgId) {
     const _streamResult = await streamEmeraldBotResumable(history, apiKey, (chunk) => {
       _markSearchingDoneOnce();
       _markThinkingDoneOnce();
+      _markCodeExecDoneOnce();
       aiFullText += chunk;
       if (!_ensureStreamDom()) return;
       const _sd = _streamDisplayText(aiFullText);
@@ -10118,6 +10316,22 @@ async function submitUserMsgEdit(msgId) {
         if (!_ensureStreamDom()) return;
         if (!_thinkingBlock) _thinkingBlock = createThinkingBlock(aiDiv);
         appendThinkingToBlock(_thinkingBlock, chunk);
+        scrollToBottom();
+      },
+      onCodeExecChunk: (payload) => {
+        _markSearchingDoneOnce();
+        _markThinkingDoneOnce();
+        if (!_ensureStreamDom()) return;
+        if (!_codeExecBlock) _codeExecBlock = createCodeExecBlock(aiDiv);
+        if (!_codeExecData) _codeExecData = { language: "", code: "", outcome: "", output: "" };
+        if (payload.type === "code") {
+          _codeExecData.language = payload.language || _codeExecData.language;
+          _codeExecData.code += payload.code || "";
+        } else {
+          _codeExecData.outcome = payload.outcome || "";
+          _codeExecData.output = payload.output || "";
+        }
+        appendCodeExecToBlock(_codeExecBlock, payload);
         scrollToBottom();
       }
     }, { useWebSearch: _wsNeeded });
@@ -10167,6 +10381,7 @@ async function submitUserMsgEdit(msgId) {
   _hideTypingIndicator();
   _markSearchingDoneOnce();
   _markThinkingDoneOnce();
+  _markCodeExecDoneOnce();
   if (!aiFullText && !aiDiv) {
     aiDiv = _streamViewing() ? appendAIMessageDOM("", aiMsgId, true) : buildAIBubbleDOM("", aiMsgId, true);
     aiTextEl = aiDiv.querySelector(".message-text");
@@ -10293,6 +10508,7 @@ async function submitUserMsgEdit(msgId) {
         imagePrompt: imgPromptFinal || void 0,
         imageMode: imgEditPrompt ? "edit" : (imgPrompt ? "generate" : void 0),
         thinking: _thinkingText || void 0,
+        codeExec: (_codeExecData && (_codeExecData.code || _codeExecData.output)) ? { language: _codeExecData.language, code: _codeExecData.code, outcome: _codeExecData.outcome, output: _codeExecData.output } : void 0,
         sources: _allSources.length ? _allSources.map(s => ({ title: s.title || '', uri: s.uri })) : void 0
       });
       conv.updatedAt = Date.now();
