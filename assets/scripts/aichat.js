@@ -36,6 +36,7 @@ const MODELS = [
   { id: "astra",     name: "EmeraldCore Astra",     short: "Astra",     tier: "v4.2", desc: "Frontier flagship — ultra-deep reasoning, autonomous multi-step tasks, cross-domain synthesis." },
   { id: "ruby",      name: "EmeraldCore Ruby",      short: "Ruby",      tier: "v4.2", desc: "Multimodal precision — vision, data science, scientific analysis, structured output." },
   { id: "gamma",     name: "EmeraldCore Gamma",     short: "Gamma",     tier: "v4.1", desc: "Deepest reasoning — math, code, hard logic." },
+  { id: "magnum",    name: "EmeraldCore Magnum",    short: "Magnum",    tier: "v4.5", desc: "Powerhouse all-rounder — fast, sharp reasoning for demanding everyday tasks." },
   { id: "diamond",   name: "EmeraldCore Diamond",   short: "Diamond",   tier: "v4",   desc: "Creative strategy, planning, long-form writing." },
   { id: "gold",      name: "EmeraldCore Gold",      short: "Gold",      tier: "v4",   desc: "Research, fact-checking, in-depth analysis." },
   { id: "kappa",     name: "EmeraldCore Kappa",     short: "Kappa",     tier: "v3.5", desc: "Versatile — web, roleplay, basic math." },
@@ -43,7 +44,7 @@ const MODELS = [
   { id: "cream",     name: "EmeraldCore Cream",     short: "Cream",     tier: "v2",   desc: "Fast, lightweight answers for simple questions." }
 ];
 
-const PRIMARY_MODEL_IDS = ["astra", "ruby", "gamma"];
+const PRIMARY_MODEL_IDS = ["astra", "ruby", "gamma", "magnum"];
 const OTHER_MODEL_IDS = ["diamond", "gold", "kappa", "starlight", "cream"];
 const MODEL_DEFAULT_ID = "auto";
 function getModelById(id) {
