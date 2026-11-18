@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="/assets/styles/style.css">
     <link rel="stylesheet" href="/assets/styles/wiki.css?v=5">
     <link rel="stylesheet" href="/assets/styles/drive.css">
+    <link rel="stylesheet" href="/assets/styles/drive-sky.css">
     <link rel="icon" type="image/x-icon" href="/assets/images/favicon.webp">
     <link rel="icon" href="/assets/images/favicon.ico" sizes="any">
     <meta name="color-scheme" content="light dark">
@@ -60,10 +61,19 @@
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-nav">
                 <span class="sidebar-active-pill" id="sidebarActivePill" aria-hidden="true"></span>
-                <button class="sidebar-btn new-chat" onclick="newFolder()">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
-                    <span class="sidebar-btn-label">Create or upload</span>
-                </button>
+                <div class="create-upload-wrap" id="createUploadWrap">
+                    <button class="sidebar-btn new-chat" id="createUploadBtn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="createUploadMenu">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+                        <span class="sidebar-btn-label">Create or upload</span>
+                    </button>
+                    <div class="create-upload-menu" id="createUploadMenu" role="menu" aria-label="Create or upload" aria-hidden="true" inert>
+                        <div class="create-upload-menu-inner">
+                            <button type="button" role="menuitem" data-create-action="folder">New Folder</button>
+                            <button type="button" role="menuitem" data-create-action="file">Upload File</button>
+                            <button type="button" role="menuitem" data-create-action="directory">Upload Folder</button>
+                        </div>
+                    </div>
+                </div>
                 <button class="sidebar-btn active" data-drive-nav="home">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
                     <span class="sidebar-btn-label">Home</span>
@@ -90,8 +100,6 @@
                 </button>
             </div>
             <div class="sidebar-history" id="sidebarHistory">
-                <div class="sidebar-time-group">Folders</div>
-                <div class="sidebar-empty">No folders yet.</div>
             </div>
             <div class="sidebar-footer">
                 <div class="drive-storage">
@@ -119,9 +127,9 @@
                             <span id="sortLabel">Modified</span>
                         </button>
                         <div class="drive-sort-menu" id="sortMenu" hidden role="listbox" aria-label="Sort by">
-                            <button class="active" data-sort="modified">Modified</button>
-                            <button data-sort="name">Name</button>
-                            <button data-sort="size">Size</button>
+                            <button class="active" data-sort="modified" role="option" aria-selected="true">Modified</button>
+                            <button data-sort="name" role="option" aria-selected="false">Name</button>
+                            <button data-sort="size" role="option" aria-selected="false">Size</button>
                         </div>
                     </div>
                 </div>
@@ -132,7 +140,7 @@
 
 <div id="custom-context-menu" class="rightclick-menu">
     <div class="context-section">
-        <span class="context-title">🔧 Tools</span>
+        <span class="context-title"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.7 5.7L3 18v3h3l6-6a4 4 0 0 0 5.7-5.7l-2.4 2.4-3-3z"/></svg>TOOLS</span>
         <a onclick="copyTextContent()">Copy Text</a>
         <a onclick="copyPageLink()">Copy Page Link</a>
         <a onclick="showElementInfo()">Show Element Info</a>

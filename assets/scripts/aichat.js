@@ -495,14 +495,8 @@ function buildContextMenu(type) {
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
         YOUR MESSAGE
       </div>
-      <a onclick="copyUserMsgText()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:7px"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-        Copy Text
-      </a>
-      ${canEdit ? `<a onclick="editUserMsg('${msgId}')">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:7px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        Edit
-      </a>` : ""}`;
+      <a onclick="copyUserMsgText()">Copy Text</a>
+      ${canEdit ? `<a onclick="editUserMsg('${msgId}')">Edit</a>` : ""}`;
   } else {
     menu.innerHTML = `
       <div class="context-title">

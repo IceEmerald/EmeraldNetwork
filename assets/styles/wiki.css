@@ -111,25 +111,6 @@ html[data-wiki-theme="dark"] body.wiki-page {
     --w-shadow-3: 0 18px 40px -18px rgba(0, 0, 0, .8);
 }
 
-html[data-wiki-theme="dark"] body.wiki-page .rightclick-menu {
-    background: rgba(37, 37, 37, .97);
-    border-color: #313131;
-    box-shadow: var(--w-shadow-3);
-}
-
-html[data-wiki-theme="dark"] body.wiki-page .rightclick-menu a,
-html[data-wiki-theme="dark"] body.wiki-page .rightclick-menu .context-title,
-html[data-wiki-theme="dark"] body.wiki-page .rightclick-menu a svg {
-    color: var(--w-text);
-}
-
-html[data-wiki-theme="dark"] body.wiki-page .rightclick-menu .context-title {
-    color: var(--w-text-faint);
-}
-
-html[data-wiki-theme="dark"] body.wiki-page .rightclick-menu a:hover {
-    background: rgba(255, 255, 255, 0.06);
-}
 
 body.wiki-page {
     color-scheme: light;

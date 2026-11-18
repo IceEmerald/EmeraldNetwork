@@ -13,7 +13,7 @@
     animation: ctxFadeIn 0.2s ease-out;
   }
   .context-section {
-    padding: 4px 0;
+    padding: 0;
   }
   .context-title {
     display: flex;
