@@ -216,49 +216,7 @@ function setIcon(elm, name) { if (elm) elm.innerHTML = icon(name); }
 const IO = (() => {
   const DB_NAME = 'emeraldcore.storage.suite.sheets', STORE = 'workbooks';
   const RECENT_KEY = 'emeraldcore.suite.sheets.recent';
-  const SHARED_INDEX_KEY = 'emeraldcore.storage.suite.sheets';
-  const SHARED_DATA_PREFIX = 'emeraldcore.storage.suite.sheets.';
   let dbPromise = null;
-
-  async function updateSharedMirror(id, doc, deleted) {
-    const storage = window.EmeraldIDBStorage;
-    if (!storage || !storage.getJSON || !storage.setJSON) return;
-    try {
-      let index = await storage.getJSON(SHARED_INDEX_KEY);
-      index = Array.isArray(index) ? index : [];
-      index = index.filter(item => item && String(item.id) !== String(id));
-      if (deleted) {
-        await storage.delete(SHARED_DATA_PREFIX + id);
-      } else {
-        const encoded = JSON.stringify(doc);
-        const entry = {
-          id: String(id),
-          title: String(doc && (doc.title || doc.name) || 'Untitled Spreadsheet').slice(0, 180),
-          updatedAt: Number(doc && (doc.updatedAt || doc.savedAt)) || Date.now(),
-          size: new TextEncoder().encode(encoded).byteLength,
-          syncAvailable: false
-        };
-        const snapshot = storage.exportAll ? await storage.exportAll() : {};
-        delete snapshot[SHARED_DATA_PREFIX + id];
-        snapshot[SHARED_INDEX_KEY] = index.concat([Object.assign({}, entry, { syncAvailable: true })]);
-        const projectedSize = new TextEncoder().encode(JSON.stringify(snapshot)).byteLength;
-        const syncAvailable = encoded.length <= 1200000 && projectedSize <= 1250000;
-        entry.syncAvailable = syncAvailable;
-        if (syncAvailable) await storage.setJSON(SHARED_DATA_PREFIX + id, doc);
-        else await storage.delete(SHARED_DATA_PREFIX + id);
-        index.unshift({
-          id: entry.id,
-          title: entry.title,
-          updatedAt: entry.updatedAt,
-          size: entry.size,
-          syncAvailable
-        });
-      }
-      await storage.setJSON(SHARED_INDEX_KEY, index);
-    } catch (error) {
-      console.warn('[Sheets] Could not sync workbook metadata to EmeraldNetwork account storage:', error);
-    }
-  }
 
   function openDB() {
     if (dbPromise) return dbPromise;
@@ -272,122 +230,41 @@ const IO = (() => {
   }
   const reqP = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
 
-  async function accountPrefix() {
-    if (window.EmeraldAuth && window.EmeraldAuth.ready) await window.EmeraldAuth.ready();
-    const session = window.EmeraldAuth && window.EmeraldAuth.getSession ? await window.EmeraldAuth.getSession() : null;
-    const email = String(session && session.user && session.user.email || '').trim().toLowerCase();
-    const safe = email.replace(/[^a-z0-9._@-]+/g, '-');
-    return 'acct:' + (safe || 'guest') + ':';
-  }
-
   async function saveDoc(id, doc) {
     const db = await openDB();
-    const key = (await accountPrefix()) + String(id);
-    const saved = await new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
       const t = db.transaction(STORE, 'readwrite');
-      t.objectStore(STORE).put(doc, key);
-      t.oncomplete = () => {
-        try { window.dispatchEvent(new CustomEvent('emerald-suite-storage-changed', { detail: { app: 'sheets', id: id, doc: doc } })); } catch (_) {}
-        resolve(true);
-      };
+      t.objectStore(STORE).put(doc, id);
+      t.oncomplete = () => resolve(true);
       t.onerror = () => reject(t.error);
     });
-    await updateSharedMirror(id, doc, false);
-    return saved;
   }
   async function loadDoc(id) {
     const db = await openDB();
-    const prefix = await accountPrefix();
-    const store = db.transaction(STORE).objectStore(STORE);
-    const local = await reqP(store.get(prefix + String(id)));
-    if (local) return local;
-    const legacy = await reqP(store.get(String(id)));
-    if (legacy) {
-      await new Promise((resolve, reject) => {
-        const t = db.transaction(STORE, 'readwrite');
-        t.objectStore(STORE).put(legacy, prefix + String(id));
-        t.objectStore(STORE).delete(String(id));
-        t.oncomplete = () => resolve(true);
-        t.onerror = () => reject(t.error);
-      });
-      return legacy;
-    }
-    const storage = window.EmeraldIDBStorage;
-    const shared = storage ? await storage.getJSON(SHARED_DATA_PREFIX + id) : null;
-    if (shared) {
-      await new Promise((resolve, reject) => {
-        const t = db.transaction(STORE, 'readwrite');
-        t.objectStore(STORE).put(shared, id);
-        t.oncomplete = () => resolve(true);
-        t.onerror = () => reject(t.error);
-      });
-      return shared;
-    }
-    return null;
+    return reqP(db.transaction(STORE).objectStore(STORE).get(id));
   }
   async function deleteDoc(id) {
     const db = await openDB();
-    const prefix = await accountPrefix();
-    const deleted = await new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
       const t = db.transaction(STORE, 'readwrite');
-      t.objectStore(STORE).delete(prefix + String(id));
-      t.objectStore(STORE).delete(String(id));
-      t.oncomplete = () => {
-        try { window.dispatchEvent(new CustomEvent('emerald-suite-storage-changed', { detail: { app: 'sheets', id: id, deleted: true } })); } catch (_) {}
-        resolve(true);
-      };
+      t.objectStore(STORE).delete(id);
+      t.oncomplete = () => resolve(true);
       t.onerror = () => reject(t.error);
     });
-    await updateSharedMirror(id, null, true);
-    return deleted;
   }
   async function allDocs() {
     const db = await openDB();
-    const prefix = await accountPrefix();
     const store = db.transaction(STORE).objectStore(STORE);
     const keys = await reqP(store.getAllKeys());
     const vals = await reqP(store.getAll());
-    const byId = new Map();
-    for (let i = 0; i < keys.length; i++) {
-      const key = String(keys[i]);
-      if (key === prefix + RECENT_KEY) continue;
-      if (key.startsWith(prefix)) byId.set(key.slice(prefix.length), vals[i]);
-      else if (!key.startsWith('acct:') && key !== RECENT_KEY && vals[i]) {
-        const id = key;
-        await new Promise((resolve, reject) => {
-          const tx = db.transaction(STORE, 'readwrite');
-          tx.objectStore(STORE).put(vals[i], prefix + id);
-          tx.objectStore(STORE).delete(id);
-          tx.oncomplete = () => resolve(true);
-          tx.onerror = () => reject(tx.error);
-        });
-        byId.set(id, vals[i]);
-      }
-    }
-    const storage = window.EmeraldIDBStorage;
-    const sharedIndex = storage ? await storage.getJSON(SHARED_INDEX_KEY) : null;
-    if (Array.isArray(sharedIndex)) {
-      for (const meta of sharedIndex) {
-        if (!meta || !meta.id) continue;
-        if (byId.has(String(meta.id))) {
-          byId.set(String(meta.id), Object.assign({}, byId.get(String(meta.id)), {
-            localOnly: meta.syncAvailable === false,
-            syncAvailable: meta.syncAvailable !== false
-          }));
-          continue;
-        }
-        const shared = meta.syncAvailable ? await storage.getJSON(SHARED_DATA_PREFIX + meta.id) : null;
-        byId.set(String(meta.id), shared || { id: meta.id, title: meta.title, updatedAt: meta.updatedAt, localOnly: true });
-      }
-    }
-    return Array.from(byId, ([id, doc]) => ({ id, doc })).filter(x => x.doc);
+    return keys.map((k, i) => ({ id: k, doc: vals[i] }))
+      .filter(x => x.id !== RECENT_KEY && x.doc);
   }
   async function saveRecent(id) {
     const db = await openDB();
-    const key = (await accountPrefix()) + RECENT_KEY;
     return new Promise((resolve) => {
       const t = db.transaction(STORE, 'readwrite');
-      t.objectStore(STORE).put(id, key);
+      t.objectStore(STORE).put(id, RECENT_KEY);
       t.oncomplete = () => resolve(true);
       t.onerror = () => resolve(false);
     });
@@ -395,17 +272,12 @@ const IO = (() => {
   async function loadRecent() {
     try {
       const db = await openDB();
-      const val = await reqP(db.transaction(STORE).objectStore(STORE).get((await accountPrefix()) + RECENT_KEY));
+      const val = await reqP(db.transaction(STORE).objectStore(STORE).get(RECENT_KEY));
       return typeof val === 'string' ? val : null;
     } catch (e) { return null; }
   }
   return { saveDoc, loadDoc, deleteDoc, allDocs, saveRecent, loadRecent };
 })();
-
-window.EmeraldSheetsStorage = {
-  listDocs: IO.allDocs,
-  getDoc: IO.loadDoc
-};
 
 const DATE_EPOCH = Date.UTC(1899, 11, 30);
 const DAY_MS = 86400000;
