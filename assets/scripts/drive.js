@@ -1,12 +1,10 @@
-/* EmeraldNetwork Drive — front-end mockup */
+/* EmeraldNetwork Drive — account-scoped SQL-backed Drive */
 (function () {
     'use strict';
 
     function $(id) { return document.getElementById(id); }
 
     function storage() { return window.EmeraldIDBStorage || null; }
-
-    /* ---------------- mock data ---------------- */
 
     var TYPE_META = {
         doc:    { label: 'Document',     color: '#0891b2', soft: 'rgba(8,145,178,.12)' },
@@ -25,33 +23,395 @@
         sheet: '/assets/images/sheetsicon.webp'
     };
 
-    var folders = [
-        { id: 'f1', name: 'Projects', parent: null },
-        { id: 'f2', name: 'Photos', parent: null },
-        { id: 'f3', name: 'Reports', parent: 'f1' },
-        { id: 'f4', name: 'Archive', parent: null }
-    ];
-
-    var files = [
-        { id: 'd1', name: 'Q4 Report', type: 'doc', folder: 'f1', size: '2.1 MB', modified: 'Today', starred: true, shared: true, trashed: false },
-        { id: 'd2', name: 'Roadmap 2027', type: 'doc', folder: 'f3', size: '640 KB', modified: 'Yesterday', starred: false, shared: true, trashed: false },
-        { id: 'n1', name: 'Meeting notes', type: 'note', folder: null, size: '12 KB', modified: '2h ago', starred: true, shared: false, trashed: false },
-        { id: 'n2', name: 'Ideas', type: 'note', folder: null, size: '8 KB', modified: '5d ago', starred: false, shared: false, trashed: false },
-        { id: 's1', name: 'Budget', type: 'sheet', folder: 'f1', size: '310 KB', modified: 'Yesterday', starred: true, shared: true, trashed: false },
-        { id: 'p1', name: 'Launch deck', type: 'slide', folder: 'f1', size: '8.4 MB', modified: '3d ago', starred: false, shared: true, trashed: false },
-        { id: 'i1', name: 'sunset.png', type: 'image', folder: 'f2', size: '3.2 MB', modified: '1w ago', starred: false, shared: false, trashed: false },
-        { id: 'i2', name: 'team-photo.jpg', type: 'image', folder: 'f2', size: '5.7 MB', modified: '2w ago', starred: false, shared: false, trashed: false },
-        { id: 'r1', name: 'Invoice-2026-11.pdf', type: 'pdf', folder: 'f4', size: '180 KB', modified: '1d ago', starred: false, shared: false, trashed: false },
-        { id: 't1', name: 'Old notes', type: 'note', folder: null, size: '9 KB', modified: '1mo ago', starred: false, shared: false, trashed: true }
-    ];
+    var folders = [];
+    var files = [];
+    var sharedFiles = [];
 
     var state = { view: 'home', folderId: null, layout: 'grid', sort: 'modified', search: '' };
     var currentUserName = '';
+    var currentEmail = '';
+    var currentSession = null;
+    var serverRevision = 0;
+    var saveChain = Promise.resolve();
+    var driveStatus = 'loading';
+    var driveChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('emerald.drive.sql') : null;
+    var DRIVE_LIMIT = 10 * 1024 * 1024 * 1024;
+    var SQL_BLOB_LIMIT = 1024 * 1024;
+
+    function makeDefaultDriveState() {
+        return {
+            version: 1,
+            folders: [
+                { id: 'suite-root', name: 'EmeraldSuite', parent: null, color: '', createdAt: Date.now(), updatedAt: Date.now(), trashed: false },
+                { id: 'suite-notes', name: 'Notes', parent: 'suite-root', color: '', createdAt: Date.now(), updatedAt: Date.now(), trashed: false },
+                { id: 'suite-docs', name: 'Docs', parent: 'suite-root', color: '', createdAt: Date.now(), updatedAt: Date.now(), trashed: false },
+                { id: 'suite-sheets', name: 'Sheets', parent: 'suite-root', color: '', createdAt: Date.now(), updatedAt: Date.now(), trashed: false },
+                { id: 'suite-slides', name: 'Slides', parent: 'suite-root', color: '', createdAt: Date.now(), updatedAt: Date.now(), trashed: false }
+            ],
+            files: [],
+            settings: { layout: 'grid', sort: 'modified', updatedAt: Date.now() },
+            tombstones: { folders: {}, files: {} },
+            updatedAt: Date.now()
+        };
+    }
+
+    var localDbPromise = null;
+
+    function openLocalDriveDb() {
+        if (localDbPromise) return localDbPromise;
+        localDbPromise = new Promise(function (resolve, reject) {
+            var request = indexedDB.open('emerald.drive.local', 1);
+            request.onupgradeneeded = function () {
+                if (!request.result.objectStoreNames.contains('records')) request.result.createObjectStore('records', { keyPath: 'key' });
+            };
+            request.onsuccess = function () { resolve(request.result); };
+            request.onerror = function () { reject(request.error || new Error('Could not open local Drive storage.')); };
+        });
+        return localDbPromise;
+    }
+
+    function localRecordKey(key) { return currentEmail + ':' + key; }
+
+    async function localGet(key) {
+        var db = await openLocalDriveDb();
+        return new Promise(function (resolve, reject) {
+            var tx = db.transaction('records', 'readonly');
+            var request = tx.objectStore('records').get(localRecordKey(key));
+            request.onsuccess = function () { resolve(request.result ? request.result.value : null); };
+            request.onerror = function () { reject(request.error); };
+        });
+    }
+
+    async function localSet(key, value) {
+        var db = await openLocalDriveDb();
+        return new Promise(function (resolve, reject) {
+            var tx = db.transaction('records', 'readwrite');
+            tx.objectStore('records').put({ key: localRecordKey(key), value: value, updatedAt: Date.now() });
+            tx.oncomplete = function () { resolve(); };
+            tx.onerror = function () { reject(tx.error); };
+            tx.onabort = function () { reject(tx.error); };
+        });
+    }
+
+    async function localDelete(key) {
+        var db = await openLocalDriveDb();
+        return new Promise(function (resolve, reject) {
+            var tx = db.transaction('records', 'readwrite');
+            tx.objectStore('records').delete(localRecordKey(key));
+            tx.oncomplete = function () { resolve(); };
+            tx.onerror = function () { reject(tx.error); };
+        });
+    }
+
+    function authApiBase() {
+        if (window.EMERALD_AUTH_API_BASE) return String(window.EMERALD_AUTH_API_BASE).replace(/\/+$/, '');
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') return 'http://localhost:8787';
+        return 'https://emeraldnetwork-auth.iceemerald.workers.dev';
+    }
+
+    async function driveRequest(path, options) {
+        if (!currentSession || !currentSession.token) throw new Error('Sign in to use Drive.');
+        var requestOptions = Object.assign({}, options || {});
+        requestOptions.headers = Object.assign({}, requestOptions.headers || {}, {
+            Authorization: 'Bearer ' + currentSession.token
+        });
+        var response = await fetch(authApiBase() + '/api/drive' + path, requestOptions);
+        if (!response.ok) {
+            var body = {};
+            try { body = await response.json(); } catch (_) {}
+            var error = new Error(body.error || 'Drive request failed (' + response.status + ').');
+            error.status = response.status;
+            error.code = body.code || '';
+            error.state = body.state || null;
+            error.revision = Number(body.revision) || 0;
+            throw error;
+        }
+        return response;
+    }
+
+    function validDriveState(value) {
+        return value && typeof value === 'object' && Array.isArray(value.folders) && Array.isArray(value.files);
+    }
+
+    function mergeDriveState(local, remote) {
+        local = validDriveState(local) ? local : makeDefaultDriveState();
+        remote = validDriveState(remote) ? remote : makeDefaultDriveState();
+        var merged = makeDefaultDriveState();
+        var tombstones = { folders: {}, files: {} };
+        ['folders', 'files'].forEach(function (kind) {
+            [remote.tombstones && remote.tombstones[kind] || {}, local.tombstones && local.tombstones[kind] || {}].forEach(function (source) {
+                Object.keys(source).forEach(function (id) {
+                    tombstones[kind][id] = Math.max(Number(tombstones[kind][id]) || 0, Number(source[id]) || 0);
+                });
+            });
+            var byId = new Map();
+            (remote[kind] || []).concat(local[kind] || []).forEach(function (item) {
+                if (!item || !item.id) return;
+                var previous = byId.get(String(item.id));
+                if (!previous || (Number(item.updatedAt) || 0) >= (Number(previous.updatedAt) || 0)) byId.set(String(item.id), item);
+            });
+            merged[kind] = Array.from(byId.values()).filter(function (item) {
+                return (Number(tombstones[kind][item.id]) || 0) < (Number(item.updatedAt) || 0);
+            });
+        });
+        merged.settings = (Number(local.settings && local.settings.updatedAt) || 0) >= (Number(remote.settings && remote.settings.updatedAt) || 0)
+            ? Object.assign({}, remote.settings, local.settings)
+            : Object.assign({}, local.settings, remote.settings);
+        merged.tombstones = tombstones;
+        merged.updatedAt = Math.max(Number(local.updatedAt) || 0, Number(remote.updatedAt) || 0, Date.now());
+        return merged;
+    }
+
+    async function loadDriveState() {
+        var cached = null;
+        try { cached = await localGet('state'); } catch (_) {}
+        try {
+            var response = await driveRequest('/state', { method: 'GET', headers: { 'Cache-Control': 'no-store' } });
+            var remote = await response.json();
+            serverRevision = Number(remote.revision) || 0;
+            state.layout = remote.state.settings && remote.state.settings.layout || 'grid';
+            state.sort = remote.state.settings && remote.state.settings.sort || 'modified';
+            var merged = mergeDriveState(cached && cached.state, remote.state);
+            folders = merged.folders;
+            files = merged.files;
+            state.settings = merged.settings;
+            state.tombstones = merged.tombstones;
+            driveStatus = 'online';
+            if (cached && Number(cached.state && cached.state.updatedAt) > Number(remote.state && remote.state.updatedAt)) {
+                await persistDriveState();
+            } else {
+                await localSet('state', { state: merged, revision: serverRevision });
+                var hasSuiteRoot = merged.folders.some(function (folder) { return folder.id === 'suite-root'; });
+                if (!remote.state.folders.length || !hasSuiteRoot) await persistDriveState();
+            }
+            await loadSharedItems();
+            return;
+        } catch (error) {
+            if (error.status === 401) throw error;
+            if (cached && validDriveState(cached.state)) {
+                folders = cached.state.folders;
+                files = cached.state.files;
+                serverRevision = Number(cached.revision) || 0;
+                state.layout = cached.state.settings && cached.state.settings.layout || 'grid';
+                state.sort = cached.state.settings && cached.state.settings.sort || 'modified';
+                state.settings = cached.state.settings || { layout: state.layout, sort: state.sort };
+                state.tombstones = cached.state.tombstones || { folders: {}, files: {} };
+                driveStatus = 'offline';
+                return;
+            }
+            var fresh = makeDefaultDriveState();
+            folders = fresh.folders;
+            files = fresh.files;
+            state.settings = fresh.settings;
+            state.tombstones = fresh.tombstones;
+            driveStatus = 'offline';
+            if (window.showToast) window.showToast('Drive is offline. New changes will be saved on this device.');
+        }
+    }
+
+    async function loadSharedItems() {
+        sharedFiles = [];
+        try {
+            var response = await driveRequest('/shared', { method: 'GET' });
+            var result = await response.json();
+            for (var index = 0; index < (result.shares || []).length; index++) {
+                var share = result.shares[index];
+                var noteResponse = await driveRequest('/shared/' + encodeURIComponent(share.id), { method: 'GET' });
+                var noteResult = await noteResponse.json();
+                sharedFiles.push({
+                    id: 'shared_' + share.id,
+                    shareId: share.id,
+                    ownerEmail: share.ownerEmail,
+                    name: noteResult.note && noteResult.note.title || 'Shared note',
+                    type: 'note',
+                    folder: null,
+                    size: new TextEncoder().encode(String(noteResult.note && noteResult.note.content || '')).byteLength,
+                    mime: 'text/html',
+                    updatedAt: Number(share.createdAt) || Date.now(),
+                    starred: false,
+                    trashed: false,
+                    shared: true,
+                    readOnly: true,
+                    previewText: previewText(noteResult.note && noteResult.note.content),
+                    previewContent: String(noteResult.note && noteResult.note.content || '')
+                });
+            }
+        } catch (error) {
+            if (error.status !== 401) console.warn('Shared notes are unavailable:', error.message);
+        }
+    }
+
+    function persistDriveState() {
+        state.layout = state.layout === 'list' ? 'list' : 'grid';
+        state.sort = ['modified', 'name', 'size'].indexOf(state.sort) >= 0 ? state.sort : 'modified';
+        var timestamp = Date.now();
+        var next = {
+            version: 1,
+            folders: folders,
+            files: files,
+            settings: Object.assign({}, state.settings || {}, { layout: state.layout, sort: state.sort, updatedAt: timestamp }),
+            tombstones: state.tombstones || { folders: {}, files: {} },
+            updatedAt: timestamp
+        };
+        state.settings = next.settings;
+        state.tombstones = next.tombstones;
+        saveChain = saveChain.catch(function () {}).then(async function () {
+            await localSet('state', { state: next, revision: serverRevision });
+            try {
+                var response = await driveRequest('/state', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ state: next, revision: serverRevision })
+                });
+                var result = await response.json();
+                serverRevision = Number(result.revision) || serverRevision + 1;
+                driveStatus = 'online';
+                await localSet('state', { state: next, revision: serverRevision });
+                if (driveChannel) driveChannel.postMessage({ email: currentEmail, revision: serverRevision, updatedAt: timestamp });
+            } catch (error) {
+                if (error.status === 409 && validDriveState(error.state)) {
+                    var merged = mergeDriveState(next, error.state);
+                    folders = merged.folders;
+                    files = merged.files;
+                    state.settings = merged.settings;
+                    state.tombstones = merged.tombstones;
+                    state.updatedAt = merged.updatedAt;
+                    serverRevision = error.revision;
+                    var retryResponse = await driveRequest('/state', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ state: merged, revision: serverRevision })
+                    });
+                    var retry = await retryResponse.json();
+                    serverRevision = Number(retry.revision) || serverRevision + 1;
+                    driveStatus = 'online';
+                    await localSet('state', { state: merged, revision: serverRevision });
+                    return;
+                }
+                driveStatus = 'offline';
+                if (navigator.onLine !== false && error.status !== 413 && window.showToast) {
+                    window.showToast('Drive is offline. Changes are saved on this device and will sync when available.');
+                }
+                if (error.status === 413) throw error;
+            }
+        });
+        return saveChain;
+    }
+
+    function totalBytes() {
+        return files.reduce(function (sum, file) { return sum + (file.trashed ? 0 : Number(file.size) || 0); }, 0);
+    }
+
+    function updateStorageCounter() {
+        var used = totalBytes();
+        var fill = document.querySelector('.drive-storage-bar span');
+        var label = document.querySelector('.drive-storage-label');
+        if (fill) fill.style.width = Math.min(100, used / DRIVE_LIMIT * 100).toFixed(1) + '%';
+        if (label) label.textContent = formatBytes(used) + ' of 10 GB used' + (driveStatus === 'offline' ? ' · Offline' : '');
+    }
+
+    function makeId(prefix) {
+        var id = '';
+        try { id = crypto.randomUUID().replace(/-/g, ''); } catch (_) { id = Date.now().toString(36) + Math.random().toString(36).slice(2); }
+        return (prefix || 'd') + '_' + id;
+    }
+
+    function typeFromFile(file) {
+        var mime = String(file && file.type || '').toLowerCase();
+        var name = String(file && file.name || '').toLowerCase();
+        if (mime === 'application/pdf' || name.endsWith('.pdf')) return 'pdf';
+        if (mime.indexOf('image/') === 0 || /\.(png|jpe?g|gif|webp|avif|bmp|svg|heic)$/.test(name)) return 'image';
+        if (/\.(doc|docx|odt|rtf)$/.test(name)) return 'doc';
+        if (/\.(xls|xlsx|ods|csv)$/.test(name)) return 'sheet';
+        if (/\.(ppt|pptx|odp)$/.test(name)) return 'slide';
+        return 'other';
+    }
+
+    function previewText(value) {
+        var text = String(value || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        return text.slice(0, 180);
+    }
+
+    function suiteFile(type, item, old) {
+        var suiteId = String(item.id);
+        var id = ('suite-' + type + '-' + suiteId).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 100);
+        var dataString = JSON.stringify(item);
+        return Object.assign({}, old || {}, {
+            id: id,
+            name: String(item.title || item.name || (type === 'note' ? 'Untitled Note' : 'Untitled ' + type)).slice(0, 180),
+            type: type,
+            folder: 'suite-' + (type === 'slide' ? 'slides' : type === 'sheet' ? 'sheets' : type === 'doc' ? 'docs' : 'notes'),
+            size: new TextEncoder().encode(dataString).byteLength,
+            mime: 'application/json',
+            createdAt: Number(item.createdAt || item.created_at) || Number(old && old.createdAt) || Date.now(),
+            updatedAt: Number(item.updatedAt || item.savedAt || item.modifiedAt) || Number(old && old.updatedAt) || 0,
+            starred: !!(old && old.starred),
+            trashed: !!(old && old.trashed),
+            trashedAt: Number(old && old.trashedAt) || 0,
+            suite: type,
+            suiteId: suiteId.slice(0, 120),
+            previewText: previewText(item.content || item.text || item.title || item.name || ''),
+            localOnly: !!(item.localOnly || item.syncAvailable === false),
+            shared: false
+        });
+    }
+
+    async function refreshSuiteMirrors() {
+        if (!currentEmail || !storage()) return;
+        var found = [];
+        var store = storage();
+        try {
+            var notes = await store.getJSON('emeraldcore.storage.suite.notes');
+            if (Array.isArray(notes)) notes.forEach(function (note) { if (note && note.id && !note._isCollabNote) found.push(suiteFile('note', note, files.find(function (f) { return f.id === 'suite-note-' + note.id; }))); });
+            var docs = await store.getJSON('emeraldcore.storage.suite.docs');
+            if (Array.isArray(docs)) {
+                for (var di = 0; di < docs.length; di++) {
+                    var doc = await store.getJSON('emeraldcore.storage.suite.docs.' + docs[di].id);
+                    found.push(suiteFile('doc', Object.assign({}, docs[di], doc || {}), files.find(function (f) { return f.id === 'suite-doc-' + docs[di].id; })));
+                }
+            }
+            var slides = await store.getJSON('emeraldcore.storage.suite.slides');
+            if (Array.isArray(slides)) {
+                for (var si = 0; si < slides.length; si++) {
+                    var slide = await store.getJSON('emeraldcore.storage.suite.slides.' + slides[si].id);
+                    found.push(suiteFile('slide', Object.assign({}, slides[si], slide || {}), files.find(function (f) { return f.id === 'suite-slide-' + slides[si].id; })));
+                }
+            }
+            if (window.EmeraldSheetsStorage && typeof window.EmeraldSheetsStorage.listDocs === 'function') {
+                var sheets = await window.EmeraldSheetsStorage.listDocs();
+                sheets.forEach(function (entry) {
+                    var data = entry && entry.doc || {};
+                    found.push(suiteFile('sheet', Object.assign({ id: entry.id }, data, { title: data.title || data.name || 'Untitled Spreadsheet' }), files.find(function (f) { return f.id === 'suite-sheet-' + entry.id; })));
+                });
+            }
+        } catch (error) {
+            console.warn('Could not read EmeraldSuite items for Drive:', error);
+        }
+        var previous = files.filter(function (file) { return file.suite; });
+        found = found.filter(function (file) {
+            return (Number(state.tombstones && state.tombstones.files && state.tombstones.files[file.id]) || 0) < (Number(file.updatedAt) || 0);
+        });
+        var foundIds = new Set(found.map(function (file) { return file.id; }));
+        previous.forEach(function (file) {
+            if (!foundIds.has(file.id) && !file.trashed) {
+                file.trashed = true;
+                file.trashedAt = Date.now();
+                touched(file);
+            }
+        });
+        var changed = false;
+        found.forEach(function (file) {
+            var index = files.findIndex(function (existing) { return existing.id === file.id; });
+            if (index < 0) { files.push(file); changed = true; }
+            else if (JSON.stringify(files[index]) !== JSON.stringify(file)) { files[index] = file; changed = true; }
+        });
+        if (changed) await persistDriveState();
+    }
 
     /* ---------------- helpers ---------------- */
 
     function childrenOf(folderId) {
-        return folders.filter(function (f) { return f.parent === folderId; });
+        return folders.filter(function (f) { return f.parent === folderId && !f.trashed; });
     }
 
     function filesIn(folderId) {
@@ -59,7 +419,12 @@
     }
 
     function fileCreated(item) {
-        return item.created || item.createdAt || item.created_at || '—';
+        var value = item.createdAt || item.created || item.created_at;
+        return value ? relativeOrOriginalDate(value) : '—';
+    }
+
+    function fileDisplaySize(item) {
+        return formatBytes(Number(item && item.size) || bytesFromSize(item && item.size));
     }
 
     function bytesFromSize(size) {
@@ -124,8 +489,8 @@
         var key = state.sort;
         return list.slice().sort(function (a, b) {
             if (key === 'name') return a.name.localeCompare(b.name);
-            if (key === 'size') return parseFloat(b.size) - parseFloat(a.size);
-            return 0; // modified: keep natural order (mock)
+            if (key === 'size') return (Number(b.size) || bytesFromSize(b.size)) - (Number(a.size) || bytesFromSize(a.size));
+            return (Number(b.updatedAt || b.modifiedAt) || 0) - (Number(a.updatedAt || a.modifiedAt) || 0);
         });
     }
 
@@ -213,6 +578,9 @@
         if (!el) return;
         var html = '';
         if (state.view === 'mydrive') {
+            if (state.folderId) {
+                html += '<button class="dcrumb-back" type="button" data-drive-back aria-label="Back to parent folder" title="Back">‹</button><span class="dcrumb-sep" aria-hidden="true">›</span>';
+            }
             var path = folderPath(state.folderId);
             var crumbs = [{ id: 'root', name: 'My Drive', root: true }];
             path.forEach(function (folder) { crumbs.push({ id: folder.id, name: folder.name }); });
@@ -240,16 +608,23 @@
                 switchPage(render);
             });
         });
+        var backButton = el.querySelector('[data-drive-back]');
+        if (backButton) backButton.addEventListener('click', function () {
+            var current = folders.find(function (folder) { return String(folder.id) === String(state.folderId); });
+            state.folderId = current ? current.parent : null;
+            render();
+        });
     }
 
     function cardHTML(item, isFolder) {
         if (isFolder) {
             var gradientId = 'folderGradient-' + esc(item.id);
+            var folderColor = /^#[0-9a-f]{6}$/i.test(item.color || '') ? item.color : '#ffc52e';
             return '<button class="dfolder-card" data-folder="' + item.id + '">' +
                 '<span class="dfolder-icon"><svg viewBox="0 0 160 110" aria-hidden="true">' +
-                    '<defs><linearGradient id="' + gradientId + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe66b"/><stop offset="1" stop-color="#ffc52e"/></linearGradient></defs>' +
-                    '<path d="M12 27a9 9 0 0 1 9-9h43c5 0 8 2 11 5l10 11h63a9 9 0 0 1 9 9v48a9 9 0 0 1-9 9H21a9 9 0 0 1-9-9z" fill="#f3b900"/>' +
-                    '<path d="M12 36h51c6 0 9-2 13-6l9-9h63a9 9 0 0 1 9 9v61a9 9 0 0 1-9 9H21a9 9 0 0 1-9-9z" fill="url(#' + gradientId + ')" stroke="#e9ae18" stroke-width="1.5"/>' +
+                    '<defs><linearGradient id="' + gradientId + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".45"/><stop offset="1" stop-color="' + esc(folderColor) + '"/></linearGradient></defs>' +
+                    '<path d="M12 27a9 9 0 0 1 9-9h43c5 0 8 2 11 5l10 11h63a9 9 0 0 1 9 9v48a9 9 0 0 1-9 9H21a9 9 0 0 1-9-9z" fill="' + esc(folderColor) + '"/>' +
+                    '<path d="M12 36h51c6 0 9-2 13-6l9-9h63a9 9 0 0 1 9 9v61a9 9 0 0 1-9 9H21a9 9 0 0 1-9-9z" fill="url(#' + gradientId + ')" stroke="' + esc(folderColor) + '" stroke-width="1.5"/>' +
                     '<path d="M14 35h49c6 0 9-2 13-6l8-8" fill="none" stroke="rgba(255,255,255,.85)" stroke-width="2.5"/>' +
                 '</svg></span>' +
                 '<span class="dfolder-name">' + esc(item.name) + '</span>' +
@@ -261,7 +636,7 @@
                 (item.starred ? '<span class="dfile-star" title="Starred" aria-label="Starred"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2.8 2.83 5.74 6.34.92-4.59 4.47 1.08 6.31L12 17.26l-5.66 2.98 1.08-6.31-4.59-4.47 6.34-.92L12 2.8z"/></svg></span>' : '') +
             '</div>' +
             '<div class="dfile-body"><div class="dfile-name">' + esc(item.name) + '</div>' +
-            '<div class="dfile-meta">' + esc(m.label) + ' · ' + esc(item.size) + ' · ' + esc(item.modified) + '</div></div></div>';
+            '<div class="dfile-meta">' + esc(m.label) + ' · ' + esc(fileDisplaySize(item)) + ' · ' + esc(relativeOrOriginalDate(item.updatedAt || item.createdAt)) + (item.localOnly ? ' · This device only' : '') + '</div></div></div>';
     }
 
     function rowHTML(item, isFolder) {
@@ -274,10 +649,10 @@
         }
         return '<div class="drow" data-file="' + item.id + '" role="button" tabindex="0">' +
             '<span class="drow-name"><span class="drow-icon" style="color:' + m.color + '">' + typeBadge(item.type, item.name) + '</span><span class="drow-label">' + esc(item.name) + '</span></span>' +
-            '<span class="drow-meta">' + esc(m.label) + '</span>' +
-            '<span class="drow-meta">' + esc(item.size) + '</span>' +
+            '<span class="drow-meta">' + esc(m.label) + (item.localOnly ? ' · Device only' : '') + '</span>' +
+            '<span class="drow-meta">' + esc(fileDisplaySize(item)) + '</span>' +
             '<span class="drow-meta">' + esc(fileCreated(item)) + '</span>' +
-            '<span class="drow-meta">' + esc(item.modified || '—') + '</span></div>';
+            '<span class="drow-meta">' + esc(item.updatedAt ? relativeOrOriginalDate(item.updatedAt) : '—') + '</span></div>';
     }
 
     function section(title, innerHTML) {
@@ -454,28 +829,28 @@
         var q = state.search;
 
         if (state.view === 'home') {
-            var recent = filterSearch(files.filter(function (f) { return !f.trashed; })).slice(0, 4);
+            var recent = sortList(filterSearch(files.filter(function (f) { return !f.trashed; }))).slice(0, 4);
             if (q) {
-                var all = filterSearch(files.filter(function (f) { return !f.trashed; }));
+                var all = sortList(filterSearch(files.filter(function (f) { return !f.trashed; })));
                 html += all.length ? layoutHTML(all) : emptyHTML('No results', 'Nothing matches your search.', '/assets/images/nofilefound.webp');
             } else {
                 html += homeHeroHTML();
                 var suggested = recent.slice(0, 3);
                 if (suggested.length) html += section('Suggested', layoutHTML(suggested));
                 if (recent.length) html += section('Recent files', layoutHTML(recent));
-                if (!recent.length) html += emptyHTML('Nothing here yet', 'Your recent files will appear here.');
+                if (!recent.length) html += emptyHTML('Nothing here yet', 'Create a folder or upload a file to get started.', '/assets/images/nofilefound.webp');
             }
         } else if (state.view === 'mydrive') {
             var foldersHere = filterSearch(childrenOf(state.folderId));
             var filesHere = sortList(filterSearch(filesIn(state.folderId)));
             if (!foldersHere.length && !filesHere.length) {
-                html += emptyHTML('Nothing here yet', q ? 'No matches in this folder.' : 'This folder is empty.', q ? '/assets/images/nofilefound.webp' : null);
+                html += emptyHTML('Nothing here yet', q ? 'No matches in this folder.' : 'This folder is empty.', '/assets/images/nofilefound.webp');
             } else {
                 if (foldersHere.length) html += section('Folders', folderLayoutHTML(foldersHere));
                 if (filesHere.length) html += section('Files', layoutHTML(filesHere));
             }
         } else if (state.view === 'shared') {
-            var shared = sortList(filterSearch(files.filter(function (f) { return f.shared && !f.trashed; })));
+            var shared = sortList(filterSearch(sharedFiles.filter(function (f) { return !f.trashed; })));
             html += shared.length ? layoutHTML(shared) : emptyHTML('Nothing shared yet', 'Files shared with you will show up here.', '/assets/images/nofilefound.webp');
         } else if (state.view === 'recent') {
             var rec = sortList(filterSearch(files.filter(function (f) { return !f.trashed; })));
@@ -485,8 +860,12 @@
             html += st.length ? layoutHTML(st) : emptyHTML('No starred files', 'Star a file to pin it here.', '/assets/images/nofilefound.webp');
         } else if (state.view === 'trash') {
             html += '<div class="dtrash-banner"><span class="dtrash-banner-icon" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span>Items in trash are deleted forever after 30 days.</span></div>';
+            var trashedFolders = filterSearch(folders.filter(function (folder) { return folder.trashed; }));
             var tr = sortList(filterSearch(files.filter(function (f) { return f.trashed; })));
-            html += tr.length ? layoutHTML(tr) : emptyHTML('Trash is empty', 'Deleted files appear here for 30 days.', '/assets/images/nofilefound.webp');
+            if (tr.length || trashedFolders.length) html += '<div class="dtrash-actions"><button type="button" data-drive-action="empty-trash">Empty Trash</button></div>';
+            if (trashedFolders.length) html += section('Folders', folderLayoutHTML(trashedFolders));
+            if (tr.length) html += section('Files', layoutHTML(tr));
+            if (!tr.length && !trashedFolders.length) html += emptyHTML('Trash is empty', 'Deleted files appear here.', '/assets/images/nofilefound.webp');
         }
 
         box.innerHTML = html;
@@ -495,6 +874,7 @@
         bindContent();
         renderCrumbs();
         applyLayout();
+        updateStorageCounter();
     }
 
     function bindContent() {
@@ -506,6 +886,16 @@
                 setActiveNav('mydrive');
                 switchPage(render);
             });
+        });
+        box.querySelectorAll('[data-file]').forEach(function (node) {
+            node.addEventListener('click', function (event) {
+                if (event.target.closest('button, a')) return;
+                var item = files.find(function (file) { return String(file.id) === String(node.getAttribute('data-file')); });
+                if (item) openFile(item);
+            });
+        });
+        box.querySelectorAll('[data-drive-action="empty-trash"]').forEach(function (button) {
+            button.addEventListener('click', emptyTrash);
         });
     }
 
@@ -534,7 +924,7 @@
         var isFolder = folderId !== null;
         var item = isFolder
             ? folders.find(function (f) { return String(f.id) === folderId; })
-            : files.find(function (f) { return String(f.id) === fileId; });
+            : files.find(function (f) { return String(f.id) === fileId; }) || sharedFiles.find(function (f) { return String(f.id) === fileId; });
         if (!item) return;
 
         event.preventDefault();
@@ -544,21 +934,28 @@
         var itemIcon = isFolder
             ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>'
             : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8"/></svg>';
+        var inTrash = !!item.trashed;
+        var readOnly = !!item.readOnly;
         var itemKind = isFolder ? 'Folder' : esc((TYPE_META[item.type] || TYPE_META.other).label);
         var html = '<div class="context-title">' + itemIcon + '<span>' + esc(item.name) + '</span></div>' +
-            '<div class="context-text">' + itemKind + (item.shared ? ' · Shared' : '') + '</div>' +
+            '<div class="context-text">' + itemKind + (item.shared ? ' · Shared' : '') + (item.localOnly ? ' · This device only' : '') + '</div>' +
             '<div class="context-section">' +
-            contextRow(primaryLabel, 'open');
-        html += contextRow('Download', 'download') + contextRow('Copy link', 'copy-link') +
-            contextRow('Manage access', 'manage-access') + contextRow('Duplicate', 'duplicate') +
-            contextRow('Move to', 'move-to') + contextRow('Copy to', 'copy-to');
-        if (isFolder) {
+            contextRow(inTrash ? 'Restore' : primaryLabel, inTrash ? 'restore' : 'open');
+        if (!inTrash && !readOnly) {
+            html += contextRow('Download', 'download') + contextRow('Cut', 'cut') + contextRow('Copy link', 'copy-link') +
+                contextRow('Manage access', 'manage-access') + contextRow('Duplicate', 'duplicate') +
+                contextRow('Move to', 'move-to') + contextRow('Copy to', 'copy-to') + contextRow('Rename', 'rename');
+        } else if (readOnly) {
+            html += contextRow('Copy link', 'copy-link') + '</div>';
+        }
+        if (isFolder && !inTrash) {
             html += '</div><div class="context-section drive-folder-color-section"><span class="drive-context-label">Folder color</span><div class="drive-folder-colors" role="group" aria-label="Folder color">' +
                 ['#f3b900', '#ef6c63', '#a879d8', '#4c9be8', '#39a66b', '#6d7c8f'].map(function (color, index) {
                     return '<button type="button" data-context-action="folder-color" data-color="' + color + '" aria-label="Folder color ' + (index + 1) + '" style="--swatch:' + color + '"></button>';
                 }).join('') + '</div></div>';
-        } else html += contextRow(item.starred ? 'Unstar' : 'Star', 'star') + '</div>';
-        html += '<div class="context-section">' + contextRow('Delete', 'delete', true) + '</div>';
+        } else if (!isFolder && !inTrash && !readOnly) html += contextRow(item.starred ? 'Unstar' : 'Star', 'star') + '</div>';
+        if (!readOnly && inTrash) html += '<div class="context-section">' + contextRow('Delete permanently', 'permanent-delete', true) + '</div>';
+        else if (!readOnly) html += '<div class="context-section">' + contextRow('Move to Trash', 'delete', true) + '</div>';
         menu.innerHTML = html;
         menu.dataset.contextItemId = isFolder ? folderId : fileId;
         menu.dataset.contextIsFolder = isFolder ? '1' : '0';
@@ -568,35 +965,384 @@
     function bindContextMenu() {
         var menu = $('custom-context-menu');
         if (!menu) return;
-        var defaultMenuHTML = menu.innerHTML;
         window.addEventListener('contextmenu', function (event) {
             var target = event.target.closest('.dfile-card, .dfolder-card, .drow[data-file], .drow[data-folder], .dchip');
             if (target) openItemContextMenu(event, target);
-            else {
-                menu.innerHTML = defaultMenuHTML;
-                positionContextMenu(menu, event.clientX, event.clientY);
-            }
+            else menu.style.display = 'none';
         });
-        menu.addEventListener('click', function (event) {
+        menu.addEventListener('click', async function (event) {
             var action = event.target.closest('[data-context-action]');
             if (!action) return;
             event.preventDefault();
-            if (action.dataset.contextAction === 'star') {
-                var itemId = menu.dataset.contextItemId;
-                var file = files.find(function (f) { return String(f.id) === String(itemId); });
-                if (file) {
-                    file.starred = !file.starred;
-                    menu.style.display = 'none';
-                    render();
-                }
-                if (window.showToast) window.showToast(file && file.starred ? 'Starred' : 'Unstarred');
-                return;
-            }
-            if (window.showToast) window.showToast(action.dataset.contextAction === 'folder-color' ? 'Folder color options are ready for the next step.' : action.textContent.trim() + ' is ready for the next step.');
+            var itemId = menu.dataset.contextItemId;
+            var isFolder = menu.dataset.contextIsFolder === '1';
+            var item = isFolder
+                ? folders.find(function (folder) { return String(folder.id) === String(itemId); })
+                : files.find(function (file) { return String(file.id) === String(itemId); }) || sharedFiles.find(function (file) { return String(file.id) === String(itemId); });
+            menu.style.display = 'none';
+            if (!item) return;
+            try { await performItemAction(action.dataset.contextAction, item, isFolder, action.dataset.color); }
+            catch (error) { if (window.showToast) window.showToast(error.message || 'That action failed.'); }
         });
         document.addEventListener('keydown', function (event) {
             if (event.key === 'Escape') menu.style.display = 'none';
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'v' && cutItem) {
+                if (event.target && /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)) return;
+                event.preventDefault();
+                pasteCutItem().catch(function (error) { if (window.showToast) window.showToast(error.message || 'Paste failed.'); });
+            }
         });
+    }
+
+    function touched(item) {
+        item.updatedAt = Date.now();
+        return item;
+    }
+
+    function activeFolderOptions() {
+        return folders.filter(function (folder) { return !folder.trashed; }).map(function (folder) {
+            return { id: String(folder.id), label: folderPath(folder.id).map(function (part) { return part.name; }).join(' / ') };
+        });
+    }
+
+    function askDestination(currentId) {
+        var options = activeFolderOptions();
+        var promptText = 'Destination folder path (leave blank for My Drive):\n' +
+            options.map(function (option) { return option.label + '  [' + option.id + ']'; }).join('\n');
+        var value = window.prompt(promptText, '');
+        if (value === null) return null;
+        var input = value.trim();
+        if (!input) return null;
+        var byId = options.find(function (option) { return option.id === input; });
+        if (byId) return byId.id;
+        var byName = options.find(function (option) { return option.label.toLowerCase() === input.toLowerCase(); });
+        if (!byName) throw new Error('Folder not found. Use one of the listed paths or IDs.');
+        if (currentId && byName.id === currentId) throw new Error('An item cannot be moved into itself.');
+        return byName.id;
+    }
+
+    async function fetchFileBlob(item) {
+        if (item.shared && item.shareId) {
+            var sharedResponse = await driveRequest('/shared/' + encodeURIComponent(item.shareId), { method: 'GET' });
+            var sharedResult = await sharedResponse.json();
+            return new Blob([String(sharedResult.note && sharedResult.note.content || '')], { type: 'text/plain;charset=utf-8' });
+        }
+        if (item.suite && item.suiteId) {
+            var suiteItem = await readSuiteItem(item);
+            if (suiteItem) {
+                var text = suiteItem.content || suiteItem.html || JSON.stringify(suiteItem, null, 2);
+                return new Blob([String(text)], { type: item.mime || 'text/plain;charset=utf-8' });
+            }
+        }
+        if (item.localOnly) {
+            var local = await localGet('blob:' + item.id);
+            if (!local) throw new Error('This file is only available on the device where it was uploaded.');
+            return local instanceof Blob ? local : new Blob([local], { type: item.mime || 'application/octet-stream' });
+        }
+        var response = await driveRequest('/blob/' + encodeURIComponent(item.id), { method: 'GET' });
+        return response.blob();
+    }
+
+    async function readSuiteItem(item) {
+        var store = storage();
+        if (!store || !item.suiteId) return null;
+        try {
+            if (item.suite === 'note') {
+                var notes = await store.getJSON('emeraldcore.storage.suite.notes');
+                return Array.isArray(notes) ? notes.find(function (note) { return String(note.id) === String(item.suiteId); }) : null;
+            }
+            if (item.suite === 'doc') return await store.getJSON('emeraldcore.storage.suite.docs.' + item.suiteId);
+            if (item.suite === 'slide') return await store.getJSON('emeraldcore.storage.suite.slides.' + item.suiteId);
+            if (item.suite === 'sheet' && window.EmeraldSheetsStorage) return await window.EmeraldSheetsStorage.getDoc(item.suiteId);
+        } catch (_) {}
+        return null;
+    }
+
+    function suiteUrl(item) {
+        var paths = { note: '/notes.html', doc: '/docs.html', sheet: '/sheets.html', slide: '/slides.html' };
+        return (paths[item.suite] || '/drive.html') + '?owned=' + encodeURIComponent(item.suiteId);
+    }
+
+    async function openFile(item) {
+        if (item.trashed) return;
+        if (item.suite && item.suiteId) {
+            if (item.localOnly && !(await readSuiteItem(item))) {
+                if (window.showToast) window.showToast('This workbook is only available on the device where it was created.');
+                return;
+            }
+            window.location.href = suiteUrl(item);
+            return;
+        }
+        if (item.shared && item.shareId) {
+            window.location.href = '/notes.html?driveShare=' + encodeURIComponent(item.shareId);
+            return;
+        }
+        var popup = window.open('about:blank', '_blank');
+        if (!popup) {
+            if (window.showToast) window.showToast('Allow pop-ups to preview this file.');
+            return;
+        }
+        try {
+            var blob = await fetchFileBlob(item);
+            if (/^(text\/html|application\/xhtml\+xml|application\/javascript|image\/svg\+xml)/i.test(blob.type || item.mime || '')) {
+                blob = new Blob([await blob.text()], { type: 'text/plain;charset=utf-8' });
+            }
+            var url = URL.createObjectURL(blob);
+            popup.location.href = url;
+            setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+            touched(item);
+            await persistDriveState();
+        } catch (error) {
+            try { popup.close(); } catch (_) {}
+            if (window.showToast) window.showToast(error.message || 'Could not open this file.');
+        }
+    }
+
+    function showTextPreview(title, content) {
+        var dialog = document.getElementById('drivePreviewDialog');
+        if (!dialog) {
+            dialog = document.createElement('dialog');
+            dialog.id = 'drivePreviewDialog';
+            dialog.innerHTML = '<form method="dialog" class="drive-preview-dialog"><header><strong></strong><button aria-label="Close">×</button></header><pre></pre></form>';
+            document.body.appendChild(dialog);
+            dialog.addEventListener('click', function (event) {
+                if (event.target === dialog) dialog.close();
+            });
+        }
+        var heading = dialog.querySelector('strong');
+        var body = dialog.querySelector('pre');
+        heading.textContent = title || 'Preview';
+        var text = String(content || '');
+        try { text = new DOMParser().parseFromString(text, 'text/html').body.textContent || ''; } catch (_) {}
+        body.textContent = text;
+        if (typeof dialog.showModal === 'function') dialog.showModal();
+        else dialog.setAttribute('open', '');
+    }
+
+    async function openSharedNote(shareId) {
+        window.location.href = '/notes.html?driveShare=' + encodeURIComponent(shareId);
+    }
+
+    async function downloadFile(item) {
+        var blob = await fetchFileBlob(item);
+        var url = URL.createObjectURL(blob);
+        var anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = item.name || 'download';
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    }
+
+    async function duplicateItem(item, isFolder, destinationFolder) {
+        if (isFolder) {
+            var sourceFolderIds = [String(item.id)];
+            folders.forEach(function (folder) {
+                if (!folder.trashed && folderPath(folder.id).some(function (part) { return String(part.id) === String(item.id); })) sourceFolderIds.push(String(folder.id));
+            });
+            var idMap = {};
+            sourceFolderIds.forEach(function (id) { idMap[id] = makeId('folder'); });
+            var newFolders = folders.filter(function (folder) { return sourceFolderIds.indexOf(String(folder.id)) >= 0; }).map(function (folder) {
+                return Object.assign({}, folder, {
+                    id: idMap[String(folder.id)],
+                    name: String(folder.id) === String(item.id) ? 'Copy of ' + item.name : folder.name,
+                    parent: String(folder.id) === String(item.id) ? (destinationFolder === undefined ? item.parent : destinationFolder) : idMap[String(folder.parent)],
+                    createdAt: Date.now(), updatedAt: Date.now(), trashed: false, trashedAt: 0
+                });
+            });
+            var sourceFiles = files.filter(function (file) { return sourceFolderIds.indexOf(String(file.folder)) >= 0 && !file.trashed; });
+            var copiedFiles = sourceFiles.map(function (file) {
+                var copy = Object.assign({}, file, { id: makeId('file'), folder: idMap[String(file.folder)], name: 'Copy of ' + file.name, createdAt: Date.now(), updatedAt: Date.now(), starred: false, suite: '', suiteId: '', localOnly: false });
+                return copy;
+            });
+            folders = folders.concat(newFolders);
+            files = files.concat(copiedFiles);
+            for (var copyIndex = 0; copyIndex < copiedFiles.length; copyIndex++) {
+                var copyFile = copiedFiles[copyIndex];
+                var sourceFile = sourceFiles[copyIndex];
+                if (!sourceFile) { copyFile.localOnly = true; continue; }
+                try {
+                    var sourceBlob = await fetchFileBlob(sourceFile);
+                    if (sourceBlob.size <= SQL_BLOB_LIMIT && !sourceFile.localOnly) {
+                        await driveRequest('/blob/' + encodeURIComponent(copyFile.id), { method: 'POST', headers: { 'Content-Type': sourceFile.mime || 'application/octet-stream' }, body: sourceBlob });
+                    } else {
+                        copyFile.localOnly = true;
+                        await localSet('blob:' + copyFile.id, sourceBlob);
+                    }
+                } catch (_) { copyFile.localOnly = true; }
+            }
+        } else {
+            var copy = Object.assign({}, item, { id: makeId('file'), name: 'Copy of ' + item.name, folder: destinationFolder === undefined ? item.folder : destinationFolder, createdAt: Date.now(), updatedAt: Date.now(), starred: false, trashed: false, trashedAt: 0, shared: false, suite: '', suiteId: '' });
+            if (item.localOnly) {
+                var localBlob = await localGet('blob:' + item.id);
+                if (localBlob) await localSet('blob:' + copy.id, localBlob);
+            } else if (!item.suite) {
+                var remoteBlob = await fetchFileBlob(item);
+                if (remoteBlob.size <= SQL_BLOB_LIMIT) {
+                    await driveRequest('/blob/' + encodeURIComponent(copy.id), { method: 'POST', headers: { 'Content-Type': item.mime || 'application/octet-stream' }, body: remoteBlob });
+                } else {
+                    copy.localOnly = true;
+                    await localSet('blob:' + copy.id, remoteBlob);
+                }
+            } else {
+                copy.suite = '';
+                copy.suiteId = '';
+                copy.localOnly = true;
+                var suiteBlob = await fetchFileBlob(item);
+                await localSet('blob:' + copy.id, suiteBlob);
+            }
+            files.push(copy);
+        }
+        await persistDriveState();
+        render();
+    }
+
+    async function deleteItem(item, isFolder, permanent) {
+        var targets = isFolder
+            ? folders.filter(function (folder) { return folder.id === item.id || folderPath(folder.id).some(function (part) { return part.id === item.id; }); })
+            : [];
+        if (isFolder) {
+            var ids = targets.map(function (folder) { return String(folder.id); });
+            var contained = files.filter(function (file) { return ids.indexOf(String(file.folder)) >= 0; });
+            for (var fileIndex = 0; fileIndex < contained.length; fileIndex++) {
+                var file = contained[fileIndex];
+                if (permanent) await permanentlyRemoveFile(file);
+                else { file.trashed = true; file.trashedAt = Date.now(); touched(file); }
+            }
+            targets.forEach(function (folder) {
+                if (permanent) {
+                    state.tombstones.folders[folder.id] = Date.now();
+                    folders = folders.filter(function (candidate) { return candidate.id !== folder.id; });
+                } else { folder.trashed = true; folder.trashedAt = Date.now(); touched(folder); }
+            });
+        } else if (permanent) {
+            await permanentlyRemoveFile(item);
+        } else {
+            item.trashed = true;
+            item.trashedAt = Date.now();
+            touched(item);
+        }
+        await persistDriveState();
+        render();
+    }
+
+    async function permanentlyRemoveFile(item) {
+        try {
+            if (item.localOnly) await localDelete('blob:' + item.id);
+            else if (!item.suite) await driveRequest('/blob/' + encodeURIComponent(item.id), { method: 'DELETE' });
+        } catch (_) {}
+        state.tombstones.files[item.id] = Date.now();
+        files = files.filter(function (file) { return String(file.id) !== String(item.id); });
+    }
+
+    async function restoreItem(item, isFolder) {
+        if (isFolder) {
+            folders.filter(function (folder) { return folder.id === item.id || folderPath(folder.id).some(function (part) { return part.id === item.id; }); })
+                .forEach(function (folder) { folder.trashed = false; folder.trashedAt = 0; touched(folder); });
+            var ids = folders.map(function (folder) { return folder.id; });
+            files.forEach(function (file) { if (ids.indexOf(file.folder) >= 0) { file.trashed = false; file.trashedAt = 0; touched(file); } });
+        } else { item.trashed = false; item.trashedAt = 0; touched(item); }
+        await persistDriveState();
+        render();
+    }
+
+    async function emptyTrash() {
+        var toRemove = files.filter(function (file) { return file.trashed; });
+        for (var index = 0; index < toRemove.length; index++) await permanentlyRemoveFile(toRemove[index]);
+        folders.filter(function (folder) { return folder.trashed; }).forEach(function (folder) {
+            state.tombstones.folders[folder.id] = Date.now();
+            folders = folders.filter(function (candidate) { return candidate.id !== folder.id; });
+        });
+        await persistDriveState();
+        render();
+    }
+
+    async function shareNote(item) {
+        if (item.type !== 'note' || !item.suiteId) throw new Error('Only a synced EmeraldSuite Note can be shared.');
+        var listResponse = await driveRequest('/shares', { method: 'GET' });
+        var listResult = await listResponse.json();
+        var existing = (listResult.shares || []).filter(function (share) { return String(share.fileId) === String(item.suiteId); });
+        var instruction = existing.length
+            ? 'Existing shares:\n' + existing.map(function (share) { return share.recipientEmail + ' — revoke id: ' + share.id; }).join('\n') + '\n\nEnter revoke:<id> to revoke, or enter an email to add access.'
+            : 'Share this note with the EmeraldNetwork account email:';
+        var recipientEmail = window.prompt(instruction);
+        if (!recipientEmail) return;
+        var revokeMatch = /^revoke:([a-zA-Z0-9_-]+)$/.exec(recipientEmail.trim());
+        if (revokeMatch) {
+            await driveRequest('/shares/' + encodeURIComponent(revokeMatch[1]), { method: 'POST' });
+            if (window.showToast) window.showToast('Note access revoked.');
+            return;
+        }
+        var response = await driveRequest('/shares', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fileId: item.id, recipientEmail: recipientEmail })
+        });
+        var result = await response.json();
+        var link = window.location.origin + '/notes.html?driveShare=' + encodeURIComponent(result.share.id);
+        try { await navigator.clipboard.writeText(link); } catch (_) {}
+        if (window.showToast) window.showToast('Read-only note link copied for ' + recipientEmail + '.');
+    }
+
+    var cutItem = null;
+
+    async function pasteCutItem() {
+        if (!cutItem) return;
+        var destination = state.view === 'mydrive' ? state.folderId : null;
+        var item = cutItem.isFolder
+            ? folders.find(function (folder) { return String(folder.id) === String(cutItem.id); })
+            : files.find(function (file) { return String(file.id) === String(cutItem.id); });
+        if (!item) { cutItem = null; return; }
+        if (!cutItem.isFolder && item.suite) throw new Error('Suite items stay inside EmeraldSuite folders.');
+        if (cutItem.isFolder && (destination === item.id || folderPath(destination).some(function (folder) { return folder.id === item.id; }))) {
+            throw new Error('A folder cannot be moved into itself or a child folder.');
+        }
+        if (cutItem.isFolder) item.parent = destination;
+        else item.folder = destination;
+        touched(item);
+        cutItem = null;
+        await persistDriveState();
+        render();
+        if (window.showToast) window.showToast('Item moved.');
+    }
+
+    async function performItemAction(action, item, isFolder, color) {
+        if (action === 'open') return isFolder ? (state.view = 'mydrive', state.folderId = item.id, render()) : openFile(item);
+        if (action === 'download') return downloadFile(item);
+        if (action === 'star') { item.starred = !item.starred; touched(item); await persistDriveState(); return render(); }
+        if (action === 'folder-color') { item.color = color || ''; touched(item); await persistDriveState(); return render(); }
+        if (action === 'rename') {
+            var name = window.prompt('New name:', item.name);
+            if (!name || !name.trim()) return;
+            item.name = name.trim().slice(0, 180); touched(item); await persistDriveState(); return render();
+        }
+        if (action === 'copy-link') {
+            var link = item.shared
+                ? window.location.origin + '/notes.html?driveShare=' + encodeURIComponent(item.shareId)
+                : window.location.origin + '/drive.html?file=' + encodeURIComponent(item.id);
+            await navigator.clipboard.writeText(link);
+            if (window.showToast) window.showToast('Link copied. The recipient still needs access to this account.');
+            return;
+        }
+        if (action === 'manage-access') return shareNote(item);
+        if (action === 'duplicate') return duplicateItem(item, isFolder);
+        if (action === 'cut') { cutItem = { id: item.id, isFolder: isFolder }; if (window.showToast) window.showToast('Cut. Open a destination folder and press Ctrl+V.'); return; }
+        if (action === 'move-to' || action === 'copy-to') {
+            var destination = askDestination(isFolder ? item.id : item.folder);
+            if (destination === null && window.confirm && !window.confirm('Move/copy to My Drive root?')) return;
+            if (isFolder && (destination === item.id || folderPath(destination).some(function (part) { return part.id === item.id; }))) throw new Error('A folder cannot be moved or copied into itself or its descendants.');
+            if (action === 'move-to') {
+                if (!isFolder && item.suite) throw new Error('Suite items stay in their EmeraldSuite folder; copy the item to My Drive instead.');
+                if (isFolder) item.parent = destination;
+                else item.folder = destination;
+            } else return duplicateItem(item, isFolder, destination);
+            touched(item); await persistDriveState(); return render();
+        }
+        if (action === 'delete') return deleteItem(item, isFolder, false);
+        if (action === 'restore') return restoreItem(item, isFolder);
+        if (action === 'permanent-delete') return deleteItem(item, isFolder, true);
+        throw new Error('This action is not supported.');
     }
 
     function setActiveNav(view) {
@@ -653,6 +1399,13 @@
         document.querySelectorAll('#viewToggle button').forEach(function (b) {
             b.classList.toggle('active', b.getAttribute('data-layout') === state.layout);
         });
+        var sortLabel = $('sortLabel');
+        if (sortLabel) sortLabel.textContent = String(state.sort || 'modified').charAt(0).toUpperCase() + String(state.sort || 'modified').slice(1);
+        document.querySelectorAll('#sortMenu [data-sort]').forEach(function (button) {
+            var active = button.getAttribute('data-sort') === state.sort;
+            button.classList.toggle('active', active);
+            button.setAttribute('aria-selected', String(active));
+        });
         bindListColumnResize();
     }
 
@@ -707,6 +1460,7 @@
                 state.layout = b.getAttribute('data-layout');
                 applyLayout();
                 render();
+                persistDriveState();
             });
         });
 
@@ -746,6 +1500,7 @@
                     sortMenu.hidden = true;
                     sortBtn.setAttribute('aria-expanded', 'false');
                     render();
+                    persistDriveState();
                 });
             });
         }
@@ -839,10 +1594,25 @@
             if (!action) return;
             setOpen(false);
             if (action.getAttribute('data-create-action') === 'folder') {
-                newFolder();
-            } else if (window.showToast) {
-                window.showToast(action.textContent.trim() + ' is ready for the next step.');
+                newFolder().catch(function (error) { if (window.showToast) window.showToast(error.message || 'Could not create folder.'); });
+            } else if (action.getAttribute('data-create-action') === 'file') {
+                var fileInput = $('driveFileInput');
+                if (fileInput) fileInput.click();
+            } else if (action.getAttribute('data-create-action') === 'directory') {
+                var folderInput = $('driveFolderInput');
+                if (folderInput) folderInput.click();
             }
+        });
+        ['driveFileInput', 'driveFolderInput'].forEach(function (inputId) {
+            var input = $(inputId);
+            if (!input) return;
+            input.addEventListener('change', function () {
+                var selected = Array.from(input.files || []);
+                input.value = '';
+                handleUploadFiles(selected).catch(function (error) {
+                    if (window.showToast) window.showToast(error.message || 'Upload failed.');
+                });
+            });
         });
         document.addEventListener('click', function (event) {
             if (!wrap.contains(event.target) && wrap.classList.contains('open')) setOpen(false);
@@ -872,6 +1642,48 @@
                 setActiveNav(state.view);
                 switchPage(render);
             });
+        });
+    }
+
+    function bindDriveSync() {
+        var store = storage();
+        if (store && typeof store.subscribe === 'function') {
+            store.subscribe(function (change) {
+                var key = String(change && change.key || '');
+                if (/^emeraldcore\.storage\.suite\.(notes|docs|slides|sheets)(\.|$)/.test(key)) {
+                    refreshSuiteMirrors().then(render).catch(function (error) { console.warn('Drive suite sync failed:', error); });
+                }
+            });
+        }
+        window.addEventListener('emerald-suite-storage-changed', function (event) {
+            if (event.detail && event.detail.app === 'sheets') {
+                refreshSuiteMirrors().then(render).catch(function (error) { console.warn('Drive Sheets sync failed:', error); });
+            }
+        });
+        if (driveChannel) {
+            driveChannel.onmessage = function (event) {
+                var message = event.data || {};
+                if (!currentEmail || message.email !== currentEmail || Number(message.revision) <= serverRevision) return;
+                loadDriveState().then(function () { return refreshSuiteMirrors(); }).then(render).catch(function (error) { console.warn('Could not refresh Drive from another tab:', error); });
+            };
+        }
+        window.addEventListener('online', function () {
+            if (!currentSession) return;
+            loadDriveState().then(function () { return refreshSuiteMirrors(); }).then(render).catch(function (error) {
+                driveStatus = 'offline';
+                updateStorageCounter();
+                console.warn('Drive reconnect sync failed:', error);
+            });
+        });
+        window.addEventListener('emerald-auth-changed', async function () {
+            var session = window.EmeraldAuth && window.EmeraldAuth.getSession ? await window.EmeraldAuth.getSession() : null;
+            var nextEmail = session && session.user && String(session.user.email || '').toLowerCase() || '';
+            if (nextEmail !== currentEmail) {
+                folders = [];
+                files = [];
+                sharedFiles = [];
+                window.location.href = nextEmail ? '/drive.html' : '/account';
+            }
         });
     }
 
@@ -1033,11 +1845,99 @@
         if (sb) sb.classList.remove('mobile-open');
         if (bd) bd.classList.remove('visible');
     }
-    function newFolder() {
+
+    function createFolderRecord(name, parent) {
+        var value = String(name || '').replace(/[\\/:*?"<>|\0]+/g, '_').trim().slice(0, 180) || 'Untitled folder';
+        var duplicate = folders.some(function (folder) { return !folder.trashed && folder.parent === parent && folder.name.toLowerCase() === value.toLowerCase(); });
+        if (duplicate) value += ' ' + Date.now().toString(36).slice(-4);
+        var folder = { id: makeId('folder'), name: value, parent: parent == null ? null : String(parent), color: '', createdAt: Date.now(), updatedAt: Date.now(), trashed: false, trashedAt: 0 };
+        folders.push(folder);
+        return folder;
+    }
+
+    function ensureFolderPath(parts, startFolderId) {
+        var parent = startFolderId == null ? null : String(startFolderId);
+        parts.forEach(function (part) {
+            var name = String(part || '').trim();
+            if (!name || name === '.' || name === '..') return;
+            var match = folders.find(function (folder) {
+                return !folder.trashed && String(folder.parent) === String(parent) && folder.name.toLowerCase() === name.toLowerCase();
+            });
+            if (!match) match = createFolderRecord(name, parent);
+            parent = String(match.id);
+        });
+        return parent;
+    }
+
+    async function handleUploadFiles(fileList) {
+        var selected = Array.from(fileList || []).filter(function (file) { return file && file.name; });
+        if (!selected.length) return;
+        var incoming = selected.reduce(function (sum, file) { return sum + (Number(file.size) || 0); }, 0);
+        if (totalBytes() + incoming > DRIVE_LIMIT) {
+            if (window.showToast) window.showToast('This upload would exceed the 10 GB Drive limit.');
+            return;
+        }
+        var localOnlyCount = 0;
+        var added = 0;
+        for (var index = 0; index < selected.length; index++) {
+            var file = selected[index];
+            var relative = String(file.webkitRelativePath || file.name).split('/').filter(Boolean);
+            var name = relative.pop() || file.name;
+            var parent = ensureFolderPath(relative, state.view === 'mydrive' ? state.folderId : null);
+            var id = makeId('file');
+            var mime = file.type || 'application/octet-stream';
+            var record = {
+                id: id,
+                name: name.slice(0, 180),
+                type: typeFromFile(file),
+                folder: parent,
+                size: Number(file.size) || 0,
+                mime: mime,
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+                starred: false,
+                trashed: false,
+                trashedAt: 0,
+                localOnly: false,
+                suite: '',
+                suiteId: '',
+                previewText: ''
+            };
+            if (file.size > SQL_BLOB_LIMIT) {
+                record.localOnly = true;
+                await localSet('blob:' + id, file);
+                localOnlyCount++;
+            } else {
+                try {
+                    await driveRequest('/blob/' + encodeURIComponent(id), { method: 'POST', headers: { 'Content-Type': mime }, body: file });
+                } catch (_) {
+                    record.localOnly = true;
+                    await localSet('blob:' + id, file);
+                    localOnlyCount++;
+                }
+            }
+            files.push(record);
+            added++;
+        }
+        await persistDriveState();
+        state.view = 'mydrive';
+        render();
+        if (window.showToast) {
+            var message = added + ' file' + (added === 1 ? '' : 's') + ' added';
+            if (localOnlyCount) message += '; ' + localOnlyCount + ' saved on this device only (SQL file limit is 1 MiB each).';
+            window.showToast(message);
+        }
+    }
+
+    async function newFolder() {
         var n = 1;
         var base = 'New folder';
-        while (folders.some(function (f) { return f.parent === state.folderId && f.name === (n === 1 ? base : base + ' ' + n); })) n++;
-        folders.push({ id: 'f' + Date.now(), name: n === 1 ? base : base + ' ' + n, parent: state.view === 'mydrive' ? state.folderId : null });
+        var parent = state.view === 'mydrive' ? state.folderId : null;
+        while (folders.some(function (f) { return !f.trashed && f.parent === parent && f.name === (n === 1 ? base : base + ' ' + n); })) n++;
+        var name = window.prompt('Name this folder:', n === 1 ? base : base + ' ' + n);
+        if (!name || !name.trim()) return;
+        createFolderRecord(name, parent);
+        await persistDriveState();
         state.view = 'mydrive';
         setActiveNav('mydrive');
         render();
@@ -1053,13 +1953,42 @@
     async function init() {
         bindContextMenu();
         if (window.EmeraldAuth && window.EmeraldAuth.ready) await window.EmeraldAuth.ready();
+        currentSession = window.EmeraldAuth && window.EmeraldAuth.getSession ? await window.EmeraldAuth.getSession() : null;
+        currentEmail = String(currentSession && currentSession.user && currentSession.user.email || '').trim().toLowerCase();
+        if (!currentEmail || !currentSession.token) {
+            window.location.href = '/account?next=' + encodeURIComponent('/drive.html');
+            return;
+        }
+        try {
+            await loadDriveState();
+            await refreshSuiteMirrors();
+        } catch (error) {
+            if (error.status === 401 || error.code === 'DEVICE_SIGNED_OUT' || error.code === 'ACCOUNT_DATA_RESET') {
+                window.location.href = '/account?next=' + encodeURIComponent('/drive.html');
+                return;
+            }
+            driveStatus = 'offline';
+            console.error('Drive could not load account data:', error);
+            if (window.showToast) window.showToast(error.message || 'Could not load Drive data.');
+        }
         initTheme();
         bindProfile();
         renderAccountProfile();
         bindToolbar();
         bindCreateUploadMenu();
         bindSidebarNav();
+        bindDriveSync();
         render();
+        var params = new URLSearchParams(window.location.search);
+        var requestedFile = params.get('file');
+        var requestedShare = params.get('shared');
+        if (requestedShare) {
+            openSharedNote(requestedShare);
+            history.replaceState({}, document.title, window.location.pathname);
+        } else if (requestedFile) {
+            var requested = files.find(function (file) { return String(file.id) === requestedFile; });
+            if (requested) openFile(requested);
+        }
         window.setInterval(updateHomeGreeting, 60000);
         window.addEventListener('resize', updateNavPill);
         if (document.fonts && document.fonts.ready) document.fonts.ready.then(updateNavPill);

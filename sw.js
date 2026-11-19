@@ -10,7 +10,6 @@ const ASSETS_TO_CACHE = [
   "./assets/scripts/animationvisible.js",
   "./assets/scripts/scrollice.js",
   "./assets/scripts/rightclick.js",
-
   "./assets/scripts/dropdown.js",
   "./assets/scripts/offline.js"
 ];

@@ -390,12 +390,31 @@ html[data-wiki-theme="dark"] .dhome-hero p { color: #e4e7ec; }
 /* ---- grid: file cards ---- */
 .dgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
 .dfile-card {
+    cursor: pointer;
     position: relative; display: flex; flex-direction: column;
     aspect-ratio: 1 / 1; min-width: 0;
     background: transparent; border: 1px solid transparent; border-radius: 8px;
     overflow: hidden; cursor: pointer; text-align: left;
     transition: transform .18s;
 }
+
+.dtrash-actions { display: flex; justify-content: flex-end; margin: 10px 0 18px; }
+.dtrash-actions button {
+    border: 1px solid #d5dcd7;
+    border-radius: 8px;
+    padding: 7px 12px;
+    background: #fff;
+    color: #8c2f2f;
+    font: 600 12px 'DM Sans', sans-serif;
+    cursor: pointer;
+}
+html[data-wiki-theme="dark"] .dtrash-actions button { background: #fff; color: #8c2f2f; border-color: #ddd; }
+.dcrumb-back { border: 0; background: transparent; padding: 0 5px 2px; color: inherit; font-size: 22px; line-height: 1; cursor: pointer; }
+.drive-preview-dialog { width: min(720px, calc(100vw - 36px)); max-height: min(78vh, 800px); display: flex; flex-direction: column; gap: 14px; }
+.drive-preview-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.drive-preview-dialog header strong { overflow: hidden; text-overflow: ellipsis; }
+.drive-preview-dialog header button { border: 0; background: transparent; font-size: 24px; cursor: pointer; }
+.drive-preview-dialog pre { overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: 14px/1.6 'DM Sans', sans-serif; }
 .dfile-card:hover { transform: translateY(-2px); }
 .dfile-thumb {
     position: relative; height: auto; min-height: 0; flex: 1 1 auto; display: grid; place-items: center;

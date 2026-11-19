@@ -59,6 +59,7 @@ class NotesApp {
     async init() {
         if (window.EmeraldAuth && window.EmeraldAuth.ready) await window.EmeraldAuth.ready();
         await this.loadNotesFromStorage();
+        const driveSharedNote = await this.loadDriveSharedNoteFromUrl();
         this.initializeCollaboration();
         this.setupEventListeners();
         this.setupStorageSync();
@@ -77,9 +78,59 @@ class NotesApp {
         this.showWelcomeScreenIfNeeded();
         this.updateRibbonAvailability();
         this.checkShareSessionFromURL();
+        if (driveSharedNote) {
+            this.notes.unshift(driveSharedNote);
+            this.renderNotesList();
+            this.renderNotesCards();
+            this.selectNote(driveSharedNote.id);
+            this.isViewOnly = true;
+            this._driveSharedNoteId = driveSharedNote.id;
+            const titleInput = document.getElementById('noteTitle');
+            const textEditor = document.getElementById('textEditor');
+            if (titleInput) titleInput.disabled = true;
+            if (textEditor) textEditor.contentEditable = 'false';
+            this._setOwnerOnlyButtonsVisible(false);
+            document.body.classList.add('collab-view-only');
+            this.updateRibbonAvailability();
+            const shareUrl = new URL(window.location.href);
+            shareUrl.search = '?driveShare=' + encodeURIComponent(driveSharedNote.shareId);
+            window.history.replaceState({}, document.title, shareUrl.pathname + shareUrl.search);
+        }
         this.setupMobileUI();
         this.setupSwipeGesture();
         this.isInitialized = true;
+    }
+    async loadDriveSharedNoteFromUrl() {
+        const params = new URLSearchParams(window.location.search);
+        const shareId = params.get('driveShare');
+        if (!shareId) return null;
+        try {
+            const session = window.EmeraldAuth && window.EmeraldAuth.getSession ? await window.EmeraldAuth.getSession() : null;
+            if (!session || !session.token) throw new Error('Sign in to view this shared Note.');
+            const base = window.EMERALD_AUTH_API_BASE
+                ? String(window.EMERALD_AUTH_API_BASE).replace(/\/+$/, '')
+                : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+                    ? 'http://localhost:8787'
+                    : 'https://emeraldnetwork-auth.iceemerald.workers.dev');
+            const response = await fetch(base + '/api/drive/shared/' + encodeURIComponent(shareId), {
+                headers: { Authorization: 'Bearer ' + session.token, 'Cache-Control': 'no-store' }
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || !result.note) throw new Error(result.error || 'This shared Note is unavailable.');
+            return {
+                id: 'drive-share-' + shareId,
+                shareId,
+                title: String(result.note.title || 'Shared Note').slice(0, 180),
+                content: String(result.note.content || ''),
+                createdAt: new Date().toISOString(),
+                modifiedAt: new Date().toISOString(),
+                _isCollabNote: true,
+                _driveShared: true
+            };
+        } catch (error) {
+            this.showToast(error.message || 'This shared Note is unavailable.');
+            return null;
+        }
     }
     async loadNotesFromStorage() {
         try {
