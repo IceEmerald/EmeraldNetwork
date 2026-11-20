@@ -91,7 +91,8 @@ class NotesApp {
                 storedNotes = NotesApp.memoryStorageFallback.get('emeraldcore.storage.suite.notes') || null;
             }
             if (storedNotes) {
-                this.notes = storedNotes;
+                const driveMeta = storage && storage.getJSON ? (await storage.getJSON('emerald.drive.metadata.v1')) || {} : {};
+                this.notes = (Array.isArray(storedNotes) ? storedNotes : []).filter(note => note && !(driveMeta['note:' + note.id] && driveMeta['note:' + note.id].trashed));
                 this.notes.forEach(note => {
                     if (note.content && typeof note.content === 'string') {
                         if (note.content.trim() === '<p>Start typing your note here...</p>' ||
@@ -115,9 +116,14 @@ class NotesApp {
     }
     saveNotesToStorage() {
         try {
-            const toSave = this.notes.filter(n => !n._isCollabNote);
+            let toSave = this.notes.filter(n => !n._isCollabNote);
             const storage = window.EmeraldIDBStorage;
             if (storage) {
+                const previous = storage.getJSONSync('emeraldcore.storage.suite.notes') || [];
+                const driveMeta = storage.getJSONSync('emerald.drive.metadata.v1') || {};
+                const visibleIds = new Set(toSave.map(note => String(note.id)));
+                const trashedNotes = (Array.isArray(previous) ? previous : []).filter(note => note && !visibleIds.has(String(note.id)) && driveMeta['note:' + note.id] && driveMeta['note:' + note.id].trashed);
+                toSave = toSave.concat(trashedNotes);
                 storage.setJSONSync('emeraldcore.storage.suite.notes', toSave);
             } else {
                 NotesApp.memoryStorageFallback.set('emeraldcore.storage.suite.notes', toSave);
@@ -2689,7 +2695,8 @@ class NotesApp {
         if (!currentNote) return;
         if (currentNote._isCollabNote) return;
         const title = currentNote.title || 'Untitled Note';
-        this.showDeleteModal(title, () => {
+        this.showDeleteModal(title, async () => {
+            if (window.EmeraldDriveTrash) await window.EmeraldDriveTrash.moveToTrash('note', currentNote.id, title);
             if (this.collabMode && this.collabIsOwner && this.currentNoteId === this.collabNoteId) {
                 this._dbPatch(`/sharednotes/${this.collabSessionId}`, { status: 'closed', closedAt: new Date().toISOString() }).catch(() => {});
                 this._resetCollabState();
@@ -4158,7 +4165,7 @@ class NotesApp {
         const message = document.getElementById('deleteModalMessage');
         const cancelBtn = document.getElementById('deleteModalCancel');
         const confirmBtn = document.getElementById('deleteModalConfirm');
-        message.textContent = `Are you sure you want to delete "${noteTitle}"? This action cannot be undone.`;
+        message.textContent = `Move "${noteTitle}" to Drive Trash? You can restore it there.`;
         modal.classList.add('show');
         const cleanup = () => {
             modal.classList.remove('show');

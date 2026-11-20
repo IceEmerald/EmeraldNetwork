@@ -2,6 +2,7 @@
     'use strict';
 
     const TAB = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    const DRIVE_META_KEY = 'emerald.drive.metadata.v1';
 
     const APPS = {
         notes: {
@@ -49,7 +50,8 @@
     const KEY_TO_TYPE = {
         'emeraldcore.storage.suite.notes': 'notes',
         'emeraldcore.storage.suite.docs': 'docs',
-        'emeraldcore.storage.suite.slides': 'slides'
+        'emeraldcore.storage.suite.slides': 'slides',
+        'emeraldcore.storage.suite.sheets.sync.v1': 'sheets'
     };
 
     const SVG = {
@@ -236,14 +238,18 @@
             const keys = await idbReq(store.getAllKeys());
             const vals = await idbReq(store.getAll());
             const out = [];
-            for (let i = 0; i < keys.length; i++) {
-                const d = vals[i];
+            const workbooks = {};
+            keys.forEach((key, index) => { workbooks[String(key)] = vals[index]; });
+            const synced = await (storage() ? storage().getJSON('emeraldcore.storage.suite.sheets.sync.v1') : null);
+            Object.keys(synced || {}).forEach(id => { if (!workbooks[id]) workbooks[id] = synced[id]; });
+            for (const id of Object.keys(workbooks)) {
+                const d = workbooks[id];
                 if (!d || typeof d !== 'object') continue;
                 const data = (d && d.data) || {};
                 const sheets = (data.sheets || []);
                 out.push({
                     type: 'sheets',
-                    id: String(keys[i]),
+                    id: String(id),
                     title: (data.title || '').trim() || 'Untitled spreadsheet',
                     updatedAt: toTs(d.savedAt || data.createdAt),
                     detail: sheets.length + (sheets.length === 1 ? ' sheet' : ' sheets'),
@@ -277,7 +283,16 @@
         } catch (e) {
             console.error('[EmeraldSuite] refresh failed:', e);
         }
-        let files = notes.concat(docs, slides, sheets);
+        const driveMeta = s ? await s.getJSON(DRIVE_META_KEY) : null;
+        let files = notes.concat(docs, slides, sheets).filter(f => {
+            const kind = f.type === 'notes' ? 'note' : f.type === 'docs' ? 'doc' : f.type === 'slides' ? 'slide' : 'sheet';
+            return !(driveMeta && driveMeta[kind + ':' + f.id] && driveMeta[kind + ':' + f.id].trashed);
+        });
+        files.forEach(f => {
+            const kind = f.type === 'notes' ? 'note' : f.type === 'docs' ? 'doc' : f.type === 'slides' ? 'slide' : 'sheet';
+            const meta = driveMeta && driveMeta[kind + ':' + f.id];
+            if (meta && meta.openedAt) f.openedAt = Number(meta.openedAt) || 0;
+        });
         files.forEach(f => { if (!f.updatedAt) f.updatedAt = 0; });
         files.sort((a, b) => (b.updatedAt - a.updatedAt));
         state.files = files;
@@ -352,45 +367,11 @@
 
     async function deleteFile(f) {
         const s = storage();
-        if (f.type === 'notes') {
-            let arr = s ? (await s.getJSON('emeraldcore.storage.suite.notes')) : null;
-            arr = Array.isArray(arr) ? arr : [];
-            arr = arr.filter(n => !(n && String(n.id) === f.id));
-            if (s) { s.setJSONSync('emeraldcore.storage.suite.notes', arr); }
-        } else if (f.type === 'docs') {
-            let arr = s ? (await s.getJSON('emeraldcore.storage.suite.docs')) : null;
-            arr = Array.isArray(arr) ? arr : [];
-            arr = arr.filter(m => !(m && String(m.id) === f.id));
-            if (s) { await s.setJSON('emeraldcore.storage.suite.docs', arr); }
-            try {
-                const dk = 'emeraldcore.storage.suite.docs.' + f.id;
-                const vk = 'emeraldcore.storage.suite.docs.versions.' + f.id;
-                if (s) {
-                    await s.delete(dk);
-                    await s.delete(vk);
-                }
-            } catch (e) {}
-        } else if (f.type === 'slides') {
-            let arr = s ? (await s.getJSON('emeraldcore.storage.suite.slides')) : null;
-            arr = Array.isArray(arr) ? arr : [];
-            arr = arr.filter(m => !(m && String(m.id) === f.id));
-            if (s) { await s.setJSON('emeraldcore.storage.suite.slides', arr); }
-            try {
-                const pk = 'emeraldcore.storage.suite.slides.' + f.id;
-                if (s) { await s.delete(pk); }
-            } catch (e) {}
-        } else if (f.type === 'sheets') {
-            try {
-                const db = await openSheetDB();
-                await new Promise((resolve, reject) => {
-                    const tx = db.transaction('workbooks', 'readwrite');
-                    tx.objectStore('workbooks').delete(f.id);
-                    tx.oncomplete = resolve;
-                    tx.onerror = () => reject(tx.error);
-                });
-            } catch (e) { console.warn('[EmeraldSuite] delete sheets failed', e); }
-            postSync();
-        }
+        if (!s) throw new Error('Storage is unavailable');
+        const meta = (await s.getJSON(DRIVE_META_KEY)) || {};
+        const kind = f.type === 'notes' ? 'note' : f.type === 'docs' ? 'doc' : f.type === 'slides' ? 'slide' : 'sheet';
+        meta[kind + ':' + f.id] = Object.assign({}, meta[kind + ':' + f.id], { trashed: true, trashedAt: Date.now() });
+        await s.setJSON(DRIVE_META_KEY, meta);
         return true;
     }
 
@@ -399,7 +380,16 @@
         return app.file + '?owned=' + encodeURIComponent(f.id);
     }
 
-    function openFile(f) {
+    async function openFile(f) {
+        const s = storage();
+        if (s) {
+            try {
+                const meta = (await s.getJSON(DRIVE_META_KEY)) || {};
+                const kind = f.type === 'notes' ? 'note' : f.type === 'docs' ? 'doc' : f.type === 'slides' ? 'slide' : 'sheet';
+                meta[kind + ':' + f.id] = Object.assign({}, meta[kind + ':' + f.id], { openedAt: Date.now() });
+                await s.setJSON(DRIVE_META_KEY, meta);
+            } catch (error) { console.warn('[EmeraldSuite] Could not update recent history', error); }
+        }
         location.href = fileUrl(f);
     }
 
@@ -499,7 +489,7 @@
         const empty = $('recentEmpty');
         if (!grid) return;
         const recent = state.files.slice()
-            .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+            .sort((a, b) => ((b.openedAt || b.updatedAt) - (a.openedAt || a.updatedAt)))
             .slice(0, 3);
         grid.innerHTML = '';
         if (empty) empty.hidden = recent.length > 0;
@@ -616,7 +606,7 @@
         deleteTarget = f;
         const app = APPS[f.type];
         $('deleteAppLabel').innerHTML = appIcon(f.type) + ' ' + esc(app.name);
-        $('deleteText').innerHTML = 'Delete <b>' + esc(f.title) + '</b> permanently from this device? This cannot be undone and will also remove it from open ' + app.name + ' tabs.';
+        $('deleteText').innerHTML = 'Move <b>' + esc(f.title) + '</b> to Drive Trash. You can restore it or permanently delete it from Drive.';
         openModal('deleteOverlay');
     }
 
@@ -827,7 +817,7 @@
         const s = storage();
         if (s && s.subscribe) {
             s.subscribe((change) => {
-                if (change && change.key && KEY_TO_TYPE[change.key]) {
+                if (change && change.key && (KEY_TO_TYPE[change.key] || change.key === DRIVE_META_KEY)) {
                     refresh({ silent: true });
                 }
             });

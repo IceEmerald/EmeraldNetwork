@@ -59,6 +59,16 @@
 
 /* ---- Drive shell / sidebar (aichat-inspired) ---- */
 .drive-hamburger { display: none; }
+ .drive-sync-status { display:flex; align-items:center; gap:7px; border:0; background:transparent; color:#63706a; padding:7px 9px; border-radius:8px; cursor:pointer; font:500 12px 'DM Sans',sans-serif; }
+.drive-sync-status:hover { background:rgba(35,154,77,.08); color:#246b3d; }
+.drive-sync-dot { width:7px; height:7px; border-radius:50%; background:#279653; box-shadow:0 0 0 3px rgba(39,150,83,.12); }
+.drive-sync-status.syncing .drive-sync-dot { background:#d99a25; animation:driveSyncPulse 1s ease-in-out infinite; }
+.drive-sync-status.offline .drive-sync-dot { background:#d64545; box-shadow:0 0 0 3px rgba(214,69,69,.12); }
+@keyframes driveSyncPulse { 50% { opacity:.35; } }
+html[data-wiki-theme="dark"] .drive-sync-status { color:#aab5ae; }
+html[data-wiki-theme="dark"] .drive-sync-status:hover { background:rgba(80,200,120,.1); color:#b7e3c6; }
+.drive-loading-grid { margin:14px 0; }
+.drive-loading-grid .loading-card { min-height:200px; }
 @media (max-width: 768px) { .drive-hamburger { display: inline-grid; place-items: center; } }
 
 .drive-shell { display: flex; height: calc(100vh - 62px); overflow: hidden; }
