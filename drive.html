@@ -149,6 +149,14 @@
 </div>
 <div id="custom-toast" class="custom-toast"></div>
 
+<div class="drive-modal-overlay" id="driveModal" hidden>
+    <section class="drive-modal" role="dialog" aria-modal="true" aria-labelledby="driveModalTitle">
+        <div class="drive-modal-header"><h2 id="driveModalTitle"></h2><button type="button" id="driveModalClose" aria-label="Close dialog">&times;</button></div>
+        <div class="drive-modal-body" id="driveModalBody"></div>
+        <div class="drive-modal-actions" id="driveModalActions"></div>
+    </section>
+</div>
+
 <div class="account-pop" id="accountPop" hidden role="dialog" aria-label="Your account">
     <div class="account-pop-top"><div class="account-brand" id="accountProvider"></div><button id="accountSignOut" type="button">Sign out</button></div>
     <div class="account-pop-user">

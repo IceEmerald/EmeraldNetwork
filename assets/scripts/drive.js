@@ -4,6 +4,74 @@
 
     function $(id) { return document.getElementById(id); }
 
+    var activeModalResolver = null;
+    function closeDriveModal(result) {
+        var modal = $('driveModal');
+        if (!modal || modal.hidden) return;
+        modal.hidden = true;
+        if (activeModalResolver) { var resolve = activeModalResolver; activeModalResolver = null; resolve(result || { confirmed: false, value: null }); }
+    }
+
+    function showDriveModal(options) {
+        options = options || {};
+        var modal = $('driveModal');
+        var title = $('driveModalTitle');
+        var body = $('driveModalBody');
+        var actions = $('driveModalActions');
+        if (!modal || !title || !body || !actions) return Promise.resolve({ confirmed: false, value: null });
+        if (activeModalResolver) closeDriveModal();
+        title.textContent = options.title || 'Drive';
+        body.innerHTML = '';
+        if (options.message) { var message = document.createElement('p'); message.textContent = options.message; body.appendChild(message); }
+        if (options.bodyHtml) body.insertAdjacentHTML('beforeend', options.bodyHtml);
+        var control = null;
+        if (options.input) {
+            control = document.createElement('input');
+            control.type = options.input.type || 'text';
+            control.value = options.input.value || '';
+            control.placeholder = options.input.placeholder || '';
+            control.setAttribute('aria-label', options.input.label || options.title || 'Value');
+            body.appendChild(control);
+        } else if (options.select) {
+            control = document.createElement('select');
+            control.setAttribute('aria-label', options.select.label || 'Choose a folder');
+            options.select.options.forEach(function (option) {
+                var node = document.createElement('option'); node.value = option.value; node.textContent = option.label; control.appendChild(node);
+            });
+            body.appendChild(control);
+        }
+        actions.innerHTML = '';
+        var cancel = document.createElement('button');
+        cancel.type = 'button'; cancel.textContent = options.cancelLabel || 'Cancel';
+        cancel.addEventListener('click', function () { closeDriveModal(); });
+        actions.appendChild(cancel);
+        if (options.primaryLabel) {
+            var primary = document.createElement('button');
+            primary.type = 'button'; primary.className = 'primary' + (options.danger ? ' danger' : ''); primary.textContent = options.primaryLabel;
+            primary.addEventListener('click', async function () {
+                var value = control ? control.value : null;
+                try {
+                    if (options.onConfirm) await options.onConfirm(value);
+                    closeDriveModal({ confirmed: true, value: value });
+                } catch (error) {
+                    if (window.showToast) window.showToast(error.message || 'Could not complete this action.');
+                }
+            });
+            actions.appendChild(primary);
+        }
+        modal.hidden = false;
+        if (control) setTimeout(function () { control.focus(); if (control.select) control.select(); }, 20);
+        return new Promise(function (resolve) { activeModalResolver = resolve; });
+    }
+
+    function bindDriveModal() {
+        var modal = $('driveModal');
+        var close = $('driveModalClose');
+        if (close) close.addEventListener('click', function () { closeDriveModal(); });
+        if (modal) modal.addEventListener('click', function (event) { if (event.target === modal) closeDriveModal(); });
+        document.addEventListener('keydown', function (event) { if (event.key === 'Escape') closeDriveModal(); });
+    }
+
     function storage() { return window.EmeraldIDBStorage || null; }
 
     function byteLengthOf(value) {
@@ -55,7 +123,11 @@
         trashMap = trashMap && typeof trashMap === 'object' ? trashMap : {};
         flagsMap = flagsMap && typeof flagsMap === 'object' ? flagsMap : {};
         folders.forEach(function (folder) { folder.trashed = !!(folder.trashed || trashMap[folder.id]); });
-        files.forEach(function (file) { file.trashed = !!(file.trashed || trashMap[file.driveKey || file.id]); });
+        files.forEach(function (file) {
+            var fileFlags = flagsMap[file.driveKey || file.id] || {};
+            file.trashed = !!(file.trashed || trashMap[file.driveKey || file.id]);
+            file.lastOpenedAt = Math.max(Number(file.lastOpenedAt) || 0, Number(fileFlags.lastOpenedAt) || 0);
+        });
         var suiteMaps = [
             ['emeraldcore.storage.suite.docs', 'doc', 'docs'],
             ['emeraldcore.storage.suite.notes', 'note', 'notes'],
@@ -76,7 +148,7 @@
                 var sizeBytes = byteLengthOf(payload);
                 var flags = flagsMap[key] || {};
                 files.push({ id: String(record.id), driveKey: key, name: record.title || 'Untitled ' + mapping[1], type: mapping[1], appType: mapping[2], folder: flags.folder || null,
-                    size: formatBytes(sizeBytes), sizeBytes: sizeBytes, modifiedAt: modifiedAt, lastOpenedAt: flags.lastOpenedAt || 0, modified: relativeOrOriginalDate(modifiedAt), starred: !!flags.starred, shared: !!(flags.sharedWith && flags.sharedWith.length), sharedWith: flags.sharedWith || [], trashed: deleted, externalApp: true });
+                    size: formatBytes(sizeBytes), sizeBytes: sizeBytes, previewText: suitePreviewText(mapping[2], payload), modifiedAt: modifiedAt, lastOpenedAt: flags.lastOpenedAt || 0, modified: relativeOrOriginalDate(modifiedAt), starred: !!flags.starred, shared: !!(flags.sharedWith && flags.sharedWith.length), sharedWith: flags.sharedWith || [], trashed: deleted, externalApp: true });
             }
         }
         try {
@@ -88,7 +160,7 @@
             var tx = db.transaction('workbooks', 'readonly');
             var keys = await new Promise(function (resolve, reject) { var req = tx.objectStore('workbooks').getAllKeys(); req.onsuccess = function () { resolve(req.result); }; req.onerror = function () { reject(req.error); }; });
             var vals = await new Promise(function (resolve, reject) { var req = tx.objectStore('workbooks').getAll(); req.onsuccess = function () { resolve(req.result); }; req.onerror = function () { reject(req.error); }; });
-            keys.forEach(function (id, index) { var data = vals[index] && vals[index].data || {}; var key = 'sheets:' + id; var flags = flagsMap[key] || {}; var modifiedAt = vals[index] && vals[index].savedAt || Date.now(); var sizeBytes = byteLengthOf(data); files.push({ id: String(id), driveKey: key, name: data.title || 'Untitled spreadsheet', type: 'sheet', appType: 'sheets', folder: flags.folder || null, size: formatBytes(sizeBytes), sizeBytes: sizeBytes, modifiedAt: modifiedAt, lastOpenedAt: flags.lastOpenedAt || 0, modified: relativeOrOriginalDate(modifiedAt), starred: !!flags.starred, shared: !!(flags.sharedWith && flags.sharedWith.length), sharedWith: flags.sharedWith || [], trashed: !!trashMap[key], externalApp: true }); });
+            keys.forEach(function (id, index) { var data = vals[index] && vals[index].data || {}; var key = 'sheets:' + id; var flags = flagsMap[key] || {}; var modifiedAt = vals[index] && vals[index].savedAt || Date.now(); var sizeBytes = byteLengthOf(data); files.push({ id: String(id), driveKey: key, name: data.title || 'Untitled spreadsheet', type: 'sheet', appType: 'sheets', folder: flags.folder || null, size: formatBytes(sizeBytes), sizeBytes: sizeBytes, previewText: suitePreviewText('sheets', data), modifiedAt: modifiedAt, lastOpenedAt: flags.lastOpenedAt || 0, modified: relativeOrOriginalDate(modifiedAt), starred: !!flags.starred, shared: !!(flags.sharedWith && flags.sharedWith.length), sharedWith: flags.sharedWith || [], trashed: !!trashMap[key], externalApp: true }); });
         } catch (_) {}
         if (ensureSuiteFolders()) await saveDriveData();
         loading = false;
@@ -125,8 +197,16 @@
     function saveDriveData() {
         var s = storage();
         if (!s || !s.setJSON) return Promise.resolve();
-        files.forEach(function (file) { if (file.externalApp) flagsMap[file.driveKey] = { starred: !!file.starred, sharedWith: file.sharedWith || [], folder: file.folder || null, lastOpenedAt: file.lastOpenedAt || 0 }; });
+        files.forEach(function (file) {
+            var key = file.driveKey || file.id;
+            flagsMap[key] = Object.assign({}, flagsMap[key], { starred: !!file.starred, sharedWith: file.sharedWith || [], folder: file.folder || null, lastOpenedAt: file.lastOpenedAt || 0 });
+        });
         return Promise.all([s.setJSON(FOLDERS_KEY, folders), s.setJSON(FILES_KEY, files.filter(function (f) { return !f.externalApp; })), s.setJSON(TRASH_KEY, trashMap), s.setJSON(FLAGS_KEY, flagsMap)]);
+    }
+
+    function saveDriveFlags() {
+        var s = storage();
+        return s && s.setJSON ? s.setJSON(FLAGS_KEY, flagsMap) : Promise.resolve();
     }
 
     function showSkeleton() {
@@ -146,8 +226,16 @@
         return files.filter(function (f) { return f.folder === folderId && !f.trashed; });
     }
 
+    function formatFileDate(value) {
+        if (!value) return '—';
+        var date = new Date(value);
+        if (isNaN(date.getTime())) return String(value);
+        if (Date.now() - date.getTime() < 60000) return 'Just now';
+        return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
     function fileCreated(item) {
-        return item.created || item.createdAt || item.created_at || '—';
+        return formatFileDate(item.created || item.createdAt || item.created_at || item.modifiedAt);
     }
 
     function bytesFromSize(size) {
@@ -229,6 +317,16 @@
         });
     }
 
+    function shadeHex(hex, amount) {
+        var match = /^#?([0-9a-f]{6})$/i.exec(String(hex || ''));
+        if (!match) return '#f3b900';
+        var value = parseInt(match[1], 16);
+        var channels = [(value >> 16) & 255, (value >> 8) & 255, value & 255].map(function (channel) {
+            return Math.max(0, Math.min(255, Math.round(channel + (amount > 0 ? (255 - channel) : -channel) * Math.abs(amount))));
+        });
+        return '#' + channels.map(function (channel) { return channel.toString(16).padStart(2, '0'); }).join('');
+    }
+
     function fileIconSvg(type, name) {
         var extension = String(name || '').split('.').pop().toLowerCase();
         var category = type;
@@ -278,20 +376,55 @@
         return '<span class="dfile-badge" aria-hidden="true" style="color:' + m.color + ';background:#fff">' + icon + '</span>';
     }
 
-    function filePreview(type) {
-        if (type === 'note') {
-            return '<div class="dfile-preview-page dpreview-note"><span class="dpreview-note-margin"></span><div class="dpreview-note-lines">' +
-                [72, 88, 64, 82, 54, 78, 68].map(function (width) { return '<i style="width:' + width + '%"></i>'; }).join('') + '</div></div>';
+    function plainTextFromHtml(value) {
+        var holder = document.createElement('div');
+        holder.innerHTML = String(value || '');
+        return (holder.innerText || holder.textContent || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function suitePreviewText(type, payload) {
+        if (!payload) return '';
+        if (type === 'notes' || type === 'docs') return plainTextFromHtml(payload.content || '').slice(0, 260);
+        if (type === 'slides') {
+            var text = [];
+            (payload.slides || []).slice(0, 3).forEach(function (slide) {
+                (slide.elements || []).forEach(function (element) { if (element && (element.text || element.value)) text.push(String(element.text || element.value)); });
+            });
+            return text.join(' · ').slice(0, 260) || ((payload.slides || []).length + ' slides');
         }
-        if (type === 'sheet') {
-            return '<div class="dfile-preview-page dpreview-sheet"><span class="dpreview-sheet-toolbar"></span><span class="dpreview-sheet-head"></span><div class="dpreview-sheet-grid">' +
-                new Array(30).join('<i></i>') + '</div></div>';
+        if (type === 'sheets') {
+            var cells = [];
+            (payload.sheets || []).slice(0, 2).forEach(function (sheet) {
+                Object.keys(sheet.cells || {}).sort().forEach(function (key) {
+                    var cell = sheet.cells[key];
+                    if (cell && cell.v != null && String(cell.v).trim()) cells.push(String(cell.v));
+                });
+            });
+            return cells.slice(0, 18).join('  ·  ') || ((payload.sheets || []).length + ' sheets');
         }
-        if (type === 'slide') {
-            return '<div class="dfile-preview-page dpreview-slide"><span class="dpreview-slide-art"></span><span class="dpreview-slide-title"></span><span class="dpreview-slide-copy"></span></div>';
+        return '';
+    }
+
+    function filePreview(item) {
+        var mime = String(item.mimeType || '').toLowerCase();
+        if (item.dataUrl && (/^image\//.test(mime) || item.type === 'image')) {
+            return '<div class="dfile-preview-image-wrap"><img class="dfile-preview-image" src="' + esc(item.dataUrl) + '" alt=""></div>';
         }
-        return '<div class="dfile-preview-page dpreview-doc"><span class="dpreview-doc-title"></span><div class="dpreview-doc-lines">' +
-            [64, 82, 78, 70, 86, 58, 76, 68].map(function (width) { return '<i style="width:' + width + '%"></i>'; }).join('') + '</div></div>';
+        if (item.dataUrl && (item.type === 'pdf' || mime === 'application/pdf')) {
+            return '<div class="dfile-preview-pdf"><iframe title="' + esc(item.name) + ' preview" src="' + esc(item.dataUrl) + '#toolbar=0&navpanes=0" loading="lazy" tabindex="-1"></iframe></div>';
+        }
+        if (item.previewText) {
+            var lines = String(item.previewText).slice(0, 260).split(/\s+/).reduce(function (out, word) {
+                var last = out[out.length - 1] || '';
+                if ((last + ' ' + word).length > 30) out.push(word); else out[out.length - 1] = last ? last + ' ' + word : word;
+                return out;
+            }, []);
+            return '<div class="dfile-preview-page dpreview-content"><span class="dpreview-content-title">' + esc(item.name) + '</span><div>' + lines.slice(0, 6).map(function (line) { return '<i>' + esc(line) + '</i>'; }).join('') + '</div></div>';
+        }
+        if (item.type === 'note') return '<div class="dfile-preview-page dpreview-note"><span class="dpreview-note-margin"></span><div class="dpreview-note-lines">' + [72, 88, 64, 82, 54, 78, 68].map(function (width) { return '<i style="width:' + width + '%"></i>'; }).join('') + '</div></div>';
+        if (item.type === 'sheet') return '<div class="dfile-preview-page dpreview-sheet"><span class="dpreview-sheet-toolbar"></span><span class="dpreview-sheet-head"></span><div class="dpreview-sheet-grid">' + new Array(30).join('<i></i>') + '</div></div>';
+        if (item.type === 'slide') return '<div class="dfile-preview-page dpreview-slide"><span class="dpreview-slide-art"></span><span class="dpreview-slide-title">' + esc(item.name) + '</span><span class="dpreview-slide-copy"></span></div>';
+        return '<div class="dfile-preview-page dpreview-doc"><span class="dpreview-doc-title">' + esc(item.name) + '</span><div class="dpreview-doc-lines">' + [64, 82, 78, 70, 86, 58].map(function (width) { return '<i style="width:' + width + '%"></i>'; }).join('') + '</div></div>';
     }
 
     /* ---------------- rendering ---------------- */
@@ -333,19 +466,24 @@
     function cardHTML(item, isFolder) {
         if (isFolder) {
             var gradientId = 'folderGradient-' + esc(item.id);
+            var folderColor = /^#[0-9a-f]{6}$/i.test(String(item.color || '')) ? item.color : '#f3b900';
             return '<button class="dfolder-card" data-folder="' + item.id + '">' +
-                '<span class="dfolder-icon"><svg viewBox="0 0 160 110" aria-hidden="true">' +
-                    '<defs><linearGradient id="' + gradientId + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + esc(item.color || '#ffe66b') + '"/><stop offset="1" stop-color="' + esc(item.color || '#ffc52e') + '"/></linearGradient></defs>' +
-            '<path d="M12 27a9 9 0 0 1 9-9h43c5 0 8 2 11 5l10 11h63a9 9 0 0 1 9 9v48a9 9 0 0 1-9 9H21a9 9 0 0 1-9-9z" fill="' + esc(item.color || '#f3b900') + '"/>' +
-                    '<path d="M12 36h51c6 0 9-2 13-6l9-9h63a9 9 0 0 1 9 9v61a9 9 0 0 1-9 9H21a9 9 0 0 1-9-9z" fill="url(#' + gradientId + ')" stroke="' + esc(item.color || '#e9ae18') + '" stroke-width="1.5"/>' +
-                    '<path d="M14 35h49c6 0 9-2 13-6l8-8" fill="none" stroke="rgba(255,255,255,.85)" stroke-width="2.5"/>' +
+                '<span class="dfolder-icon"><svg viewBox="0 0 180 126" aria-hidden="true">' +
+                    '<defs><linearGradient id="' + gradientId + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + shadeHex(folderColor, .38) + '"/><stop offset=".48" stop-color="' + folderColor + '"/><stop offset="1" stop-color="' + shadeHex(folderColor, -.18) + '"/></linearGradient><linearGradient id="' + gradientId + '-tab" x1="0" y1="0" x2="0" y2="1"><stop stop-color="' + shadeHex(folderColor, .22) + '"/><stop offset="1" stop-color="' + shadeHex(folderColor, -.12) + '"/></linearGradient><filter id="' + gradientId + '-shadow" x="-20%" y="-20%" width="140%" height="155%"><feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#203026" flood-opacity=".2"/></filter></defs>' +
+                    '<g filter="url(#' + gradientId + '-shadow)">' +
+                    '<path d="M14 34a10 10 0 0 1 10-10h38c7 0 10 2 15 7l8 8h69a10 10 0 0 1 10 10v54a10 10 0 0 1-10 10H24a10 10 0 0 1-10-10z" fill="' + shadeHex(folderColor, -.24) + '"/>' +
+                    '<path d="M12 29a9 9 0 0 1 9-9h40c6 0 9 2 13 6l9 9h76a9 9 0 0 1 9 9v10H12z" fill="url(#' + gradientId + '-tab)"/>' +
+                    '<path d="M12 47h56c6 0 10-2 14-6l9-8h77a9 9 0 0 1 9 9v54a10 10 0 0 1-10 10H22a10 10 0 0 1-10-10z" fill="url(#' + gradientId + ')" stroke="' + shadeHex(folderColor, -.25) + '" stroke-width="1.5"/>' +
+                    '<path d="M15 49h51c7 0 12-2 17-7l8-7" fill="none" stroke="rgba(255,255,255,.72)" stroke-width="3" stroke-linecap="round"/>' +
+                    '<path d="M16 99h156" fill="none" stroke="rgba(0,0,0,.1)" stroke-width="2"/>' +
+                    '</g>' +
                 '</svg></span>' +
                 '<span class="dfolder-name">' + esc(item.name) + '</span>' +
                 '</button>';
         }
         var m = TYPE_META[item.type] || TYPE_META.other;
-        return '<div class="dfile-card" data-file="' + item.id + '">' +
-            '<div class="dfile-thumb dfile-thumb--' + esc(item.type || 'other') + '">' + filePreview(item.type) + typeBadge(item.type, item.name) +
+        return '<div class="dfile-card" data-file="' + item.id + '" role="button" tabindex="0" aria-label="Open ' + esc(item.name) + '">' +
+            '<div class="dfile-thumb dfile-thumb--' + esc(item.type || 'other') + '">' + filePreview(item) + typeBadge(item.type, item.name) +
                 (item.starred ? '<span class="dfile-star" title="Starred" aria-label="Starred"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2.8 2.83 5.74 6.34.92-4.59 4.47 1.08 6.31L12 17.26l-5.66 2.98 1.08-6.31-4.59-4.47 6.34-.92L12 2.8z"/></svg></span>' : '') +
             '</div>' +
             '<div class="dfile-body"><div class="dfile-name">' + esc(item.name) + '</div>' +
@@ -551,30 +689,30 @@
                 var suggested = recent.slice(0, 3);
                 if (suggested.length) html += section('Suggested', layoutHTML(suggested));
                 if (recent.length) html += section('Recent files', layoutHTML(recent));
-                if (!recent.length) html += emptyHTML('Nothing here yet', 'Your recent files will appear here.');
+                if (!recent.length) html += emptyHTML('Nothing here yet', 'Your recent files will appear here.', '/assets/images/nofileyet.webp');
             }
         } else if (state.view === 'mydrive') {
             var foldersHere = filterSearch(childrenOf(state.folderId));
             var filesHere = sortList(filterSearch(filesIn(state.folderId)));
             if (!foldersHere.length && !filesHere.length) {
-                html += emptyHTML('Nothing here yet', q ? 'No matches in this folder.' : 'This folder is empty.', q ? '/assets/images/nofilefound.webp' : null);
+                html += emptyHTML('Nothing here yet', q ? 'No matches in this folder.' : 'This folder is empty.', q ? '/assets/images/nofilefound.webp' : '/assets/images/nofileyet.webp');
             } else {
                 if (foldersHere.length) html += section('Folders', folderLayoutHTML(foldersHere));
                 if (filesHere.length) html += section('Files', layoutHTML(filesHere));
             }
         } else if (state.view === 'shared') {
             var shared = sortList(filterSearch(files.filter(function (f) { return f.shared && !f.trashed; })));
-            html += shared.length ? layoutHTML(shared) : emptyHTML(q ? 'No results' : 'Nothing shared yet', q ? 'Nothing matches your search.' : 'Files shared with you will show up here.', q ? '/assets/images/nofilefound.webp' : null);
+            html += shared.length ? layoutHTML(shared) : emptyHTML(q ? 'No results' : 'Nothing shared yet', q ? 'Nothing matches your search.' : 'Files shared with you will show up here.', q ? '/assets/images/nofilefound.webp' : '/assets/images/nofileyet.webp');
         } else if (state.view === 'recent') {
             var rec = sortList(filterSearch(files.filter(function (f) { return !f.trashed; })));
-            html += rec.length ? layoutHTML(rec) : emptyHTML(q ? 'No results' : 'No recent files', q ? 'Nothing matches your search.' : 'Open a file and it will show up here.', q ? '/assets/images/nofilefound.webp' : null);
+            html += rec.length ? layoutHTML(rec) : emptyHTML(q ? 'No results' : 'No recent files', q ? 'Nothing matches your search.' : 'Open a file and it will show up here.', q ? '/assets/images/nofilefound.webp' : '/assets/images/nofileyet.webp');
         } else if (state.view === 'starred') {
             var st = sortList(filterSearch(files.filter(function (f) { return f.starred && !f.trashed; })));
-            html += st.length ? layoutHTML(st) : emptyHTML(q ? 'No results' : 'No starred files', q ? 'Nothing matches your search.' : 'Star a file to pin it here.', q ? '/assets/images/nofilefound.webp' : null);
+            html += st.length ? layoutHTML(st) : emptyHTML(q ? 'No results' : 'No starred files', q ? 'Nothing matches your search.' : 'Star a file to pin it here.', q ? '/assets/images/nofilefound.webp' : '/assets/images/nofileyet.webp');
         } else if (state.view === 'trash') {
             html += '<div class="dtrash-banner"><span class="dtrash-banner-icon" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span>Items in trash are deleted forever after 30 days.</span></div>';
             var tr = sortList(filterSearch(files.filter(function (f) { return f.trashed; })).concat(folders.filter(function (f) { return f.trashed; })));
-            html += tr.length ? gridHTML(tr) : emptyHTML(q ? 'No results' : 'Trash is empty', q ? 'Nothing matches your search.' : 'Deleted files appear here for 30 days.', q ? '/assets/images/nofilefound.webp' : null);
+            html += tr.length ? gridHTML(tr) : emptyHTML(q ? 'No results' : 'Trash is empty', q ? 'Nothing matches your search.' : 'Deleted files appear here for 30 days.', q ? '/assets/images/nofilefound.webp' : '/assets/images/nofileyet.webp');
         }
 
         box.innerHTML = html;
@@ -598,10 +736,12 @@
             });
         });
         box.querySelectorAll('[data-file]').forEach(function (n) {
-            n.addEventListener('dblclick', function () { openDriveFile(files.find(function (f) { return String(f.id) === n.getAttribute('data-file'); })); });
             n.addEventListener('click', function () {
                 var file = files.find(function (f) { return String(f.id) === n.getAttribute('data-file'); });
-                if (file) { file.lastOpenedAt = Date.now(); saveDriveData(); }
+                if (file) openDriveFile(file);
+            });
+            n.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); var file = files.find(function (f) { return String(f.id) === n.getAttribute('data-file'); }); if (file) openDriveFile(file); }
             });
         });
     }
@@ -609,18 +749,24 @@
     function openDriveFile(file) {
         if (!file) return;
         file.lastOpenedAt = Date.now();
-        saveDriveData();
+        flagsMap[file.driveKey || file.id] = Object.assign({}, flagsMap[file.driveKey || file.id], { lastOpenedAt: file.lastOpenedAt });
+        saveDriveFlags();
         if (file.externalApp) {
             var urls = { doc: '/docs', note: '/notes', slide: '/slides', sheet: '/sheets' };
             window.location.href = (urls[file.type] || '/') + '?owned=' + encodeURIComponent(file.id);
             return;
         }
-        if (file.dataUrl) {
-            if (/^image\//i.test(file.mimeType || '')) {
-                var win = window.open();
-                if (win) { win.document.write('<title>' + esc(file.name) + '</title><img style="max-width:100%;height:auto" src="' + file.dataUrl + '">'); win.document.close(); }
-            } else downloadFile(file);
-        }
+        previewDriveFile(file);
+    }
+
+    function previewDriveFile(file) {
+        var bodyHtml = '';
+        var mime = String(file.mimeType || '').toLowerCase();
+        if (file.dataUrl && (/^image\//.test(mime) || file.type === 'image')) bodyHtml = '<img class="drive-preview-image" src="' + esc(file.dataUrl) + '" alt="' + esc(file.name) + '">';
+        else if (file.dataUrl && (file.type === 'pdf' || mime === 'application/pdf')) bodyHtml = '<iframe class="drive-preview-frame" title="' + esc(file.name) + ' preview" src="' + esc(file.dataUrl) + '#toolbar=1" allow="fullscreen"></iframe>';
+        else if (file.previewText) bodyHtml = '<pre class="drive-preview-text">' + esc(file.previewText) + '</pre>';
+        else bodyHtml = '<div class="drive-preview-other">' + fileIconSvg(file.type, file.name) + '<div><strong>' + esc(file.name) + '</strong><small>' + esc(file.mimeType || file.size || 'Preview is unavailable for this file type.') + '</small></div></div>';
+        showDriveModal({ title: file.name, bodyHtml: bodyHtml, primaryLabel: 'Download', onConfirm: function () { return downloadFile(file); }, cancelLabel: 'Close' });
     }
 
     async function downloadFile(file) {
@@ -804,20 +950,26 @@
         if (action === 'download') return downloadFile(item);
         if (action === 'copy-link') {
             var link = item.externalApp ? new URL(({doc:'/docs',note:'/notes',slide:'/slides',sheet:'/sheets'})[item.type] + '?owned=' + encodeURIComponent(item.id), location.origin).href : new URL('/drive?file=' + encodeURIComponent(item.id), location.origin).href;
-            try { await navigator.clipboard.writeText(link); if (window.showToast) window.showToast('Link copied'); } catch (_) { window.prompt('Copy this link', link); }
+            try { await navigator.clipboard.writeText(link); if (window.showToast) window.showToast('Link copied'); }
+            catch (_) { await showDriveModal({ title: 'Copy link', message: 'Copy this link to open the file in EmeraldNetwork.', input: { value: link, label: 'File link' }, primaryLabel: 'Done' }); }
             return;
         }
         if (action === 'star') { item.starred = !item.starred; await saveDriveData(); render(); return; }
         if (action === 'folder-color') { item.color = color; await saveDriveData(); render(); return; }
         if (action === 'manage-access') {
             var current = (item.sharedWith || []).join(', ');
-            var value = window.prompt('People with access (email addresses separated by commas)', current);
-            if (value === null) return;
+            var result = await showDriveModal({ title: 'Manage access', message: 'Enter email addresses separated by commas.', input: { value: current, placeholder: 'name@example.com', label: 'People with access' }, primaryLabel: 'Save', cancelLabel: 'Cancel' });
+            if (!result.confirmed) return;
+            var value = result.value || '';
             item.sharedWith = value.split(',').map(function (x) { return x.trim(); }).filter(Boolean);
             item.shared = item.sharedWith.length > 0;
             await saveDriveData(); render(); if (window.showToast) window.showToast(item.shared ? 'Access list updated' : 'Sharing turned off'); return;
         }
         if (action === 'delete' || action === 'purge' || action === 'restore') {
+            if (action !== 'restore') {
+                var confirm = await showDriveModal({ title: action === 'purge' ? 'Delete forever?' : 'Move to trash?', message: action === 'purge' ? 'This permanently removes this item and cannot be undone.' : 'You can restore this item from Drive Trash.', primaryLabel: action === 'purge' ? 'Delete forever' : 'Move to trash', danger: action === 'purge' });
+                if (!confirm.confirmed) return;
+            }
             var isDelete = action === 'delete';
             var targets = isFolder ? folderContents(item.id) : [item];
             for (var targetIndex = 0; targetIndex < targets.length; targetIndex++) {
@@ -852,11 +1004,10 @@
         if (action === 'move-to' || action === 'copy-to') {
             var excluded = isFolder ? folderContents(item.id).filter(function (entry) { return entry.type === undefined; }).map(function (entry) { return entry.id; }) : [];
             var choices = folders.filter(function (f) { return !f.trashed && excluded.indexOf(f.id) === -1; });
-            var options = ['My Drive (root)'].concat(choices.map(function (f) { return f.name + ' [' + f.id + ']'; })).join('\n');
-            var target = window.prompt('Enter a destination folder ID, or leave blank for My Drive root:\n' + options, '');
-            if (target === null) return;
-            var parent = target.trim() || null;
-            if (parent && !choices.some(function (f) { return f.id === parent; })) { if (window.showToast) window.showToast('Folder not found'); return; }
+            var selectOptions = [{ value: '', label: 'My Drive (root)' }].concat(choices.map(function (f) { return { value: f.id, label: folderPath(f.id).map(function (part) { return part.name; }).join(' / ') }; }));
+            var destination = await showDriveModal({ title: action === 'move-to' ? 'Move to folder' : 'Copy to folder', message: 'Choose a destination in My Drive.', select: { options: selectOptions, label: 'Destination folder' }, primaryLabel: action === 'move-to' ? 'Move' : 'Copy' });
+            if (!destination.confirmed) return;
+            var parent = destination.value || null;
             if (action === 'copy-to') {
                 if (isFolder) duplicateFolder(item, parent);
                 else if (item.externalApp) {
@@ -1262,7 +1413,11 @@
                 var name = file.name || 'Untitled file';
                 var ext = name.split('.').pop().toLowerCase();
                 var type = /^(png|jpe?g|gif|webp|avif|bmp|svg|heic|tiff?)$/.test(ext) ? 'image' : (ext === 'pdf' ? 'pdf' : 'other');
-                files.push({ id: 'file-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9), name: name, type: type, folder: parent, size: formatBytes(file.size), sizeBytes: file.size, mimeType: file.type || 'application/octet-stream', dataUrl: await readFileAsDataUrl(file), modifiedAt: Date.now(), modified: 'Just now', created: new Date().toISOString(), starred: false, shared: false, trashed: false });
+                var previewText = '';
+                if (/^(txt|md|markdown|json|csv|tsv|xml|yaml|yml|log|js|jsx|ts|tsx|css|html|htm|sql|py|sh)$/.test(ext)) {
+                    try { previewText = (await file.text()).slice(0, 500); } catch (_) {}
+                }
+                files.push({ id: 'file-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9), name: name, type: type, folder: parent, size: formatBytes(file.size), sizeBytes: file.size, mimeType: file.type || 'application/octet-stream', dataUrl: await readFileAsDataUrl(file), previewText: previewText, modifiedAt: Date.now(), modified: 'Just now', created: new Date().toISOString(), starred: false, shared: false, trashed: false });
             }
             await saveDriveData();
             state.view = 'mydrive';
@@ -1448,9 +1603,9 @@
         if (bd) bd.classList.remove('visible');
     }
     async function newFolder() {
-        var name = window.prompt('Name this folder', 'New folder');
-        if (name === null) return;
-        name = name.trim();
+        var result = await showDriveModal({ title: 'Create a folder', message: 'Choose a name for your new folder.', input: { value: 'New folder', label: 'Folder name' }, primaryLabel: 'Create folder' });
+        if (!result.confirmed) return;
+        var name = String(result.value || '').trim();
         if (!name) { if (window.showToast) window.showToast('Folder name cannot be empty'); return; }
         var parent = state.view === 'mydrive' ? state.folderId : null;
         if (folders.some(function (f) { return f.parent === parent && f.name.toLowerCase() === name.toLowerCase() && !f.trashed; })) { if (window.showToast) window.showToast('A folder with that name already exists here'); return; }
@@ -1469,7 +1624,9 @@
     /* ---------------- init ---------------- */
 
     async function init() {
+        showSkeleton();
         bindContextMenu();
+        bindDriveModal();
         if (window.EmeraldAuth && window.EmeraldAuth.ready) await window.EmeraldAuth.ready();
         initTheme();
         bindProfile();
@@ -1477,7 +1634,6 @@
         bindToolbar();
         bindCreateUploadMenu();
         bindSidebarNav();
-        showSkeleton();
         try { await loadDriveData(); } catch (error) { console.warn('[Drive] Could not load synced files', error); loading = false; }
         render();
         var sharedFileId = new URLSearchParams(location.search).get('file');

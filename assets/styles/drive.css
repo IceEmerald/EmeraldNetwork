@@ -406,6 +406,14 @@ html[data-wiki-theme="dark"] .dhome-hero p { color: #e4e7ec; }
     overflow: hidden; border: 1px solid #e5e9e6; border-radius: 5px;
     background: #fff; box-shadow: 0 3px 9px rgba(27,42,32,.08);
 }
+.dfile-preview-image-wrap, .dfile-preview-pdf { position: absolute; inset: 8% 14% 6%; display: grid; place-items: center; overflow: hidden; border: 1px solid #e2e8e4; border-radius: 8px; background: linear-gradient(145deg, #f7faf8, #e7eee9); box-shadow: 0 7px 18px rgba(27,42,32,.14); }
+.dfile-preview-image { display: block; width: 100%; height: 100%; object-fit: cover; }
+.dfile-preview-pdf iframe { width: 100%; height: 100%; border: 0; pointer-events: none; }
+.dpreview-content { padding: 16% 11% 8%; box-sizing: border-box; }
+.dpreview-content-title { display: block; margin-bottom: 9px; overflow: hidden; color: #45534a; font: 700 8px 'DM Sans', sans-serif; text-overflow: ellipsis; white-space: nowrap; }
+.dpreview-content > div { display: flex; flex-direction: column; gap: 6px; }
+.dpreview-content i { display: block; overflow: hidden; color: #65756a; font: 500 7px/1.3 'DM Sans', sans-serif; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
+html[data-wiki-theme="dark"] .dpreview-content-title, html[data-wiki-theme="dark"] .dpreview-content i { color: #59665e; }
 .dpreview-doc-title, .dpreview-doc-lines i, .dpreview-note-lines i,
 .dpreview-slide-title, .dpreview-slide-copy { display: block; border-radius: 2px; }
 .dpreview-doc-title { position: absolute; left: 16%; top: 15%; width: 54%; height: 3px; background: #dce3df; }
@@ -503,6 +511,39 @@ html[data-wiki-theme="dark"] .dhome-hero p { color: #e4e7ec; }
 .dempty-img { display: block; width: 520px; max-width: 90%; height: auto; margin: 0 auto 28px; }
 .dempty h3 { margin: 0 0 8px; font: 700 17px 'DM Sans', sans-serif; color: #202923; }
 .dempty p { margin: 0; font: 400 13.5px 'DM Sans', sans-serif; color: #8a8886; }
+
+.drive-modal-overlay[hidden] { display: none; }
+.drive-modal-overlay { position: fixed; z-index: 12000; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(12, 20, 15, .48); backdrop-filter: blur(5px); animation: drive-modal-fade .16s ease-out; }
+.drive-modal { width: min(520px, 100%); max-height: min(82vh, 760px); overflow: auto; border: 1px solid rgba(31, 41, 35, .1); border-radius: 18px; background: #fff; color: #202923; box-shadow: 0 24px 70px rgba(0,0,0,.22); animation: drive-modal-pop .2s cubic-bezier(.2,.8,.2,1); }
+.drive-modal-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 22px 12px; }
+.drive-modal-header h2 { margin: 0; font: 700 18px/1.3 'DM Sans', sans-serif; }
+.drive-modal-header button { width: 32px; height: 32px; border: 0; border-radius: 9px; background: #f2f5f3; color: #56635a; font: 400 25px/1 'DM Sans', sans-serif; cursor: pointer; }
+.drive-modal-header button:hover { background: #e7eee9; color: #1b6f40; }
+.drive-modal-body { padding: 6px 22px 20px; color: #59635d; font: 400 14px/1.55 'DM Sans', sans-serif; }
+.drive-modal-body p { margin: 0 0 14px; }
+.drive-modal-body input, .drive-modal-body select { box-sizing: border-box; width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid #d6dfd9; border-radius: 10px; background: #fff; color: #202923; font: 500 14px 'DM Sans', sans-serif; outline: none; }
+.drive-modal-body input:focus, .drive-modal-body select:focus { border-color: #239a4d; box-shadow: 0 0 0 3px rgba(35,154,77,.14); }
+.drive-modal-actions { display: flex; justify-content: flex-end; gap: 9px; padding: 0 22px 20px; }
+.drive-modal-actions button { min-height: 40px; padding: 0 17px; border: 1px solid #dce4df; border-radius: 10px; background: #fff; color: #435047; font: 650 13px 'DM Sans', sans-serif; cursor: pointer; }
+.drive-modal-actions button:hover { background: #f3f7f4; }
+.drive-modal-actions button.primary { border-color: #188346; background: #188346; color: #fff; box-shadow: 0 4px 11px rgba(24,131,70,.18); }
+.drive-modal-actions button.primary:hover { background: #126d39; }
+.drive-modal-actions button.danger { border-color: #c83f43; background: #c83f43; color: #fff; }
+.drive-preview-image { display: block; max-width: 100%; max-height: 65vh; margin: auto; border-radius: 10px; object-fit: contain; }
+.drive-preview-frame { display: block; width: 100%; height: min(65vh, 640px); border: 1px solid #e1e7e3; border-radius: 10px; background: #f5f7f6; }
+.drive-preview-text { max-height: 62vh; overflow: auto; margin: 0; padding: 14px; border-radius: 10px; background: #f5f7f6; color: #29342d; font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.drive-preview-other { display: flex; align-items: center; gap: 15px; padding: 22px; border: 1px solid #e1e8e3; border-radius: 12px; background: #f6f9f7; }
+.drive-preview-other .dfile-type-svg { width: 42px; height: 42px; }
+.drive-preview-other strong { display: block; color: #202923; overflow-wrap: anywhere; }
+.drive-preview-other small { display: block; margin-top: 5px; color: #7b8780; }
+@keyframes drive-modal-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes drive-modal-pop { from { opacity: 0; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+html[data-wiki-theme="dark"] .drive-modal { border-color: #343a36; background: #202522; color: #e9eee9; }
+html[data-wiki-theme="dark"] .drive-modal-header button { background: #303833; color: #d9e2db; }
+html[data-wiki-theme="dark"] .drive-modal-body { color: #c4cdc6; }
+html[data-wiki-theme="dark"] .drive-modal-body input, html[data-wiki-theme="dark"] .drive-modal-body select { border-color: #424b45; background: #171b19; color: #eef3ef; }
+html[data-wiki-theme="dark"] .drive-modal-actions button { border-color: #424b45; background: #252c28; color: #e1e8e2; }
+html[data-wiki-theme="dark"] .drive-preview-text { background: #171b19; color: #e1e8e2; }
 .dtrash-banner {
     display: flex; align-items: center; gap: 12px;
     background: linear-gradient(110deg, #fffaf0, #fff7e5); border: 1px solid #f1dfb8; color: #70551c;
