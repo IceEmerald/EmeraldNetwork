@@ -6,6 +6,11 @@
 
     function storage() { return window.EmeraldIDBStorage || null; }
 
+    function byteLengthOf(value) {
+        try { return new TextEncoder().encode(typeof value === 'string' ? value : JSON.stringify(value || '')).byteLength; }
+        catch (_) { return 0; }
+    }
+
     /* ---------------- synced Drive data ---------------- */
 
     var TYPE_META = {
@@ -59,15 +64,20 @@
         for (var i = 0; i < suiteMaps.length; i++) {
             var mapping = suiteMaps[i];
             var records = s && s.getJSON ? await s.getJSON(mapping[0]) : [];
-            (Array.isArray(records) ? records : []).forEach(function (record) {
-                if (!record || !record.id) return;
+            var appRecords = Array.isArray(records) ? records : [];
+            for (var recordIndex = 0; recordIndex < appRecords.length; recordIndex++) {
+                var record = appRecords[recordIndex];
+                if (!record || !record.id) continue;
                 var key = mapping[2] + ':' + record.id;
                 var deleted = !!trashMap[key];
                 var modifiedAt = record.updatedAt || record.modifiedAt || record.createdAt || Date.now();
+                var payload = record;
+                if (mapping[2] !== 'notes' && s && s.getJSON) payload = await s.getJSON('emeraldcore.storage.suite.' + mapping[2] + '.' + record.id) || record;
+                var sizeBytes = byteLengthOf(payload);
                 var flags = flagsMap[key] || {};
                 files.push({ id: String(record.id), driveKey: key, name: record.title || 'Untitled ' + mapping[1], type: mapping[1], appType: mapping[2], folder: flags.folder || null,
-                    size: '—', modifiedAt: modifiedAt, lastOpenedAt: flags.lastOpenedAt || 0, modified: relativeOrOriginalDate(modifiedAt), starred: !!flags.starred, shared: !!(flags.sharedWith && flags.sharedWith.length), sharedWith: flags.sharedWith || [], trashed: deleted, externalApp: true });
-            });
+                    size: formatBytes(sizeBytes), sizeBytes: sizeBytes, modifiedAt: modifiedAt, lastOpenedAt: flags.lastOpenedAt || 0, modified: relativeOrOriginalDate(modifiedAt), starred: !!flags.starred, shared: !!(flags.sharedWith && flags.sharedWith.length), sharedWith: flags.sharedWith || [], trashed: deleted, externalApp: true });
+            }
         }
         try {
             var db = await new Promise(function (resolve, reject) {
@@ -78,7 +88,7 @@
             var tx = db.transaction('workbooks', 'readonly');
             var keys = await new Promise(function (resolve, reject) { var req = tx.objectStore('workbooks').getAllKeys(); req.onsuccess = function () { resolve(req.result); }; req.onerror = function () { reject(req.error); }; });
             var vals = await new Promise(function (resolve, reject) { var req = tx.objectStore('workbooks').getAll(); req.onsuccess = function () { resolve(req.result); }; req.onerror = function () { reject(req.error); }; });
-            keys.forEach(function (id, index) { var data = vals[index] && vals[index].data || {}; var key = 'sheets:' + id; var flags = flagsMap[key] || {}; var modifiedAt = vals[index] && vals[index].savedAt || Date.now(); files.push({ id: String(id), driveKey: key, name: data.title || 'Untitled spreadsheet', type: 'sheet', appType: 'sheets', folder: flags.folder || null, size: '—', modifiedAt: modifiedAt, lastOpenedAt: flags.lastOpenedAt || 0, modified: relativeOrOriginalDate(modifiedAt), starred: !!flags.starred, shared: !!(flags.sharedWith && flags.sharedWith.length), sharedWith: flags.sharedWith || [], trashed: !!trashMap[key], externalApp: true }); });
+            keys.forEach(function (id, index) { var data = vals[index] && vals[index].data || {}; var key = 'sheets:' + id; var flags = flagsMap[key] || {}; var modifiedAt = vals[index] && vals[index].savedAt || Date.now(); var sizeBytes = byteLengthOf(data); files.push({ id: String(id), driveKey: key, name: data.title || 'Untitled spreadsheet', type: 'sheet', appType: 'sheets', folder: flags.folder || null, size: formatBytes(sizeBytes), sizeBytes: sizeBytes, modifiedAt: modifiedAt, lastOpenedAt: flags.lastOpenedAt || 0, modified: relativeOrOriginalDate(modifiedAt), starred: !!flags.starred, shared: !!(flags.sharedWith && flags.sharedWith.length), sharedWith: flags.sharedWith || [], trashed: !!trashMap[key], externalApp: true }); });
         } catch (_) {}
         if (ensureSuiteFolders()) await saveDriveData();
         loading = false;
@@ -86,18 +96,21 @@
 
     function ensureSuiteFolders() {
         var changed = false;
+        var folderPalette = ['#f3b900', '#ef6c63', '#a879d8', '#4c9be8', '#39a66b', '#6d7c8f'];
         var root = folders.find(function (folder) { return folder.id === 'emerald-suite-root-folder'; });
-        if (!root) { root = { id: 'emerald-suite-root-folder', name: 'EmeraldSuite', parent: null, color: '#13a887' }; folders.push(root); changed = true; }
+        if (!root) { root = { id: 'emerald-suite-root-folder', name: 'EmeraldSuite', parent: null }; folders.push(root); changed = true; }
+        if (folderPalette.indexOf(String(root.color || '').toLowerCase()) === -1) { root.color = '#f3b900'; changed = true; }
         var categories = [
-            { type: 'doc', name: 'Docs', color: '#0891b2' },
-            { type: 'slide', name: 'Slides', color: '#f97316' },
-            { type: 'sheet', name: 'Sheets', color: '#217346' },
-            { type: 'note', name: 'Notes', color: '#a21caf' }
+            { type: 'doc', name: 'Docs', color: '#4c9be8' },
+            { type: 'slide', name: 'Slides', color: '#ef6c63' },
+            { type: 'sheet', name: 'Sheets', color: '#39a66b' },
+            { type: 'note', name: 'Notes', color: '#a879d8' }
         ];
         categories.forEach(function (category) {
             var id = 'emerald-suite-' + category.type + '-folder';
             var folder = folders.find(function (candidate) { return candidate.id === id; });
-            if (!folder) { folder = { id: id, name: category.name, parent: root.id, color: category.color }; folders.push(folder); changed = true; }
+            if (!folder) { folder = { id: id, name: category.name, parent: root.id }; folders.push(folder); changed = true; }
+            if (folderPalette.indexOf(String(folder.color || '').toLowerCase()) === -1) { folder.color = category.color; changed = true; }
             files.forEach(function (file) {
                 if (file.externalApp && file.type === category.type && !file.folder) {
                     file.folder = folder.id;
@@ -344,7 +357,7 @@
         if (isFolder) {
             var stats = folderStats(item.id);
             return '<div class="drow" data-folder="' + item.id + '" role="button" tabindex="0">' +
-                '<span class="drow-name"><span class="drow-icon" style="color:#8a8886"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span><span class="drow-label">' + esc(item.name) + '</span></span>' +
+                '<span class="drow-name"><span class="drow-icon" style="color:' + esc(item.color || '#8a8886') + '"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span><span class="drow-label">' + esc(item.name) + '</span></span>' +
                 '<span class="drow-meta">' + esc(stats.size) + '</span><span class="drow-meta">' + esc(stats.modified) + '</span></div>';
         }
         return '<div class="drow" data-file="' + item.id + '" role="button" tabindex="0">' +
@@ -551,17 +564,17 @@
             }
         } else if (state.view === 'shared') {
             var shared = sortList(filterSearch(files.filter(function (f) { return f.shared && !f.trashed; })));
-            html += shared.length ? layoutHTML(shared) : emptyHTML('Nothing shared yet', 'Files shared with you will show up here.', '/assets/images/nofilefound.webp');
+            html += shared.length ? layoutHTML(shared) : emptyHTML(q ? 'No results' : 'Nothing shared yet', q ? 'Nothing matches your search.' : 'Files shared with you will show up here.', q ? '/assets/images/nofilefound.webp' : null);
         } else if (state.view === 'recent') {
             var rec = sortList(filterSearch(files.filter(function (f) { return !f.trashed; })));
-            html += rec.length ? layoutHTML(rec) : emptyHTML('No recent files', 'Open a file and it will show up here.', '/assets/images/nofilefound.webp');
+            html += rec.length ? layoutHTML(rec) : emptyHTML(q ? 'No results' : 'No recent files', q ? 'Nothing matches your search.' : 'Open a file and it will show up here.', q ? '/assets/images/nofilefound.webp' : null);
         } else if (state.view === 'starred') {
             var st = sortList(filterSearch(files.filter(function (f) { return f.starred && !f.trashed; })));
-            html += st.length ? layoutHTML(st) : emptyHTML('No starred files', 'Star a file to pin it here.', '/assets/images/nofilefound.webp');
+            html += st.length ? layoutHTML(st) : emptyHTML(q ? 'No results' : 'No starred files', q ? 'Nothing matches your search.' : 'Star a file to pin it here.', q ? '/assets/images/nofilefound.webp' : null);
         } else if (state.view === 'trash') {
             html += '<div class="dtrash-banner"><span class="dtrash-banner-icon" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span>Items in trash are deleted forever after 30 days.</span></div>';
             var tr = sortList(filterSearch(files.filter(function (f) { return f.trashed; })).concat(folders.filter(function (f) { return f.trashed; })));
-            html += tr.length ? gridHTML(tr) : emptyHTML('Trash is empty', 'Deleted files appear here for 30 days.', '/assets/images/nofilefound.webp');
+            html += tr.length ? gridHTML(tr) : emptyHTML(q ? 'No results' : 'Trash is empty', q ? 'Nothing matches your search.' : 'Deleted files appear here for 30 days.', q ? '/assets/images/nofilefound.webp' : null);
         }
 
         box.innerHTML = html;
@@ -948,15 +961,25 @@
         pill.classList.add('visible');
     }
 
-    function updateDriveStorage() {
-        var size = files.filter(function (f) { return !f.trashed; }).reduce(function (sum, f) { return sum + bytesFromSize(f.size); }, 0);
-        var percent = Math.min(100, size / (15 * 1024 * 1024 * 1024) * 100);
+    var storageMeasureRun = 0;
+    async function updateDriveStorage() {
+        var run = ++storageMeasureRun;
+        var size = files.filter(function (f) { return !f.trashed; }).reduce(function (sum, f) { return sum + (Number(f.sizeBytes) || bytesFromSize(f.size)); }, 0);
+        var quota = 15 * 1024 * 1024 * 1024;
+        try {
+            if (navigator.storage && typeof navigator.storage.estimate === 'function') {
+                var estimate = await navigator.storage.estimate();
+                if (estimate && Number(estimate.quota) > 0) quota = Number(estimate.quota);
+            }
+        } catch (_) {}
+        if (run !== storageMeasureRun) return;
+        var percent = Math.min(100, size / quota * 100);
         var bar = $('driveStorageBar');
         var label = $('driveStorageLabel');
         if (bar) bar.style.width = percent.toFixed(2) + '%';
         if (label) {
             var sync = window.EmeraldAuth && window.EmeraldAuth.getSyncState ? window.EmeraldAuth.getSyncState() : null;
-            label.textContent = loading ? 'Drive is syncing…' : (sync && sync.syncing ? 'Drive is syncing…' : formatBytes(size) + ' of 15 GB used');
+            label.textContent = loading ? 'Drive is syncing…' : (sync && sync.syncing ? 'Drive is syncing…' : formatBytes(size) + ' of ' + formatBytes(quota) + ' used');
         }
     }
 
@@ -1239,7 +1262,7 @@
                 var name = file.name || 'Untitled file';
                 var ext = name.split('.').pop().toLowerCase();
                 var type = /^(png|jpe?g|gif|webp|avif|bmp|svg|heic|tiff?)$/.test(ext) ? 'image' : (ext === 'pdf' ? 'pdf' : 'other');
-                files.push({ id: 'file-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9), name: name, type: type, folder: parent, size: formatBytes(file.size), mimeType: file.type || 'application/octet-stream', dataUrl: await readFileAsDataUrl(file), modifiedAt: Date.now(), modified: 'Just now', created: new Date().toISOString(), starred: false, shared: false, trashed: false });
+                files.push({ id: 'file-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9), name: name, type: type, folder: parent, size: formatBytes(file.size), sizeBytes: file.size, mimeType: file.type || 'application/octet-stream', dataUrl: await readFileAsDataUrl(file), modifiedAt: Date.now(), modified: 'Just now', created: new Date().toISOString(), starred: false, shared: false, trashed: false });
             }
             await saveDriveData();
             state.view = 'mydrive';
