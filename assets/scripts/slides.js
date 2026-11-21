@@ -7933,7 +7933,7 @@ class SlidesApp {
     }
 
     
-    async exportPPTX() {
+    async exportPPTX(returnBlob) {
         if (!this.pres) return;
         if (typeof PptxGenJS === 'undefined') {
             this.showToast('⚠ PptxGenJS library not loaded. Check your internet connection.', 5000); return;
@@ -8091,6 +8091,7 @@ class SlidesApp {
                 }
             }
 
+            if (returnBlob) return await pptx.write({ outputType: 'blob' });
             await pptx.writeFile({ fileName: `${this.pres.title || 'presentation'}.pptx` });
             this.showToast('✓ PPTX exported!');
             try { window.EmeraldHistory.action('Exported presentation as PPTX'); } catch (_) {}

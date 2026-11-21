@@ -90,6 +90,12 @@
 
     function storage() { return window.EmeraldIDBStorage || null; }
 
+    async function driveTrashMap() {
+        const s = storage();
+        const value = s && s.getJSON ? await s.getJSON('emerald.drive.trash') : {};
+        return value && typeof value === 'object' ? value : {};
+    }
+
     function toTs(v) {
         if (!v) return 0;
         const t = typeof v === 'string' ? Date.parse(v) : Number(v);
@@ -139,9 +145,10 @@
         const s = storage();
         let raw = null;
         if (s) raw = await s.getJSON('emeraldcore.storage.suite.notes');
+        const trash = await driveTrashMap();
         const arr = Array.isArray(raw) ? raw : [];
         return arr
-            .filter(n => n && n.id && !n._isCollabNote)
+            .filter(n => n && n.id && !n._isCollabNote && !trash['notes:' + n.id])
             .map(n => ({
                 type: 'notes',
                 id: String(n.id),
@@ -156,9 +163,10 @@
         const s = storage();
         let raw = null;
         if (s) raw = await s.getJSON('emeraldcore.storage.suite.docs');
+        const trash = await driveTrashMap();
         const arr = Array.isArray(raw) ? raw : [];
         return arr
-            .filter(m => m && m.id)
+            .filter(m => m && m.id && !trash['docs:' + m.id])
             .map(m => ({
                 type: 'docs',
                 id: String(m.id),
@@ -172,9 +180,10 @@
         const s = storage();
         let raw = null;
         if (s) raw = await s.getJSON('emeraldcore.storage.suite.slides');
+        const trash = await driveTrashMap();
         const arr = Array.isArray(raw) ? raw : [];
         return arr
-            .filter(m => m && m.id)
+            .filter(m => m && m.id && !trash['slides:' + m.id])
             .map(m => {
 
                 const n = Number(m.slideCount) || 0;
@@ -235,10 +244,11 @@
             const store = db.transaction('workbooks').objectStore('workbooks');
             const keys = await idbReq(store.getAllKeys());
             const vals = await idbReq(store.getAll());
+            const trash = await driveTrashMap();
             const out = [];
             for (let i = 0; i < keys.length; i++) {
                 const d = vals[i];
-                if (!d || typeof d !== 'object') continue;
+                if (!d || typeof d !== 'object' || trash['sheets:' + keys[i]]) continue;
                 const data = (d && d.data) || {};
                 const sheets = (data.sheets || []);
                 out.push({
@@ -352,45 +362,10 @@
 
     async function deleteFile(f) {
         const s = storage();
-        if (f.type === 'notes') {
-            let arr = s ? (await s.getJSON('emeraldcore.storage.suite.notes')) : null;
-            arr = Array.isArray(arr) ? arr : [];
-            arr = arr.filter(n => !(n && String(n.id) === f.id));
-            if (s) { s.setJSONSync('emeraldcore.storage.suite.notes', arr); }
-        } else if (f.type === 'docs') {
-            let arr = s ? (await s.getJSON('emeraldcore.storage.suite.docs')) : null;
-            arr = Array.isArray(arr) ? arr : [];
-            arr = arr.filter(m => !(m && String(m.id) === f.id));
-            if (s) { await s.setJSON('emeraldcore.storage.suite.docs', arr); }
-            try {
-                const dk = 'emeraldcore.storage.suite.docs.' + f.id;
-                const vk = 'emeraldcore.storage.suite.docs.versions.' + f.id;
-                if (s) {
-                    await s.delete(dk);
-                    await s.delete(vk);
-                }
-            } catch (e) {}
-        } else if (f.type === 'slides') {
-            let arr = s ? (await s.getJSON('emeraldcore.storage.suite.slides')) : null;
-            arr = Array.isArray(arr) ? arr : [];
-            arr = arr.filter(m => !(m && String(m.id) === f.id));
-            if (s) { await s.setJSON('emeraldcore.storage.suite.slides', arr); }
-            try {
-                const pk = 'emeraldcore.storage.suite.slides.' + f.id;
-                if (s) { await s.delete(pk); }
-            } catch (e) {}
-        } else if (f.type === 'sheets') {
-            try {
-                const db = await openSheetDB();
-                await new Promise((resolve, reject) => {
-                    const tx = db.transaction('workbooks', 'readwrite');
-                    tx.objectStore('workbooks').delete(f.id);
-                    tx.oncomplete = resolve;
-                    tx.onerror = () => reject(tx.error);
-                });
-            } catch (e) { console.warn('[EmeraldSuite] delete sheets failed', e); }
-            postSync();
-        }
+        if (!s || !s.setJSON) return false;
+        const trash = await driveTrashMap();
+        trash[f.type + ':' + f.id] = Date.now();
+        await s.setJSON('emerald.drive.trash', trash);
         return true;
     }
 
@@ -616,7 +591,7 @@
         deleteTarget = f;
         const app = APPS[f.type];
         $('deleteAppLabel').innerHTML = appIcon(f.type) + ' ' + esc(app.name);
-        $('deleteText').innerHTML = 'Delete <b>' + esc(f.title) + '</b> permanently from this device? This cannot be undone and will also remove it from open ' + app.name + ' tabs.';
+        $('deleteText').innerHTML = 'Move <b>' + esc(f.title) + '</b> to Drive Trash? You can restore it from Drive for 30 days.';
         openModal('deleteOverlay');
     }
 
@@ -627,7 +602,7 @@
         try {
             await deleteFile(f);
             await refresh({ silent: true });
-            toast('<span style="color:#d93025">' + SVG.trash + '</span> Deleted “' + esc(f.title) + '”');
+            toast('<span style="color:#d93025">' + SVG.trash + '</span> Moved “' + esc(f.title) + '” to Drive Trash');
         } catch (e) {
             console.error('[EmeraldSuite] delete failed', e);
             toast('Could not delete file');

@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="/assets/styles/wiki.css?v=5">
     <link rel="stylesheet" href="/assets/styles/drive.css">
     <link rel="stylesheet" href="/assets/styles/drive-sky.css">
+    <link rel="stylesheet" href="/assets/styles/app-skeleton.css">
     <link rel="icon" type="image/x-icon" href="/assets/images/favicon.webp">
     <link rel="icon" href="/assets/images/favicon.ico" sizes="any">
     <meta name="color-scheme" content="light dark">
@@ -104,8 +105,8 @@
             <div class="sidebar-footer">
                 <div class="drive-storage">
                     <div class="drive-storage-title">Storage</div>
-                    <div class="drive-storage-bar"><span style="width:18%"></span></div>
-                    <span class="drive-storage-label">1.2 GB of 15 GB used</span>
+                    <div class="drive-storage-bar"><span id="driveStorageBar" style="width:0%"></span></div>
+                    <span class="drive-storage-label" id="driveStorageLabel">Drive is syncing…</span>
                 </div>
             </div>
         </aside>
@@ -159,6 +160,7 @@
 <script src="/assets/scripts/rightclick.js"></script>
 <script src="/assets/scripts/idb-storage.js"></script>
 <script src="/assets/scripts/auth-client.js?v=5"></script>
+<script src="/assets/scripts/docxexport.js"></script>
 <script src="/assets/scripts/footer-year.js"></script>
     <script src="/assets/scripts/activity-history.js?v=5"></script>
 <script src="/assets/scripts/drive.js"></script>
