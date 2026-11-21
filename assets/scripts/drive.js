@@ -953,7 +953,13 @@
         else if (file.type === 'doc' && file.previewText) bodyHtml = contentPageMarkup(file, 'doc', true);
         else if (file.type === 'slide' && file.previewData) bodyHtml = slideDeckPreviewMarkup(file, 4, false);
         else if (file.type === 'sheet' && file.previewData) bodyHtml = '<div class="drive-sheet-large-preview">' + sheetPreviewMarkup(file).replace('dfile-preview-page dpreview-sheet', 'dpreview-sheet') + '</div>';
-        else if (file.previewText) bodyHtml = '<pre class="drive-preview-text">' + esc(String(file.previewText).slice(0, 1800)) + '</pre>';
+        else if (file.previewText) {
+            var previewText = String(file.previewText).slice(0, 5000);
+            if (/json/i.test(file.mimeType || '') || /\.json$/i.test(file.name || '')) {
+                try { previewText = JSON.stringify(JSON.parse(previewText), null, 2); } catch (_) {}
+            }
+            bodyHtml = '<pre class="drive-preview-text">' + esc(previewText) + '</pre>';
+        }
         else bodyHtml = '<div class="drive-preview-other">' + fileIconSvg(file.type, file.name) + '<div><strong>' + esc(file.name) + '</strong><small>' + esc(file.mimeType || file.size || 'Preview is unavailable for this file type.') + '</small></div></div>';
         showDriveModal({ title: file.name, bodyHtml: bodyHtml, preview: true, primaryLabel: 'Download', onConfirm: function () { return downloadFile(file); }, cancelLabel: 'Close' });
         if (file.type === 'pdf' || mime === 'application/pdf') renderPdfDocumentPreview(file, $('driveModalBody').querySelector('[data-pdf-document]'));
@@ -1093,7 +1099,7 @@
         html += contextRow('Download', 'download') + contextRow('Copy link', 'copy-link') +
             contextRow('Manage access', 'manage-access') + contextRow('Duplicate', 'duplicate') +
             contextRow('Copy', 'copy') + contextRow('Move', 'move');
-        if (isFolder && driveClipboard) html += contextRow('Paste here', 'paste');
+        if (isFolder && driveClipboard) html += contextRow('Paste', 'paste');
         if (isFolder) {
             html += '</div><div class="context-section drive-folder-color-section"><span class="drive-context-label">Folder color</span><div class="drive-folder-colors" role="group" aria-label="Folder color">' +
                 ['#f3b900', '#ef6c63', '#a879d8', '#4c9be8', '#39a66b', '#6d7c8f'].map(function (color, index) {
@@ -1116,11 +1122,17 @@
             var target = event.target.closest('.dfile-card, .dfolder-card, .drow[data-file], .drow[data-folder], .dchip');
             if (target) openItemContextMenu(event, target);
             else {
-                menu.innerHTML = defaultMenuHTML;
+                if (driveClipboard) {
+                    menu.innerHTML = defaultMenuHTML;
+                    var pasteButton = menu.querySelector('[data-context-action="drive-paste"]');
+                    if (pasteButton) pasteButton.style.display = '';
+                } else {
+                    menu.innerHTML = '<a onclick="copyTextContent()">Copy Text</a>' +
+                        '<a onclick="copyPageLink()">Copy Page Link</a>' +
+                        '<a onclick="showElementInfo()">Show Element Info</a>';
+                }
                 delete menu.dataset.contextItemId;
                 menu.dataset.contextIsFolder = '0';
-                var pasteButton = menu.querySelector('[data-context-action="drive-paste"]');
-                if (pasteButton) pasteButton.style.display = driveClipboard ? '' : 'none';
                 positionContextMenu(menu, event.clientX, event.clientY);
             }
         });
