@@ -216,22 +216,7 @@ function setIcon(elm, name) { if (elm) elm.innerHTML = icon(name); }
 const IO = (() => {
   const DB_NAME = 'emeraldcore.storage.suite.sheets', STORE = 'workbooks';
   const RECENT_KEY = 'emeraldcore.suite.sheets.recent';
-  const SYNC_KEY = 'emeraldcore.storage.suite.sheets.sync.v1';
   let dbPromise = null;
-  async function readSyncedDocs() {
-    try {
-      const storage = window.EmeraldIDBStorage;
-      const value = storage && storage.getJSON ? await storage.getJSON(SYNC_KEY) : null;
-      return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-    } catch (_) { return {}; }
-  }
-  async function writeSyncedDoc(id, doc) {
-    const storage = window.EmeraldIDBStorage;
-    if (!storage || !storage.getJSON || !storage.setJSON) return;
-    const docs = await readSyncedDocs();
-    if (doc == null) delete docs[String(id)]; else docs[String(id)] = doc;
-    await storage.setJSON(SYNC_KEY, docs);
-  }
 
   function openDB() {
     if (dbPromise) return dbPromise;
@@ -250,32 +235,20 @@ const IO = (() => {
     return new Promise((resolve, reject) => {
       const t = db.transaction(STORE, 'readwrite');
       t.objectStore(STORE).put(doc, id);
-      t.oncomplete = () => { writeSyncedDoc(id, doc).catch(() => {}); resolve(true); };
+      t.oncomplete = () => resolve(true);
       t.onerror = () => reject(t.error);
     });
   }
   async function loadDoc(id) {
     const db = await openDB();
-    const local = await reqP(db.transaction(STORE).objectStore(STORE).get(id));
-    if (local) return local;
-    const synced = await readSyncedDocs();
-    const remote = synced[String(id)];
-    if (remote) {
-      await new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE, 'readwrite');
-        tx.objectStore(STORE).put(remote, id);
-        tx.oncomplete = resolve; tx.onerror = () => reject(tx.error);
-      });
-      return remote;
-    }
-    return null;
+    return reqP(db.transaction(STORE).objectStore(STORE).get(id));
   }
   async function deleteDoc(id) {
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const t = db.transaction(STORE, 'readwrite');
       t.objectStore(STORE).delete(id);
-      t.oncomplete = () => { writeSyncedDoc(id, null).catch(() => {}); resolve(true); };
+      t.oncomplete = () => resolve(true);
       t.onerror = () => reject(t.error);
     });
   }
@@ -284,12 +257,8 @@ const IO = (() => {
     const store = db.transaction(STORE).objectStore(STORE);
     const keys = await reqP(store.getAllKeys());
     const vals = await reqP(store.getAll());
-    const docs = new Map(keys.map((k, i) => [String(k), vals[i]]));
-    const synced = await readSyncedDocs();
-    Object.keys(synced).forEach(id => { if (!docs.has(id)) docs.set(id, synced[id]); });
-    const driveMeta = window.EmeraldIDBStorage ? (await window.EmeraldIDBStorage.getJSON('emerald.drive.metadata.v1')) || {} : {};
-    return Array.from(docs, ([id, doc]) => ({ id, doc }))
-      .filter(x => x.id !== RECENT_KEY && x.id !== SYNC_KEY && x.doc && !(driveMeta['sheet:' + x.id] && driveMeta['sheet:' + x.id].trashed));
+    return keys.map((k, i) => ({ id: k, doc: vals[i] }))
+      .filter(x => x.id !== RECENT_KEY && x.doc);
   }
   async function saveRecent(id) {
     const db = await openDB();
@@ -9381,8 +9350,8 @@ function returnToHomeTab() {
 }
 function deleteCurrentWorkbook() {
   const deletedTitle = WB.title || 'Untitled workbook';
-  confirmDialog('Move to Drive Trash', 'Move "' + deletedTitle + '" to Drive Trash? You can restore it there.', async () => {
-    if (window.EmeraldDriveTrash) await window.EmeraldDriveTrash.moveToTrash('sheet', WB.id, deletedTitle);
+  confirmDialog('Delete Workbook', 'Delete "' + deletedTitle + '" from browser storage? This cannot be undone.', async () => {
+    try { await IO.deleteDoc(WB.id); } catch (e) {}
 
     clearTimeout(Persistence.timer); Persistence.timer = 0;
     Persistence.state = 'saved';
@@ -9432,8 +9401,8 @@ async function openDocumentsDialog() {
       } catch (e) { toast('Could not open document', 'error'); }
     });
     row.querySelector('[data-del]').addEventListener('click', async () => {
-      confirmDialog('Move to Drive Trash', 'Move "' + escapeHtml(data.title || 'Untitled') + '" to Drive Trash? You can restore it there.', async () => {
-        if (window.EmeraldDriveTrash) await window.EmeraldDriveTrash.moveToTrash('sheet', d.id, data.title || 'Untitled spreadsheet');
+      confirmDialog('Delete Document', 'Delete "' + escapeHtml(data.title || 'Untitled') + '" from browser storage? This cannot be undone.', async () => {
+        await IO.deleteDoc(d.id);
         try { window.EmeraldHistory.action('Deleted spreadsheet \u201C' + (data.title || 'Untitled workbook') + '\u201D'); } catch (_) {}
         if (d.id === WB.id) {
           clearTimeout(Persistence.timer); Persistence.timer = 0;

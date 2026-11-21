@@ -496,8 +496,6 @@ class SlidesApp {
             const storage = window.EmeraldIDBStorage;
             let idx = storage ? await storage.getJSON(this.PRES_INDEX_KEY) : null;
             this.presentations = Array.isArray(idx) ? idx : [];
-            const driveMeta = storage ? (await storage.getJSON('emerald.drive.metadata.v1')) || {} : {};
-            this.presentations = this.presentations.filter(presentation => presentation && presentation.id && !(driveMeta['slide:' + presentation.id] && driveMeta['slide:' + presentation.id].trashed));
 
             
             
@@ -528,14 +526,7 @@ class SlidesApp {
     async saveIndex() {
         try {
             const storage = window.EmeraldIDBStorage;
-            let meta = this.presentations;
-            if (storage) {
-                const previous = await storage.getJSON(this.PRES_INDEX_KEY);
-                const driveMeta = (await storage.getJSON('emerald.drive.metadata.v1')) || {};
-                const visibleIds = new Set(meta.map(presentation => String(presentation.id)));
-                const trashed = (Array.isArray(previous) ? previous : []).filter(presentation => presentation && !visibleIds.has(String(presentation.id)) && driveMeta['slide:' + presentation.id] && driveMeta['slide:' + presentation.id].trashed);
-                meta = meta.concat(trashed);
-            }
+            const meta = this.presentations;
             if (storage) await storage.setJSON(this.PRES_INDEX_KEY, meta);
         } catch (e) { console.warn('saveIndex', e); }
     }
@@ -925,8 +916,8 @@ class SlidesApp {
 
     async deletePresentation(id) {
         const deleted = this.presentations.find(p => p.id === id);
-        if (window.EmeraldDriveTrash) await window.EmeraldDriveTrash.moveToTrash('slide', id, (deleted && deleted.title) || 'Untitled Presentation');
         this.presentations = this.presentations.filter(p => p.id !== id);
+        await Promise.all([this.saveIndex(), this.deletePresData(id)]);
         if (this.pres && this.pres.id === id) {
             this.pres = null;
             this.selectedId = null;
@@ -7153,8 +7144,8 @@ class SlidesApp {
     
     confirmDeletePresentation(id) {
         this._deleteTarget = { type: 'pres', id };
-        document.getElementById('deleteModalTitle').textContent = 'Move to Drive Trash';
-        document.getElementById('deleteModalMessage').textContent = 'Move this presentation to Drive Trash? You can restore it there.';
+        document.getElementById('deleteModalTitle').textContent = 'Delete Presentation';
+        document.getElementById('deleteModalMessage').textContent = 'Are you sure you want to delete this presentation? This cannot be undone.';
         document.getElementById('deleteModal')?.classList.add('show');
     }
 

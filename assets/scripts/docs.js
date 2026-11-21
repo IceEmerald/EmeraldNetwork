@@ -1882,8 +1882,6 @@ function startAutosaveSnapshots() {
         idx = await window.EmeraldIDBStorage.getJSON(DOC_INDEX_KEY);
       }
       documents = Array.isArray(idx) ? idx : [];
-      var driveMeta = window.EmeraldIDBStorage ? (await window.EmeraldIDBStorage.getJSON('emerald.drive.metadata.v1')) || {} : {};
-      documents = documents.filter(function (document) { return document && document.id && !(driveMeta['doc:' + document.id] && driveMeta['doc:' + document.id].trashed); });
 
       var seen = {};
       var cleaned = [];
@@ -1902,15 +1900,8 @@ function startAutosaveSnapshots() {
 
   async function saveIndex() {
     try {
-      if (window.EmeraldIDBStorage) {
-        var previous = await window.EmeraldIDBStorage.getJSON(DOC_INDEX_KEY);
-        var driveMeta = (await window.EmeraldIDBStorage.getJSON('emerald.drive.metadata.v1')) || {};
-        var visibleIds = new Set(documents.map(function (document) { return String(document.id); }));
-        var trashed = (Array.isArray(previous) ? previous : []).filter(function (document) {
-          return document && !visibleIds.has(String(document.id)) && driveMeta['doc:' + document.id] && driveMeta['doc:' + document.id].trashed;
-        });
-        await window.EmeraldIDBStorage.setJSON(DOC_INDEX_KEY, documents.concat(trashed));
-      }
+
+      if (window.EmeraldIDBStorage) await window.EmeraldIDBStorage.setJSON(DOC_INDEX_KEY, documents);
     } catch (e) {}
   }
 
@@ -2311,15 +2302,7 @@ function startAutosaveSnapshots() {
     if (!currentDocId) return;
     _deleteTargetId = currentDocId;
     var modal = $("deleteDocModal");
-    if (modal) {
-      var title = modal.querySelector('.delete-modal-title');
-      var message = modal.querySelector('.delete-modal-message');
-      var confirm = $("deleteDocConfirm");
-      if (title) title.textContent = 'Move to Drive Trash';
-      if (message) message.textContent = 'Move this document to Drive Trash? You can restore it there.';
-      if (confirm) confirm.textContent = 'Move to Trash';
-      modal.classList.add("show");
-    }
+    if (modal) modal.classList.add("show");
   }
 
   function closeDeleteDocModal() {
@@ -2344,8 +2327,9 @@ function startAutosaveSnapshots() {
       currentDocId = null;
       if (autosaveTimer) { clearTimeout(autosaveTimer); autosaveTimer = null; }
     }
-    if (window.EmeraldDriveTrash) await window.EmeraldDriveTrash.moveToTrash('doc', id, deletedTitle || 'Untitled Document');
     documents = documents.filter(function (d) { return d.id !== id; });
+    await saveIndex();
+    await deleteDocData(id);
     if (wasCurrent) closeDocument();
     renderWelcomeCards();
     toast("Document deleted", "success");
