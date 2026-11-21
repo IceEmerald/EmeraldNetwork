@@ -127,6 +127,8 @@
 
     var state = { view: 'home', folderId: null, layout: 'grid', sort: 'modified', search: '' };
     var currentUserName = '';
+    var selectedDriveItem = null;
+    var driveClipboard = null;
 
     async function loadDriveData() {
         var s = storage();
@@ -507,23 +509,29 @@
     }
 
     var drivePdfDocuments = new Map();
+    async function getDrivePdfDocument(file) {
+        if (drivePdfDocuments.has(file.id)) return drivePdfDocuments.get(file.id);
+        var promise = (async function () {
+            var lib = await drivePdfLibrary();
+            if (!lib) throw new Error('PDF preview library is unavailable.');
+            if (lib.GlobalWorkerOptions && !lib.GlobalWorkerOptions.workerSrc) lib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            var encoded = file.dataUrl.slice(file.dataUrl.indexOf(',') + 1);
+            var raw = atob(encoded);
+            var bytes = new Uint8Array(raw.length);
+            for (var i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+            return lib.getDocument({ data: bytes }).promise;
+        }());
+        drivePdfDocuments.set(file.id, promise);
+        try { return await promise; }
+        catch (error) { drivePdfDocuments.delete(file.id); throw error; }
+    }
+
     async function renderPdfPreview(file, container) {
         if (!container || !file || !file.dataUrl) return;
         var canvas = container.querySelector('canvas');
         if (!canvas) return;
         try {
-            var lib = await drivePdfLibrary();
-            if (!lib) throw new Error('PDF preview library is unavailable.');
-            if (lib.GlobalWorkerOptions && !lib.GlobalWorkerOptions.workerSrc) lib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-            var pdf = drivePdfDocuments.get(file.id);
-            if (!pdf) {
-                var encoded = file.dataUrl.slice(file.dataUrl.indexOf(',') + 1);
-                var raw = atob(encoded);
-                var bytes = new Uint8Array(raw.length);
-                for (var i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
-                pdf = await lib.getDocument({ data: bytes }).promise;
-                drivePdfDocuments.set(file.id, pdf);
-            }
+            var pdf = await getDrivePdfDocument(file);
             var page = await pdf.getPage(1);
             var bounds = container.getBoundingClientRect();
             var base = page.getViewport({ scale: 1 });
@@ -541,6 +549,36 @@
             container.classList.remove('is-loading');
             container.classList.add('has-preview-error');
             console.warn('[Drive] PDF preview failed:', error);
+        }
+    }
+
+    async function renderPdfDocumentPreview(file, container) {
+        if (!container || !file || !file.dataUrl) return;
+        try {
+            var pdf = await getDrivePdfDocument(file);
+            var pageArea = container.clientWidth || 680;
+            var ratio = Math.min(1.5, window.devicePixelRatio || 1);
+            for (var pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+                var page = await pdf.getPage(pageNumber);
+                var base = page.getViewport({ scale: 1 });
+                var scale = Math.min(1, (pageArea - 28) / base.width);
+                var viewport = page.getViewport({ scale: scale * ratio });
+                var wrap = document.createElement('div');
+                wrap.className = 'drive-pdf-page';
+                var canvas = document.createElement('canvas');
+                canvas.width = Math.ceil(viewport.width);
+                canvas.height = Math.ceil(viewport.height);
+                canvas.style.width = Math.floor(viewport.width / ratio) + 'px';
+                canvas.style.height = Math.floor(viewport.height / ratio) + 'px';
+                wrap.appendChild(canvas);
+                container.appendChild(wrap);
+                await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
+            }
+            container.classList.remove('is-loading');
+        } catch (error) {
+            container.classList.remove('is-loading');
+            container.classList.add('has-preview-error');
+            console.warn('[Drive] PDF document preview failed:', error);
         }
     }
 
@@ -875,6 +913,7 @@
         var box = $('driveContent');
         box.querySelectorAll('[data-folder]').forEach(function (n) {
             n.addEventListener('click', function () {
+                selectedDriveItem = folders.find(function (f) { return String(f.id) === n.getAttribute('data-folder'); }) || null;
                 state.view = 'mydrive';
                 state.folderId = n.getAttribute('data-folder');
                 setActiveNav('mydrive');
@@ -884,7 +923,7 @@
         box.querySelectorAll('[data-file]').forEach(function (n) {
             n.addEventListener('click', function () {
                 var file = files.find(function (f) { return String(f.id) === n.getAttribute('data-file'); });
-                if (file) openDriveFile(file);
+                if (file) { selectedDriveItem = file; openDriveFile(file); }
             });
             n.addEventListener('keydown', function (event) {
                 if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); var file = files.find(function (f) { return String(f.id) === n.getAttribute('data-file'); }); if (file) openDriveFile(file); }
@@ -909,7 +948,7 @@
         var bodyHtml = '';
         var mime = String(file.mimeType || '').toLowerCase();
         if (file.dataUrl && (/^image\//.test(mime) || file.type === 'image')) bodyHtml = '<img class="drive-preview-image" src="' + esc(file.dataUrl) + '" alt="' + esc(file.name) + '">';
-        else if (file.dataUrl && (file.type === 'pdf' || mime === 'application/pdf')) bodyHtml = '<div class="drive-pdf-page-preview is-loading" data-pdf-preview="' + esc(file.id) + '" aria-label="First page of ' + esc(file.name) + '"><canvas></canvas><span class="pdf-preview-sheen"></span><span class="pdf-preview-error">PDF page preview</span></div>';
+        else if (file.dataUrl && (file.type === 'pdf' || mime === 'application/pdf')) bodyHtml = '<div class="drive-pdf-document-preview is-loading" data-pdf-document="' + esc(file.id) + '" aria-label="All pages of ' + esc(file.name) + '"><span class="pdf-preview-sheen"></span><span class="pdf-preview-error">PDF preview could not be rendered</span></div>';
         else if (file.type === 'note' && file.previewText) bodyHtml = contentPageMarkup(file, 'note', true);
         else if (file.type === 'doc' && file.previewText) bodyHtml = contentPageMarkup(file, 'doc', true);
         else if (file.type === 'slide' && file.previewData) bodyHtml = slideDeckPreviewMarkup(file, 4, false);
@@ -917,7 +956,7 @@
         else if (file.previewText) bodyHtml = '<pre class="drive-preview-text">' + esc(String(file.previewText).slice(0, 1800)) + '</pre>';
         else bodyHtml = '<div class="drive-preview-other">' + fileIconSvg(file.type, file.name) + '<div><strong>' + esc(file.name) + '</strong><small>' + esc(file.mimeType || file.size || 'Preview is unavailable for this file type.') + '</small></div></div>';
         showDriveModal({ title: file.name, bodyHtml: bodyHtml, preview: true, primaryLabel: 'Download', onConfirm: function () { return downloadFile(file); }, cancelLabel: 'Close' });
-        if (file.type === 'pdf' || mime === 'application/pdf') renderPdfPreview(file, $('driveModalBody').querySelector('[data-pdf-preview]'));
+        if (file.type === 'pdf' || mime === 'application/pdf') renderPdfDocumentPreview(file, $('driveModalBody').querySelector('[data-pdf-document]'));
     }
 
     async function downloadFile(file) {
@@ -1036,6 +1075,7 @@
         if (!item) return;
 
         event.preventDefault();
+        selectedDriveItem = item;
         var appNames = { doc: 'Docs', note: 'Notes', slide: 'Slides', sheet: 'Sheets' };
         var previewType = item.type === 'image' || item.type === 'pdf';
         var primaryLabel = isFolder ? 'Open folder' : (appNames[item.type] ? 'Open in ' + appNames[item.type] : (previewType ? 'Preview' : 'Open'));
@@ -1052,7 +1092,8 @@
         } else {
         html += contextRow('Download', 'download') + contextRow('Copy link', 'copy-link') +
             contextRow('Manage access', 'manage-access') + contextRow('Duplicate', 'duplicate') +
-            contextRow('Move to', 'move-to') + contextRow('Copy to', 'copy-to');
+            contextRow('Copy', 'copy') + contextRow('Move', 'move');
+        if (isFolder && driveClipboard) html += contextRow('Paste here', 'paste');
         if (isFolder) {
             html += '</div><div class="context-section drive-folder-color-section"><span class="drive-context-label">Folder color</span><div class="drive-folder-colors" role="group" aria-label="Folder color">' +
                 ['#f3b900', '#ef6c63', '#a879d8', '#4c9be8', '#39a66b', '#6d7c8f'].map(function (color, index) {
@@ -1076,6 +1117,10 @@
             if (target) openItemContextMenu(event, target);
             else {
                 menu.innerHTML = defaultMenuHTML;
+                delete menu.dataset.contextItemId;
+                menu.dataset.contextIsFolder = '0';
+                var pasteButton = menu.querySelector('[data-context-action="drive-paste"]');
+                if (pasteButton) pasteButton.style.display = driveClipboard ? '' : 'none';
                 positionContextMenu(menu, event.clientX, event.clientY);
             }
         });
@@ -1094,6 +1139,12 @@
         var menu = $('custom-context-menu');
         var isFolder = menu.dataset.contextIsFolder === '1';
         var id = menu.dataset.contextItemId;
+        if (action === 'drive-paste' || action === 'paste') {
+            var pasteTarget = action === 'drive-paste' ? state.folderId : (isFolder ? id : state.folderId);
+            await pasteDriveClipboard(pasteTarget || null);
+            menu.style.display = 'none';
+            return;
+        }
         var item = isFolder ? folders.find(function (f) { return String(f.id) === String(id); }) : files.find(function (f) { return String(f.id) === String(id); });
         if (!item) return;
         menu.style.display = 'none';
@@ -1115,6 +1166,11 @@
             item.sharedWith = value.split(',').map(function (x) { return x.trim(); }).filter(Boolean);
             item.shared = item.sharedWith.length > 0;
             await saveDriveData(); render(); if (window.showToast) window.showToast(item.shared ? 'Access list updated' : 'Sharing turned off'); return;
+        }
+        if (action === 'copy' || action === 'move') {
+            driveClipboard = { itemId: String(item.id), driveKey: item.driveKey || null, isFolder: isFolder, mode: action };
+            if (window.showToast) window.showToast((action === 'copy' ? 'Copied' : 'Ready to move') + ' “' + esc(item.name) + '”. Right-click a folder and choose Paste, or use Ctrl+V.');
+            return;
         }
         if (action === 'delete' || action === 'purge' || action === 'restore') {
             if (action !== 'restore') {
@@ -1144,28 +1200,12 @@
             await saveDriveData(); render(); return;
         }
         if (action === 'duplicate') {
-            if (isFolder) duplicateFolder(item);
+            if (isFolder) { await duplicateFolder(item); await loadDriveData(); }
             else if (item.externalApp) {
                 await duplicateSuiteFile(item);
                 await loadDriveData();
             }
             else files.push(Object.assign({}, item, { id: 'file-' + Date.now(), name: uniqueName(item.name, item.folder), modifiedAt: Date.now(), trashed: false, starred: false }));
-            await saveDriveData(); render(); return;
-        }
-        if (action === 'move-to' || action === 'copy-to') {
-            var excluded = isFolder ? folderContents(item.id).filter(function (entry) { return entry.type === undefined; }).map(function (entry) { return entry.id; }) : [];
-            var choices = folders.filter(function (f) { return !f.trashed && excluded.indexOf(f.id) === -1; });
-            var selectOptions = [{ value: '', label: 'My Drive (root)' }].concat(choices.map(function (f) { return { value: f.id, label: folderPath(f.id).map(function (part) { return part.name; }).join(' / ') }; }));
-            var destination = await showDriveModal({ title: action === 'move-to' ? 'Move to folder' : 'Copy to folder', message: 'Choose a destination in My Drive.', select: { options: selectOptions, label: 'Destination folder' }, primaryLabel: action === 'move-to' ? 'Move' : 'Copy' });
-            if (!destination.confirmed) return;
-            var parent = destination.value || null;
-            if (action === 'copy-to') {
-                if (isFolder) duplicateFolder(item, parent);
-                else if (item.externalApp) {
-                    var copiedId = await duplicateSuiteFile(item);
-                    if (copiedId) flagsMap[item.appType + ':' + copiedId] = { folder: parent };
-                } else files.push(Object.assign({}, item, { id: 'file-' + Date.now(), folder: parent, name: uniqueName(item.name, parent), modifiedAt: Date.now(), trashed: false, starred: false }));
-            } else if (isFolder) item.parent = parent; else item.folder = parent;
             await saveDriveData(); render(); return;
         }
     }
@@ -1174,6 +1214,59 @@
         var ids = [folderId];
         childrenOf(folderId).forEach(function (child) { ids = ids.concat(folderContents(child.id)); });
         return folders.filter(function (f) { return ids.indexOf(f.id) !== -1; }).concat(files.filter(function (f) { return ids.indexOf(f.folder) !== -1; }));
+    }
+
+    async function pasteDriveClipboard(parentId) {
+        if (!driveClipboard) return;
+        var source = driveClipboard.isFolder
+            ? folders.find(function (folder) { return String(folder.id) === driveClipboard.itemId; })
+            : files.find(function (file) { return String(file.id) === driveClipboard.itemId || (driveClipboard.driveKey && file.driveKey === driveClipboard.driveKey); });
+        if (!source || source.trashed) { driveClipboard = null; if (window.showToast) window.showToast('That item is no longer available.'); return; }
+        if (parentId && !folders.some(function (folder) { return String(folder.id) === String(parentId) && !folder.trashed; })) { if (window.showToast) window.showToast('Choose an existing folder to paste into.'); return; }
+        if (driveClipboard.isFolder && driveClipboard.mode === 'move' && (source.id === parentId || folderContents(source.id).some(function (entry) { return entry.type === undefined && String(entry.id) === String(parentId); }))) {
+            if (window.showToast) window.showToast('A folder cannot be moved inside itself.');
+            return;
+        }
+        if (driveClipboard.mode === 'copy') {
+            if (driveClipboard.isFolder) await duplicateFolder(source, parentId);
+            else if (source.externalApp) {
+                var copyId = await duplicateSuiteFile(source);
+                if (copyId) flagsMap[source.appType + ':' + copyId] = { folder: parentId || null };
+            } else {
+                files.push(Object.assign({}, source, { id: 'file-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6), name: uniqueName(source.name, parentId || null), folder: parentId || null, modifiedAt: Date.now(), modified: 'Just now', created: new Date().toISOString(), trashed: false, starred: false, lastOpenedAt: 0 }));
+            }
+        } else {
+            if (driveClipboard.isFolder) source.parent = parentId || null;
+            else source.folder = parentId || null;
+            source.trashed = false;
+            delete trashMap[source.driveKey || source.id];
+        }
+        var wasMove = driveClipboard.mode === 'move';
+        if (wasMove) driveClipboard = null;
+        await saveDriveData();
+        await loadDriveData();
+        render();
+        if (window.showToast) window.showToast(wasMove ? 'Moved into folder' : 'Pasted into folder');
+    }
+
+    function bindDriveClipboard() {
+        document.addEventListener('keydown', function (event) {
+            var key = String(event.key || '').toLowerCase();
+            var shortcut = event.ctrlKey || event.metaKey;
+            var target = event.target;
+            var editable = target && (target.matches('input,textarea,select,[contenteditable="true"]') || target.isContentEditable);
+            if (!shortcut || editable) return;
+            if (key === 'v' && driveClipboard) {
+                event.preventDefault();
+                pasteDriveClipboard(state.folderId);
+                return;
+            }
+            if ((key === 'c' || key === 'x') && selectedDriveItem && !(window.getSelection && window.getSelection().toString())) {
+                event.preventDefault();
+                driveClipboard = { itemId: String(selectedDriveItem.id), driveKey: selectedDriveItem.driveKey || null, isFolder: !selectedDriveItem.type, mode: key === 'x' ? 'move' : 'copy' };
+                if (window.showToast) window.showToast(key === 'x' ? 'Ready to move. Choose a folder and press Ctrl+V.' : 'Copied. Choose a folder and press Ctrl+V.');
+            }
+        });
     }
 
     async function hardDeleteSuiteFile(file) {
@@ -1231,11 +1324,28 @@
         return candidate;
     }
 
-    function duplicateFolder(folder, parent) {
-        var copy = { id: 'folder-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6), name: folder.name + ' copy', parent: parent === undefined ? folder.parent : parent, color: folder.color };
+    async function duplicateFolder(folder, parent) {
+        var copy = { id: 'folder-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6), name: uniqueFolderName(folder.name + ' copy', parent === undefined ? folder.parent : parent), parent: parent === undefined ? folder.parent : parent, color: folder.color };
         folders.push(copy);
-        files.filter(function (f) { return f.folder === folder.id && !f.externalApp; }).forEach(function (file) { files.push(Object.assign({}, file, { id: 'file-' + Date.now() + '-' + Math.random().toString(36).slice(2, 5), folder: copy.id, name: uniqueName(file.name, copy.id) })); });
-        childrenOf(folder.id).slice().forEach(function (child) { duplicateFolder(child, copy.id); });
+        var entries = files.filter(function (file) { return file.folder === folder.id && !file.trashed; });
+        for (var i = 0; i < entries.length; i++) {
+            var file = entries[i];
+            if (file.externalApp) {
+                var newId = await duplicateSuiteFile(file);
+                if (newId) flagsMap[file.appType + ':' + newId] = { folder: copy.id };
+            } else files.push(Object.assign({}, file, { id: 'file-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6), folder: copy.id, name: uniqueName(file.name, copy.id), modifiedAt: Date.now(), starred: false, lastOpenedAt: 0 }));
+        }
+        var childFolders = childrenOf(folder.id).slice();
+        for (var childIndex = 0; childIndex < childFolders.length; childIndex++) await duplicateFolder(childFolders[childIndex], copy.id);
+        return copy;
+    }
+
+    function uniqueFolderName(name, parent) {
+        var base = name;
+        var candidate = base;
+        var index = 2;
+        while (folders.some(function (folder) { return folder.parent === parent && folder.name.toLowerCase() === candidate.toLowerCase() && !folder.trashed; })) candidate = base + ' ' + index++;
+        return candidate;
     }
 
     function setActiveNav(view) {
@@ -1779,6 +1889,7 @@
         showSkeleton();
         bindContextMenu();
         bindDriveModal();
+        bindDriveClipboard();
         if (window.EmeraldAuth && window.EmeraldAuth.ready) await window.EmeraldAuth.ready();
         initTheme();
         bindProfile();
