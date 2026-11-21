@@ -1,4 +1,4 @@
-Content-Security-Policy: default-src 'self' data: https:; script-src 'self' 'unsafe-inline' https://*.google.com https://*.gstatic.com; style-src 'self' 'unsafe-inline' https://*.google.com https://*.gstatic.com; img-src 'self' data: https:; connect-src 'self' https:; font-src 'self' https://*.gstatic.com; frame-src 'self'; object-src 'none'; base-uri 'self';
+Content-Security-Policy: default-src 'self' data: https:; script-src 'self' 'unsafe-inline' https://*.google.com https://*.gstatic.com https://cdnjs.cloudflare.com; worker-src 'self' blob: https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://*.google.com https://*.gstatic.com; img-src 'self' data: https:; connect-src 'self' https:; font-src 'self' https://*.gstatic.com; frame-src 'self'; object-src 'none'; base-uri 'self';
 
 X-Frame-Options: SAMEORIGIN
 

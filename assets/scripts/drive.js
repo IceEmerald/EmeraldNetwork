@@ -20,6 +20,7 @@
         var actions = $('driveModalActions');
         if (!modal || !title || !body || !actions) return Promise.resolve({ confirmed: false, value: null });
         if (activeModalResolver) closeDriveModal();
+        modal.classList.toggle('drive-modal--preview', !!options.preview);
         title.textContent = options.title || 'Drive';
         body.innerHTML = '';
         if (options.message) { var message = document.createElement('p'); message.textContent = options.message; body.appendChild(message); }
@@ -79,6 +80,22 @@
         catch (_) { return 0; }
     }
 
+    function previewTextFromDataUrl(dataUrl) {
+        try {
+            var comma = String(dataUrl || '').indexOf(',');
+            if (comma < 0) return '';
+            var header = dataUrl.slice(0, comma);
+            var body = dataUrl.slice(comma + 1);
+            if (/;base64/i.test(header)) {
+                var raw = atob(body);
+                var bytes = new Uint8Array(raw.length);
+                for (var i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+                return new TextDecoder('utf-8').decode(bytes).slice(0, 500);
+            }
+            return decodeURIComponent(body).slice(0, 500);
+        } catch (_) { return ''; }
+    }
+
     /* ---------------- synced Drive data ---------------- */
 
     var TYPE_META = {
@@ -127,6 +144,7 @@
             var fileFlags = flagsMap[file.driveKey || file.id] || {};
             file.trashed = !!(file.trashed || trashMap[file.driveKey || file.id]);
             file.lastOpenedAt = Math.max(Number(file.lastOpenedAt) || 0, Number(fileFlags.lastOpenedAt) || 0);
+            if (!file.previewText && file.dataUrl && /\.(txt|md|markdown|json|csv|tsv|xml|yaml|yml|log|js|jsx|ts|tsx|css|html|htm|sql|py|sh)$/i.test(file.name || '')) file.previewText = previewTextFromDataUrl(file.dataUrl);
         });
         var suiteMaps = [
             ['emeraldcore.storage.suite.docs', 'doc', 'docs'],
@@ -148,7 +166,7 @@
                 var sizeBytes = byteLengthOf(payload);
                 var flags = flagsMap[key] || {};
                 files.push({ id: String(record.id), driveKey: key, name: record.title || 'Untitled ' + mapping[1], type: mapping[1], appType: mapping[2], folder: flags.folder || null,
-                    size: formatBytes(sizeBytes), sizeBytes: sizeBytes, previewText: suitePreviewText(mapping[2], payload), modifiedAt: modifiedAt, lastOpenedAt: flags.lastOpenedAt || 0, modified: relativeOrOriginalDate(modifiedAt), starred: !!flags.starred, shared: !!(flags.sharedWith && flags.sharedWith.length), sharedWith: flags.sharedWith || [], trashed: deleted, externalApp: true });
+                    size: formatBytes(sizeBytes), sizeBytes: sizeBytes, previewData: payload, previewText: suitePreviewText(mapping[2], payload), modifiedAt: modifiedAt, lastOpenedAt: flags.lastOpenedAt || 0, modified: relativeOrOriginalDate(modifiedAt), starred: !!flags.starred, shared: !!(flags.sharedWith && flags.sharedWith.length), sharedWith: flags.sharedWith || [], trashed: deleted, externalApp: true });
             }
         }
         try {
@@ -160,7 +178,7 @@
             var tx = db.transaction('workbooks', 'readonly');
             var keys = await new Promise(function (resolve, reject) { var req = tx.objectStore('workbooks').getAllKeys(); req.onsuccess = function () { resolve(req.result); }; req.onerror = function () { reject(req.error); }; });
             var vals = await new Promise(function (resolve, reject) { var req = tx.objectStore('workbooks').getAll(); req.onsuccess = function () { resolve(req.result); }; req.onerror = function () { reject(req.error); }; });
-            keys.forEach(function (id, index) { var data = vals[index] && vals[index].data || {}; var key = 'sheets:' + id; var flags = flagsMap[key] || {}; var modifiedAt = vals[index] && vals[index].savedAt || Date.now(); var sizeBytes = byteLengthOf(data); files.push({ id: String(id), driveKey: key, name: data.title || 'Untitled spreadsheet', type: 'sheet', appType: 'sheets', folder: flags.folder || null, size: formatBytes(sizeBytes), sizeBytes: sizeBytes, previewText: suitePreviewText('sheets', data), modifiedAt: modifiedAt, lastOpenedAt: flags.lastOpenedAt || 0, modified: relativeOrOriginalDate(modifiedAt), starred: !!flags.starred, shared: !!(flags.sharedWith && flags.sharedWith.length), sharedWith: flags.sharedWith || [], trashed: !!trashMap[key], externalApp: true }); });
+            keys.forEach(function (id, index) { var data = vals[index] && vals[index].data || {}; var key = 'sheets:' + id; var flags = flagsMap[key] || {}; var modifiedAt = vals[index] && vals[index].savedAt || Date.now(); var sizeBytes = byteLengthOf(data); files.push({ id: String(id), driveKey: key, name: data.title || 'Untitled spreadsheet', type: 'sheet', appType: 'sheets', folder: flags.folder || null, size: formatBytes(sizeBytes), sizeBytes: sizeBytes, previewData: data, previewText: suitePreviewText('sheets', data), modifiedAt: modifiedAt, lastOpenedAt: flags.lastOpenedAt || 0, modified: relativeOrOriginalDate(modifiedAt), starred: !!flags.starred, shared: !!(flags.sharedWith && flags.sharedWith.length), sharedWith: flags.sharedWith || [], trashed: !!trashMap[key], externalApp: true }); });
         } catch (_) {}
         if (ensureSuiteFolders()) await saveDriveData();
         loading = false;
@@ -171,6 +189,7 @@
         var folderPalette = ['#f3b900', '#ef6c63', '#a879d8', '#4c9be8', '#39a66b', '#6d7c8f'];
         var root = folders.find(function (folder) { return folder.id === 'emerald-suite-root-folder'; });
         if (!root) { root = { id: 'emerald-suite-root-folder', name: 'EmeraldSuite', parent: null }; folders.push(root); changed = true; }
+        if (root.name !== 'EmeraldSuite' || root.parent != null) { root.name = 'EmeraldSuite'; root.parent = null; changed = true; }
         if (folderPalette.indexOf(String(root.color || '').toLowerCase()) === -1) { root.color = '#f3b900'; changed = true; }
         var categories = [
             { type: 'doc', name: 'Docs', color: '#4c9be8' },
@@ -182,6 +201,7 @@
             var id = 'emerald-suite-' + category.type + '-folder';
             var folder = folders.find(function (candidate) { return candidate.id === id; });
             if (!folder) { folder = { id: id, name: category.name, parent: root.id }; folders.push(folder); changed = true; }
+            if (folder.name !== category.name || folder.parent !== root.id) { folder.name = category.name; folder.parent = root.id; changed = true; }
             if (folderPalette.indexOf(String(folder.color || '').toLowerCase()) === -1) { folder.color = category.color; changed = true; }
             files.forEach(function (file) {
                 if (file.externalApp && file.type === category.type && !file.folder) {
@@ -213,7 +233,7 @@
         var box = $('driveContent');
         if (!box) return;
         box.setAttribute('aria-busy', 'true');
-        box.innerHTML = '<div class="dsection"><h2 class="dsection-title">Loading your Drive</h2><div class="dgrid">' + new Array(7).join('<div class="loading-card"><span class="loading-thumb"></span><span class="loading-line wide"></span><span class="loading-line short"></span></div>') + '</div></div>';
+        box.innerHTML = '<div class="dsection ddrive-loading"><h2 class="dsection-title">Loading your Drive</h2><div class="dgrid">' + new Array(7).join('<div class="loading-placeholder loading-card ddrive-skeleton-card" aria-hidden="true"><span class="loading-thumb"></span><span class="loading-line wide"></span><span class="loading-line"></span><span class="loading-line short"></span></div>') + '</div></div>';
     }
 
     /* ---------------- helpers ---------------- */
@@ -405,14 +425,145 @@
         return '';
     }
 
+    function safeColor(value, fallback) { return /^#[0-9a-f]{3,8}$/i.test(String(value || '')) ? value : fallback; }
+
+    function sheetPreviewMarkup(item) {
+        var sheets = item.previewData && item.previewData.sheets || [];
+        var sheet = sheets[0];
+        var cells = sheet && sheet.cells || {};
+        var grid = '';
+        for (var row = 0; row < 5; row++) {
+            for (var col = 0; col < 5; col++) {
+                var cell = cells[row + ',' + col] || {};
+                var text = cell.v == null ? '' : String(cell.v);
+                var style = cell.s || {};
+                var fill = safeColor(style.fillColor || style.background || style.bg, '');
+                grid += '<span' + (fill ? ' style="background:' + fill + '"' : '') + '>' + esc(text.slice(0, 18)) + '</span>';
+            }
+        }
+        return '<div class="dfile-preview-page dpreview-sheet"><div class="dpreview-sheet-title">' + esc(sheet && sheet.name || item.name) + '</div><div class="dpreview-sheet-grid">' + grid + '</div></div>';
+    }
+
+    function slideMarkup(slide, index) {
+        var bg = slide && slide.background && slide.background.type === 'color' ? safeColor(slide.background.value, '#fff') : '#fff';
+        var elements = (slide && slide.elements || []).slice().sort(function (a, b) { return (a.z || 0) - (b.z || 0); });
+        var inner = elements.map(function (element) {
+            var left = Math.max(0, Math.min(100, Number(element.x) / 960 * 100 || 0));
+            var top = Math.max(0, Math.min(100, Number(element.y) / 540 * 100 || 0));
+            var width = Math.max(1, Math.min(100, Number(element.w) / 960 * 100 || 1));
+            var height = Math.max(1, Math.min(100, Number(element.h) / 540 * 100 || 1));
+            var style = 'left:' + left + '%;top:' + top + '%;width:' + width + '%;height:' + height + '%;';
+            if (element.type === 'image' && element.src) return '<img class="dslide-el dslide-image" style="' + style + '" src="' + esc(element.src) + '" alt="">';
+            if (element.type === 'shape') return '<i class="dslide-el dslide-shape" style="' + style + 'background:' + safeColor(element.fill, '#e5e7eb') + ';border-color:' + safeColor(element.stroke, 'transparent') + '"></i>';
+            var text = element.text || plainTextFromHtml(element.html || '') || '';
+            var color = safeColor(element.color, '#26332b');
+            var fontSize = Math.max(4, Math.min(14, Number(element.fontSize || 14) * .15));
+            return '<span class="dslide-el dslide-text" style="' + style + 'color:' + color + ';font-size:' + fontSize + 'px;font-weight:' + (element.bold || element.fontWeight === 'bold' ? '700' : '500') + '">' + esc(text).slice(0, 180) + '</span>';
+        }).join('');
+        return '<div class="dslide-mini" style="background:' + bg + '" aria-label="Slide ' + (index + 1) + '">' + inner + '</div>';
+    }
+
+    function slideDeckPreviewMarkup(item, limit, stacked) {
+        var slides = item.previewData && item.previewData.slides || [];
+        if (!slides.length) return '<div class="dfile-preview-page dpreview-slide"><span class="dpreview-slide-title">' + esc(item.name) + '</span></div>';
+        var selected = slides.slice(0, limit || 4);
+        if (stacked) return '<div class="dslide-stack">' + selected.slice(0, 2).map(function (slide, index) { return '<div class="dslide-stack-page slide-stack-' + index + '">' + slideMarkup(slide, index) + '</div>'; }).join('') + '</div>';
+        return '<div class="drive-slides-preview">' + selected.map(slideMarkup).join('') + '</div><div class="drive-slide-count">' + slides.length + ' slides</div>';
+    }
+
+    function wrappedPreviewLines(value, maxChars, maxLines) {
+        var words = String(value || '').split(/\s+/);
+        var lines = [];
+        var line = '';
+        words.forEach(function (word) {
+            if (!word) return;
+            if (line && (line + ' ' + word).length > maxChars) { lines.push(line); line = ''; }
+            line += (line ? ' ' : '') + word;
+        });
+        if (line) lines.push(line);
+        return lines.slice(0, maxLines);
+    }
+
+    function contentPageMarkup(item, kind, modal) {
+        var lines = wrappedPreviewLines(item.previewText || '', modal ? 50 : 31, modal ? (kind === 'note' ? 14 : 18) : 7);
+        var lineHtml = lines.map(function (line) { return '<span>' + esc(line) + '</span>'; }).join('');
+        if (kind === 'note') return '<div class="drive-content-page drive-content-page--note' + (modal ? ' is-large' : '') + '"><div class="drive-page-heading">' + esc(item.name) + '</div><div class="drive-notebook-writing">' + lineHtml + '</div></div>';
+        return '<div class="drive-content-page drive-content-page--doc' + (modal ? ' is-large' : '') + '"><div class="drive-page-heading">' + esc(item.name) + '</div><div class="drive-doc-writing">' + lineHtml + '</div></div>';
+    }
+
+    function drivePdfLibrary() {
+        if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+        if (window._drivePdfLibraryPromise) return window._drivePdfLibraryPromise;
+        window._drivePdfLibraryPromise = new Promise(function (resolve, reject) {
+            var script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+            script.integrity = 'sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e';
+            script.crossOrigin = 'anonymous';
+            script.onload = function () { resolve(window.pdfjsLib || null); };
+            script.onerror = function () { reject(new Error('PDF preview library failed to load.')); };
+            document.head.appendChild(script);
+        });
+        return window._drivePdfLibraryPromise;
+    }
+
+    var drivePdfDocuments = new Map();
+    async function renderPdfPreview(file, container) {
+        if (!container || !file || !file.dataUrl) return;
+        var canvas = container.querySelector('canvas');
+        if (!canvas) return;
+        try {
+            var lib = await drivePdfLibrary();
+            if (!lib) throw new Error('PDF preview library is unavailable.');
+            if (lib.GlobalWorkerOptions && !lib.GlobalWorkerOptions.workerSrc) lib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            var pdf = drivePdfDocuments.get(file.id);
+            if (!pdf) {
+                var encoded = file.dataUrl.slice(file.dataUrl.indexOf(',') + 1);
+                var raw = atob(encoded);
+                var bytes = new Uint8Array(raw.length);
+                for (var i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+                pdf = await lib.getDocument({ data: bytes }).promise;
+                drivePdfDocuments.set(file.id, pdf);
+            }
+            var page = await pdf.getPage(1);
+            var bounds = container.getBoundingClientRect();
+            var base = page.getViewport({ scale: 1 });
+            var scale = Math.min((bounds.width || 220) / base.width, (bounds.height || 320) / base.height);
+            scale = Math.max(.1, scale);
+            var ratio = Math.min(2, window.devicePixelRatio || 1);
+            var viewport = page.getViewport({ scale: scale * ratio });
+            canvas.width = Math.ceil(viewport.width);
+            canvas.height = Math.ceil(viewport.height);
+            canvas.style.width = Math.floor(viewport.width / ratio) + 'px';
+            canvas.style.height = Math.floor(viewport.height / ratio) + 'px';
+            await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
+            container.classList.remove('is-loading');
+        } catch (error) {
+            container.classList.remove('is-loading');
+            container.classList.add('has-preview-error');
+            console.warn('[Drive] PDF preview failed:', error);
+        }
+    }
+
+    function renderPdfThumbnails(root) {
+        if (!root) return;
+        root.querySelectorAll('[data-pdf-preview]').forEach(function (container) {
+            var file = files.find(function (entry) { return String(entry.id) === container.getAttribute('data-pdf-preview'); });
+            if (file) renderPdfPreview(file, container);
+        });
+    }
+
     function filePreview(item) {
         var mime = String(item.mimeType || '').toLowerCase();
         if (item.dataUrl && (/^image\//.test(mime) || item.type === 'image')) {
             return '<div class="dfile-preview-image-wrap"><img class="dfile-preview-image" src="' + esc(item.dataUrl) + '" alt=""></div>';
         }
         if (item.dataUrl && (item.type === 'pdf' || mime === 'application/pdf')) {
-            return '<div class="dfile-preview-pdf"><iframe title="' + esc(item.name) + ' preview" src="' + esc(item.dataUrl) + '#toolbar=0&navpanes=0" loading="lazy" tabindex="-1"></iframe></div>';
+            return '<div class="dfile-preview-pdf is-loading" data-pdf-preview="' + esc(item.id) + '" aria-label="PDF first page preview"><canvas></canvas><span class="pdf-preview-sheen"></span><span class="pdf-preview-error">PDF page preview</span></div>';
         }
+        if (item.type === 'note' && item.previewText) return '<div class="dfile-preview-page dpreview-note-live">' + contentPageMarkup(item, 'note', false) + '</div>';
+        if (item.type === 'doc' && item.previewText) return '<div class="dfile-preview-page dpreview-doc-live">' + contentPageMarkup(item, 'doc', false) + '</div>';
+        if (item.type === 'sheet' && item.previewData) return sheetPreviewMarkup(item);
+        if (item.type === 'slide' && item.previewData) return slideDeckPreviewMarkup(item, 1, true);
         if (item.previewText) {
             var lines = String(item.previewText).slice(0, 260).split(/\s+/).reduce(function (out, word) {
                 var last = out[out.length - 1] || '';
@@ -422,8 +573,6 @@
             return '<div class="dfile-preview-page dpreview-content"><span class="dpreview-content-title">' + esc(item.name) + '</span><div>' + lines.slice(0, 6).map(function (line) { return '<i>' + esc(line) + '</i>'; }).join('') + '</div></div>';
         }
         if (item.type === 'note') return '<div class="dfile-preview-page dpreview-note"><span class="dpreview-note-margin"></span><div class="dpreview-note-lines">' + [72, 88, 64, 82, 54, 78, 68].map(function (width) { return '<i style="width:' + width + '%"></i>'; }).join('') + '</div></div>';
-        if (item.type === 'sheet') return '<div class="dfile-preview-page dpreview-sheet"><span class="dpreview-sheet-toolbar"></span><span class="dpreview-sheet-head"></span><div class="dpreview-sheet-grid">' + new Array(30).join('<i></i>') + '</div></div>';
-        if (item.type === 'slide') return '<div class="dfile-preview-page dpreview-slide"><span class="dpreview-slide-art"></span><span class="dpreview-slide-title">' + esc(item.name) + '</span><span class="dpreview-slide-copy"></span></div>';
         return '<div class="dfile-preview-page dpreview-doc"><span class="dpreview-doc-title">' + esc(item.name) + '</span><div class="dpreview-doc-lines">' + [64, 82, 78, 70, 86, 58].map(function (width) { return '<i style="width:' + width + '%"></i>'; }).join('') + '</div></div>';
     }
 
@@ -468,15 +617,11 @@
             var gradientId = 'folderGradient-' + esc(item.id);
             var folderColor = /^#[0-9a-f]{6}$/i.test(String(item.color || '')) ? item.color : '#f3b900';
             return '<button class="dfolder-card" data-folder="' + item.id + '">' +
-                '<span class="dfolder-icon"><svg viewBox="0 0 180 126" aria-hidden="true">' +
-                    '<defs><linearGradient id="' + gradientId + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + shadeHex(folderColor, .38) + '"/><stop offset=".48" stop-color="' + folderColor + '"/><stop offset="1" stop-color="' + shadeHex(folderColor, -.18) + '"/></linearGradient><linearGradient id="' + gradientId + '-tab" x1="0" y1="0" x2="0" y2="1"><stop stop-color="' + shadeHex(folderColor, .22) + '"/><stop offset="1" stop-color="' + shadeHex(folderColor, -.12) + '"/></linearGradient><filter id="' + gradientId + '-shadow" x="-20%" y="-20%" width="140%" height="155%"><feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#203026" flood-opacity=".2"/></filter></defs>' +
-                    '<g filter="url(#' + gradientId + '-shadow)">' +
-                    '<path d="M14 34a10 10 0 0 1 10-10h38c7 0 10 2 15 7l8 8h69a10 10 0 0 1 10 10v54a10 10 0 0 1-10 10H24a10 10 0 0 1-10-10z" fill="' + shadeHex(folderColor, -.24) + '"/>' +
-                    '<path d="M12 29a9 9 0 0 1 9-9h40c6 0 9 2 13 6l9 9h76a9 9 0 0 1 9 9v10H12z" fill="url(#' + gradientId + '-tab)"/>' +
-                    '<path d="M12 47h56c6 0 10-2 14-6l9-8h77a9 9 0 0 1 9 9v54a10 10 0 0 1-10 10H22a10 10 0 0 1-10-10z" fill="url(#' + gradientId + ')" stroke="' + shadeHex(folderColor, -.25) + '" stroke-width="1.5"/>' +
-                    '<path d="M15 49h51c7 0 12-2 17-7l8-7" fill="none" stroke="rgba(255,255,255,.72)" stroke-width="3" stroke-linecap="round"/>' +
-                    '<path d="M16 99h156" fill="none" stroke="rgba(0,0,0,.1)" stroke-width="2"/>' +
-                    '</g>' +
+                '<span class="dfolder-icon"><svg viewBox="0 0 160 110" aria-hidden="true">' +
+                    '<defs><linearGradient id="' + gradientId + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + shadeHex(folderColor, .34) + '"/><stop offset=".58" stop-color="' + folderColor + '"/><stop offset="1" stop-color="' + shadeHex(folderColor, -.12) + '"/></linearGradient></defs>' +
+                    '<path d="M12 27a9 9 0 0 1 9-9h43c5 0 8 2 11 5l10 11h63a9 9 0 0 1 9 9v48a9 9 0 0 1-9 9H21a9 9 0 0 1-9-9z" fill="' + shadeHex(folderColor, -.16) + '"/>' +
+                    '<path d="M12 36h51c6 0 9-2 13-6l9-9h63a9 9 0 0 1 9 9v61a9 9 0 0 1-9 9H21a9 9 0 0 1-9-9z" fill="url(#' + gradientId + ')" stroke="' + shadeHex(folderColor, -.2) + '" stroke-width="1.5"/>' +
+                    '<path d="M14 35h49c6 0 9-2 13-6l8-8" fill="none" stroke="rgba(255,255,255,.78)" stroke-width="2.5"/>' +
                 '</svg></span>' +
                 '<span class="dfolder-name">' + esc(item.name) + '</span>' +
                 '</button>';
@@ -717,6 +862,7 @@
 
         box.innerHTML = html;
         box.removeAttribute('aria-busy');
+        renderPdfThumbnails(box);
         updateDriveStorage();
         updateHomeGreeting();
         if (state.view === 'home' && !state.search) buildHomeSky(homeDaypart());
@@ -763,10 +909,15 @@
         var bodyHtml = '';
         var mime = String(file.mimeType || '').toLowerCase();
         if (file.dataUrl && (/^image\//.test(mime) || file.type === 'image')) bodyHtml = '<img class="drive-preview-image" src="' + esc(file.dataUrl) + '" alt="' + esc(file.name) + '">';
-        else if (file.dataUrl && (file.type === 'pdf' || mime === 'application/pdf')) bodyHtml = '<iframe class="drive-preview-frame" title="' + esc(file.name) + ' preview" src="' + esc(file.dataUrl) + '#toolbar=1" allow="fullscreen"></iframe>';
-        else if (file.previewText) bodyHtml = '<pre class="drive-preview-text">' + esc(file.previewText) + '</pre>';
+        else if (file.dataUrl && (file.type === 'pdf' || mime === 'application/pdf')) bodyHtml = '<div class="drive-pdf-page-preview is-loading" data-pdf-preview="' + esc(file.id) + '" aria-label="First page of ' + esc(file.name) + '"><canvas></canvas><span class="pdf-preview-sheen"></span><span class="pdf-preview-error">PDF page preview</span></div>';
+        else if (file.type === 'note' && file.previewText) bodyHtml = contentPageMarkup(file, 'note', true);
+        else if (file.type === 'doc' && file.previewText) bodyHtml = contentPageMarkup(file, 'doc', true);
+        else if (file.type === 'slide' && file.previewData) bodyHtml = slideDeckPreviewMarkup(file, 4, false);
+        else if (file.type === 'sheet' && file.previewData) bodyHtml = '<div class="drive-sheet-large-preview">' + sheetPreviewMarkup(file).replace('dfile-preview-page dpreview-sheet', 'dpreview-sheet') + '</div>';
+        else if (file.previewText) bodyHtml = '<pre class="drive-preview-text">' + esc(String(file.previewText).slice(0, 1800)) + '</pre>';
         else bodyHtml = '<div class="drive-preview-other">' + fileIconSvg(file.type, file.name) + '<div><strong>' + esc(file.name) + '</strong><small>' + esc(file.mimeType || file.size || 'Preview is unavailable for this file type.') + '</small></div></div>';
-        showDriveModal({ title: file.name, bodyHtml: bodyHtml, primaryLabel: 'Download', onConfirm: function () { return downloadFile(file); }, cancelLabel: 'Close' });
+        showDriveModal({ title: file.name, bodyHtml: bodyHtml, preview: true, primaryLabel: 'Download', onConfirm: function () { return downloadFile(file); }, cancelLabel: 'Close' });
+        if (file.type === 'pdf' || mime === 'application/pdf') renderPdfPreview(file, $('driveModalBody').querySelector('[data-pdf-preview]'));
     }
 
     async function downloadFile(file) {
@@ -1624,6 +1775,7 @@
     /* ---------------- init ---------------- */
 
     async function init() {
+        var skeletonStartedAt = Date.now();
         showSkeleton();
         bindContextMenu();
         bindDriveModal();
@@ -1635,6 +1787,8 @@
         bindCreateUploadMenu();
         bindSidebarNav();
         try { await loadDriveData(); } catch (error) { console.warn('[Drive] Could not load synced files', error); loading = false; }
+        var skeletonRemaining = 520 - (Date.now() - skeletonStartedAt);
+        if (skeletonRemaining > 0) await new Promise(function (resolve) { setTimeout(resolve, skeletonRemaining); });
         render();
         var sharedFileId = new URLSearchParams(location.search).get('file');
         if (sharedFileId) {
