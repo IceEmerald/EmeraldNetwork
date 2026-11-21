@@ -15,12 +15,14 @@
     function showDriveModal(options) {
         options = options || {};
         var modal = $('driveModal');
+        var dialog = modal ? modal.querySelector('.drive-modal') : null;
         var title = $('driveModalTitle');
         var body = $('driveModalBody');
         var actions = $('driveModalActions');
-        if (!modal || !title || !body || !actions) return Promise.resolve({ confirmed: false, value: null });
+        if (!modal || !dialog || !title || !body || !actions) return Promise.resolve({ confirmed: false, value: null });
         if (activeModalResolver) closeDriveModal();
-        modal.classList.toggle('drive-modal--preview', !!options.preview);
+        modal.classList.remove('drive-modal--preview');
+        dialog.classList.toggle('drive-modal--preview', !!options.preview);
         title.textContent = options.title || 'Drive';
         body.innerHTML = '';
         if (options.message) { var message = document.createElement('p'); message.textContent = options.message; body.appendChild(message); }
@@ -42,23 +44,26 @@
             body.appendChild(control);
         }
         actions.innerHTML = '';
-        var cancel = document.createElement('button');
-        cancel.type = 'button'; cancel.textContent = options.cancelLabel || 'Cancel';
-        cancel.addEventListener('click', function () { closeDriveModal(); });
-        actions.appendChild(cancel);
-        if (options.primaryLabel) {
-            var primary = document.createElement('button');
-            primary.type = 'button'; primary.className = 'primary' + (options.danger ? ' danger' : ''); primary.textContent = options.primaryLabel;
-            primary.addEventListener('click', async function () {
-                var value = control ? control.value : null;
-                try {
-                    if (options.onConfirm) await options.onConfirm(value);
-                    closeDriveModal({ confirmed: true, value: value });
-                } catch (error) {
-                    if (window.showToast) window.showToast(error.message || 'Could not complete this action.');
-                }
-            });
-            actions.appendChild(primary);
+        actions.hidden = !!options.preview;
+        if (!options.preview) {
+            var cancel = document.createElement('button');
+            cancel.type = 'button'; cancel.textContent = options.cancelLabel || 'Cancel';
+            cancel.addEventListener('click', function () { closeDriveModal(); });
+            actions.appendChild(cancel);
+            if (options.primaryLabel) {
+                var primary = document.createElement('button');
+                primary.type = 'button'; primary.className = 'primary' + (options.danger ? ' danger' : ''); primary.textContent = options.primaryLabel;
+                primary.addEventListener('click', async function () {
+                    var value = control ? control.value : null;
+                    try {
+                        if (options.onConfirm) await options.onConfirm(value);
+                        closeDriveModal({ confirmed: true, value: value });
+                    } catch (error) {
+                        if (window.showToast) window.showToast(error.message || 'Could not complete this action.');
+                    }
+                });
+                actions.appendChild(primary);
+            }
         }
         modal.hidden = false;
         if (control) setTimeout(function () { control.focus(); if (control.select) control.select(); }, 20);
@@ -947,7 +952,7 @@
     function previewDriveFile(file) {
         var bodyHtml = '';
         var mime = String(file.mimeType || '').toLowerCase();
-        if (file.dataUrl && (/^image\//.test(mime) || file.type === 'image')) bodyHtml = '<img class="drive-preview-image" src="' + esc(file.dataUrl) + '" alt="' + esc(file.name) + '">';
+        if (file.dataUrl && (/^image\//.test(mime) || file.type === 'image')) bodyHtml = '<div class="drive-preview-image-wrap"><img class="drive-preview-image" src="' + esc(file.dataUrl) + '" alt="' + esc(file.name) + '"></div>';
         else if (file.dataUrl && (file.type === 'pdf' || mime === 'application/pdf')) bodyHtml = '<div class="drive-pdf-document-preview is-loading" data-pdf-document="' + esc(file.id) + '" aria-label="All pages of ' + esc(file.name) + '"><span class="pdf-preview-sheen"></span><span class="pdf-preview-error">PDF preview could not be rendered</span></div>';
         else if (file.type === 'note' && file.previewText) bodyHtml = contentPageMarkup(file, 'note', true);
         else if (file.type === 'doc' && file.previewText) bodyHtml = contentPageMarkup(file, 'doc', true);
@@ -961,7 +966,7 @@
             bodyHtml = '<pre class="drive-preview-text">' + esc(previewText) + '</pre>';
         }
         else bodyHtml = '<div class="drive-preview-other">' + fileIconSvg(file.type, file.name) + '<div><strong>' + esc(file.name) + '</strong><small>' + esc(file.mimeType || file.size || 'Preview is unavailable for this file type.') + '</small></div></div>';
-        showDriveModal({ title: file.name, bodyHtml: bodyHtml, preview: true, primaryLabel: 'Download', onConfirm: function () { return downloadFile(file); }, cancelLabel: 'Close' });
+        showDriveModal({ title: file.name, bodyHtml: bodyHtml, preview: true });
         if (file.type === 'pdf' || mime === 'application/pdf') renderPdfDocumentPreview(file, $('driveModalBody').querySelector('[data-pdf-document]'));
     }
 
@@ -1057,6 +1062,17 @@
             esc(label) + '</a>';
     }
 
+    function isSuiteFolder(item) {
+        if (!item || item.type) return false;
+        return [
+            'emerald-suite-root-folder',
+            'emerald-suite-doc-folder',
+            'emerald-suite-slide-folder',
+            'emerald-suite-sheet-folder',
+            'emerald-suite-note-folder'
+        ].indexOf(String(item.id)) !== -1;
+    }
+
     function positionContextMenu(menu, x, y) {
         menu.style.display = 'block';
         menu.style.left = '-9999px';
@@ -1082,6 +1098,7 @@
 
         event.preventDefault();
         selectedDriveItem = item;
+        var isSuiteFolderItem = isFolder && isSuiteFolder(item);
         var appNames = { doc: 'Docs', note: 'Notes', slide: 'Slides', sheet: 'Sheets' };
         var previewType = item.type === 'image' || item.type === 'pdf';
         var primaryLabel = isFolder ? 'Open folder' : (appNames[item.type] ? 'Open in ' + appNames[item.type] : (previewType ? 'Preview' : 'Open'));
@@ -1097,14 +1114,17 @@
             html += contextRow('Restore', 'restore') + contextRow('Delete forever', 'purge', true) + '</div>';
         } else {
         html += contextRow('Download', 'download') + contextRow('Copy link', 'copy-link') +
-            contextRow('Manage access', 'manage-access') + contextRow('Duplicate', 'duplicate') +
-            contextRow('Copy', 'copy') + contextRow('Move', 'move');
+            (isSuiteFolderItem ? '' : contextRow('Manage access', 'manage-access')) + contextRow('Duplicate', 'duplicate') +
+            contextRow('Copy', 'copy') + (isSuiteFolderItem ? '' : contextRow('Move', 'move'));
         if (isFolder && driveClipboard) html += contextRow('Paste', 'paste');
         if (isFolder) {
-            html += '</div><div class="context-section drive-folder-color-section"><span class="drive-context-label">Folder color</span><div class="drive-folder-colors" role="group" aria-label="Folder color">' +
-                ['#f3b900', '#ef6c63', '#a879d8', '#4c9be8', '#39a66b', '#6d7c8f'].map(function (color, index) {
-                    return '<button type="button" data-context-action="folder-color" data-color="' + color + '" aria-label="Folder color ' + (index + 1) + '" style="--swatch:' + color + '"></button>';
-                }).join('') + '</div></div>';
+            html += '</div>';
+            if (!isSuiteFolderItem) {
+                html += '<div class="context-section drive-folder-color-section"><span class="drive-context-label">Folder color</span><div class="drive-folder-colors" role="group" aria-label="Folder color">' +
+                    ['#f3b900', '#ef6c63', '#a879d8', '#4c9be8', '#39a66b', '#6d7c8f'].map(function (color, index) {
+                        return '<button type="button" data-context-action="folder-color" data-color="' + color + '" aria-label="Folder color ' + (index + 1) + '" style="--swatch:' + color + '"></button>';
+                    }).join('') + '</div></div>';
+            }
         } else html += contextRow(item.starred ? 'Unstar' : 'Star', 'star') + '</div>';
         html += '<div class="context-section">' + contextRow('Move to trash', 'delete', true) + '</div>';
         }
@@ -1122,15 +1142,9 @@
             var target = event.target.closest('.dfile-card, .dfolder-card, .drow[data-file], .drow[data-folder], .dchip');
             if (target) openItemContextMenu(event, target);
             else {
-                if (driveClipboard) {
-                    menu.innerHTML = defaultMenuHTML;
-                    var pasteButton = menu.querySelector('[data-context-action="drive-paste"]');
-                    if (pasteButton) pasteButton.style.display = '';
-                } else {
-                    menu.innerHTML = '<a onclick="copyTextContent()">Copy Text</a>' +
-                        '<a onclick="copyPageLink()">Copy Page Link</a>' +
-                        '<a onclick="showElementInfo()">Show Element Info</a>';
-                }
+                menu.innerHTML = defaultMenuHTML;
+                var pasteButton = menu.querySelector('[data-context-action="drive-paste"]');
+                if (pasteButton) pasteButton.style.display = driveClipboard ? '' : 'none';
                 delete menu.dataset.contextItemId;
                 menu.dataset.contextIsFolder = '0';
                 positionContextMenu(menu, event.clientX, event.clientY);
@@ -1180,6 +1194,10 @@
             await saveDriveData(); render(); if (window.showToast) window.showToast(item.shared ? 'Access list updated' : 'Sharing turned off'); return;
         }
         if (action === 'copy' || action === 'move') {
+            if (action === 'move' && isFolder && isSuiteFolder(item)) {
+                if (window.showToast) window.showToast('Folders inside EmeraldSuite cannot be moved.');
+                return;
+            }
             driveClipboard = { itemId: String(item.id), driveKey: item.driveKey || null, isFolder: isFolder, mode: action };
             if (window.showToast) window.showToast((action === 'copy' ? 'Copied' : 'Ready to move') + ' “' + esc(item.name) + '”. Right-click a folder and choose Paste, or use Ctrl+V.');
             return;
@@ -1217,7 +1235,7 @@
                 await duplicateSuiteFile(item);
                 await loadDriveData();
             }
-            else files.push(Object.assign({}, item, { id: 'file-' + Date.now(), name: uniqueName(item.name, item.folder), modifiedAt: Date.now(), trashed: false, starred: false }));
+            else files.push(Object.assign({}, item, { id: 'file_' + Date.now(), name: uniqueName(item.name, item.folder), modifiedAt: Date.now(), trashed: false, starred: false }));
             await saveDriveData(); render(); return;
         }
     }
@@ -1234,6 +1252,7 @@
             ? folders.find(function (folder) { return String(folder.id) === driveClipboard.itemId; })
             : files.find(function (file) { return String(file.id) === driveClipboard.itemId || (driveClipboard.driveKey && file.driveKey === driveClipboard.driveKey); });
         if (!source || source.trashed) { driveClipboard = null; if (window.showToast) window.showToast('That item is no longer available.'); return; }
+        if (driveClipboard.isFolder && driveClipboard.mode === 'move' && isSuiteFolder(source)) { if (window.showToast) window.showToast('Folders inside EmeraldSuite cannot be moved.'); return; }
         if (parentId && !folders.some(function (folder) { return String(folder.id) === String(parentId) && !folder.trashed; })) { if (window.showToast) window.showToast('Choose an existing folder to paste into.'); return; }
         if (driveClipboard.isFolder && driveClipboard.mode === 'move' && (source.id === parentId || folderContents(source.id).some(function (entry) { return entry.type === undefined && String(entry.id) === String(parentId); }))) {
             if (window.showToast) window.showToast('A folder cannot be moved inside itself.');
@@ -1245,7 +1264,7 @@
                 var copyId = await duplicateSuiteFile(source);
                 if (copyId) flagsMap[source.appType + ':' + copyId] = { folder: parentId || null };
             } else {
-                files.push(Object.assign({}, source, { id: 'file-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6), name: uniqueName(source.name, parentId || null), folder: parentId || null, modifiedAt: Date.now(), modified: 'Just now', created: new Date().toISOString(), trashed: false, starred: false, lastOpenedAt: 0 }));
+                files.push(Object.assign({}, source, { id: 'file_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), name: uniqueName(source.name, parentId || null), folder: parentId || null, modifiedAt: Date.now(), modified: 'Just now', created: new Date().toISOString(), trashed: false, starred: false, lastOpenedAt: 0 }));
             }
         } else {
             if (driveClipboard.isFolder) source.parent = parentId || null;
@@ -1274,6 +1293,11 @@
                 return;
             }
             if ((key === 'c' || key === 'x') && selectedDriveItem && !(window.getSelection && window.getSelection().toString())) {
+                if (key === 'x' && isSuiteFolder(selectedDriveItem)) {
+                    event.preventDefault();
+                    if (window.showToast) window.showToast('Folders inside EmeraldSuite cannot be moved.');
+                    return;
+                }
                 event.preventDefault();
                 driveClipboard = { itemId: String(selectedDriveItem.id), driveKey: selectedDriveItem.driveKey || null, isFolder: !selectedDriveItem.type, mode: key === 'x' ? 'move' : 'copy' };
                 if (window.showToast) window.showToast(key === 'x' ? 'Ready to move. Choose a folder and press Ctrl+V.' : 'Copied. Choose a folder and press Ctrl+V.');
@@ -1300,7 +1324,7 @@
 
     async function duplicateSuiteFile(file) {
         var s = storage();
-        var newId = 'copy-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+        var newId = 'copy_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
         if (file.appType === 'sheets') {
             try {
                 var db = await new Promise(function (resolve, reject) { var req = indexedDB.open('emeraldcore.storage.suite.sheets', 1); req.onsuccess = function () { resolve(req.result); }; req.onerror = function () { reject(req.error); }; });
@@ -1337,7 +1361,7 @@
     }
 
     async function duplicateFolder(folder, parent) {
-        var copy = { id: 'folder-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6), name: uniqueFolderName(folder.name + ' copy', parent === undefined ? folder.parent : parent), parent: parent === undefined ? folder.parent : parent, color: folder.color };
+        var copy = { id: 'folder_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), name: uniqueFolderName(folder.name + ' copy', parent === undefined ? folder.parent : parent), parent: parent === undefined ? folder.parent : parent, color: folder.color };
         folders.push(copy);
         var entries = files.filter(function (file) { return file.folder === folder.id && !file.trashed; });
         for (var i = 0; i < entries.length; i++) {
@@ -1345,7 +1369,7 @@
             if (file.externalApp) {
                 var newId = await duplicateSuiteFile(file);
                 if (newId) flagsMap[file.appType + ':' + newId] = { folder: copy.id };
-            } else files.push(Object.assign({}, file, { id: 'file-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6), folder: copy.id, name: uniqueName(file.name, copy.id), modifiedAt: Date.now(), starred: false, lastOpenedAt: 0 }));
+            } else files.push(Object.assign({}, file, { id: 'file_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), folder: copy.id, name: uniqueName(file.name, copy.id), modifiedAt: Date.now(), starred: false, lastOpenedAt: 0 }));
         }
         var childFolders = childrenOf(folder.id).slice();
         for (var childIndex = 0; childIndex < childFolders.length; childIndex++) await duplicateFolder(childFolders[childIndex], copy.id);
@@ -1679,7 +1703,7 @@
                     parts.pop();
                     parts.forEach(function (part) {
                         var found = folders.find(function (f) { return f.parent === parent && f.name === part && !f.trashed; });
-                        if (!found) { found = { id: 'folder-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7), name: part, parent: parent }; folders.push(found); }
+                        if (!found) { found = { id: 'folder_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7), name: part, parent: parent }; folders.push(found); }
                         parent = found.id;
                     });
                 }
@@ -1690,7 +1714,7 @@
                 if (/^(txt|md|markdown|json|csv|tsv|xml|yaml|yml|log|js|jsx|ts|tsx|css|html|htm|sql|py|sh)$/.test(ext)) {
                     try { previewText = (await file.text()).slice(0, 500); } catch (_) {}
                 }
-                files.push({ id: 'file-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9), name: name, type: type, folder: parent, size: formatBytes(file.size), sizeBytes: file.size, mimeType: file.type || 'application/octet-stream', dataUrl: await readFileAsDataUrl(file), previewText: previewText, modifiedAt: Date.now(), modified: 'Just now', created: new Date().toISOString(), starred: false, shared: false, trashed: false });
+                files.push({ id: 'file_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9), name: name, type: type, folder: parent, size: formatBytes(file.size), sizeBytes: file.size, mimeType: file.type || 'application/octet-stream', dataUrl: await readFileAsDataUrl(file), previewText: previewText, modifiedAt: Date.now(), modified: 'Just now', created: new Date().toISOString(), starred: false, shared: false, trashed: false });
             }
             await saveDriveData();
             state.view = 'mydrive';
@@ -1882,7 +1906,7 @@
         if (!name) { if (window.showToast) window.showToast('Folder name cannot be empty'); return; }
         var parent = state.view === 'mydrive' ? state.folderId : null;
         if (folders.some(function (f) { return f.parent === parent && f.name.toLowerCase() === name.toLowerCase() && !f.trashed; })) { if (window.showToast) window.showToast('A folder with that name already exists here'); return; }
-        folders.push({ id: 'folder-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6), name: name, parent: parent });
+        folders.push({ id: 'folder_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), name: name, parent: parent });
         await saveDriveData();
         state.view = 'mydrive';
         setActiveNav('mydrive');

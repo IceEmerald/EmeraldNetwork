@@ -5,6 +5,7 @@
         '/docs',
         '/notes',
         '/sheets',
+        '/drive',
         '/slides',
         '/aichat',
         '/flowchart',
