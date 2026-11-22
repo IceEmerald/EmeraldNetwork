@@ -688,7 +688,7 @@
             }, []);
             return '<div class="dfile-preview-page dpreview-content"><span class="dpreview-content-title">' + esc(item.name) + '</span><div>' + lines.slice(0, 6).map(function (line) { return '<i>' + esc(line) + '</i>'; }).join('') + '</div></div>';
         }
-        return '<div class="dfile-preview-page dpreview-doc"><span class="dpreview-doc-title">' + esc(item.name) + '</span><div class="dpreview-doc-lines">' + [64, 82, 78, 70, 86, 58].map(function (width) { return '<i style="width:' + width + '%"></i>'; }).join('') + '</div></div>';
+        return '<div class="dfile-preview-page dpreview-generic">' + fileIconSvg(item.type, item.name) + '</div>';
     }
 
     /* ---------------- rendering ---------------- */
@@ -2038,8 +2038,6 @@
             return entry && entry.file ? entry : { file: entry, relativePath: entry && entry.webkitRelativePath || '' };
         }).filter(function (entry) { return entry.file; });
         if (!entries.length) return;
-        var total = entries.reduce(function (sum, entry) { return sum + (entry.file.size || 0); }, 0);
-        if (total > 4 * 1024 * 1024) { if (window.showToast) window.showToast('Upload is limited to 4 MB at a time so it can sync across devices.'); return; }
         var baseParent = targetFolderId !== undefined ? (targetFolderId || null) : (state.view === 'mydrive' ? state.folderId : null);
         state.view = 'mydrive';
         state.folderId = baseParent;

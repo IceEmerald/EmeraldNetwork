@@ -736,3 +736,6 @@ html[data-wiki-theme="dark"] .dtrash-banner-icon { background: #3a3019; color: #
     .dfile-name { font-size: 12.5px; }
     .dfile-meta { font-size: 10.5px; }
 }
+
+.dpreview-generic { display: grid; place-items: center; background: linear-gradient(180deg, #f8faf9, #eef3f0); }
+.dpreview-generic .dfile-type-svg { width: 38%; height: 38%; }
