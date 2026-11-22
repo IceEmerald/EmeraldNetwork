@@ -738,4 +738,7 @@ html[data-wiki-theme="dark"] .dtrash-banner-icon { background: #3a3019; color: #
 }
 
 .dpreview-generic { display: grid; place-items: center; background: linear-gradient(180deg, #f8faf9, #eef3f0); }
-.dpreview-generic .dfile-type-svg { width: 38%; height: 38%; }
+.dfile-preview-video-wrap { position: absolute; inset: 0; box-sizing: border-box; display: flex; align-items: center; justify-content: center; padding: 7%; overflow: hidden; border: 0; border-radius: 5px; background: transparent; }
+.dfile-preview-video { display: block; width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; background: #000; }
+.dfile-preview-audio { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 58%; aspect-ratio: 1 / 1; display: grid; place-items: center; border-radius: 12px; background: linear-gradient(180deg, #f8faf9, #eef3f0); }
+.dfile-preview-audio .dfile-type-svg { width: 46%; height: 46%; }

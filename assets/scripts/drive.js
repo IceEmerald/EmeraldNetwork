@@ -688,6 +688,12 @@
             }, []);
             return '<div class="dfile-preview-page dpreview-content"><span class="dpreview-content-title">' + esc(item.name) + '</span><div>' + lines.slice(0, 6).map(function (line) { return '<i>' + esc(line) + '</i>'; }).join('') + '</div></div>';
         }
+        if (isVideoFile(item) && item.dataUrl) {
+            return '<div class="dfile-preview-video-wrap"><video class="dfile-preview-video" src="' + esc(item.dataUrl) + '" muted preload="metadata" playsinline></video></div>';
+        }
+        if (isAudioFile(item)) {
+            return '<div class="dfile-preview-audio">' + fileIconSvg(item.type, item.name) + '</div>';
+        }
         return '<div class="dfile-preview-page dpreview-generic">' + fileIconSvg(item.type, item.name) + '</div>';
     }
 
