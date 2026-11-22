@@ -484,30 +484,27 @@ html[data-wiki-theme="dark"] .dpreview-content-title, html[data-wiki-theme="dark
 /* ---- grid: folder tiles ---- */
 .dfolder-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
 .dfolder-card {
-    display: flex; flex-direction: column; align-items: stretch; gap: 10px; min-width: 0; aspect-ratio: 1 / 1; cursor: pointer;
+    position: relative; display: flex; flex-direction: column;
+    aspect-ratio: 1 / 1; min-width: 0;
     background: transparent; border: 1px solid transparent; border-radius: 8px;
-    padding: 12px; text-align: left;
+    padding: 10px 12px; cursor: pointer;
     transition: transform .18s;
 }
 .dfolder-card:hover { transform: translateY(-2px); }
-.dfolder-icon { position: relative; display: grid; place-items: center; width: 100%; min-height: 0; border: 0; border-radius: 0; background: transparent; }
+.dfolder-icon { position: relative; display: grid; place-items: center; width: 100%; min-height: 0; flex: 1 1 auto; background: transparent; }
 .dfolder-icon svg { display: block; width: min(100%, 185px); height: auto; max-height: 140px; overflow: visible; transform: scaleX(.78); transition: transform .18s; }
 .dfolder-card:hover .dfolder-icon svg { transform: translateY(-2px) scaleX(.78); }
 .dfolder-app-badge {
-    position: absolute;
-    bottom: 9px;
-    right: 9px;
-    width: 30px;
-    height: 30px;
+    position: absolute; z-index: 1;
+    left: 18%; bottom: 3%;
+    width: 26px; height: 26px;
     object-fit: contain;
-    background: #fff;
-    border-radius: 6px;
-    padding: 3px;
-    box-shadow: 0 2px 10px rgba(0,0,0,.16);
-    filter: drop-shadow(0 1px 2px rgba(0,0,0,.25));
+    background: #fff; border: 1px solid #e8ece9; border-radius: 6px;
+    padding: 2px;
+    box-shadow: 0 2px 6px rgba(15,42,25,.12);
 }
 .drow-app-icon { width: 16px; height: 16px; display: block; }
-.dfolder-name { width: 100%; min-width: 0; padding: 0 4px 2px; text-align: center; font: 500 14px 'DM Sans', sans-serif; color: #202923; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dfolder-name { width: 100%; min-width: 0; padding: 8px 4px 2px; text-align: center; font: 600 13.5px 'DM Sans', sans-serif; color: #202923; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---- chips (suggested) ---- */
 .dchips { display: flex; gap: 10px; flex-wrap: wrap; }
