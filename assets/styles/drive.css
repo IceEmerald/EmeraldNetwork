@@ -798,11 +798,17 @@ html[data-wiki-theme="dark"] .dtrash-banner-icon { background: #3a3019; color: #
 .drive-video-player .vid-time { color: rgba(255, 255, 255, .88); font: 600 12px 'DM Sans', system-ui, sans-serif; white-space: nowrap; min-width: 76px; }
 .drive-video-player .vid-spacer { flex: 1 1 auto; }
 .drive-video-player .vid-vol-wrap { display: flex; align-items: center; gap: 5px; }
-.drive-video-player .vid-vol-slider,
-.drive-audio-player .aud-vol-slider {
-    -webkit-appearance: none; appearance: none; width: 64px; height: 3px;
-    border-radius: 999px; background: rgba(255, 255, 255, .28); outline: none; cursor: pointer;
+.drive-modal-body .drive-video-player .vid-vol-slider,
+.drive-modal-body .drive-audio-player .aud-vol-slider {
+    -webkit-appearance: none; appearance: none;
+    flex: 0 0 auto; box-sizing: border-box;
+    width: 64px; min-width: 64px; height: 3px; min-height: 0; max-height: 3px;
+    margin: 0; padding: 0; border: 0; border-radius: 999px;
+    background: rgba(255, 255, 255, .28);
+    outline: none; cursor: pointer; box-shadow: none;
 }
+.drive-modal-body .drive-video-player .vid-vol-slider:focus,
+.drive-modal-body .drive-audio-player .aud-vol-slider:focus { box-shadow: none; }
 .drive-video-player .vid-vol-slider::-webkit-slider-thumb,
 .drive-audio-player .aud-vol-slider::-webkit-slider-thumb {
     -webkit-appearance: none; appearance: none; width: 10px; height: 10px; border: 0;
@@ -881,7 +887,7 @@ html[data-wiki-theme="dark"] .dtrash-banner-icon { background: #3a3019; color: #
 .drive-audio-player .aud-time { color: rgba(255, 255, 255, .72); font: 600 12px 'DM Sans', system-ui, sans-serif; white-space: nowrap; }
 .drive-audio-player .aud-spacer { flex: 1 1 auto; }
 .drive-audio-player .aud-vol-wrap { display: flex; align-items: center; gap: 5px; }
-.drive-audio-player .aud-vol-slider { width: 56px; }
+.drive-audio-player .aud-vol-slider { width: 56px; min-width: 56px; }
 
 .drive-preview-media-name { margin: 0; color: #526159; font: 600 13px/1.4 'DM Sans', sans-serif; text-align: center; word-break: break-word; }
 html[data-wiki-theme="dark"] .drive-preview-media-name { color: #c4cdc6; }
