@@ -496,6 +496,8 @@ html[data-wiki-theme="dark"] .dpreview-content-title, html[data-wiki-theme="dark
 }
 .dfolder-icon svg { display: block; width: min(100%, 185px); height: auto; max-height: 140px; overflow: visible; transform: scaleX(.78); transition: transform .18s; }
 .dfolder-card:hover .dfolder-icon svg { transform: translateY(-2px) scaleX(.78); }
+.dfolder-app-icon { display: block; width: min(100%, 150px); height: auto; max-height: 135px; object-fit: contain; filter: drop-shadow(0 2px 8px rgba(0,0,0,.14)); }
+.drow-app-icon { width: 16px; height: 16px; display: block; }
 .dfolder-name { width: 100%; min-width: 0; padding: 0 4px 2px; text-align: center; font: 500 14px 'DM Sans', sans-serif; color: #202923; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---- chips (suggested) ---- */
@@ -593,12 +595,12 @@ html[data-wiki-theme="dark"] .dpreview-content-title, html[data-wiki-theme="dark
 .drive-content-page.is-large::-webkit-scrollbar { display: none; }
 .drive-page-heading { margin: 0 0 18px; color: #26352c; font: 700 17px/1.3 'DM Sans', sans-serif; }
 .drive-doc-writing { display: flex; flex-direction: column; gap: 8px; color: #526159; font: 12px/1.45 Georgia, serif; }
-.drive-doc-writing span { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.drive-doc-writing span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .drive-content-page--note { padding: 34px 22px 24px 66px; background: repeating-linear-gradient(to bottom, #fff 0, #fff 24px, #d8e6f2 25px, #fff 26px); }
 .drive-content-page--note::before { position: absolute; top: 0; bottom: 0; left: 49px; border-left: 2px solid #eaa6a6; content: ''; }
 .drive-content-page--note .drive-page-heading { font-size: 15px; }
 .drive-notebook-writing { display: flex; flex-direction: column; color: #42546a; font: 11px/26px 'DM Sans', sans-serif; }
-.drive-notebook-writing span { min-height: 26px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.drive-notebook-writing span { display: block; min-height: 26px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .drive-preview-other { display: flex; align-items: center; gap: 15px; padding: 22px; border: 1px solid #e1e8e3; border-radius: 12px; background: #f6f9f7; }
 .drive-preview-other .dfile-type-svg { width: 42px; height: 42px; }
 .drive-preview-other strong { display: block; color: #202923; overflow-wrap: anywhere; }

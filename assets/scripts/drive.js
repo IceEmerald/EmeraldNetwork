@@ -120,6 +120,14 @@
         sheet: '/assets/images/sheetsicon.webp'
     };
 
+    var FOLDER_ICONS = {
+        'emerald-suite-root-folder': '/assets/images/favicon.webp',
+        'emerald-suite-doc-folder': '/assets/images/docsicon.webp',
+        'emerald-suite-sheet-folder': '/assets/images/sheetsicon.webp',
+        'emerald-suite-slide-folder': '/assets/images/slidesicon.webp',
+        'emerald-suite-note-folder': '/assets/images/notesicon.webp'
+    };
+
     var folders = [];
     var files = [];
     var TRASH_KEY = 'emerald.drive.trash';
@@ -129,6 +137,8 @@
     var trashMap = {};
     var flagsMap = {};
     var loading = true;
+    var syncStuckAt = null;
+    var SYNC_STUCK_MS = 25000;
 
     var state = { view: 'home', folderId: null, layout: 'grid', sort: 'modified', search: '' };
     var currentUserName = '';
@@ -197,7 +207,7 @@
         var root = folders.find(function (folder) { return folder.id === 'emerald-suite-root-folder'; });
         if (!root) { root = { id: 'emerald-suite-root-folder', name: 'EmeraldSuite', parent: null }; folders.push(root); changed = true; }
         if (root.name !== 'EmeraldSuite' || root.parent != null) { root.name = 'EmeraldSuite'; root.parent = null; changed = true; }
-        if (folderPalette.indexOf(String(root.color || '').toLowerCase()) === -1) { root.color = '#f3b900'; changed = true; }
+        if (folderPalette.indexOf(String(root.color || '').toLowerCase()) === -1) { root.color = '#6d7c8f'; changed = true; }
         var categories = [
             { type: 'doc', name: 'Docs', color: '#4c9be8' },
             { type: 'slide', name: 'Slides', color: '#ef6c63' },
@@ -655,16 +665,28 @@
         });
     }
 
+    function folderIconHtml(item) {
+        var src = FOLDER_ICONS[item.id];
+        if (src) {
+            return '<img class="dfolder-app-icon" src="' + src + '" alt="" aria-hidden="true">';
+        }
+        var gradientId = 'folderGradient-' + esc(item.id);
+        var folderColor = /^#[0-9a-f]{6}$/i.test(String(item.color || '')) ? item.color : '#f3b900';
+        return '<svg viewBox="0 0 160 110" aria-hidden="true">' +
+            '<defs><linearGradient id="' + gradientId + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + shadeHex(folderColor, .34) + '"/><stop offset=".58" stop-color="' + folderColor + '"/><stop offset="1" stop-color="' + shadeHex(folderColor, -.12) + '"/></linearGradient></defs>' +
+            '<path d="M12 27a9 9 0 0 1 9-9h43c5 0 8 2 11 5l10 11h63a9 9 0 0 1 9 9v48a9 9 0 0 1-9 9H21a9 9 0 0 1-9-9z" fill="' + shadeHex(folderColor, -.16) + '"/>' +
+            '<path d="M12 36h51c6 0 9-2 13-6l9-9h63a9 9 0 0 1 9 9v61a9 9 0 0 1-9 9H21a9 9 0 0 1-9-9z" fill="url(#' + gradientId + ')" stroke="' + shadeHex(folderColor, -.2) + '" stroke-width="1.5"/>' +
+            '<path d="M14 35h49c6 0 9-2 13-6l8-8" fill="none" stroke="rgba(255,255,255,.78)" stroke-width="2.5"/>' +
+            '</svg>';
+    }
+
     function cardHTML(item, isFolder) {
         if (isFolder) {
-            var gradientId = 'folderGradient-' + esc(item.id);
-            var folderColor = /^#[0-9a-f]{6}$/i.test(String(item.color || '')) ? item.color : '#f3b900';
             return '<button class="dfolder-card" data-folder="' + item.id + '">' +
-                '<span class="dfolder-icon"><svg viewBox="0 0 160 110" aria-hidden="true">' +
-                    '<defs><linearGradient id="' + gradientId + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + shadeHex(folderColor, .34) + '"/><stop offset=".58" stop-color="' + folderColor + '"/><stop offset="1" stop-color="' + shadeHex(folderColor, -.12) + '"/></linearGradient></defs>' +
-                    '<path d="M12 27a9 9 0 0 1 9-9h43c5 0 8 2 11 5l10 11h63a9 9 0 0 1 9 9v48a9 9 0 0 1-9 9H21a9 9 0 0 1-9-9z" fill="' + shadeHex(folderColor, -.16) + '"/>' +
-                    '<path d="M12 36h51c6 0 9-2 13-6l9-9h63a9 9 0 0 1 9 9v61a9 9 0 0 1-9 9H21a9 9 0 0 1-9-9z" fill="url(#' + gradientId + ')" stroke="' + shadeHex(folderColor, -.2) + '" stroke-width="1.5"/>' +
-                    '<path d="M14 35h49c6 0 9-2 13-6l8-8" fill="none" stroke="rgba(255,255,255,.78)" stroke-width="2.5"/>' +
+                '<span class="dfolder-icon">' + folderIconHtml(item) + '</span>' +
+                '<span class="dfolder-name">' + esc(item.name) + '</span>' +
+                '</button>';
+        }
                 '</svg></span>' +
                 '<span class="dfolder-name">' + esc(item.name) + '</span>' +
                 '</button>';
@@ -682,8 +704,13 @@
         var m = isFolder ? null : (TYPE_META[item.type] || TYPE_META.other);
         if (isFolder) {
             var stats = folderStats(item.id);
+            var folderIconSrc = FOLDER_ICONS[item.id];
+            var iconHtml = folderIconSrc
+                ? '<img class="drow-app-icon" src="' + folderIconSrc + '" alt="" aria-hidden="true">'
+                : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+            var iconStyle = folderIconSrc ? '' : ' style="color:' + esc(item.color || '#8a8886') + '"';
             return '<div class="drow" data-folder="' + item.id + '" role="button" tabindex="0">' +
-                '<span class="drow-name"><span class="drow-icon" style="color:' + esc(item.color || '#8a8886') + '"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span><span class="drow-label">' + esc(item.name) + '</span></span>' +
+                '<span class="drow-name"><span class="drow-icon"' + iconStyle + '>' + iconHtml + '</span><span class="drow-label">' + esc(item.name) + '</span></span>' +
                 '<span class="drow-meta">' + esc(stats.size) + '</span><span class="drow-meta">' + esc(stats.modified) + '</span></div>';
         }
         return '<div class="drow" data-file="' + item.id + '" role="button" tabindex="0">' +
@@ -1427,7 +1454,12 @@
         if (bar) bar.style.width = percent.toFixed(2) + '%';
         if (label) {
             var sync = window.EmeraldAuth && window.EmeraldAuth.getSyncState ? window.EmeraldAuth.getSyncState() : null;
-            label.textContent = loading ? 'Drive is syncing…' : (sync && sync.syncing ? 'Drive is syncing…' : formatBytes(size) + ' of ' + formatBytes(quota) + ' used');
+            var syncing = sync && sync.syncing;
+            var stuck = syncing && syncStuckAt && Date.now() - syncStuckAt > SYNC_STUCK_MS;
+            if (loading) label.textContent = 'Drive is syncing…';
+            else if (syncing && !stuck) label.textContent = 'Drive is syncing…';
+            else if (stuck) label.textContent = 'Files are ready — sync is taking a while';
+            else label.textContent = formatBytes(size) + ' of ' + formatBytes(quota) + ' used';
         }
     }
 
@@ -1944,7 +1976,12 @@
         }
         updateDriveStorage();
         if (window.EmeraldAuth && window.EmeraldAuth.requestSync) window.EmeraldAuth.requestSync();
-        window.addEventListener('emerald-sync-state', updateDriveStorage);
+        window.addEventListener('emerald-sync-state', function (event) {
+            var detail = event && event.detail;
+            if (detail && detail.state === 'syncing' && syncStuckAt === null) syncStuckAt = Date.now();
+            else if (detail && detail.state && detail.state !== 'syncing') syncStuckAt = null;
+            updateDriveStorage();
+        });
         window.addEventListener('emerald-sync-complete', async function () {
             try { await loadDriveData(); render(); updateDriveStorage(); } catch (_) {}
         });
