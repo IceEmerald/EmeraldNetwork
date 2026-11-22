@@ -207,7 +207,7 @@
         var root = folders.find(function (folder) { return folder.id === 'emerald-suite-root-folder'; });
         if (!root) { root = { id: 'emerald-suite-root-folder', name: 'EmeraldSuite', parent: null }; folders.push(root); changed = true; }
         if (root.name !== 'EmeraldSuite' || root.parent != null) { root.name = 'EmeraldSuite'; root.parent = null; changed = true; }
-        if (root.color !== '#000000') { root.color = '#000000'; changed = true; }
+        if (root.color !== '#4b5563') { root.color = '#4b5563'; changed = true; }
         var categories = [
             { type: 'doc', name: 'Docs', color: '#4c9be8' },
             { type: 'slide', name: 'Slides', color: '#ef6c63' },

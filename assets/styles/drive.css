@@ -497,13 +497,14 @@ html[data-wiki-theme="dark"] .dpreview-content-title, html[data-wiki-theme="dark
 .dfolder-app-badge {
     position: absolute; z-index: 1;
     left: 18%; bottom: 3%;
-    width: 26px; height: 26px;
+    width: 30px; height: 30px;
     object-fit: contain;
-    background: #fff; border: 1px solid #e8ece9; border-radius: 6px;
-    padding: 2px;
+    background: #fff; border: 1px solid #e8ece9; border-radius: 8px;
+    padding: 3px;
     box-shadow: 0 2px 6px rgba(15,42,25,.12);
 }
-.drow-app-icon { width: 16px; height: 16px; display: block; }
+.dfolder-app-badge img { width: 23px; height: 23px; object-fit: contain; border-radius: 5px; }
+.drow-app-icon { width: 20px; height: 20px; display: block; }
 .dfolder-name { width: 100%; min-width: 0; padding: 8px 4px 2px; text-align: center; font: 600 13.5px 'DM Sans', sans-serif; color: #202923; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---- chips (suggested) ---- */
