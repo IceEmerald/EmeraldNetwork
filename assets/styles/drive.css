@@ -411,9 +411,14 @@ html[data-wiki-theme="dark"] .ddrive-skeleton-card { --loading-base: #252b27; --
     overflow: hidden; border: 1px solid #e5e9e6; border-radius: 5px;
     background: #fff; box-shadow: 0 3px 9px rgba(27,42,32,.08);
 }
-.dfile-preview-image-wrap, .dfile-preview-pdf { position: absolute; inset: 4% 6%; display: grid; place-items: center; overflow: hidden; }
-.dfile-preview-image-wrap { border: 0; border-radius: 5px; background: transparent; box-shadow: none; }
-.dfile-preview-image { display: block; width: auto; height: auto; max-width: 100%; max-height: 85%; object-fit: contain; border-radius: 4px; box-shadow: none; margin: auto; }
+.dfile-preview-pdf { position: absolute; inset: 4% 6%; display: grid; place-items: center; overflow: hidden; }
+.dfile-preview-image-wrap {
+    position: absolute; inset: 0; box-sizing: border-box;
+    display: flex; align-items: center; justify-content: center;
+    min-width: 0; min-height: 0; padding: 7%; overflow: hidden;
+    border: 0; border-radius: 5px; background: transparent; box-shadow: none;
+}
+.dfile-preview-image { display: block; width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; box-shadow: none; margin: auto; }
 .dfile-preview-pdf { border: 0; background: transparent; box-shadow: none; }
 .dfile-preview-pdf canvas { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; background: #fff; }
 .pdf-preview-sheen { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
@@ -429,9 +434,15 @@ html[data-wiki-theme="dark"] .dpreview-content-title, html[data-wiki-theme="dark
 .dpreview-content { left: 50%; right: auto; width: auto; height: 90%; aspect-ratio: .72; transform: translateX(-50%); }
 .dpreview-doc-live, .dpreview-note-live { top: 5%; bottom: 5%; left: 50%; right: auto; width: auto; height: 90%; aspect-ratio: .72; transform: translateX(-50%); padding: 0; }
 .dpreview-doc-live .drive-content-page, .dpreview-note-live .drive-content-page { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; transform: none; box-shadow: none; border: 0; border-radius: 4px; }
-.dpreview-doc-live .drive-content-page--doc { padding: 14% 12%; }
-.dpreview-note-live .drive-content-page--note { padding: 14% 9% 8% 25%; }
-.dpreview-note-live .drive-page-heading { margin-left: 0; }
+.dpreview-doc-live .drive-content-page--doc { padding: 9% 11%; }
+.dpreview-note-live .drive-content-page--note { padding: 9% 8% 8% 22%; background: repeating-linear-gradient(to bottom, #fff 0, #fff 7px, #d8e6f2 7px, #d8e6f2 8px); }
+.dpreview-note-live .drive-content-page--note::before { left: 18%; border-left-width: 1px; }
+.dpreview-doc-live .drive-content-page .drive-page-heading,
+.dpreview-note-live .drive-content-page .drive-page-heading { margin: 0 0 4px; overflow: hidden; font-size: 8px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.dpreview-doc-live .drive-content-page .drive-doc-writing { display: block; overflow: hidden; font: 6px/1.5 Georgia, serif; }
+.dpreview-doc-live .drive-content-page .drive-doc-writing span { display: inline; overflow: visible; white-space: normal; overflow-wrap: anywhere; }
+.dpreview-note-live .drive-content-page .drive-notebook-writing { display: block; overflow: hidden; font: 6px/8px 'DM Sans', sans-serif; }
+.dpreview-note-live .drive-content-page .drive-notebook-writing span { display: inline; min-height: 0; overflow: visible; white-space: normal; overflow-wrap: anywhere; }
 .dpreview-doc-title, .dpreview-doc-lines i, .dpreview-note-lines i,
 .dpreview-slide-title, .dpreview-slide-copy { display: block; border-radius: 2px; }
 .dpreview-doc-title { position: absolute; left: 16%; top: 15%; width: 54%; height: 3px; background: #dce3df; }
@@ -441,13 +452,20 @@ html[data-wiki-theme="dark"] .dpreview-content-title, html[data-wiki-theme="dark
 .dpreview-note-margin { position: absolute; top: 0; bottom: 0; left: 23%; width: 1px; background: #e5e9e6; }
 .dpreview-note-lines { position: absolute; top: 15%; bottom: 8%; left: 31%; right: 10%; display: flex; flex-direction: column; justify-content: space-between; }
 .dpreview-note-lines i { height: 1px; background: #e5e9e6; }
-.dpreview-sheet-toolbar { position: absolute; left: 0; right: 0; top: 0; height: 9%; background: #e7ebe8; }
-.dpreview-sheet-head { position: absolute; left: 0; right: 0; top: 17%; height: 11%; background: #f3f5f3; border-bottom: 1px solid #e1e6e2; }
-.dpreview-sheet-grid { position: absolute; inset: 28% 0 0; display: grid; grid-template-columns: repeat(5, 1fr); grid-template-rows: repeat(5, 1fr); }
-.dpreview-sheet-grid i, .dpreview-sheet-grid span { min-width: 0; overflow: hidden; border-right: 1px solid #e5e9e6; border-bottom: 1px solid #e5e9e6; }
-.dpreview-sheet-title { position: absolute; inset: 0 0 auto; height: 22%; overflow: hidden; padding: 4% 5%; box-sizing: border-box; background: #e9f1ec; color: #41584a; font: 600 7px 'DM Sans', sans-serif; text-overflow: ellipsis; white-space: nowrap; }
-.dpreview-sheet-grid span { padding: 1px 2px; color: #45554a; font: 500 6px/1.2 'DM Sans', sans-serif; }
-.dpreview-sheet { top: 20%; bottom: auto; left: 7%; right: 7%; width: 86%; height: auto; aspect-ratio: 0.85; transform: none; background: #fff; }
+.dpreview-sheet { top: 50%; bottom: auto; left: 50%; right: auto; width: 84%; height: auto; aspect-ratio: 1.45; transform: translate(-50%, -50%); background: #fff; }
+.dpreview-sheet-title { position: absolute; inset: 0 0 auto; display: flex; align-items: center; height: 16%; overflow: hidden; padding: 0 5%; box-sizing: border-box; border-bottom: 1px solid #e6ebe8; background: #f3f6f4; color: #41584a; font: 600 6px 'DM Sans', sans-serif; }
+.dpreview-sheet-title span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dpreview-sheet-head { position: absolute; left: 0; right: 0; top: 16%; height: 12%; display: grid; grid-template-columns: 12% repeat(5, 1fr); border-bottom: 1px solid #e6ebe8; background: #f8faf9; }
+.dpreview-sheet-head i { display: grid; place-items: center; min-width: 0; overflow: hidden; border-right: 1px solid #eef1ef; color: #8a968f; font: 600 5px 'DM Sans', sans-serif; font-style: normal; }
+.dpreview-sheet-head i:last-child { border-right: 0; }
+.dpreview-sheet-corner { background: #f1f4f2; }
+.dpreview-sheet-body { position: absolute; inset: 28% 0 0; display: flex; flex-direction: column; }
+.dpreview-sheet-row { display: grid; grid-template-columns: 12% repeat(5, 1fr); flex: 1 1 0; min-height: 0; }
+.dpreview-sheet-row > * { min-width: 0; overflow: hidden; border-right: 1px solid #eef1ef; border-bottom: 1px solid #eef1ef; }
+.dpreview-sheet-row > *:last-child { border-right: 0; }
+.dpreview-sheet-row:last-child > * { border-bottom: 0; }
+.dpreview-sheet-rowno { display: grid; place-items: center; background: #f8faf9; color: #9aa49e; font: 500 5px 'DM Sans', sans-serif; font-style: normal; }
+.dpreview-sheet-row span { padding: 1px 2px; color: #45554a; font: 500 5px/1.2 'DM Sans', sans-serif; white-space: nowrap; text-overflow: ellipsis; }
 .dpreview-slide { left: 9%; right: 9%; top: 25%; bottom: auto; width: 82%; height: auto; aspect-ratio: 16 / 9; transform: none; background: #fff; }
 .dpreview-slide-art { position: absolute; inset: 9% 8% 37%; border-radius: 2px; background: linear-gradient(145deg, #ecefed, #dfe4e0); }
 .dpreview-slide-title { position: absolute; left: 9%; bottom: 23%; width: 55%; height: 4px; background: #dce3df; }
@@ -594,9 +612,14 @@ html[data-wiki-theme="dark"] .dpreview-content-title, html[data-wiki-theme="dark
 .drive-slides-preview .dslide-mini { border: 1px solid #e1e7e3; box-shadow: 0 4px 14px rgba(24,38,29,.1); }
 .drive-slide-count { position: absolute; bottom: 8px; right: 22px; z-index: 2; padding: 4px 9px; border-radius: 999px; background: rgba(29,43,34,.75); color: #fff; font: 600 11px 'DM Sans', sans-serif; }
 .drive-sheet-large-preview { width: min(100%, 680px); }
-.drive-sheet-large-preview .dfile-preview-page { position: relative; inset: auto; width: 100%; aspect-ratio: 1.5; border-radius: 9px; }
-.drive-sheet-large-preview .dpreview-sheet-title { font-size: 12px; }
-.drive-sheet-large-preview .dpreview-sheet-grid span { padding: 5px 7px; font-size: 10px; }
+.drive-sheet-large-preview .dfile-preview-page { position: relative; inset: auto; width: 100%; height: auto; aspect-ratio: 1.5; transform: none; border-radius: 9px; }
+.drive-sheet-large-preview .dpreview-sheet-title { height: 9%; font-size: 12px; }
+.drive-sheet-large-preview .dpreview-sheet-head { top: 9%; height: 7%; grid-template-columns: 7% repeat(5, 1fr); }
+.drive-sheet-large-preview .dpreview-sheet-head i { font-size: 9px; }
+.drive-sheet-large-preview .dpreview-sheet-body { inset: 16% 0 0; }
+.drive-sheet-large-preview .dpreview-sheet-row { grid-template-columns: 7% repeat(5, 1fr); }
+.drive-sheet-large-preview .dpreview-sheet-rowno { font-size: 9px; }
+.drive-sheet-large-preview .dpreview-sheet-row span { padding: 5px 7px; font-size: 10px; }
 .drive-content-page { position: relative; width: min(340px, 100%); aspect-ratio: .72; box-sizing: border-box; overflow: hidden; padding: 34px 30px; border: 1px solid #e1e6e3; border-radius: 3px; background: #fff; color: #39443d; box-shadow: 0 8px 24px rgba(21,35,27,.16); }
 .drive-content-page.is-large { width: auto; height: min(66vh, 620px); max-width: 100%; max-height: none; aspect-ratio: .72; overflow-y: auto; scrollbar-width: none; }
 .drive-content-page.is-large::-webkit-scrollbar { display: none; }

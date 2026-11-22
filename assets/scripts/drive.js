@@ -449,17 +449,24 @@
         var sheets = item.previewData && item.previewData.sheets || [];
         var sheet = sheets[0];
         var cells = sheet && sheet.cells || {};
-        var grid = '';
+        var cols = ['A', 'B', 'C', 'D', 'E'];
+        var head = '<div class="dpreview-sheet-head"><i class="dpreview-sheet-corner"></i>' +
+            cols.map(function (label) { return '<i>' + label + '</i>'; }).join('') + '</div>';
+        var body = '';
         for (var row = 0; row < 5; row++) {
+            body += '<div class="dpreview-sheet-row"><i class="dpreview-sheet-rowno">' + (row + 1) + '</i>';
             for (var col = 0; col < 5; col++) {
                 var cell = cells[row + ',' + col] || {};
                 var text = cell.v == null ? '' : String(cell.v);
                 var style = cell.s || {};
                 var fill = safeColor(style.fillColor || style.background || style.bg, '');
-                grid += '<span' + (fill ? ' style="background:' + fill + '"' : '') + '>' + esc(text.slice(0, 18)) + '</span>';
+                body += '<span' + (fill ? ' style="background:' + fill + '"' : '') + '>' + esc(text.slice(0, 16)) + '</span>';
             }
+            body += '</div>';
         }
-        return '<div class="dfile-preview-page dpreview-sheet"><div class="dpreview-sheet-title">' + esc(sheet && sheet.name || item.name) + '</div><div class="dpreview-sheet-grid">' + grid + '</div></div>';
+        return '<div class="dfile-preview-page dpreview-sheet">' +
+            '<div class="dpreview-sheet-title"><span>' + esc(sheet && sheet.name || item.name) + '</span></div>' +
+            head + '<div class="dpreview-sheet-body">' + body + '</div></div>';
     }
 
     function slideMarkup(slide, index) {
@@ -503,8 +510,13 @@
     }
 
     function contentPageMarkup(item, kind, modal) {
-        var lines = wrappedPreviewLines(item.previewText || '', modal ? 50 : 31, modal ? (kind === 'note' ? 14 : 18) : 7);
-        var lineHtml = lines.map(function (line) { return '<span>' + esc(line) + '</span>'; }).join('');
+        var lineHtml;
+        if (modal) {
+            var lines = wrappedPreviewLines(item.previewText || '', 50, kind === 'note' ? 14 : 18);
+            lineHtml = lines.map(function (line) { return '<span>' + esc(line) + '</span>'; }).join('');
+        } else {
+            lineHtml = '<span>' + esc(String(item.previewText || '').slice(0, 420)) + '</span>';
+        }
         if (kind === 'note') return '<div class="drive-content-page drive-content-page--note' + (modal ? ' is-large' : '') + '"><div class="drive-page-heading">' + esc(item.name) + '</div><div class="drive-notebook-writing">' + lineHtml + '</div></div>';
         return '<div class="drive-content-page drive-content-page--doc' + (modal ? ' is-large' : '') + '"><div class="drive-page-heading">' + esc(item.name) + '</div><div class="drive-doc-writing">' + lineHtml + '</div></div>';
     }
@@ -982,7 +994,7 @@
         else if (file.type === 'note' && file.previewText) bodyHtml = contentPageMarkup(file, 'note', true);
         else if (file.type === 'doc' && file.previewText) bodyHtml = contentPageMarkup(file, 'doc', true);
         else if (file.type === 'slide' && file.previewData) bodyHtml = slideDeckPreviewMarkup(file, 4, false);
-        else if (file.type === 'sheet' && file.previewData) bodyHtml = '<div class="drive-sheet-large-preview">' + sheetPreviewMarkup(file).replace('dfile-preview-page dpreview-sheet', 'dpreview-sheet') + '</div>';
+        else if (file.type === 'sheet' && file.previewData) bodyHtml = '<div class="drive-sheet-large-preview">' + sheetPreviewMarkup(file) + '</div>';
         else if (file.previewText) {
             var previewText = String(file.previewText).slice(0, 5000);
             if (/json/i.test(file.mimeType || '') || /\.json$/i.test(file.name || '')) {
