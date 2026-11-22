@@ -5,11 +5,27 @@
     function $(id) { return document.getElementById(id); }
 
     var activeModalResolver = null;
+
+    function stopDriveMediaPlayback() {
+        var body = $('driveModalBody');
+        if (!body) return;
+        var fullscreenNode = document.fullscreenElement || document.webkitFullscreenElement;
+        if (fullscreenNode && body.contains(fullscreenNode)) {
+            try {
+                if (document.exitFullscreen) document.exitFullscreen();
+                else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+            } catch (_) {}
+        }
+        body.querySelectorAll('audio, video').forEach(function (media) {
+            try { media.pause(); } catch (_) {}
+            try { media.currentTime = 0; } catch (_) {}
+        });
+    }
+
     function closeDriveModal(result) {
         var modal = $('driveModal');
         if (!modal || modal.hidden) return;
-        var body = $('driveModalBody');
-        if (body) body.querySelectorAll('audio, video').forEach(function (media) { try { media.pause(); media.currentTime = 0; } catch (_) {} });
+        stopDriveMediaPlayback();
         modal.hidden = true;
         if (activeModalResolver) { var resolve = activeModalResolver; activeModalResolver = null; resolve(result || { confirmed: false, value: null }); }
     }
@@ -1059,15 +1075,15 @@
             var rest = Math.floor(seconds % 60);
             return minutes + ':' + (rest < 10 ? '0' : '') + rest;
         }
-        var playSvg = '<svg viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4"/></svg>';
-        var pauseSvg = '<svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
-        var volumeOnSvg = '<svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>';
-        var volumeOffSvg = '<svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>';
-        var fullscreenSvg = '<svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>';
+        var playSvg = '<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>';
+        var pauseSvg = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+        var volumeOnSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z" fill="currentColor" stroke="none"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>';
+        var volumeOffSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z" fill="currentColor" stroke="none"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>';
+        var fullscreenSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>';
 
         if (kind === 'video') {
             var player = document.createElement('div');
-            player.className = 'slide-video-player paused';
+            player.className = 'drive-video-player paused';
             var video = document.createElement('video');
             video.src = src;
             video.preload = 'metadata';
@@ -1138,8 +1154,7 @@
                 var paused = video.paused;
                 player.classList.toggle('paused', paused);
                 playButton.innerHTML = paused ? playSvg : pauseSvg;
-                bigPlay.innerHTML = paused ? playSvg : pauseSvg;
-                bigPlay.style.display = paused ? '' : 'none';
+                bigPlay.innerHTML = playSvg;
             }
             function updateTime() {
                 var current = video.currentTime || 0;
@@ -1160,7 +1175,13 @@
             video.addEventListener('pause', updateState);
             video.addEventListener('ended', updateState);
             video.addEventListener('timeupdate', updateTime);
-            video.addEventListener('loadedmetadata', function () { updateTime(); updateBuffer(); });
+            video.addEventListener('loadedmetadata', function () {
+                updateTime();
+                updateBuffer();
+                if (!video.currentTime && video.duration) {
+                    try { video.currentTime = Math.min(0.1, video.duration); } catch (_) {}
+                }
+            });
             video.addEventListener('progress', updateBuffer);
             progressWrap.addEventListener('click', function (event) {
                 event.stopPropagation();
@@ -1196,12 +1217,16 @@
             updateState();
         } else {
             var audioPlayer = document.createElement('div');
-            audioPlayer.className = 'slide-audio-player';
+            audioPlayer.className = 'drive-audio-player';
             var art = document.createElement('div');
             art.className = 'aud-art';
+            var artIcon = document.createElement('div');
+            artIcon.className = 'aud-art-icon';
+            artIcon.innerHTML = '<svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
             var wave = document.createElement('div');
             wave.className = 'aud-wave';
             for (var i = 0; i < 5; i++) wave.appendChild(document.createElement('span'));
+            art.appendChild(artIcon);
             art.appendChild(wave);
             var audio = document.createElement('audio');
             audio.src = src;
@@ -1253,6 +1278,7 @@
 
             function updateAudioState() {
                 audioPlayer.classList.toggle('paused', audio.paused);
+                audioPlayer.classList.toggle('playing', !audio.paused);
                 audioPlayButton.innerHTML = audio.paused ? playSvg : pauseSvg;
             }
             function updateAudioTime() {
@@ -1299,8 +1325,8 @@
         var mime = String(file.mimeType || '').toLowerCase();
         if (file.dataUrl && (/^image\//.test(mime) || file.type === 'image')) bodyHtml = '<div class="drive-preview-image-wrap"><img class="drive-preview-image" src="' + esc(file.dataUrl) + '" alt="' + esc(file.name) + '"></div>';
         else if (file.dataUrl && (file.type === 'pdf' || mime === 'application/pdf')) bodyHtml = '<div class="drive-pdf-document-preview is-loading" data-pdf-document="' + esc(file.id) + '" aria-label="All pages of ' + esc(file.name) + '"><span class="pdf-preview-sheen"></span><span class="pdf-preview-error">PDF preview could not be rendered</span></div>';
-        else if (isAudioFile(file) && file.dataUrl) bodyHtml = '<div class="drive-media-player" data-drive-media="audio"></div><p class="drive-preview-media-name">' + esc(file.name) + '</p>';
-        else if (isVideoFile(file) && file.dataUrl) bodyHtml = '<div class="drive-media-player" data-drive-media="video"></div><p class="drive-preview-media-name">' + esc(file.name) + '</p>';
+        else if (isAudioFile(file) && file.dataUrl) bodyHtml = '<div class="drive-preview-media"><div class="drive-media-player" data-drive-media="audio"></div><p class="drive-preview-media-name">' + esc(file.name) + '</p></div>';
+        else if (isVideoFile(file) && file.dataUrl) bodyHtml = '<div class="drive-preview-media"><div class="drive-media-player" data-drive-media="video"></div><p class="drive-preview-media-name">' + esc(file.name) + '</p></div>';
         else if (isTextLikeFile(file)) {
             var previewText = file.previewText || previewTextFromDataUrl(file.dataUrl);
             if (previewText) {
