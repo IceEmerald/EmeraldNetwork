@@ -525,6 +525,18 @@ html[data-wiki-theme="dark"] .dpreview-content-title, html[data-wiki-theme="dark
 .drow-app-icon { width: 20px; height: 20px; display: block; }
 .dfolder-name { width: 100%; min-width: 0; padding: 8px 4px 2px; text-align: center; font: 600 13.5px 'DM Sans', sans-serif; color: #202923; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+/* ---- drag & drop ---- */
+.dfile-card.is-dragging, .dfolder-card.is-dragging, .drow.is-dragging { opacity: .45; }
+.dfolder-card.is-drop-target, .drow.is-drop-target, .dcrumb.is-drop-target {
+    outline: 2px solid #239a4d; outline-offset: 3px;
+    background: rgba(35,154,77,.08);
+}
+.dfolder-card.is-drop-target { border-radius: 10px; }
+#driveContent.is-drop-active {
+    outline: 2px dashed #9cc7aa; outline-offset: 10px; border-radius: 14px;
+    background: rgba(35,154,77,.035);
+}
+
 /* ---- chips (suggested) ---- */
 .dchips { display: flex; gap: 10px; flex-wrap: wrap; }
 .dchip {
