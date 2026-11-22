@@ -35,7 +35,11 @@ function escHtml(s) {
 let toastTimer;
 function showToast(message) {
   const toast = document.getElementById("custom-toast");
-  toast.innerHTML = message;
+  let html = String(message);
+  if (!/^\\s*<svg\\b/i.test(html)) {
+    html = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;opacity:0.85"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>' + html;
+  }
+  toast.innerHTML = html;
   toast.classList.add("show");
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => {

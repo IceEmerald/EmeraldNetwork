@@ -983,7 +983,9 @@
         saveDriveFlags();
         if (file.externalApp) {
             var urls = { doc: '/docs', note: '/notes', slide: '/slides', sheet: '/sheets' };
-            window.location.href = (urls[file.type] || '/') + '?owned=' + encodeURIComponent(file.id);
+            var url = (urls[file.type] || '/') + '?owned=' + encodeURIComponent(file.id);
+            var opened = window.open(url, '_blank', 'noopener,noreferrer');
+            if (!opened) window.location.href = url;
             return;
         }
         previewDriveFile(file);
@@ -1058,6 +1060,183 @@
         document.body.appendChild(anchor);
         anchor.click();
         anchor.remove();
+    }
+
+    function sanitizeZipPathPart(value) {
+        return String(value || 'item').replace(/[\\\\/:*?"<>|]/g, '_').trim() || 'item';
+    }
+
+    function suiteDownloadExtension(file) {
+        if (!file.externalApp) return '';
+        if (file.appType === 'notes') return '.txt';
+        if (file.appType === 'docs') return '.docx';
+        if (file.appType === 'slides') return '.pptx';
+        if (file.appType === 'sheets') return '.xlsx';
+        return '';
+    }
+
+    function suiteDownloadName(file) {
+        var base = file.name || 'Untitled';
+        var extension = suiteDownloadExtension(file);
+        if (extension && !new RegExp('\\' + extension + '$', 'i').test(base)) return base + extension;
+        return base;
+    }
+
+    async function suiteFileBytes(file) {
+        if (file.appType === 'notes') {
+            var noteStorage = storage();
+            var records = noteStorage && noteStorage.getJSON ? await noteStorage.getJSON('emeraldcore.storage.suite.notes') : [];
+            var note = Array.isArray(records) && records.find(function (entry) { return String(entry && entry.id) === String(file.id); });
+            var holder = document.createElement('div');
+            holder.innerHTML = note && note.content || '';
+            return new TextEncoder().encode(holder.innerText || holder.textContent || '');
+        }
+        if (file.appType === 'docs') {
+            var docStorage = storage();
+            var doc = docStorage && docStorage.getJSON ? await docStorage.getJSON('emeraldcore.storage.suite.docs.' + file.id) : null;
+            if (!doc || !window.EMDocx) throw new Error('Document exporter is unavailable.');
+            var blob = await window.EMDocx.fromHtml(doc.content || '<p></p>', { title: doc.title || file.name, pageW: doc.pageSize && doc.pageSize.w, pageH: doc.pageSize && doc.pageSize.h, margins: doc.pageMargins || {} });
+            return new Uint8Array(await blob.arrayBuffer());
+        }
+        if (file.appType === 'slides') {
+            var slideBlob = await withSuiteFrame('/slides?owned=' + encodeURIComponent(file.id), async function (frameWindow) {
+                var app = frameWindow.slidesApp;
+                if (!app || !app.pres || String(app.pres.id) !== String(file.id)) throw new Error('Presentation is still loading.');
+                var exported = await app.exportPPTX(true);
+                if (!exported || typeof exported.size !== 'number' || typeof exported.slice !== 'function') throw new Error('Presentation export failed.');
+                return exported;
+            });
+            return new Uint8Array(await slideBlob.arrayBuffer());
+        }
+        if (file.appType === 'sheets') {
+            var sheetExport = await withSuiteFrame('/sheets?owned=' + encodeURIComponent(file.id), async function (frameWindow) {
+                if (!frameWindow.ZS || !frameWindow.ZS.exportBytes) throw new Error('Spreadsheet exporter is still loading.');
+                return frameWindow.ZS.exportBytes();
+            });
+            if (!sheetExport || typeof sheetExport === 'string' || !sheetExport.bytes) throw new Error('Spreadsheet export failed.');
+            return new Uint8Array(sheetExport.bytes);
+        }
+        throw new Error('This file cannot be included in a zip.');
+    }
+
+    async function fileBytesForZip(file) {
+        if (file.externalApp) return suiteFileBytes(file);
+        if (!file.dataUrl) throw new Error(file.name + ' has no downloadable data.');
+        var response = await fetch(file.dataUrl);
+        return new Uint8Array(await response.arrayBuffer());
+    }
+
+    function collectFolderEntries(folderId, prefix) {
+        var folder = folders.find(function (entry) { return String(entry.id) === String(folderId); });
+        var base = prefix ? prefix + '/' + sanitizeZipPathPart(folder ? folder.name : 'Folder') : sanitizeZipPathPart(folder ? folder.name : 'Folder');
+        var entries = [{ type: 'dir', path: base + '/' }];
+        childrenOf(folderId).forEach(function (child) {
+            entries = entries.concat(collectFolderEntries(child.id, base));
+        });
+        files.filter(function (file) { return file.folder === folderId && !file.trashed; }).forEach(function (file) {
+            entries.push({ type: 'file', path: base + '/' + sanitizeZipPathPart(suiteDownloadName(file)), file: file });
+        });
+        return entries;
+    }
+
+    function crc32(bytes) {
+        var table = crc32.table;
+        if (!table) {
+            table = new Uint32Array(256);
+            for (var i = 0; i < 256; i++) {
+                var c = i;
+                for (var j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+                table[i] = c >>> 0;
+            }
+            crc32.table = table;
+        }
+        var crc = 0xFFFFFFFF;
+        for (var index = 0; index < bytes.length; index++) crc = table[(crc ^ bytes[index]) & 0xFF] ^ (crc >>> 8);
+        return (crc ^ 0xFFFFFFFF) >>> 0;
+    }
+
+    function concatUint8Arrays(parts) {
+        var total = parts.reduce(function (sum, part) { return sum + part.length; }, 0);
+        var output = new Uint8Array(total);
+        var offset = 0;
+        parts.forEach(function (part) { output.set(part, offset); offset += part.length; });
+        return output;
+    }
+
+    async function createZip(entries) {
+        var localParts = [];
+        var centralParts = [];
+        var offset = 0;
+        var encoder = new TextEncoder();
+        for (var i = 0; i < entries.length; i++) {
+            var entry = entries[i];
+            var nameBytes = encoder.encode(entry.path);
+            var isDir = entry.type === 'dir';
+            var data = isDir ? new Uint8Array(0) : await fileBytesForZip(entry.file);
+            var checksum = crc32(data);
+            var localHeader = new Uint8Array(30 + nameBytes.length);
+            var localView = new DataView(localHeader.buffer);
+            localView.setUint32(0, 0x04034b50, true);
+            localView.setUint16(4, 20, true);
+            localView.setUint16(6, 0, true);
+            localView.setUint16(8, 0, true);
+            localView.setUint16(10, 0, true);
+            localView.setUint16(12, 0, true);
+            localView.setUint32(14, checksum, true);
+            localView.setUint32(18, data.length, true);
+            localView.setUint32(22, data.length, true);
+            localView.setUint16(26, nameBytes.length, true);
+            localView.setUint16(28, 0, true);
+            localHeader.set(nameBytes, 30);
+            var centralHeader = new Uint8Array(46 + nameBytes.length);
+            var centralView = new DataView(centralHeader.buffer);
+            centralView.setUint32(0, 0x02014b50, true);
+            centralView.setUint16(4, 20, true);
+            centralView.setUint16(6, 20, true);
+            centralView.setUint16(8, 0, true);
+            centralView.setUint16(10, 0, true);
+            centralView.setUint16(12, 0, true);
+            centralView.setUint16(14, 0, true);
+            centralView.setUint32(16, checksum, true);
+            centralView.setUint32(20, data.length, true);
+            centralView.setUint32(24, data.length, true);
+            centralView.setUint16(28, nameBytes.length, true);
+            centralView.setUint16(30, 0, true);
+            centralView.setUint16(32, 0, true);
+            centralView.setUint16(34, 0, true);
+            centralView.setUint16(36, 0, true);
+            centralView.setUint32(38, isDir ? (0x10 << 16) : 0, true);
+            centralView.setUint32(42, offset, true);
+            centralHeader.set(nameBytes, 46);
+            localParts.push(localHeader, data);
+            centralParts.push(centralHeader);
+            offset += localHeader.length + data.length;
+        }
+        var centralDirectory = concatUint8Arrays(centralParts);
+        var endRecord = new Uint8Array(22);
+        var endView = new DataView(endRecord.buffer);
+        endView.setUint32(0, 0x06054b50, true);
+        endView.setUint16(4, 0, true);
+        endView.setUint16(6, 0, true);
+        endView.setUint16(8, entries.length, true);
+        endView.setUint16(10, entries.length, true);
+        endView.setUint32(12, centralDirectory.length, true);
+        endView.setUint32(16, offset, true);
+        endView.setUint16(20, 0, true);
+        return new Blob([concatUint8Arrays(localParts), centralDirectory, endRecord], { type: 'application/zip' });
+    }
+
+    async function downloadFolder(folder) {
+        if (!folder) return;
+        try {
+            if (window.showToast) window.showToast('Preparing zip…');
+            var entries = collectFolderEntries(folder.id, '');
+            var blob = await createZip(entries);
+            saveDownload(blob, folder.name, '.zip');
+        } catch (error) {
+            console.error('[Drive] folder zip failed', error);
+            if (window.showToast) window.showToast(error.message || 'Could not download this folder.');
+        }
     }
 
     function withSuiteFrame(url, callback) {
@@ -1153,11 +1332,13 @@
         if (item.trashed) {
             html += contextRow('Restore', 'restore') + contextRow('Delete forever', 'purge', true) + '</div>';
         } else {
-        html += contextRow('Download', 'download') + contextRow('Copy link', 'copy-link') +
-            contextRow('Rename', 'rename') +
-            (isSuiteFolderItem ? '' : contextRow('Manage access', 'manage-access')) + contextRow('Duplicate', 'duplicate') +
-            contextRow('Copy', 'copy') + (isSuiteFolderItem ? '' : contextRow('Move', 'move'));
-        if (isFolder && driveClipboard) html += contextRow('Paste', 'paste');
+        html += contextRow('Download', 'download') + contextRow('Copy link', 'copy-link');
+        if (!isSuiteFolderItem) {
+            html += contextRow('Rename', 'rename') +
+                (isSuiteFolderItem ? '' : contextRow('Manage access', 'manage-access')) + contextRow('Duplicate', 'duplicate') +
+                contextRow('Copy', 'copy') + (isSuiteFolderItem ? '' : contextRow('Move', 'move'));
+        }
+        if (isFolder && driveClipboard && !isSuiteFolderItem) html += contextRow('Paste', 'paste');
         if (isFolder) {
             html += '</div>';
             if (!isSuiteFolderItem) {
@@ -1167,7 +1348,7 @@
                     }).join('') + '</div></div>';
             }
         } else html += contextRow(item.starred ? 'Unstar' : 'Star', 'star') + '</div>';
-        html += '<div class="context-section">' + contextRow('Move to trash', 'delete', true) + '</div>';
+        if (!isSuiteFolderItem) html += '<div class="context-section">' + contextRow('Move to trash', 'delete', true) + '</div>';
         }
         menu.innerHTML = html;
         menu.dataset.contextItemId = isFolder ? folderId : fileId;
@@ -1215,10 +1396,24 @@
         var item = isFolder ? folders.find(function (f) { return String(f.id) === String(id); }) : files.find(function (f) { return String(f.id) === String(id); });
         if (!item) return;
         menu.style.display = 'none';
-        if (action === 'open') return isFolder ? (state.view = 'mydrive', state.folderId = item.id, setActiveNav('mydrive'), render()) : openDriveFile(item);
-        if (action === 'download') return downloadFile(item);
+        if (action === 'open') {
+            if (isFolder) {
+                state.view = 'mydrive';
+                state.folderId = item.id;
+                setActiveNav('mydrive');
+                switchPage(render);
+            } else {
+                openDriveFile(item);
+            }
+            return;
+        }
+        if (action === 'download') return isFolder ? downloadFolder(item) : downloadFile(item);
         if (action === 'copy-link') {
-            var link = item.externalApp ? new URL(({doc:'/docs',note:'/notes',slide:'/slides',sheet:'/sheets'})[item.type] + '?owned=' + encodeURIComponent(item.id), location.origin).href : new URL('/drive?file=' + encodeURIComponent(item.id), location.origin).href;
+            var link = item.externalApp
+                ? new URL(({doc:'/docs',note:'/notes',slide:'/slides',sheet:'/sheets'})[item.type] + '?owned=' + encodeURIComponent(item.id), location.origin).href
+                : (isFolder
+                    ? new URL('/drive?folder=' + encodeURIComponent(item.id), location.origin).href
+                    : new URL('/drive?file=' + encodeURIComponent(item.id), location.origin).href);
             try { await navigator.clipboard.writeText(link); if (window.showToast) window.showToast('Link copied'); }
             catch (_) { await showDriveModal({ title: 'Copy link', message: 'Copy this link to open the file in EmeraldNetwork.', input: { value: link, label: 'File link' }, primaryLabel: 'Done' }); }
             return;
@@ -1284,7 +1479,7 @@
             await saveDriveData(); render(); return;
         }
         if (action === 'duplicate') {
-            if (isFolder) { await duplicateFolder(item); await loadDriveData(); }
+            if (isFolder) { await duplicateFolder(item); await saveDriveData(); await loadDriveData(); }
             else if (item.externalApp) {
                 await duplicateSuiteFile(item);
                 await loadDriveData();
@@ -1940,10 +2135,12 @@
     }
 
     function bindDragAndDrop() {
-        var main = document.querySelector('.drive-main');
-        if (!main) return;
+        var overlay = document.createElement('div');
+        overlay.className = 'drive-drop-overlay';
+        document.body.appendChild(overlay);
+        function showOverlay(active) { overlay.classList.toggle('is-active', !!active); }
 
-        main.addEventListener('dragstart', function (event) {
+        document.addEventListener('dragstart', function (event) {
             var card = event.target && event.target.closest ? event.target.closest('[data-file],[data-folder]') : null;
             if (!card) return;
             var isFolder = card.hasAttribute('data-folder');
@@ -1962,35 +2159,43 @@
             card.classList.add('is-dragging');
         });
 
-        main.addEventListener('dragend', function (event) {
+        document.addEventListener('dragend', function (event) {
             var card = event.target && event.target.closest ? event.target.closest('.is-dragging') : null;
             if (card) card.classList.remove('is-dragging');
             internalDrag = null;
             clearDropHighlight();
+            showOverlay(false);
         });
 
-        main.addEventListener('dragover', function (event) {
+        document.addEventListener('dragover', function (event) {
             var external = isExternalDrag(event.dataTransfer);
             var internal = !external && (!!internalDrag || dragHasType(event.dataTransfer, 'application/x-emerald-drive'));
             if (!internal && !external) return;
             event.preventDefault();
             if (event.dataTransfer) event.dataTransfer.dropEffect = internal ? 'move' : 'copy';
             var zone = dropZoneElement(event);
-            if (zone) setDropHighlight(zone);
-            else if (external) setDropHighlight($('driveContent'));
-            else setDropHighlight(null);
+            if (external) {
+                showOverlay(true);
+                if (zone) setDropHighlight(zone); else setDropHighlight(null);
+            } else {
+                showOverlay(false);
+                if (zone) setDropHighlight(zone); else setDropHighlight(null);
+            }
         });
 
-        main.addEventListener('dragleave', function (event) {
-            if (!main.contains(event.relatedTarget)) clearDropHighlight();
+        document.addEventListener('dragleave', function (event) {
+            if (event.relatedTarget) return;
+            showOverlay(false);
+            clearDropHighlight();
         });
 
-        main.addEventListener('drop', async function (event) {
+        document.addEventListener('drop', async function (event) {
             var external = isExternalDrag(event.dataTransfer);
             var internal = external ? null : (readDriveDragPayload(event.dataTransfer) || internalDrag);
             internalDrag = null;
             if (!internal && !external) return;
             event.preventDefault();
+            showOverlay(false);
             var zone = dropZoneElement(event);
             var targetFolderId = dropTargetFolderId(event);
             clearDropHighlight();
@@ -2020,19 +2225,6 @@
             if (!dropped.length) return;
             var dropParent = zone ? targetFolderId : (state.view === 'mydrive' ? state.folderId : null);
             await importFiles(dropped, dropParent);
-        });
-
-        document.addEventListener('dragover', function (event) {
-            if (!isExternalDrag(event.dataTransfer) && !dragHasType(event.dataTransfer, 'application/x-emerald-drive')) return;
-            if (event.target && event.target.closest && event.target.closest('.drive-main')) return;
-            event.preventDefault();
-            if (event.dataTransfer) event.dataTransfer.dropEffect = 'none';
-        });
-
-        document.addEventListener('drop', function (event) {
-            if (!isExternalDrag(event.dataTransfer) && !dragHasType(event.dataTransfer, 'application/x-emerald-drive')) return;
-            if (event.target && event.target.closest && event.target.closest('.drive-main')) return;
-            event.preventDefault();
         });
     }
 
@@ -2250,6 +2442,16 @@
         if (sharedFileId) {
             var sharedFile = files.find(function (file) { return String(file.id) === sharedFileId && !file.trashed; });
             if (sharedFile) openDriveFile(sharedFile);
+        }
+        var sharedFolderId = new URLSearchParams(location.search).get('folder');
+        if (sharedFolderId) {
+            var sharedFolder = folders.find(function (folder) { return String(folder.id) === sharedFolderId && !folder.trashed; });
+            if (sharedFolder) {
+                state.view = 'mydrive';
+                state.folderId = sharedFolder.id;
+                setActiveNav('mydrive');
+                render();
+            }
         }
         updateDriveStorage();
         if (window.EmeraldAuth && window.EmeraldAuth.requestSync) window.EmeraldAuth.requestSync();

@@ -526,6 +526,17 @@ html[data-wiki-theme="dark"] .dpreview-content-title, html[data-wiki-theme="dark
 .dfolder-name { width: 100%; min-width: 0; padding: 8px 4px 2px; text-align: center; font: 600 13.5px 'DM Sans', sans-serif; color: #202923; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---- drag & drop ---- */
+.drive-drop-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 850;
+    opacity: 0;
+    pointer-events: none;
+    background: rgba(35, 154, 77, .06);
+    box-shadow: inset 0 0 0 3px rgba(35, 154, 77, .35);
+    transition: opacity .16s ease;
+}
+.drive-drop-overlay.is-active { opacity: 1; }
 .dfile-card.is-dragging, .dfolder-card.is-dragging, .drow.is-dragging { opacity: .45; }
 .dfolder-card.is-drop-target, .drow.is-drop-target, .dcrumb.is-drop-target {
     outline: 2px solid #239a4d; outline-offset: 3px;
