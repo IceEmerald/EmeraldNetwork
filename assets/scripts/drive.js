@@ -95,10 +95,48 @@
                 var raw = atob(body);
                 var bytes = new Uint8Array(raw.length);
                 for (var i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
-                return new TextDecoder('utf-8').decode(bytes).slice(0, 500);
+                return new TextDecoder('utf-8').decode(bytes).slice(0, 20000);
             }
-            return decodeURIComponent(body).slice(0, 500);
+            return decodeURIComponent(body).slice(0, 20000);
         } catch (_) { return ''; }
+    }
+
+    var TEXT_PREVIEW_EXTENSIONS = ['txt', 'md', 'markdown', 'json', 'csv', 'tsv', 'xml', 'yaml', 'yml', 'log', 'js', 'jsx', 'ts', 'tsx', 'css', 'scss', 'less', 'html', 'htm', 'sql', 'py', 'sh', 'bash', 'bat', 'ps1', 'ini', 'conf', 'cfg', 'env', 'gitignore', 'dockerfile', 'makefile', 'toml', 'properties', 'java', 'c', 'h', 'cpp', 'cc', 'cs', 'go', 'rs', 'php', 'rb', 'swift', 'kt', 'scala', 'lua', 'r', 'm', 'pl', 'emeraldcore', 'emeraldsuite'];
+    var AUDIO_PREVIEW_EXTENSIONS = ['mp3', 'wav', 'ogg', 'oga', 'flac', 'm4a', 'aac', 'wma', 'opus', 'mid', 'midi'];
+    var VIDEO_PREVIEW_EXTENSIONS = ['mp4', 'mov', 'mkv', 'webm', 'avi', 'wmv', 'm4v', 'mpeg', 'mpg', '3gp'];
+
+    function fileExtensionOf(name) {
+        var parts = String(name || '').split('.');
+        return parts.length > 1 ? parts.pop().toLowerCase() : '';
+    }
+
+    function isTextLikeFile(file) {
+        var mime = String((file && file.mimeType) || '').toLowerCase();
+        if (/^text\//.test(mime)) return true;
+        if (/(json|xml|javascript|ecmascript|yaml|x-www-form-urlencoded|csv|markdown)/.test(mime)) return true;
+        return TEXT_PREVIEW_EXTENSIONS.indexOf(fileExtensionOf(file && file.name)) !== -1;
+    }
+
+    function isAudioFile(file) {
+        var mime = String((file && file.mimeType) || '').toLowerCase();
+        if (/^audio\//.test(mime)) return true;
+        return AUDIO_PREVIEW_EXTENSIONS.indexOf(fileExtensionOf(file && file.name)) !== -1;
+    }
+
+    function isVideoFile(file) {
+        var mime = String((file && file.mimeType) || '').toLowerCase();
+        if (/^video\//.test(mime)) return true;
+        return VIDEO_PREVIEW_EXTENSIONS.indexOf(fileExtensionOf(file && file.name)) !== -1;
+    }
+
+    function isMostlyText(value) {
+        if (!value) return false;
+        var printable = 0;
+        for (var i = 0; i < value.length; i++) {
+            var code = value.charCodeAt(i);
+            if (code === 9 || code === 10 || code === 13 || (code >= 32 && code !== 127)) printable++;
+        }
+        return printable / value.length > 0.85;
     }
 
     /* ---------------- synced Drive data ---------------- */
@@ -634,6 +672,14 @@
         if (item.type === 'doc') return '<div class="dfile-preview-page dpreview-doc-live">' + contentPageMarkup(item, 'doc', false) + '</div>';
         if (item.type === 'sheet' && item.previewData) return sheetPreviewMarkup(item);
         if (item.type === 'slide' && item.previewData) return slideDeckPreviewMarkup(item, 1, true);
+        if (isTextLikeFile(item) && item.previewText) {
+            var textLines = String(item.previewText).slice(0, 260).split(/\s+/).reduce(function (out, word) {
+                var last = out[out.length - 1] || '';
+                if ((last + ' ' + word).length > 28) out.push(word); else out[out.length - 1] = last ? last + ' ' + word : word;
+                return out;
+            }, []);
+            return '<div class="dfile-preview-page dpreview-content"><span class="dpreview-content-title">' + esc(item.name) + '</span><div>' + textLines.slice(0, 6).map(function (line) { return '<i>' + esc(line) + '</i>'; }).join('') + '</div></div>';
+        }
         if (item.previewText) {
             var lines = String(item.previewText).slice(0, 260).split(/\s+/).reduce(function (out, word) {
                 var last = out[out.length - 1] || '';
@@ -984,8 +1030,13 @@
         if (file.externalApp) {
             var urls = { doc: '/docs', note: '/notes', slide: '/slides', sheet: '/sheets' };
             var url = (urls[file.type] || '/') + '?owned=' + encodeURIComponent(file.id);
-            var opened = window.open(url, '_blank', 'noopener,noreferrer');
-            if (!opened) window.location.href = url;
+            var anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.target = '_blank';
+            anchor.rel = 'noopener noreferrer';
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
             return;
         }
         previewDriveFile(file);
@@ -996,6 +1047,16 @@
         var mime = String(file.mimeType || '').toLowerCase();
         if (file.dataUrl && (/^image\//.test(mime) || file.type === 'image')) bodyHtml = '<div class="drive-preview-image-wrap"><img class="drive-preview-image" src="' + esc(file.dataUrl) + '" alt="' + esc(file.name) + '"></div>';
         else if (file.dataUrl && (file.type === 'pdf' || mime === 'application/pdf')) bodyHtml = '<div class="drive-pdf-document-preview is-loading" data-pdf-document="' + esc(file.id) + '" aria-label="All pages of ' + esc(file.name) + '"><span class="pdf-preview-sheen"></span><span class="pdf-preview-error">PDF preview could not be rendered</span></div>';
+        else if (isAudioFile(file) && file.dataUrl) bodyHtml = '<div class="drive-preview-media"><audio controls preload="metadata" src="' + esc(file.dataUrl) + '"></audio><p class="drive-preview-media-name">' + esc(file.name) + '</p></div>';
+        else if (isVideoFile(file) && file.dataUrl) bodyHtml = '<div class="drive-preview-media"><video controls preload="metadata" src="' + esc(file.dataUrl) + '"></video><p class="drive-preview-media-name">' + esc(file.name) + '</p></div>';
+        else if (isTextLikeFile(file)) {
+            var previewText = file.previewText || previewTextFromDataUrl(file.dataUrl);
+            if (previewText) {
+                var pretty = previewText;
+                if (/json/i.test(mime) || /\\.json$/i.test(file.name || '')) { try { pretty = JSON.stringify(JSON.parse(pretty), null, 2); } catch (_) {} }
+                bodyHtml = '<pre class="drive-preview-text">' + esc(pretty.slice(0, 100000)) + '</pre>';
+            } else bodyHtml = '<div class="drive-preview-other">' + fileIconSvg(file.type, file.name) + '<div><strong>' + esc(file.name) + '</strong><small>' + esc(file.mimeType || file.size || 'Preview is unavailable for this file type.') + '</small></div></div>';
+        }
         else if (file.type === 'note' && file.previewText) bodyHtml = contentPageMarkup(file, 'note', true);
         else if (file.type === 'doc' && file.previewText) bodyHtml = contentPageMarkup(file, 'doc', true);
         else if (file.type === 'slide' && file.previewData) bodyHtml = slideDeckPreviewMarkup(file, 4, false);
@@ -1007,7 +1068,11 @@
             }
             bodyHtml = '<pre class="drive-preview-text">' + esc(previewText) + '</pre>';
         }
-        else bodyHtml = '<div class="drive-preview-other">' + fileIconSvg(file.type, file.name) + '<div><strong>' + esc(file.name) + '</strong><small>' + esc(file.mimeType || file.size || 'Preview is unavailable for this file type.') + '</small></div></div>';
+        else {
+            var decodedPreview = previewTextFromDataUrl(file.dataUrl);
+            if (decodedPreview && isMostlyText(decodedPreview)) bodyHtml = '<pre class="drive-preview-text">' + esc(decodedPreview.slice(0, 100000)) + '</pre>';
+            else bodyHtml = '<div class="drive-preview-other">' + fileIconSvg(file.type, file.name) + '<div><strong>' + esc(file.name) + '</strong><small>' + esc(file.mimeType || file.size || 'Preview is unavailable for this file type.') + '</small></div></div>';
+        }
         showDriveModal({ title: file.name, bodyHtml: bodyHtml, preview: true });
         if (file.type === 'pdf' || mime === 'application/pdf') renderPdfDocumentPreview(file, $('driveModalBody').querySelector('[data-pdf-document]'));
     }
@@ -1707,15 +1772,7 @@
         var bar = $('driveStorageBar');
         var label = $('driveStorageLabel');
         if (bar) bar.style.width = percent.toFixed(2) + '%';
-        if (label) {
-            var sync = window.EmeraldAuth && window.EmeraldAuth.getSyncState ? window.EmeraldAuth.getSyncState() : null;
-            var syncing = sync && sync.syncing;
-            var stuck = syncing && syncStuckAt && Date.now() - syncStuckAt > SYNC_STUCK_MS;
-            if (loading) label.textContent = 'Drive is syncing…';
-            else if (syncing && !stuck) label.textContent = 'Drive is syncing…';
-            else if (stuck) label.textContent = 'Files are ready — sync is taking a while';
-            else label.textContent = formatBytes(size) + ' of ' + formatBytes(quota) + ' used';
-        }
+        if (label) label.textContent = formatBytes(size) + ' of ' + formatBytes(quota) + ' used';
     }
 
     var SWITCH_MS = 180;
@@ -2008,8 +2065,8 @@
                 var ext = name.split('.').pop().toLowerCase();
                 var type = /^(png|jpe?g|gif|webp|avif|bmp|svg|heic|tiff?)$/.test(ext) ? 'image' : (ext === 'pdf' ? 'pdf' : 'other');
                 var previewText = '';
-                if (/^(txt|md|markdown|json|csv|tsv|xml|yaml|yml|log|js|jsx|ts|tsx|css|html|htm|sql|py|sh)$/.test(ext)) {
-                    try { previewText = (await file.text()).slice(0, 500); } catch (_) {}
+                if (isTextLikeFile({ name: name, mimeType: file.type || 'application/octet-stream' })) {
+                    try { previewText = (await file.text()).slice(0, 20000); } catch (_) {}
                 }
                 files.push({ id: 'file_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9), name: name, type: type, folder: parent, size: formatBytes(file.size), sizeBytes: file.size, mimeType: file.type || 'application/octet-stream', dataUrl: await readFileAsDataUrl(file), previewText: previewText, modifiedAt: Date.now(), modified: 'Just now', created: new Date().toISOString(), starred: false, shared: false, trashed: false });
             }

@@ -629,6 +629,9 @@ html[data-wiki-theme="dark"] .dpreview-content-title, html[data-wiki-theme="dark
 .drive-pdf-page canvas { display: block; max-width: 100%; width: auto; height: auto; border: 1px solid #eef1ef; box-shadow: 0 3px 14px rgba(20,35,26,.09); background: #fff; }
 .drive-pdf-document-preview.has-preview-error .pdf-preview-error { position: absolute; inset: 0; display: grid; place-items: center; font: 600 14px 'DM Sans', sans-serif; }
 .drive-preview-text { width: min(100%, 720px); max-height: calc(82vh - 150px); overflow-y: auto; scrollbar-width: none; box-sizing: border-box; margin: 0; padding: 18px 20px; border: 1px solid #e2e9e4; border-radius: 12px; background: #f7f9f8; color: #29342d; font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.drive-preview-media { width: min(100%, 720px); display: grid; gap: 12px; justify-items: center; padding: 18px; border: 1px solid #e2e9e4; border-radius: 12px; background: #f7f9f8; }
+.drive-preview-media audio, .drive-preview-media video { width: 100%; max-height: calc(82vh - 180px); border-radius: 10px; background: #000; }
+.drive-preview-media-name { margin: 0; color: #526159; font: 600 13px 'DM Sans', sans-serif; text-align: center; word-break: break-word; }
 .drive-preview-text::-webkit-scrollbar { display: none; }
 .drive-slides-preview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; width: min(100%, 760px); max-height: calc(82vh - 190px); overflow-y: auto; scrollbar-width: none; }
 .drive-slides-preview::-webkit-scrollbar { display: none; }
