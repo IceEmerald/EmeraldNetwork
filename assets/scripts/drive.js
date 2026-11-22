@@ -8,6 +8,8 @@
     function closeDriveModal(result) {
         var modal = $('driveModal');
         if (!modal || modal.hidden) return;
+        var body = $('driveModalBody');
+        if (body) body.querySelectorAll('audio, video').forEach(function (media) { try { media.pause(); media.currentTime = 0; } catch (_) {} });
         modal.hidden = true;
         if (activeModalResolver) { var resolve = activeModalResolver; activeModalResolver = null; resolve(result || { confirmed: false, value: null }); }
     }
@@ -1065,7 +1067,7 @@
 
         if (kind === 'video') {
             var player = document.createElement('div');
-            player.className = 'drive-video-player paused';
+            player.className = 'slide-video-player paused';
             var video = document.createElement('video');
             video.src = src;
             video.preload = 'metadata';
@@ -1194,7 +1196,7 @@
             updateState();
         } else {
             var audioPlayer = document.createElement('div');
-            audioPlayer.className = 'drive-audio-player';
+            audioPlayer.className = 'slide-audio-player';
             var art = document.createElement('div');
             art.className = 'aud-art';
             var wave = document.createElement('div');
