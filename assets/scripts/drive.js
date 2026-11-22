@@ -687,10 +687,6 @@
                 '<span class="dfolder-name">' + esc(item.name) + '</span>' +
                 '</button>';
         }
-                '</svg></span>' +
-                '<span class="dfolder-name">' + esc(item.name) + '</span>' +
-                '</button>';
-        }
         var m = TYPE_META[item.type] || TYPE_META.other;
         return '<div class="dfile-card" data-file="' + item.id + '" role="button" tabindex="0" aria-label="Open ' + esc(item.name) + '">' +
             '<div class="dfile-thumb dfile-thumb--' + esc(item.type || 'other') + '">' + filePreview(item) + typeBadge(item.type, item.name) +
