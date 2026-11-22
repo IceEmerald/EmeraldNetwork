@@ -490,7 +490,11 @@
 
     function slideDeckPreviewMarkup(item, limit, stacked) {
         var slides = item.previewData && item.previewData.slides || [];
-        if (!slides.length) return '<div class="dfile-preview-page dpreview-slide"><span class="dpreview-slide-title">' + esc(item.name) + '</span></div>';
+        if (!slides.length) {
+            var blankSlide = slideMarkup({}, 0);
+            if (stacked) return '<div class="dslide-stack"><div class="dslide-stack-page slide-stack-0">' + blankSlide + '</div></div>';
+            return '<div class="drive-slides-preview">' + blankSlide + '</div>';
+        }
         var selected = slides.slice(0, limit || 4);
         if (stacked) return '<div class="dslide-stack">' + selected.slice(0, 2).map(function (slide, index) { return '<div class="dslide-stack-page slide-stack-' + index + '">' + slideMarkup(slide, index) + '</div>'; }).join('') + '</div>';
         return '<div class="drive-slides-preview">' + selected.map(slideMarkup).join('') + '</div><div class="drive-slide-count">' + slides.length + ' slides</div>';
@@ -626,8 +630,8 @@
         if (item.dataUrl && (item.type === 'pdf' || mime === 'application/pdf')) {
             return '<div class="dfile-preview-pdf is-loading" data-pdf-preview="' + esc(item.id) + '" aria-label="PDF first page preview"><canvas></canvas><span class="pdf-preview-sheen"></span><span class="pdf-preview-error">PDF page preview</span></div>';
         }
-        if (item.type === 'note' && item.previewText) return '<div class="dfile-preview-page dpreview-note-live">' + contentPageMarkup(item, 'note', false) + '</div>';
-        if (item.type === 'doc' && item.previewText) return '<div class="dfile-preview-page dpreview-doc-live">' + contentPageMarkup(item, 'doc', false) + '</div>';
+        if (item.type === 'note') return '<div class="dfile-preview-page dpreview-note-live">' + contentPageMarkup(item, 'note', false) + '</div>';
+        if (item.type === 'doc') return '<div class="dfile-preview-page dpreview-doc-live">' + contentPageMarkup(item, 'doc', false) + '</div>';
         if (item.type === 'sheet' && item.previewData) return sheetPreviewMarkup(item);
         if (item.type === 'slide' && item.previewData) return slideDeckPreviewMarkup(item, 1, true);
         if (item.previewText) {
@@ -638,7 +642,6 @@
             }, []);
             return '<div class="dfile-preview-page dpreview-content"><span class="dpreview-content-title">' + esc(item.name) + '</span><div>' + lines.slice(0, 6).map(function (line) { return '<i>' + esc(line) + '</i>'; }).join('') + '</div></div>';
         }
-        if (item.type === 'note') return '<div class="dfile-preview-page dpreview-note"><span class="dpreview-note-margin"></span><div class="dpreview-note-lines">' + [72, 88, 64, 82, 54, 78, 68].map(function (width) { return '<i style="width:' + width + '%"></i>'; }).join('') + '</div></div>';
         return '<div class="dfile-preview-page dpreview-doc"><span class="dpreview-doc-title">' + esc(item.name) + '</span><div class="dpreview-doc-lines">' + [64, 82, 78, 70, 86, 58].map(function (width) { return '<i style="width:' + width + '%"></i>'; }).join('') + '</div></div>';
     }
 
