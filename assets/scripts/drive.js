@@ -1139,6 +1139,7 @@
             html += contextRow('Restore', 'restore') + contextRow('Delete forever', 'purge', true) + '</div>';
         } else {
         html += contextRow('Download', 'download') + contextRow('Copy link', 'copy-link') +
+            contextRow('Rename', 'rename') +
             (isSuiteFolderItem ? '' : contextRow('Manage access', 'manage-access')) + contextRow('Duplicate', 'duplicate') +
             contextRow('Copy', 'copy') + (isSuiteFolderItem ? '' : contextRow('Move', 'move'));
         if (isFolder && driveClipboard) html += contextRow('Paste', 'paste');
@@ -1209,6 +1210,19 @@
         }
         if (action === 'star') { item.starred = !item.starred; await saveDriveData(); render(); return; }
         if (action === 'folder-color') { item.color = color; await saveDriveData(); render(); return; }
+        if (action === 'rename') {
+            var current = item.name || '';
+            var result = await showDriveModal({ title: 'Rename', message: 'Enter a new name.', input: { value: current, label: 'Name' }, primaryLabel: 'Rename', cancelLabel: 'Cancel' });
+            if (!result.confirmed) return;
+            var value = String(result.value || '').trim();
+            if (!value) { if (window.showToast) window.showToast('Name cannot be empty'); return; }
+            if (value === current) return;
+            item.name = value;
+            if (item.externalApp) await renameSuiteFile(item, value);
+            await saveDriveData(); render();
+            if (window.showToast) window.showToast('Renamed to “' + esc(value) + '”.');
+            return;
+        }
         if (action === 'manage-access') {
             var current = (item.sharedWith || []).join(', ');
             var result = await showDriveModal({ title: 'Manage access', message: 'Enter email addresses separated by commas.', input: { value: current, placeholder: 'name@example.com', label: 'People with access' }, primaryLabel: 'Save', cancelLabel: 'Cancel' });
@@ -1328,6 +1342,39 @@
                 if (window.showToast) window.showToast(key === 'x' ? 'Ready to move. Choose a folder and press Ctrl+V.' : 'Copied. Choose a folder and press Ctrl+V.');
             }
         });
+    }
+
+    async function renameSuiteFile(file, newName) {
+        var s = storage();
+        if (!s || !file || !file.appType) return;
+        var title = String(newName || '').replace(/\.[^.]+$/, '') || 'Untitled';
+        if (file.appType === 'sheets') {
+            try {
+                var db = await new Promise(function (resolve, reject) { var req = indexedDB.open('emeraldcore.storage.suite.sheets', 1); req.onsuccess = function () { resolve(req.result); }; req.onerror = function () { reject(req.error); }; });
+                var original = await new Promise(function (resolve, reject) { var req = db.transaction('workbooks').objectStore('workbooks').get(file.id); req.onsuccess = function () { resolve(req.result); }; req.onerror = function () { reject(req.error); }; });
+                if (original) {
+                    var copy = JSON.parse(JSON.stringify(original));
+                    if (copy.data) copy.data.title = title;
+                    copy.savedAt = Date.now();
+                    await new Promise(function (resolve, reject) { var tx = db.transaction('workbooks', 'readwrite'); tx.objectStore('workbooks').put(copy, file.id); tx.oncomplete = resolve; tx.onerror = function () { reject(tx.error); }; });
+                }
+            } catch (error) { console.warn('[Drive] spreadsheet rename failed', error); }
+            return;
+        }
+        var listKey = 'emeraldcore.storage.suite.' + file.appType;
+        var list = await s.getJSON(listKey) || [];
+        if (!Array.isArray(list)) list = [];
+        var record = list.find(function (entry) { return String(entry && entry.id) === String(file.id); });
+        if (record) {
+            record.title = title;
+            record.updatedAt = Date.now();
+            await s.setJSON(listKey, list);
+        }
+        if (file.appType === 'docs' || file.appType === 'slides') {
+            var contentKey = listKey + '.' + file.id;
+            var content = await s.getJSON(contentKey);
+            if (content) { content = Object.assign({}, content, { title: title }); await s.setJSON(contentKey, content); }
+        }
     }
 
     async function hardDeleteSuiteFile(file) {
