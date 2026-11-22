@@ -1048,13 +1048,257 @@
         previewDriveFile(file);
     }
 
+    function wireDriveMediaPlayer(container, kind, src, name) {
+        if (!container) return;
+        container.innerHTML = '';
+        function fmtTime(seconds) {
+            if (!isFinite(seconds) || seconds < 0) return '0:00';
+            var minutes = Math.floor(seconds / 60);
+            var rest = Math.floor(seconds % 60);
+            return minutes + ':' + (rest < 10 ? '0' : '') + rest;
+        }
+        var playSvg = '<svg viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4"/></svg>';
+        var pauseSvg = '<svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+        var volumeOnSvg = '<svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>';
+        var volumeOffSvg = '<svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>';
+        var fullscreenSvg = '<svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>';
+
+        if (kind === 'video') {
+            var player = document.createElement('div');
+            player.className = 'drive-video-player paused';
+            var video = document.createElement('video');
+            video.src = src;
+            video.preload = 'metadata';
+            video.playsInline = true;
+            video.muted = false;
+            var bigPlay = document.createElement('div');
+            bigPlay.className = 'vid-big-play';
+            bigPlay.innerHTML = playSvg;
+            var controls = document.createElement('div');
+            controls.className = 'vid-controls';
+            var progressWrap = document.createElement('div');
+            progressWrap.className = 'vid-progress-wrap';
+            var bufferBar = document.createElement('div');
+            bufferBar.className = 'vid-buffer-bar';
+            var progressBar = document.createElement('div');
+            progressBar.className = 'vid-progress-bar';
+            progressWrap.appendChild(bufferBar);
+            progressWrap.appendChild(progressBar);
+            var buttons = document.createElement('div');
+            buttons.className = 'vid-btns';
+            var playButton = document.createElement('button');
+            playButton.className = 'vid-btn';
+            playButton.type = 'button';
+            playButton.innerHTML = playSvg;
+            playButton.title = 'Play';
+            var time = document.createElement('span');
+            time.className = 'vid-time';
+            time.textContent = '0:00 / 0:00';
+            var spacer = document.createElement('div');
+            spacer.className = 'vid-spacer';
+            var volumeWrap = document.createElement('div');
+            volumeWrap.className = 'vid-vol-wrap';
+            var volumeButton = document.createElement('button');
+            volumeButton.className = 'vid-btn';
+            volumeButton.type = 'button';
+            volumeButton.innerHTML = volumeOnSvg;
+            volumeButton.title = 'Volume';
+            var volumeSlider = document.createElement('input');
+            volumeSlider.type = 'range';
+            volumeSlider.className = 'vid-vol-slider';
+            volumeSlider.min = '0';
+            volumeSlider.max = '1';
+            volumeSlider.step = '0.05';
+            volumeSlider.value = '1';
+            volumeWrap.appendChild(volumeButton);
+            volumeWrap.appendChild(volumeSlider);
+            var fullscreenButton = document.createElement('button');
+            fullscreenButton.className = 'vid-btn';
+            fullscreenButton.type = 'button';
+            fullscreenButton.innerHTML = fullscreenSvg;
+            fullscreenButton.title = 'Fullscreen';
+            buttons.appendChild(playButton);
+            buttons.appendChild(time);
+            buttons.appendChild(spacer);
+            buttons.appendChild(volumeWrap);
+            buttons.appendChild(fullscreenButton);
+            controls.appendChild(progressWrap);
+            controls.appendChild(buttons);
+            player.appendChild(video);
+            player.appendChild(bigPlay);
+            player.appendChild(controls);
+            container.appendChild(player);
+
+            function togglePlay() {
+                if (video.paused) video.play(); else video.pause();
+            }
+            function updateState() {
+                var paused = video.paused;
+                player.classList.toggle('paused', paused);
+                playButton.innerHTML = paused ? playSvg : pauseSvg;
+                bigPlay.innerHTML = paused ? playSvg : pauseSvg;
+                bigPlay.style.display = paused ? '' : 'none';
+            }
+            function updateTime() {
+                var current = video.currentTime || 0;
+                var duration = video.duration || 0;
+                time.textContent = fmtTime(current) + ' / ' + fmtTime(duration);
+                if (duration > 0) progressBar.style.width = (current / duration * 100) + '%';
+            }
+            function updateBuffer() {
+                if (video.buffered.length > 0 && video.duration > 0) {
+                    var end = video.buffered.end(video.buffered.length - 1);
+                    bufferBar.style.width = (end / video.duration * 100) + '%';
+                }
+            }
+            video.addEventListener('click', function (event) { event.stopPropagation(); togglePlay(); });
+            bigPlay.addEventListener('click', function (event) { event.stopPropagation(); togglePlay(); });
+            playButton.addEventListener('click', function (event) { event.stopPropagation(); togglePlay(); });
+            video.addEventListener('play', updateState);
+            video.addEventListener('pause', updateState);
+            video.addEventListener('ended', updateState);
+            video.addEventListener('timeupdate', updateTime);
+            video.addEventListener('loadedmetadata', function () { updateTime(); updateBuffer(); });
+            video.addEventListener('progress', updateBuffer);
+            progressWrap.addEventListener('click', function (event) {
+                event.stopPropagation();
+                var rect = progressWrap.getBoundingClientRect();
+                var percent = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+                if (video.duration) video.currentTime = percent * video.duration;
+            });
+            volumeSlider.addEventListener('input', function (event) {
+                event.stopPropagation();
+                video.volume = parseFloat(volumeSlider.value);
+                video.muted = video.volume === 0;
+                volumeButton.innerHTML = video.muted || video.volume === 0 ? volumeOffSvg : volumeOnSvg;
+            });
+            volumeButton.addEventListener('click', function (event) {
+                event.stopPropagation();
+                video.muted = !video.muted;
+                volumeButton.innerHTML = video.muted ? volumeOffSvg : volumeOnSvg;
+                volumeSlider.value = video.muted ? '0' : String(video.volume);
+            });
+            fullscreenButton.addEventListener('click', function (event) {
+                event.stopPropagation();
+                if (document.fullscreenElement === player) {
+                    if (document.exitFullscreen) document.exitFullscreen();
+                } else if (player.requestFullscreen) {
+                    player.requestFullscreen();
+                } else if (player.webkitRequestFullscreen) {
+                    player.webkitRequestFullscreen();
+                }
+            });
+            [playButton, volumeButton, volumeSlider, fullscreenButton, progressWrap, bigPlay].forEach(function (element) {
+                element.addEventListener('mousedown', function (event) { event.stopPropagation(); });
+            });
+            updateState();
+        } else {
+            var audioPlayer = document.createElement('div');
+            audioPlayer.className = 'drive-audio-player';
+            var art = document.createElement('div');
+            art.className = 'aud-art';
+            var wave = document.createElement('div');
+            wave.className = 'aud-wave';
+            for (var i = 0; i < 5; i++) wave.appendChild(document.createElement('span'));
+            art.appendChild(wave);
+            var audio = document.createElement('audio');
+            audio.src = src;
+            audio.preload = 'metadata';
+            var audioControls = document.createElement('div');
+            audioControls.className = 'aud-controls';
+            var audioProgressWrap = document.createElement('div');
+            audioProgressWrap.className = 'aud-progress-wrap';
+            var audioProgressBar = document.createElement('div');
+            audioProgressBar.className = 'aud-progress-bar';
+            audioProgressWrap.appendChild(audioProgressBar);
+            var audioButtons = document.createElement('div');
+            audioButtons.className = 'aud-btns';
+            var audioPlayButton = document.createElement('button');
+            audioPlayButton.className = 'aud-play-btn';
+            audioPlayButton.type = 'button';
+            audioPlayButton.innerHTML = playSvg;
+            audioPlayButton.title = 'Play';
+            var audioTime = document.createElement('span');
+            audioTime.className = 'aud-time';
+            audioTime.textContent = '0:00';
+            var audioSpacer = document.createElement('div');
+            audioSpacer.className = 'aud-spacer';
+            var audioVolumeWrap = document.createElement('div');
+            audioVolumeWrap.className = 'aud-vol-wrap';
+            var audioVolumeButton = document.createElement('button');
+            audioVolumeButton.className = 'aud-btn';
+            audioVolumeButton.type = 'button';
+            audioVolumeButton.innerHTML = volumeOnSvg;
+            audioVolumeButton.title = 'Volume';
+            var audioVolumeSlider = document.createElement('input');
+            audioVolumeSlider.type = 'range';
+            audioVolumeSlider.className = 'aud-vol-slider';
+            audioVolumeSlider.min = '0';
+            audioVolumeSlider.max = '1';
+            audioVolumeSlider.step = '0.05';
+            audioVolumeSlider.value = '1';
+            audioVolumeWrap.appendChild(audioVolumeButton);
+            audioVolumeWrap.appendChild(audioVolumeSlider);
+            audioButtons.appendChild(audioPlayButton);
+            audioButtons.appendChild(audioTime);
+            audioButtons.appendChild(audioSpacer);
+            audioButtons.appendChild(audioVolumeWrap);
+            audioControls.appendChild(audioProgressWrap);
+            audioControls.appendChild(audioButtons);
+            audioPlayer.appendChild(art);
+            audioPlayer.appendChild(audioControls);
+            container.appendChild(audioPlayer);
+
+            function updateAudioState() {
+                audioPlayer.classList.toggle('paused', audio.paused);
+                audioPlayButton.innerHTML = audio.paused ? playSvg : pauseSvg;
+            }
+            function updateAudioTime() {
+                var current = audio.currentTime || 0;
+                var duration = audio.duration || 0;
+                audioTime.textContent = fmtTime(current) + (duration ? ' / ' + fmtTime(duration) : '');
+                if (duration > 0) audioProgressBar.style.width = (current / duration * 100) + '%';
+            }
+            function updateAudioBuffer() {
+                if (audio.buffered.length > 0 && audio.duration > 0) {
+                    art.classList.add('is-buffering');
+                }
+            }
+            audioPlayButton.addEventListener('click', function (event) { event.stopPropagation(); if (audio.paused) audio.play(); else audio.pause(); });
+            audio.addEventListener('play', updateAudioState);
+            audio.addEventListener('pause', updateAudioState);
+            audio.addEventListener('ended', updateAudioState);
+            audio.addEventListener('timeupdate', updateAudioTime);
+            audio.addEventListener('loadedmetadata', function () { updateAudioTime(); updateAudioBuffer(); });
+            audioProgressWrap.addEventListener('click', function (event) {
+                event.stopPropagation();
+                var rect = audioProgressWrap.getBoundingClientRect();
+                var percent = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+                if (audio.duration) audio.currentTime = percent * audio.duration;
+            });
+            audioVolumeSlider.addEventListener('input', function (event) {
+                event.stopPropagation();
+                audio.volume = parseFloat(audioVolumeSlider.value);
+                audio.muted = audio.volume === 0;
+                audioVolumeButton.innerHTML = audio.muted || audio.volume === 0 ? volumeOffSvg : volumeOnSvg;
+            });
+            audioVolumeButton.addEventListener('click', function (event) {
+                event.stopPropagation();
+                audio.muted = !audio.muted;
+                audioVolumeButton.innerHTML = audio.muted ? volumeOffSvg : volumeOnSvg;
+                audioVolumeSlider.value = audio.muted ? '0' : String(audio.volume);
+            });
+            updateAudioState();
+        }
+    }
+
     function previewDriveFile(file) {
         var bodyHtml = '';
         var mime = String(file.mimeType || '').toLowerCase();
         if (file.dataUrl && (/^image\//.test(mime) || file.type === 'image')) bodyHtml = '<div class="drive-preview-image-wrap"><img class="drive-preview-image" src="' + esc(file.dataUrl) + '" alt="' + esc(file.name) + '"></div>';
         else if (file.dataUrl && (file.type === 'pdf' || mime === 'application/pdf')) bodyHtml = '<div class="drive-pdf-document-preview is-loading" data-pdf-document="' + esc(file.id) + '" aria-label="All pages of ' + esc(file.name) + '"><span class="pdf-preview-sheen"></span><span class="pdf-preview-error">PDF preview could not be rendered</span></div>';
-        else if (isAudioFile(file) && file.dataUrl) bodyHtml = '<div class="drive-preview-media"><audio controls preload="metadata" src="' + esc(file.dataUrl) + '"></audio><p class="drive-preview-media-name">' + esc(file.name) + '</p></div>';
-        else if (isVideoFile(file) && file.dataUrl) bodyHtml = '<div class="drive-preview-media"><video controls preload="metadata" src="' + esc(file.dataUrl) + '"></video><p class="drive-preview-media-name">' + esc(file.name) + '</p></div>';
+        else if (isAudioFile(file) && file.dataUrl) bodyHtml = '<div class="drive-media-player" data-drive-media="audio"></div><p class="drive-preview-media-name">' + esc(file.name) + '</p>';
+        else if (isVideoFile(file) && file.dataUrl) bodyHtml = '<div class="drive-media-player" data-drive-media="video"></div><p class="drive-preview-media-name">' + esc(file.name) + '</p>';
         else if (isTextLikeFile(file)) {
             var previewText = file.previewText || previewTextFromDataUrl(file.dataUrl);
             if (previewText) {
@@ -1080,6 +1324,8 @@
             else bodyHtml = '<div class="drive-preview-other">' + fileIconSvg(file.type, file.name) + '<div><strong>' + esc(file.name) + '</strong><small>' + esc(file.mimeType || file.size || 'Preview is unavailable for this file type.') + '</small></div></div>';
         }
         showDriveModal({ title: file.name, bodyHtml: bodyHtml, preview: true });
+        var mediaPlayer = $('driveModalBody') ? $('driveModalBody').querySelector('[data-drive-media]') : null;
+        if (mediaPlayer) wireDriveMediaPlayer(mediaPlayer, mediaPlayer.getAttribute('data-drive-media'), file.dataUrl, file.name);
         if (file.type === 'pdf' || mime === 'application/pdf') renderPdfDocumentPreview(file, $('driveModalBody').querySelector('[data-pdf-document]'));
     }
 
