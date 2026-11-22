@@ -490,13 +490,22 @@ html[data-wiki-theme="dark"] .dpreview-content-title, html[data-wiki-theme="dark
     transition: transform .18s;
 }
 .dfolder-card:hover { transform: translateY(-2px); }
-.dfolder-icon {
-    display: grid; place-items: center; width: 100%; min-height: 0; flex: 1 1 auto;
-    border: 0; border-radius: 0; background: transparent;
-}
+.dfolder-icon { position: relative; display: grid; place-items: center; width: 100%; min-height: 0; border: 0; border-radius: 0; background: transparent; }
 .dfolder-icon svg { display: block; width: min(100%, 185px); height: auto; max-height: 140px; overflow: visible; transform: scaleX(.78); transition: transform .18s; }
 .dfolder-card:hover .dfolder-icon svg { transform: translateY(-2px) scaleX(.78); }
-.dfolder-app-icon { display: block; width: min(100%, 150px); height: auto; max-height: 135px; object-fit: contain; filter: drop-shadow(0 2px 8px rgba(0,0,0,.14)); }
+.dfolder-app-badge {
+    position: absolute;
+    bottom: 9px;
+    right: 9px;
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+    background: #fff;
+    border-radius: 6px;
+    padding: 3px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.16);
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,.25));
+}
 .drow-app-icon { width: 16px; height: 16px; display: block; }
 .dfolder-name { width: 100%; min-width: 0; padding: 0 4px 2px; text-align: center; font: 500 14px 'DM Sans', sans-serif; color: #202923; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 

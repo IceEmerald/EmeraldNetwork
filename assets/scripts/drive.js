@@ -667,17 +667,18 @@
 
     function folderIconHtml(item) {
         var src = FOLDER_ICONS[item.id];
-        if (src) {
-            return '<img class="dfolder-app-icon" src="' + src + '" alt="" aria-hidden="true">';
-        }
         var gradientId = 'folderGradient-' + esc(item.id);
         var folderColor = /^#[0-9a-f]{6}$/i.test(String(item.color || '')) ? item.color : '#f3b900';
-        return '<svg viewBox="0 0 160 110" aria-hidden="true">' +
+        var svg = '<svg viewBox="0 0 160 110" aria-hidden="true">' +
             '<defs><linearGradient id="' + gradientId + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + shadeHex(folderColor, .34) + '"/><stop offset=".58" stop-color="' + folderColor + '"/><stop offset="1" stop-color="' + shadeHex(folderColor, -.12) + '"/></linearGradient></defs>' +
             '<path d="M12 27a9 9 0 0 1 9-9h43c5 0 8 2 11 5l10 11h63a9 9 0 0 1 9 9v48a9 9 0 0 1-9 9H21a9 9 0 0 1-9-9z" fill="' + shadeHex(folderColor, -.16) + '"/>' +
             '<path d="M12 36h51c6 0 9-2 13-6l9-9h63a9 9 0 0 1 9 9v61a9 9 0 0 1-9 9H21a9 9 0 0 1-9-9z" fill="url(#' + gradientId + ')" stroke="' + shadeHex(folderColor, -.2) + '" stroke-width="1.5"/>' +
             '<path d="M14 35h49c6 0 9-2 13-6l8-8" fill="none" stroke="rgba(255,255,255,.78)" stroke-width="2.5"/>' +
             '</svg>';
+        if (src) {
+            return svg + '<img class="dfolder-app-badge" src="' + src + '" alt="" aria-hidden="true">';
+        }
+        return svg;
     }
 
     function cardHTML(item, isFolder) {
