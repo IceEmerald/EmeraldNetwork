@@ -207,7 +207,7 @@
         var root = folders.find(function (folder) { return folder.id === 'emerald-suite-root-folder'; });
         if (!root) { root = { id: 'emerald-suite-root-folder', name: 'EmeraldSuite', parent: null }; folders.push(root); changed = true; }
         if (root.name !== 'EmeraldSuite' || root.parent != null) { root.name = 'EmeraldSuite'; root.parent = null; changed = true; }
-        if (folderPalette.indexOf(String(root.color || '').toLowerCase()) === -1) { root.color = '#000000'; changed = true; }
+        if (root.color !== '#000000') { root.color = '#000000'; changed = true; }
         var categories = [
             { type: 'doc', name: 'Docs', color: '#4c9be8' },
             { type: 'slide', name: 'Slides', color: '#ef6c63' },
@@ -219,7 +219,8 @@
             var folder = folders.find(function (candidate) { return candidate.id === id; });
             if (!folder) { folder = { id: id, name: category.name, parent: root.id }; folders.push(folder); changed = true; }
             if (folder.name !== category.name || folder.parent !== root.id) { folder.name = category.name; folder.parent = root.id; changed = true; }
-            if (folderPalette.indexOf(String(folder.color || '').toLowerCase()) === -1) { folder.color = category.color; changed = true; }
+            if (category.type === 'doc') { if (folder.color !== '#4c9be8') { folder.color = '#4c9be8'; changed = true; } }
+            else if (folderPalette.indexOf(String(folder.color || '').toLowerCase()) === -1) { folder.color = category.color; changed = true; }
             files.forEach(function (file) {
                 if (file.externalApp && file.type === category.type && !file.folder) {
                     file.folder = folder.id;
