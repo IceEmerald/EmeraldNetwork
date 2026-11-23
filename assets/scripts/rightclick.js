@@ -3,6 +3,15 @@ let clickedElement = null;
 let selectedText = "";
 
 window.addEventListener("contextmenu", function (e) {
+  const sel = window.getSelection();
+  selectedText = sel ? sel.toString().trim() : "";
+
+  // If text is selected, allow the native context menu instead of showing the custom one
+  if (selectedText) {
+    clickedElement = e.target;
+    return;
+  }
+
   e.preventDefault();
   clickedElement = e.target;
   const sel = window.getSelection();
