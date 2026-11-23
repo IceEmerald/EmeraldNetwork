@@ -200,6 +200,8 @@
     var currentUserName = '';
     var selectedDriveItem = null;
     var driveClipboard = null;
+    var selectionState = { items: [], anchor: null };
+    var marqueeDrag = null;
 
     async function loadDriveData() {
         var s = storage();
@@ -973,6 +975,7 @@
     function render() {
         var box = $('driveContent');
         if (!box) return;
+        clearDriveSelection();
         setActiveNav(state.view);
         var html = '';
         var q = state.search;
@@ -1027,7 +1030,9 @@
     function bindContent() {
         var box = $('driveContent');
         box.querySelectorAll('[data-folder]').forEach(function (n) {
-            n.addEventListener('click', function () {
+            n.addEventListener('click', function (event) {
+                if (handleSelectionModifier(event, 'folder', n.getAttribute('data-folder'))) return;
+                clearDriveSelection();
                 selectedDriveItem = folders.find(function (f) { return String(f.id) === n.getAttribute('data-folder'); }) || null;
                 state.view = 'mydrive';
                 state.folderId = n.getAttribute('data-folder');
@@ -1036,7 +1041,9 @@
             });
         });
         box.querySelectorAll('[data-file]').forEach(function (n) {
-            n.addEventListener('click', function () {
+            n.addEventListener('click', function (event) {
+                if (handleSelectionModifier(event, 'file', n.getAttribute('data-file'))) return;
+                clearDriveSelection();
                 var file = files.find(function (f) { return String(f.id) === n.getAttribute('data-file'); });
                 if (file) { selectedDriveItem = file; openDriveFile(file); }
             });
@@ -1044,6 +1051,294 @@
                 if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); var file = files.find(function (f) { return String(f.id) === n.getAttribute('data-file'); }); if (file) openDriveFile(file); }
             });
         });
+    }
+
+    /* ---------------- multi-select ---------------- */
+
+    function driveItemKey(kind, id) { return kind + ':' + String(id); }
+
+    function findDriveItemBySelection(kind, id) {
+        if (kind === 'folder') return folders.find(function (folder) { return String(folder.id) === String(id); }) || null;
+        return files.find(function (file) { return String(file.id) === String(id); }) || null;
+    }
+
+    function selectionBar() {
+        var bar = document.getElementById('driveSelectionBar');
+        if (bar) return bar;
+        bar = document.createElement('div');
+        bar.id = 'driveSelectionBar';
+        bar.className = 'drive-selection-bar';
+        bar.hidden = true;
+        bar.innerHTML = '<span class="drive-selection-count" aria-live="polite"></span>' +
+            '<div class="drive-selection-actions">' +
+                '<button type="button" class="primary" data-selection-action="download">Download</button>' +
+                '<button type="button" class="danger" data-selection-action="trash">Move to trash</button>' +
+                '<button type="button" data-selection-action="clear">Clear</button>' +
+            '</div>';
+        bar.addEventListener('click', function (event) {
+            var button = event.target.closest('[data-selection-action]');
+            if (!button) return;
+            event.preventDefault();
+            event.stopPropagation();
+            var action = button.getAttribute('data-selection-action');
+            if (action === 'clear') clearDriveSelection();
+            else if (action === 'download') downloadDriveSelection();
+            else if (action === 'trash') trashDriveSelection();
+        });
+        document.body.appendChild(bar);
+        return bar;
+    }
+
+    function updateSelectionBar() {
+        var bar = selectionBar();
+        var count = selectionState.items.length;
+        bar.hidden = count === 0;
+        if (!count) return;
+        var countLabel = bar.querySelector('.drive-selection-count');
+        if (countLabel) countLabel.textContent = count + (count === 1 ? ' item selected' : ' items selected');
+        var isTrash = state.view === 'trash';
+        var downloadButton = bar.querySelector('[data-selection-action="download"]');
+        var trashButton = bar.querySelector('[data-selection-action="trash"]');
+        if (downloadButton) downloadButton.hidden = isTrash;
+        if (trashButton) trashButton.hidden = isTrash;
+    }
+
+    function syncSelectionClasses() {
+        var box = $('driveContent');
+        if (!box) return;
+        var selected = {};
+        selectionState.items.forEach(function (entry) { selected[entry.key] = true; });
+        box.querySelectorAll('[data-file],[data-folder]').forEach(function (node) {
+            var isFolder = node.hasAttribute('data-folder');
+            var kind = isFolder ? 'folder' : 'file';
+            var id = isFolder ? node.getAttribute('data-folder') : node.getAttribute('data-file');
+            var isSelected = !!selected[driveItemKey(kind, id)];
+            node.classList.toggle('is-selected', isSelected);
+            if (node.tagName === 'BUTTON' || node.getAttribute('role') === 'button') node.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+        });
+    }
+
+    function clearDriveSelection() {
+        if (!selectionState.items.length && !selectionState.anchor) { updateSelectionBar(); return; }
+        selectionState.items = [];
+        selectionState.anchor = null;
+        syncSelectionClasses();
+        updateSelectionBar();
+    }
+
+    function addSelectionEntry(map, kind, id) {
+        var key = driveItemKey(kind, id);
+        if (!map[key]) map[key] = { key: key, kind: kind, id: String(id) };
+    }
+
+    function commitSelection(map) {
+        selectionState.items = Object.keys(map).map(function (key) { return map[key]; });
+        syncSelectionClasses();
+        updateSelectionBar();
+    }
+
+    function toggleDriveSelection(kind, id, additive) {
+        var key = driveItemKey(kind, id);
+        var map = {};
+        if (additive) selectionState.items.forEach(function (entry) { map[entry.key] = entry; });
+        if (map[key]) delete map[key];
+        else addSelectionEntry(map, kind, id);
+        selectionState.anchor = { kind: kind, id: String(id) };
+        commitSelection(map);
+    }
+
+    function selectDriveRange(kind, id, additive) {
+        var box = $('driveContent');
+        var anchor = selectionState.anchor;
+        if (!box || !anchor) { toggleDriveSelection(kind, id, additive); return; }
+        var nodes = Array.prototype.slice.call(box.querySelectorAll('[data-file],[data-folder]'));
+        var fromIndex = -1, toIndex = -1;
+        nodes.forEach(function (node, index) {
+            var nodeKind = node.hasAttribute('data-folder') ? 'folder' : 'file';
+            var nodeId = nodeKind === 'folder' ? node.getAttribute('data-folder') : node.getAttribute('data-file');
+            if (nodeKind === anchor.kind && String(nodeId) === String(anchor.id)) fromIndex = index;
+            if (nodeKind === kind && String(nodeId) === String(id)) toIndex = index;
+        });
+        if (fromIndex === -1 || toIndex === -1) { toggleDriveSelection(kind, id, additive); return; }
+        var map = {};
+        if (additive) selectionState.items.forEach(function (entry) { map[entry.key] = entry; });
+        var start = Math.min(fromIndex, toIndex), end = Math.max(fromIndex, toIndex);
+        for (var i = start; i <= end; i++) {
+            var node = nodes[i];
+            var nodeKind = node.hasAttribute('data-folder') ? 'folder' : 'file';
+            var nodeId = nodeKind === 'folder' ? node.getAttribute('data-folder') : node.getAttribute('data-file');
+            addSelectionEntry(map, nodeKind, nodeId);
+        }
+        commitSelection(map);
+    }
+
+    function handleSelectionModifier(event, kind, id) {
+        if (!(event.metaKey || event.ctrlKey || event.shiftKey)) return false;
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.shiftKey) selectDriveRange(kind, id, event.metaKey || event.ctrlKey);
+        else toggleDriveSelection(kind, id, event.metaKey || event.ctrlKey);
+        return true;
+    }
+
+    function selectionEntriesInBox(box) {
+        if (!box) return [];
+        return Array.prototype.slice.call(box.querySelectorAll('[data-file],[data-folder]')).map(function (node) {
+            var isFolder = node.hasAttribute('data-folder');
+            return { node: node, kind: isFolder ? 'folder' : 'file', id: isFolder ? node.getAttribute('data-folder') : node.getAttribute('data-file') };
+        });
+    }
+
+    function bindMarqueeSelection() {
+        var box = $('driveContent');
+        var host = document.querySelector('.drive-main') || box;
+        if (!box || !host) return;
+        selectionBar();
+
+        function finishMarquee() {
+            document.removeEventListener('pointermove', moveMarquee);
+            document.removeEventListener('pointerup', finishMarquee);
+            document.removeEventListener('pointercancel', finishMarquee);
+            document.body.classList.remove('drive-selecting');
+            if (!marqueeDrag) return;
+            var drag = marqueeDrag;
+            marqueeDrag = null;
+            if (drag.rect && drag.rect.parentNode) drag.rect.remove();
+            if (!drag.active) {
+                if (!drag.additive) clearDriveSelection();
+                return;
+            }
+            if (!selectionState.items.length && !drag.additive) clearDriveSelection();
+            else if (selectionState.items.length) selectionState.anchor = { kind: selectionState.items[0].kind, id: selectionState.items[0].id };
+        }
+
+        function moveMarquee(event) {
+            if (!marqueeDrag) return;
+            var dx = event.clientX - marqueeDrag.startX;
+            var dy = event.clientY - marqueeDrag.startY;
+            if (!marqueeDrag.active) {
+                if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+                marqueeDrag.active = true;
+                document.body.classList.add('drive-selecting');
+                var rectangle = document.createElement('div');
+                rectangle.className = 'drive-select-box';
+                document.body.appendChild(rectangle);
+                marqueeDrag.rect = rectangle;
+            }
+            event.preventDefault();
+            var left = Math.min(marqueeDrag.startX, event.clientX);
+            var top = Math.min(marqueeDrag.startY, event.clientY);
+            var right = Math.max(marqueeDrag.startX, event.clientX);
+            var bottom = Math.max(marqueeDrag.startY, event.clientY);
+            marqueeDrag.rect.style.left = left + 'px';
+            marqueeDrag.rect.style.top = top + 'px';
+            marqueeDrag.rect.style.width = (right - left) + 'px';
+            marqueeDrag.rect.style.height = (bottom - top) + 'px';
+            var map = {};
+            if (marqueeDrag.additive) selectionState.items.forEach(function (entry) { map[entry.key] = entry; });
+            selectionEntriesInBox($('driveContent')).forEach(function (entry) {
+                var rect = entry.node.getBoundingClientRect();
+                if (rect.right >= left && rect.left <= right && rect.bottom >= top && rect.top <= bottom) addSelectionEntry(map, entry.kind, entry.id);
+            });
+            selectionState.items = Object.keys(map).map(function (key) { return map[key]; });
+            syncSelectionClasses();
+            updateSelectionBar();
+        }
+
+        host.addEventListener('pointerdown', function (event) {
+            if (event.button !== 0 || event.pointerType === 'touch') return;
+            var target = event.target;
+            if (!target || !target.closest) return;
+            if (target.closest('[data-file],[data-folder],[data-crumb],button,a,img,input,select,textarea,.dcol-resize,.dchip,.drow-head')) return;
+            var bounds = host.getBoundingClientRect();
+            if (event.clientX > bounds.left + host.clientWidth || event.clientY > bounds.top + host.clientHeight) return;
+            if (document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) document.activeElement.blur();
+            if (marqueeDrag) finishMarquee();
+            marqueeDrag = {
+                startX: event.clientX,
+                startY: event.clientY,
+                additive: !!(event.metaKey || event.ctrlKey || event.shiftKey),
+                active: false,
+                rect: null
+            };
+            document.body.classList.add('drive-selecting');
+            document.addEventListener('pointermove', moveMarquee);
+            document.addEventListener('pointerup', finishMarquee);
+            document.addEventListener('pointercancel', finishMarquee);
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') return;
+            if (marqueeDrag) { finishMarquee(); clearDriveSelection(); }
+            else if (selectionState.items.length) clearDriveSelection();
+        });
+
+        window.addEventListener('blur', function () { if (marqueeDrag) finishMarquee(); });
+    }
+
+    async function downloadDriveSelection() {
+        var selected = selectionState.items.slice();
+        if (!selected.length) return;
+        if (selected.length === 1) {
+            var onlyItem = findDriveItemBySelection(selected[0].kind, selected[0].id);
+            if (!onlyItem) return;
+            if (selected[0].kind === 'folder') await downloadFolder(onlyItem);
+            else await downloadFile(onlyItem);
+            return;
+        }
+        try {
+            if (window.showToast) window.showToast('Preparing zip…');
+            var entries = [];
+            selected.forEach(function (entry) {
+                var item = findDriveItemBySelection(entry.kind, entry.id);
+                if (!item) return;
+                if (entry.kind === 'folder') entries = entries.concat(collectFolderEntries(item.id, ''));
+                else entries.push({ type: 'file', path: sanitizeZipPathPart(suiteDownloadName(item)), file: item });
+            });
+            if (!entries.length) { if (window.showToast) window.showToast('Nothing to download.'); return; }
+            var blob = await createZip(entries);
+            saveDownload(blob, 'EmeraldNetwork-selection', '.zip');
+            clearDriveSelection();
+        } catch (error) {
+            console.error('[Drive] selection zip failed', error);
+            if (window.showToast) window.showToast(error.message || 'Could not download the selected items.');
+        }
+    }
+
+    async function trashDriveSelection() {
+        var selected = selectionState.items.slice();
+        if (!selected.length) return;
+        var eligible = selected.filter(function (entry) {
+            var item = findDriveItemBySelection(entry.kind, entry.id);
+            return item && !item.trashed && !(entry.kind === 'folder' && isSuiteFolder(item));
+        });
+        if (!eligible.length) { if (window.showToast) window.showToast('These items cannot be moved to trash.'); return; }
+        var result = await showDriveModal({
+            title: 'Move ' + eligible.length + (eligible.length === 1 ? ' item' : ' items') + ' to trash?',
+            message: 'You can restore them from Drive Trash.',
+            primaryLabel: 'Move to trash',
+            danger: true
+        });
+        if (!result.confirmed) return;
+        var processed = {};
+        eligible.forEach(function (entry) {
+            var item = findDriveItemBySelection(entry.kind, entry.id);
+            if (!item) return;
+            var targets = entry.kind === 'folder' ? folderContents(item.id) : [item];
+            targets.forEach(function (target) {
+                var key = target.driveKey || target.id;
+                if (processed[key]) return;
+                processed[key] = true;
+                target.trashed = true;
+                target.trashedAt = Date.now();
+                trashMap[key] = target.trashedAt;
+            });
+            if (entry.kind === 'folder') item.trashed = true;
+        });
+        clearDriveSelection();
+        await saveDriveData();
+        render();
+        if (window.showToast) window.showToast('Moved ' + eligible.length + (eligible.length === 1 ? ' item' : ' items') + ' to trash.');
     }
 
     function openDriveFile(file) {
@@ -1709,6 +2004,7 @@
             var target = event.target.closest('.dfile-card, .dfolder-card, .drow[data-file], .drow[data-folder], .dchip');
             if (target) openItemContextMenu(event, target);
             else {
+                clearDriveSelection();
                 menu.innerHTML = defaultMenuHTML;
                 var pasteButton = menu.querySelector('[data-context-action="drive-paste"]');
                 if (pasteButton) pasteButton.style.display = driveClipboard ? '' : 'none';
@@ -2478,6 +2774,7 @@
         document.addEventListener('dragstart', function (event) {
             var card = event.target && event.target.closest ? event.target.closest('[data-file],[data-folder]') : null;
             if (!card) return;
+            clearDriveSelection();
             var isFolder = card.hasAttribute('data-folder');
             var id = isFolder ? card.getAttribute('data-folder') : card.getAttribute('data-file');
             var item = isFolder
@@ -2769,6 +3066,7 @@
         bindCreateUploadMenu();
         bindSidebarNav();
         bindDragAndDrop();
+        bindMarqueeSelection();
         try { await loadDriveData(); } catch (error) { console.warn('[Drive] Could not load synced files', error); loading = false; }
         var skeletonRemaining = 520 - (Date.now() - skeletonStartedAt);
         if (skeletonRemaining > 0) await new Promise(function (resolve) { setTimeout(resolve, skeletonRemaining); });

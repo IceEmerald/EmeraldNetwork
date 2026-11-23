@@ -891,3 +891,59 @@ html[data-wiki-theme="dark"] .dtrash-banner-icon { background: #3a3019; color: #
 
 .drive-preview-media-name { margin: 0; color: #526159; font: 600 13px/1.4 'DM Sans', sans-serif; text-align: center; word-break: break-word; }
 html[data-wiki-theme="dark"] .drive-preview-media-name { color: #c4cdc6; }
+
+/* ---- multi-select ---- */
+.drive-select-box {
+    position: fixed; z-index: 9998; pointer-events: none;
+    border: 1px solid #22c55e; border-radius: 4px;
+    background: rgba(34, 197, 94, .14);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .35);
+}
+body.drive-selecting { user-select: none; -webkit-user-select: none; }
+body.drive-selecting .dfile-card:hover, body.drive-selecting .dfolder-card:hover { transform: none; }
+
+.dfile-card.is-selected, .dfolder-card.is-selected {
+    border-color: #22c55e;
+    background: rgba(34, 197, 94, .08);
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, .16);
+}
+.dfile-card.is-selected::after, .dfolder-card.is-selected::after {
+    content: ''; position: absolute; z-index: 7; top: 8px; left: 8px;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: #22c55e url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 13px no-repeat;
+    box-shadow: 0 2px 7px rgba(6, 36, 15, .28);
+    pointer-events: none;
+}
+.drow.is-selected { background: rgba(34, 197, 94, .1); box-shadow: inset 3px 0 0 #22c55e; }
+.drow.is-selected:hover { background: rgba(34, 197, 94, .14); }
+html[data-wiki-theme="dark"] .dfile-card.is-selected,
+html[data-wiki-theme="dark"] .dfolder-card.is-selected { background: rgba(34, 197, 94, .14); }
+html[data-wiki-theme="dark"] .drow.is-selected { background: rgba(34, 197, 94, .16); }
+
+.drive-selection-bar {
+    position: fixed; z-index: 11000; left: 50%; bottom: 24px; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 10px; box-sizing: border-box;
+    max-width: calc(100vw - 24px); padding: 8px 10px 8px 16px;
+    border: 1px solid rgba(255, 255, 255, .1); border-radius: 14px;
+    background: #14261b; color: #f2f7f3;
+    box-shadow: 0 18px 44px rgba(8, 20, 12, .32), 0 2px 8px rgba(8, 20, 12, .18);
+    animation: driveSelectBarIn .18s ease-out;
+}
+.drive-selection-bar[hidden] { display: none; }
+.drive-selection-count { font: 650 13px/1.2 'DM Sans', sans-serif; white-space: nowrap; }
+.drive-selection-actions { display: flex; align-items: center; gap: 6px; }
+.drive-selection-bar button {
+    border: 0; border-radius: 9px; padding: 8px 12px;
+    background: rgba(255, 255, 255, .1); color: #fff;
+    font: 600 12.5px 'DM Sans', sans-serif; cursor: pointer; white-space: nowrap;
+    transition: background .15s, color .15s;
+}
+.drive-selection-bar button:hover { background: rgba(255, 255, 255, .18); }
+.drive-selection-bar button.primary { background: #22c55e; color: #06240f; }
+.drive-selection-bar button.primary:hover { background: #16a34a; color: #fff; }
+.drive-selection-bar button.danger:hover { background: #c83f43; }
+@keyframes driveSelectBarIn { from { opacity: 0; } to { opacity: 1; } }
+@media (max-width: 560px) {
+    .drive-selection-bar { left: 12px; right: 12px; bottom: 12px; transform: none; flex-wrap: wrap; justify-content: center; padding: 10px 12px; }
+    .drive-selection-actions { flex-wrap: wrap; justify-content: center; }
+}
