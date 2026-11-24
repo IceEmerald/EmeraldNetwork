@@ -815,8 +815,9 @@
 
     function cardHTML(item, isFolder) {
         if (isFolder) {
+            var zipBadge = item.__zipDir ? '<span class="dfolder-zip-badge" aria-hidden="true">ZIP</span>' : '';
             return '<button class="dfolder-card" data-folder="' + item.id + '"' + (isSuiteFolder(item) ? '' : ' draggable="true"') + '>' +
-                '<span class="dfolder-icon">' + folderIconHtml(item) + '</span>' +
+                '<span class="dfolder-icon">' + folderIconHtml(item) + zipBadge + '</span>' +
                 '<span class="dfolder-name">' + esc(item.name) + '</span>' +
                 '</button>';
         }
@@ -838,8 +839,9 @@
                 ? '<img class="drow-app-icon" src="' + folderIconSrc + '" alt="" aria-hidden="true">'
                 : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
             var iconStyle = folderIconSrc ? '' : ' style="color:' + esc(item.color || '#8a8886') + '"';
+            var zipLabel = item.__zipDir ? ' <span class="drow-zip-badge" aria-hidden="true">ZIP</span>' : '';
             return '<div class="drow" data-folder="' + item.id + '"' + (isSuiteFolder(item) ? '' : ' draggable="true"') + ' role="button" tabindex="0">' +
-                '<span class="drow-name"><span class="drow-icon"' + iconStyle + '>' + iconHtml + '</span><span class="drow-label">' + esc(item.name) + '</span></span>' +
+                '<span class="drow-name"><span class="drow-icon"' + iconStyle + '>' + iconHtml + '</span><span class="drow-label">' + esc(item.name) + zipLabel + '</span></span>' +
                 '<span class="drow-meta">' + esc(stats.size) + '</span><span class="drow-meta">' + esc(stats.modified) + '</span></div>';
         }
         return '<div class="drow" data-file="' + item.id + '" draggable="true" role="button" tabindex="0">' +
@@ -2353,7 +2355,7 @@
             var name = slash === -1 ? rest : rest.slice(0, slash);
             if (!name) return;
             var full = prefix + name;
-            if (!folderMap[name]) folderMap[name] = { id: ZIP_DIR_PREFIX + encodeURIComponent(full), name: name, __zipDir: full };
+            if (!folderMap[name]) folderMap[name] = { id: ZIP_DIR_PREFIX + encodeURIComponent(full), name: name, __zipDir: full, color: '#f3b900' };
         });
         archive.entries.forEach(function (entry) {
             if (prefix && entry.path.indexOf(prefix) !== 0) return;

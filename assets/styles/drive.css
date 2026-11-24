@@ -523,7 +523,17 @@ html[data-wiki-theme="dark"] .dpreview-content-title, html[data-wiki-theme="dark
     box-shadow: 0 2px 6px rgba(15,42,25,.12);
 }
 .dfolder-app-badge img { width: 23px; height: 23px; object-fit: contain; border-radius: 5px; }
+.dfolder-zip-badge {
+    position: absolute; z-index: 2;
+    right: 6px; bottom: 8px;
+    width: 20px; height: 20px; border-radius: 6px;
+    background: #239a4d; color: #fff;
+    font: 600 9px 'DM Sans', sans-serif; display: grid; place-items: center;
+    border: 1px solid rgba(255,255,255,.55); box-shadow: 0 1px 3px rgba(0,0,0,.18);
+}
+html[data-wiki-theme="dark"] .dfolder-zip-badge { border-color: rgba(255,255,255,.25); box-shadow: 0 1px 3px rgba(0,0,0,.45); }
 .drow-app-icon { width: 20px; height: 20px; display: block; }
+.drow-zip-badge { display: inline-block; width: 20px; height: 16px; border-radius: 4px; background: #239a4d; color: #fff; font: 600 8px 'DM Sans', sans-serif; line-height: 16px; text-align: center; margin-left: 6px; border: 1px solid rgba(255,255,255,.55); }
 .dfolder-name { width: 100%; min-width: 0; padding: 8px 4px 2px; text-align: center; font: 600 13.5px 'DM Sans', sans-serif; color: #202923; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---- drag & drop ---- */
