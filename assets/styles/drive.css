@@ -390,7 +390,7 @@ html[data-wiki-theme="dark"] .dhome-hero p { color: #e4e7ec; }
 .ddrive-skeleton-card { display: flex; flex-direction: column; justify-content: flex-start; aspect-ratio: 1 / 1; border-radius: 14px; }
 .ddrive-skeleton-card .loading-thumb { height: auto; flex: 1 1 auto; min-height: 90px; margin-bottom: 10px; border-radius: 9px; }
 .ddrive-skeleton-card .loading-line { height: 8px; margin: 5px auto; }
-html[data-wiki-theme="dark"] .ddrive-skeleton-card { --loading-base: #252b27; --loading-highlight: #3a443d; border-color: #303832; background: #202522; }
+html[data-wiki-theme="dark"] .ddrive-skeleton-card { --loading-base: #2a2d33; --loading-highlight: #3a3e45; border-color: #30353c; background: #1e2227; }
 
 /* ---- grid: file cards ---- */
 .dgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
