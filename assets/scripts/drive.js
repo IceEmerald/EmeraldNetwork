@@ -1987,7 +1987,34 @@
         var menu = $('custom-context-menu');
         if (!menu) return;
         var defaultMenuHTML = menu.innerHTML;
+        var suppressNextContextMenu = false;
+
+        function closeContextMenu() {
+            menu.style.display = 'none';
+            delete menu.dataset.contextSelection;
+        }
+
+        // Pressing anywhere outside the menu dismisses it. A right-click outside
+        // also suppresses the menu the browser would otherwise open right after.
+        document.addEventListener('pointerdown', function (event) {
+            if (menu.style.display !== 'block') return;
+            var pressed = event.target;
+            if (pressed && pressed.nodeType === 1 && pressed.closest('#custom-context-menu')) return;
+            closeContextMenu();
+            if (event.button === 2) {
+                suppressNextContextMenu = true;
+                setTimeout(function () { suppressNextContextMenu = false; }, 700);
+            }
+        }, true);
+
         window.addEventListener('contextmenu', function (event) {
+            if (suppressNextContextMenu) {
+                suppressNextContextMenu = false;
+                event.preventDefault();
+                closeContextMenu();
+                return;
+            }
+            if (event.target && event.target.closest && event.target.closest('#custom-context-menu')) return;
             var target = event.target.closest('.dfile-card, .dfolder-card, .drow[data-file], .drow[data-folder]');
             if (target) {
                 if (selectionState.items.length > 1) {
@@ -2017,7 +2044,7 @@
             runContextAction(action.dataset.contextAction, action.dataset.color);
         });
         document.addEventListener('keydown', function (event) {
-            if (event.key === 'Escape') menu.style.display = 'none';
+            if (event.key === 'Escape') closeContextMenu();
         });
     }
 
