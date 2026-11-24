@@ -1272,7 +1272,43 @@
             title: 'Move ' + eligible.length + (eligible.length === 1 ? ' item' : ' items') + ' to trash?',
             message: 'You can restore them from Drive Trash.',
             primaryLabel: 'Move to trash',
-            danger: true
+            danger: true,
+            secondaryLabel: 'Delete forever',
+            secondaryCallback: async function () {
+                var toPurge = selected.filter(function (entry) {
+                    var item = findDriveItemBySelection(entry.kind, entry.id);
+                    return item && item.trashed && !item.externalApp;
+                });
+                if (!toPurge.length) { if (window.showToast) window.showToast('These items cannot be deleted forever.'); return; }
+                var confirmed = await showDriveModal({
+                    title: 'Delete forever ' + toPurge.length + (toPurge.length === 1 ? ' item' : ' items') + '?',
+                    message: 'This permanently removes these items and cannot be undone.',
+                    primaryLabel: 'Delete forever',
+                    danger: true
+                });
+                if (!confirmed.confirmed) return;
+                var processed = {};
+                toPurge.forEach(function (entry) {
+                    var item = findDriveItemBySelection(entry.kind, entry.id);
+                    if (!item) return;
+                    var targets = entry.kind === 'folder' ? folderContents(item.id) : [item];
+                    targets.forEach(function (target) {
+                        var key = target.driveKey || target.id;
+                        if (processed[key]) return;
+                        processed[key] = true;
+                        delete trashMap[key];
+                        if (entry.kind === 'folder') {
+                            folderContents(item.id).forEach(function (f) { delete trashMap[f.driveKey || f.id]; });
+                            folders = folders.filter(function (f) { return f.id !== item.id; });
+                        } else {
+                            files = files.filter(function (f) { return f !== item; });
+                        }
+                    });
+                });
+                await saveDriveData();
+                render();
+                if (window.showToast) window.showToast('Permanently deleted ' + toPurge.length + (toPurge.length === 1 ? ' item' : ' items') + '.');
+            }
         });
         if (!result.confirmed) return;
         var processed = {};
@@ -1294,6 +1330,78 @@
         await saveDriveData();
         render();
         if (window.showToast) window.showToast('Moved ' + eligible.length + (eligible.length === 1 ? ' item' : ' items') + ' to trash.');
+    }
+
+    async function restoreSelection() {
+        var selected = selectionState.items.slice();
+        if (!selected.length) return;
+        var toRestore = selected.filter(function (entry) {
+            var item = findDriveItemBySelection(entry.kind, entry.id);
+            return item && item.trashed;
+        });
+        if (!toRestore.length) { if (window.showToast) window.showToast('These items are not in trash.'); return; }
+        var confirmed = await showDriveModal({
+            title: 'Restore ' + toRestore.length + (toRestore.length === 1 ? ' item' : ' items') + ' from trash?',
+            message: 'You can find them in Drive Trash.',
+            primaryLabel: 'Restore',
+            danger: false
+        });
+        if (!confirmed.confirmed) return;
+        var processed = {};
+        toRestore.forEach(function (entry) {
+            var item = findDriveItemBySelection(entry.kind, entry.id);
+            if (!item) return;
+            var targets = entry.kind === 'folder' ? folderContents(item.id) : [item];
+            targets.forEach(function (target) {
+                var key = target.driveKey || target.id;
+                if (processed[key]) return;
+                processed[key] = true;
+                target.trashed = false;
+                delete trashMap[key];
+            });
+            if (entry.kind === 'folder') item.trashed = false;
+        });
+        await saveDriveData();
+        render();
+        if (window.showToast) window.showToast('Restored ' + toRestore.length + (toRestore.length === 1 ? ' item' : ' items') + ' from trash.');
+    }
+
+    async function purgeSelection() {
+        var selected = selectionState.items.slice();
+        if (!selected.length) return;
+        var toPurge = selected.filter(function (entry) {
+            var item = findDriveItemBySelection(entry.kind, entry.id);
+            return item && item.trashed && !item.externalApp;
+        });
+        if (!toPurge.length) { if (window.showToast) window.showToast('These items cannot be deleted forever.'); return; }
+        var confirmed = await showDriveModal({
+            title: 'Delete forever ' + toPurge.length + (toPurge.length === 1 ? ' item' : ' items') + '?',
+            message: 'This permanently removes these items and cannot be undone.',
+            primaryLabel: 'Delete forever',
+            danger: true
+        });
+        if (!confirmed.confirmed) return;
+        var processed = {};
+        toPurge.forEach(function (entry) {
+            var item = findDriveItemBySelection(entry.kind, entry.id);
+            if (!item) return;
+            var targets = entry.kind === 'folder' ? folderContents(item.id) : [item];
+            targets.forEach(function (target) {
+                var key = target.driveKey || target.id;
+                if (processed[key]) return;
+                processed[key] = true;
+                delete trashMap[key];
+                if (entry.kind === 'folder') {
+                    folderContents(item.id).forEach(function (f) { delete trashMap[f.driveKey || f.id]; });
+                    folders = folders.filter(function (f) { return f.id !== item.id; });
+                } else {
+                    files = files.filter(function (f) { return f !== item; });
+                }
+            });
+        });
+        await saveDriveData();
+        render();
+        if (window.showToast) window.showToast('Permanently deleted ' + toPurge.length + (toPurge.length === 1 ? ' item' : ' items') + '.');
     }
 
     function openDriveFile(file) {
@@ -1974,6 +2082,9 @@
         if (!isTrash) {
             html += contextRow('Download ' + count + (count === 1 ? ' item' : ' items'), 'selection-download') +
                 contextRow('Move ' + count + (count === 1 ? ' item' : ' items') + ' to trash', 'selection-trash', true);
+        } else {
+            html += contextRow('Restore ' + count + (count === 1 ? ' item' : ' items') + ' from trash', 'selection-restore', true) +
+                contextRow('Delete forever ' + count + (count === 1 ? ' item' : ' items'), 'selection-purge', true);
         }
         html += contextRow('Clear selection', 'selection-clear') + '</div>';
         menu.innerHTML = html;
@@ -2053,6 +2164,8 @@
         if (action === 'selection-download') { menu.style.display = 'none'; return downloadDriveSelection(); }
         if (action === 'selection-trash') { menu.style.display = 'none'; return trashDriveSelection(); }
         if (action === 'selection-clear') { menu.style.display = 'none'; return clearDriveSelection(); }
+        if (action === 'selection-restore') { menu.style.display = 'none'; return restoreSelection(); }
+        if (action === 'selection-purge') { menu.style.display = 'none'; return purgeSelection(); }
         var isFolder = menu.dataset.contextIsFolder === '1';
         var id = menu.dataset.contextItemId;
         if (action === 'drive-paste' || action === 'paste') {
