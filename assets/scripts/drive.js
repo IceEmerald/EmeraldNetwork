@@ -2083,7 +2083,7 @@
             html += contextRow('Download ' + count + (count === 1 ? ' item' : ' items'), 'selection-download') +
                 contextRow('Move ' + count + (count === 1 ? ' item' : ' items') + ' to trash', 'selection-trash', true);
         } else {
-            html += contextRow('Restore ' + count + (count === 1 ? ' item' : ' items') + ' from trash', 'selection-restore', true) +
+            html += contextRow('Restore ' + count + (count === 1 ? ' item' : ' items') + ' from trash', 'selection-restore') +
                 contextRow('Delete forever ' + count + (count === 1 ? ' item' : ' items'), 'selection-purge', true);
         }
         html += contextRow('Clear selection', 'selection-clear') + '</div>';
