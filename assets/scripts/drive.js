@@ -147,6 +147,12 @@
         return VIDEO_PREVIEW_EXTENSIONS.indexOf(fileExtensionOf(file && file.name)) !== -1;
     }
 
+    function isZipFile(file) {
+        var name = String((file && file.name) || '');
+        var mime = String((file && file.mimeType) || '').toLowerCase();
+        return /\.zip$/i.test(name) || mime === 'application/zip' || mime === 'application/x-zip-compressed' || mime === 'multipart/x-zip';
+    }
+
     function isMostlyText(value) {
         if (!value) return false;
         var printable = 0;
@@ -166,6 +172,7 @@
         sheet:  { label: 'Spreadsheet',  color: '#217346', soft: 'rgba(33,115,70,.12)' },
         image:  { label: 'Image',        color: '#e11d48', soft: 'rgba(225,29,72,.12)' },
         pdf:    { label: 'PDF',          color: '#dc2626', soft: 'rgba(220,38,38,.12)' },
+        archive:{ label: 'ZIP archive',  color: '#7a8792', soft: 'rgba(122,135,146,.12)' },
         other:  { label: 'File',         color: '#64748b', soft: 'rgba(100,116,139,.12)' }
     };
 
@@ -723,7 +730,23 @@
         var el = $('driveCrumbs');
         if (!el) return;
         var html = '';
-        if (state.view === 'mydrive') {
+        if (state.view === 'zip') {
+            var zipCrumbs = [{ id: '', name: zipBrowser.fileName || 'Archive' }];
+            var builtPath = '';
+            zipPathSegments(zipBrowser.path).forEach(function (part) {
+                builtPath = builtPath ? builtPath + '/' + part : part;
+                zipCrumbs.push({ id: builtPath, name: part });
+            });
+            if (zipBrowserStack.length) {
+                var parentName = zipBrowserStack[zipBrowserStack.length - 1].fileName || 'Archive';
+                html += '<button class="dcrumb dcrumb-back" data-zip-back title="Back to ' + esc(parentName) + '">‹ ' + esc(parentName) + '</button><span class="dcrumb-sep" aria-hidden="true">›</span>';
+            }
+            zipCrumbs.forEach(function (crumb, index) {
+                if (index) html += '<span class="dcrumb-sep" aria-hidden="true">›</span>';
+                var isCurrent = index === zipCrumbs.length - 1;
+                html += '<button class="dcrumb' + (isCurrent ? ' current' : '') + '" data-zip-crumb="' + esc(crumb.id) + '" title="' + esc(crumb.name) + '">' + esc(crumb.name) + '</button>';
+            });
+        } else if (state.view === 'mydrive') {
             var path = folderPath(state.folderId);
             var crumbs = [{ id: 'root', name: 'My Drive', root: true }];
             path.forEach(function (folder) { crumbs.push({ id: folder.id, name: folder.name }); });
@@ -748,6 +771,26 @@
                 state.view = 'mydrive';
                 state.folderId = b.getAttribute('data-crumb') === 'root' ? null : b.getAttribute('data-crumb');
                 setActiveNav('mydrive');
+                switchPage(render);
+            });
+        });
+        el.querySelectorAll('[data-zip-crumb]').forEach(function (b) {
+            b.addEventListener('click', function () {
+                zipBrowser.path = b.getAttribute('data-zip-crumb') || '';
+                clearDriveSelection();
+                switchPage(render);
+            });
+        });
+        el.querySelectorAll('[data-zip-back]').forEach(function (b) {
+            b.addEventListener('click', function () {
+                var previous = zipBrowserStack.pop();
+                if (!previous) return;
+                zipBrowser.fileId = previous.fileId;
+                zipBrowser.fileName = previous.fileName;
+                zipBrowser.path = previous.path;
+                zipBrowser.loading = false;
+                zipBrowser.error = '';
+                clearDriveSelection();
                 switchPage(render);
             });
         });
@@ -992,6 +1035,25 @@
                 if (recent.length) html += section('Recent files', layoutHTML(recent));
                 if (!recent.length) html += emptyHTML('Nothing here yet', 'Your recent files will appear here.', '/assets/images/nofileyet.webp');
             }
+        } else if (state.view === 'zip') {
+            if (zipBrowser.loading) {
+                html = zipLoadingHTML();
+            } else if (zipBrowser.error) {
+                html += emptyHTML('Could not open this zip', zipBrowser.error, '/assets/images/nofilefound.webp');
+            } else {
+                var archive = zipArchiveCache[String(zipBrowser.fileId)];
+                if (!archive) html += emptyHTML('Zip is unavailable', 'Open the zip file again to browse it.', '/assets/images/nofilefound.webp');
+                else {
+                    var zipItems = filterSearch(sortZipItems(zipChildItems(archive)));
+                    var zipFolders = zipItems.filter(function (item) { return !!item.__zipDir; });
+                    var zipFiles = zipItems.filter(function (item) { return !item.__zipDir; });
+                    if (!zipItems.length) html += emptyHTML('This folder is empty', 'There are no files here.', '/assets/images/nofileyet.webp');
+                    else {
+                        if (zipFolders.length) html += section('Folders', folderLayoutHTML(zipFolders));
+                        if (zipFiles.length) html += section('Files', layoutHTML(zipFiles));
+                    }
+                }
+            }
         } else if (state.view === 'mydrive') {
             var foldersHere = filterSearch(childrenOf(state.folderId));
             var filesHere = sortList(filterSearch(filesIn(state.folderId)));
@@ -1031,24 +1093,38 @@
         var box = $('driveContent');
         box.querySelectorAll('[data-folder]').forEach(function (n) {
             n.addEventListener('click', function (event) {
-                if (handleSelectionModifier(event, 'folder', n.getAttribute('data-folder'))) return;
+                var folderId = n.getAttribute('data-folder');
+                if (handleSelectionModifier(event, 'folder', folderId)) return;
                 clearDriveSelection();
-                selectedDriveItem = folders.find(function (f) { return String(f.id) === n.getAttribute('data-folder'); }) || null;
+                if (state.view === 'zip' && String(folderId).indexOf(ZIP_DIR_PREFIX) === 0) {
+                    zipBrowser.path = zipDecodedId(folderId, ZIP_DIR_PREFIX);
+                    switchPage(render);
+                    return;
+                }
+                selectedDriveItem = folders.find(function (f) { return String(f.id) === folderId; }) || null;
                 state.view = 'mydrive';
-                state.folderId = n.getAttribute('data-folder');
+                state.folderId = folderId;
                 setActiveNav('mydrive');
                 switchPage(render);
             });
         });
         box.querySelectorAll('[data-file]').forEach(function (n) {
             n.addEventListener('click', function (event) {
-                if (handleSelectionModifier(event, 'file', n.getAttribute('data-file'))) return;
+                var fileId = n.getAttribute('data-file');
+                if (handleSelectionModifier(event, 'file', fileId)) return;
                 clearDriveSelection();
-                var file = files.find(function (f) { return String(f.id) === n.getAttribute('data-file'); });
+                if (state.view === 'zip' && String(fileId).indexOf(ZIP_FILE_PREFIX) === 0) { openZipEntry(fileId); return; }
+                var file = files.find(function (f) { return String(f.id) === fileId; });
                 if (file) { selectedDriveItem = file; openDriveFile(file); }
             });
             n.addEventListener('keydown', function (event) {
-                if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); var file = files.find(function (f) { return String(f.id) === n.getAttribute('data-file'); }); if (file) openDriveFile(file); }
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    var fileId = n.getAttribute('data-file');
+                    if (state.view === 'zip' && String(fileId).indexOf(ZIP_FILE_PREFIX) === 0) { openZipEntry(fileId); return; }
+                    var file = files.find(function (f) { return String(f.id) === fileId; });
+                    if (file) openDriveFile(file);
+                }
             });
         });
     }
@@ -1130,6 +1206,7 @@
     }
 
     function handleSelectionModifier(event, kind, id) {
+        if (state.view === 'zip') return false;
         if (!(event.metaKey || event.ctrlKey || event.shiftKey)) return false;
         event.preventDefault();
         event.stopPropagation();
@@ -1201,7 +1278,7 @@
         }
 
         host.addEventListener('pointerdown', function (event) {
-            if (event.button !== 0 || event.pointerType === 'touch') return;
+            if (event.button !== 0 || event.pointerType === 'touch' || state.view === 'zip') return;
             var target = event.target;
             if (!target || !target.closest) return;
             if (target.closest('[data-file],[data-folder],[data-crumb],button,a,img,input,select,textarea,.dcol-resize,.dchip,.drow-head')) return;
@@ -1409,6 +1486,10 @@
         file.lastOpenedAt = Date.now();
         flagsMap[file.driveKey || file.id] = Object.assign({}, flagsMap[file.driveKey || file.id], { lastOpenedAt: file.lastOpenedAt });
         saveDriveFlags();
+        if (isZipFile(file)) {
+            openZipBrowser(file);
+            return;
+        }
         if (file.externalApp) {
             var urls = { doc: '/docs', note: '/notes', slide: '/slides', sheet: '/sheets' };
             var url = (urls[file.type] || '/') + '?owned=' + encodeURIComponent(file.id);
@@ -1929,6 +2010,468 @@
         return new Blob([concatUint8Arrays(localParts), centralDirectory, endRecord], { type: 'application/zip' });
     }
 
+    /* ---------------- zip archive reader ---------------- */
+
+    var ZIP_LOCAL_SIGNATURE = 0x04034b50;
+    var ZIP_CENTRAL_SIGNATURE = 0x02014b50;
+    var ZIP_END_SIGNATURE = 0x06054b50;
+    var ZIP64_END_SIGNATURE = 0x06064b50;
+    var ZIP64_LOCATOR_SIGNATURE = 0x07064b50;
+    var ZIP_DIR_PREFIX = 'zipdir:';
+    var ZIP_FILE_PREFIX = 'zipfile:';
+
+    var zipArchiveCache = Object.create(null);
+    var zipBrowser = { fileId: null, fileName: '', path: '', loading: false, error: '' };
+    var zipBrowserStack = [];
+
+    function zipUint64(view, offset) {
+        return view.getUint32(offset, true) + view.getUint32(offset + 4, true) * 4294967296;
+    }
+
+    function zipDecodeName(bytes) {
+        try { return new TextDecoder('utf-8').decode(bytes); }
+        catch (_) {
+            var output = '';
+            for (var i = 0; i < bytes.length; i++) output += String.fromCharCode(bytes[i]);
+            return output;
+        }
+    }
+
+    function zipFindEnd(view) {
+        var min = Math.max(0, view.byteLength - 65557);
+        for (var offset = view.byteLength - 22; offset >= min; offset--) {
+            if (view.getUint32(offset, true) !== ZIP_END_SIGNATURE) continue;
+            if (offset + 22 + view.getUint16(offset + 20, true) <= view.byteLength) return offset;
+        }
+        return -1;
+    }
+
+    function zipDirectoryInfo(view, endOffset) {
+        var count = view.getUint16(endOffset + 10, true);
+        var offset = view.getUint32(endOffset + 16, true);
+        if (count === 0xffff || offset === 0xffffffff) {
+            var locator = endOffset - 20;
+            if (locator >= 0 && view.getUint32(locator, true) === ZIP64_LOCATOR_SIGNATURE) {
+                var zip64Offset = zipUint64(view, locator + 8);
+                if (zip64Offset + 56 <= view.byteLength && view.getUint32(zip64Offset, true) === ZIP64_END_SIGNATURE) {
+                    count = zipUint64(view, zip64Offset + 32);
+                    offset = zipUint64(view, zip64Offset + 48);
+                }
+            }
+        }
+        return { count: count, offset: offset };
+    }
+
+    function zipApplyExtraSizes(view, extraStart, extraLength, entry) {
+        var pos = extraStart;
+        var end = extraStart + extraLength;
+        while (pos + 4 <= end) {
+            var id = view.getUint16(pos, true);
+            var size = view.getUint16(pos + 2, true);
+            var data = pos + 4;
+            if (id === 0x0001) {
+                var at = data;
+                if (entry.uncompressedSize === 0xffffffff) { entry.uncompressedSize = zipUint64(view, at); at += 8; }
+                if (entry.compressedSize === 0xffffffff) { entry.compressedSize = zipUint64(view, at); at += 8; }
+                if (entry.localOffset === 0xffffffff) entry.localOffset = zipUint64(view, at);
+                break;
+            }
+            pos = data + size;
+        }
+    }
+
+    function parseZipArchive(bytes) {
+        var view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+        var endOffset = zipFindEnd(view);
+        if (endOffset < 0) throw new Error('This does not look like a zip file.');
+        var directory = zipDirectoryInfo(view, endOffset);
+        var count = directory.count;
+        var pos = directory.offset;
+        if (!isFinite(count) || count < 0 || !isFinite(pos) || pos < 0 || pos >= view.byteLength) throw new Error('This zip file is damaged.');
+        var entries = [];
+        var dirs = Object.create(null);
+        for (var index = 0; index < count; index++) {
+            if (pos + 46 > view.byteLength || view.getUint32(pos, true) !== ZIP_CENTRAL_SIGNATURE) throw new Error('This zip file is damaged.');
+            var entry = {
+                method: view.getUint16(pos + 10, true),
+                compressedSize: view.getUint32(pos + 20, true),
+                uncompressedSize: view.getUint32(pos + 24, true),
+                localOffset: view.getUint32(pos + 42, true)
+            };
+            var nameLength = view.getUint16(pos + 28, true);
+            var extraLength = view.getUint16(pos + 30, true);
+            var commentLength = view.getUint16(pos + 32, true);
+            var attrs = view.getUint32(pos + 38, true);
+            zipApplyExtraSizes(view, pos + 46 + nameLength, extraLength, entry);
+            var name = zipDecodeName(bytes.subarray(pos + 46, pos + 46 + nameLength)).replace(/\\/g, '/').replace(/^\/+/, '');
+            var normalized = name.replace(/\/$/, '');
+            var isDirectory = /\/$/.test(name) || !!(attrs & 0x10) || !!((attrs >>> 16) & 0x4000);
+            if (isDirectory) {
+                if (normalized) dirs[normalized] = true;
+            } else if (normalized) {
+                var slash = normalized.lastIndexOf('/');
+                while (slash > 0) { dirs[normalized.slice(0, slash)] = true; slash = normalized.lastIndexOf('/', slash - 1); }
+                entry.path = normalized;
+                entry.name = normalized.slice(normalized.lastIndexOf('/') + 1);
+                entries.push(entry);
+            }
+            pos += 46 + nameLength + extraLength + commentLength;
+        }
+        return { bytes: bytes, entries: entries, dirs: dirs };
+    }
+
+    async function bytesFromDataUrl(dataUrl) {
+        var response = await fetch(String(dataUrl));
+        return new Uint8Array(await response.arrayBuffer());
+    }
+
+    async function loadZipArchive(file) {
+        var id = String(file && file.id);
+        if (zipArchiveCache[id]) return zipArchiveCache[id];
+        var promise = (async function () {
+            if (!file || !file.dataUrl) throw new Error('This zip file has no data on this device.');
+            return parseZipArchive(await bytesFromDataUrl(file.dataUrl));
+        }());
+        zipArchiveCache[id] = promise;
+        try {
+            var result = await promise;
+            zipArchiveCache[id] = result;
+            return result;
+        } catch (error) {
+            delete zipArchiveCache[id];
+            throw error;
+        }
+    }
+
+    function ZipBitReader(bytes) {
+        this.bytes = bytes;
+        this.pos = 0;
+        this.buffer = 0;
+        this.bitCount = 0;
+    }
+
+    ZipBitReader.prototype.bits = function (count) {
+        while (this.bitCount < count) {
+            if (this.pos >= this.bytes.length) throw new Error('This zip file is incomplete.');
+            this.buffer |= this.bytes[this.pos++] << this.bitCount;
+            this.bitCount += 8;
+        }
+        var value = this.buffer & ((1 << count) - 1);
+        this.buffer >>>= count;
+        this.bitCount -= count;
+        return value;
+    };
+
+    ZipBitReader.prototype.alignToByte = function () {
+        this.buffer = 0;
+        this.bitCount = 0;
+    };
+
+    function zipBuildHuffman(lengths) {
+        var maxBits = 0;
+        var index;
+        for (index = 0; index < lengths.length; index++) if (lengths[index] > maxBits) maxBits = lengths[index];
+        var counts = new Uint16Array(maxBits + 1);
+        for (index = 0; index < lengths.length; index++) if (lengths[index]) counts[lengths[index]]++;
+        var next = new Uint16Array(maxBits + 1);
+        var code = 0;
+        for (var bits = 1; bits <= maxBits; bits++) { code = (code + counts[bits - 1]) << 1; next[bits] = code; }
+        var table = Object.create(null);
+        for (index = 0; index < lengths.length; index++) {
+            var length = lengths[index];
+            if (length) table[length + ':' + (next[length]++)] = index;
+        }
+        return { table: table, maxBits: maxBits };
+    }
+
+    function zipDecodeSymbol(reader, huffman) {
+        var code = 0;
+        for (var length = 1; length <= huffman.maxBits; length++) {
+            code = (code << 1) | reader.bits(1);
+            var symbol = huffman.table[length + ':' + code];
+            if (symbol !== undefined) return symbol;
+        }
+        throw new Error('This zip file has invalid compressed data.');
+    }
+
+    var ZIP_CODE_LENGTH_ORDER = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15];
+    var ZIP_LENGTH_BASE = [3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258];
+    var ZIP_LENGTH_EXTRA = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0];
+    var ZIP_DISTANCE_BASE = [1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577];
+    var ZIP_DISTANCE_EXTRA = [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13];
+    var zipFixedTables = null;
+
+    function zipGetFixedTables() {
+        if (zipFixedTables) return zipFixedTables;
+        var literalLengths = new Uint8Array(288);
+        for (var i = 0; i <= 143; i++) literalLengths[i] = 8;
+        for (i = 144; i <= 255; i++) literalLengths[i] = 9;
+        for (i = 256; i <= 279; i++) literalLengths[i] = 7;
+        for (i = 280; i <= 287; i++) literalLengths[i] = 8;
+        var distanceLengths = new Uint8Array(30);
+        for (i = 0; i < distanceLengths.length; i++) distanceLengths[i] = 5;
+        zipFixedTables = { literal: zipBuildHuffman(literalLengths), distance: zipBuildHuffman(distanceLengths) };
+        return zipFixedTables;
+    }
+
+    function zipReadDynamicTables(reader) {
+        var literalCount = reader.bits(5) + 257;
+        var distanceCount = reader.bits(5) + 1;
+        var codeCount = reader.bits(4) + 4;
+        var codeLengths = new Uint8Array(19);
+        for (var i = 0; i < codeCount; i++) codeLengths[ZIP_CODE_LENGTH_ORDER[i]] = reader.bits(3);
+        var codeTable = zipBuildHuffman(codeLengths);
+        var lengths = new Uint8Array(literalCount + distanceCount);
+        var index = 0;
+        while (index < lengths.length) {
+            var symbol = zipDecodeSymbol(reader, codeTable);
+            if (symbol < 16) { lengths[index++] = symbol; continue; }
+            var repeat = 0;
+            var value = 0;
+            if (symbol === 16) {
+                if (!index) throw new Error('This zip file has invalid compressed data.');
+                repeat = 3 + reader.bits(2);
+                value = lengths[index - 1];
+            } else if (symbol === 17) repeat = 3 + reader.bits(3);
+            else if (symbol === 18) repeat = 11 + reader.bits(7);
+            else throw new Error('This zip file has invalid compressed data.');
+            while (repeat-- > 0 && index < lengths.length) lengths[index++] = value;
+        }
+        return {
+            literal: zipBuildHuffman(lengths.subarray(0, literalCount)),
+            distance: zipBuildHuffman(lengths.subarray(literalCount))
+        };
+    }
+
+    function inflateRawFallback(input, expectedSize) {
+        var reader = new ZipBitReader(input);
+        var output = new Uint8Array(Math.max(1024, Math.min(Number(expectedSize) || 0, 268435456)));
+        var outPos = 0;
+        function ensure(required) {
+            if (outPos + required <= output.length) return;
+            var nextSize = Math.max(output.length * 2, outPos + required);
+            var next = new Uint8Array(nextSize);
+            next.set(output);
+            output = next;
+        }
+        while (true) {
+            var finalBlock = reader.bits(1);
+            var blockType = reader.bits(2);
+            if (blockType === 0) {
+                reader.alignToByte();
+                var storedLength = reader.bits(16);
+                var storedInverse = reader.bits(16);
+                if ((storedLength ^ 0xffff) !== storedInverse) throw new Error('This zip file has invalid compressed data.');
+                ensure(storedLength);
+                for (var i = 0; i < storedLength; i++) output[outPos++] = reader.bits(8);
+            } else {
+                var tables = blockType === 1 ? zipGetFixedTables() : (blockType === 2 ? zipReadDynamicTables(reader) : null);
+                if (!tables) throw new Error('This zip file has invalid compressed data.');
+                while (true) {
+                    var symbol = zipDecodeSymbol(reader, tables.literal);
+                    if (symbol < 256) { ensure(1); output[outPos++] = symbol; continue; }
+                    if (symbol === 256) break;
+                    var lengthIndex = symbol - 257;
+                    if (lengthIndex < 0 || lengthIndex >= ZIP_LENGTH_BASE.length) throw new Error('This zip file has invalid compressed data.');
+                    var length = ZIP_LENGTH_BASE[lengthIndex] + reader.bits(ZIP_LENGTH_EXTRA[lengthIndex]);
+                    var distanceSymbol = zipDecodeSymbol(reader, tables.distance);
+                    if (distanceSymbol >= ZIP_DISTANCE_BASE.length) throw new Error('This zip file has invalid compressed data.');
+                    var distance = ZIP_DISTANCE_BASE[distanceSymbol] + reader.bits(ZIP_DISTANCE_EXTRA[distanceSymbol]);
+                    if (distance > outPos) throw new Error('This zip file has invalid compressed data.');
+                    ensure(length);
+                    for (var copied = 0; copied < length; copied++) { output[outPos] = output[outPos - distance]; outPos++; }
+                }
+            }
+            if (finalBlock) break;
+        }
+        return output.subarray(0, outPos);
+    }
+
+    async function inflateZipBytes(bytes, expectedSize) {
+        if (typeof DecompressionStream === 'function') {
+            try {
+                var stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+                var inflated = new Uint8Array(await new Response(stream).arrayBuffer());
+                if (!expectedSize || inflated.length === expectedSize) return inflated;
+            } catch (_) { }
+        }
+        return inflateRawFallback(bytes, expectedSize);
+    }
+
+    function zipLocalDataOffset(bytes, entry) {
+        var view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+        if (entry.localOffset + 30 > view.byteLength || view.getUint32(entry.localOffset, true) !== ZIP_LOCAL_SIGNATURE) throw new Error('This zip file is damaged.');
+        return entry.localOffset + 30 + view.getUint16(entry.localOffset + 26, true) + view.getUint16(entry.localOffset + 28, true);
+    }
+
+    async function readZipEntryBytes(archive, entry) {
+        var start = zipLocalDataOffset(archive.bytes, entry);
+        var compressed = archive.bytes.subarray(start, start + entry.compressedSize);
+        if (compressed.length !== entry.compressedSize) throw new Error('This zip file is incomplete.');
+        if (entry.method === 0) return compressed;
+        if (entry.method === 8) return inflateZipBytes(compressed, entry.uncompressedSize);
+        throw new Error('This file uses an unsupported zip compression method.');
+    }
+
+    var ZIP_MIME_TYPES = {
+        png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp',
+        svg: 'image/svg+xml', bmp: 'image/bmp', avif: 'image/avif', ico: 'image/x-icon', heic: 'image/heic',
+        pdf: 'application/pdf', mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', flac: 'audio/flac',
+        m4a: 'audio/mp4', mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime', mkv: 'video/x-matroska',
+        json: 'application/json', txt: 'text/plain', md: 'text/markdown', html: 'text/html', htm: 'text/html',
+        css: 'text/css', js: 'text/javascript', csv: 'text/csv', xml: 'application/xml', zip: 'application/zip'
+    };
+
+    function mimeForFileName(name) {
+        var extension = fileExtensionOf(name);
+        if (ZIP_MIME_TYPES[extension]) return ZIP_MIME_TYPES[extension];
+        if (TEXT_PREVIEW_EXTENSIONS.indexOf(extension) !== -1) return 'text/plain';
+        return 'application/octet-stream';
+    }
+
+    function zipFileType(name) {
+        var extension = fileExtensionOf(name);
+        if (/^(png|jpe?g|gif|webp|avif|bmp|svg|heic|tiff?|ico)$/.test(extension)) return 'image';
+        if (extension === 'pdf') return 'pdf';
+        if (extension === 'zip') return 'archive';
+        return 'other';
+    }
+
+    function zipPathSegments(path) { return String(path || '').split('/').filter(Boolean); }
+
+    function zipChildItems(archive) {
+        var prefix = zipBrowser.path ? zipBrowser.path.replace(/\/+$/, '') + '/' : '';
+        var folderMap = Object.create(null);
+        var fileItems = [];
+        Object.keys(archive.dirs).forEach(function (dir) {
+            var clean = String(dir).replace(/\/+$/, '');
+            if (prefix && clean.indexOf(prefix) !== 0) return;
+            var rest = prefix ? clean.slice(prefix.length) : clean;
+            if (!rest) return;
+            var slash = rest.indexOf('/');
+            var name = slash === -1 ? rest : rest.slice(0, slash);
+            if (!name) return;
+            var full = prefix + name;
+            if (!folderMap[name]) folderMap[name] = { id: ZIP_DIR_PREFIX + encodeURIComponent(full), name: name, __zipDir: full };
+        });
+        archive.entries.forEach(function (entry) {
+            if (prefix && entry.path.indexOf(prefix) !== 0) return;
+            var rest = prefix ? entry.path.slice(prefix.length) : entry.path;
+            if (!rest || rest.indexOf('/') !== -1) return;
+            fileItems.push({
+                id: ZIP_FILE_PREFIX + encodeURIComponent(entry.path),
+                name: entry.name,
+                type: zipFileType(entry.name),
+                size: formatBytes(entry.uncompressedSize),
+                sizeBytes: entry.uncompressedSize,
+                mimeType: mimeForFileName(entry.name),
+                modified: '—',
+                __zipEntry: entry,
+                __zipPath: entry.path
+            });
+        });
+        return Object.keys(folderMap).map(function (name) { return folderMap[name]; }).concat(fileItems);
+    }
+
+    function sortZipItems(items) {
+        return items.slice().sort(function (a, b) {
+            if (!!a.__zipDir !== !!b.__zipDir) return a.__zipDir ? -1 : 1;
+            if (state.sort === 'size') return (Number(b.sizeBytes) || 0) - (Number(a.sizeBytes) || 0);
+            return a.name.localeCompare(b.name);
+        });
+    }
+
+    function zipLoadingHTML() {
+        return '<div class="dsection ddrive-loading"><h2 class="dsection-title">Opening archive</h2><div class="dgrid">' +
+            new Array(7).join('<div class="loading-placeholder loading-card ddrive-skeleton-card" aria-hidden="true"><span class="loading-thumb"></span><span class="loading-line wide"></span><span class="loading-line"></span><span class="loading-line short"></span></div>') +
+            '</div></div>';
+    }
+
+    function zipDecodedId(nodeId, prefix) {
+        try { return decodeURIComponent(String(nodeId).slice(prefix.length)); }
+        catch (_) { return ''; }
+    }
+
+    function zipEntryFromNodeId(nodeId) {
+        var archive = zipArchiveCache[String(zipBrowser.fileId)];
+        if (!archive || !archive.entries || String(nodeId).indexOf(ZIP_FILE_PREFIX) !== 0) return null;
+        var path = zipDecodedId(nodeId, ZIP_FILE_PREFIX);
+        return archive.entries.find(function (entry) { return entry.path === path; }) || null;
+    }
+
+    async function openZipBrowser(file, isNested) {
+        if (!file) return;
+        if (!isNested) zipBrowserStack.length = 0;
+        var fileId = String(file.id);
+        zipBrowser.fileId = file.id;
+        zipBrowser.fileName = file.name || 'Archive';
+        zipBrowser.path = '';
+        zipBrowser.loading = true;
+        zipBrowser.error = '';
+        state.view = 'zip';
+        state.folderId = null;
+        state.search = '';
+        var searchInput = document.querySelector('[data-wiki-search]');
+        if (searchInput) searchInput.value = '';
+        clearDriveSelection();
+        render();
+        try {
+            await loadZipArchive(file);
+            if (String(zipBrowser.fileId) !== fileId) return;
+            zipBrowser.loading = false;
+            render();
+        } catch (error) {
+            console.warn('[Drive] could not open zip', error);
+            if (String(zipBrowser.fileId) !== fileId) return;
+            zipBrowser.loading = false;
+            zipBrowser.error = (error && error.message) || 'This zip file could not be opened.';
+            render();
+        }
+    }
+
+    async function openZipEntry(nodeId) {
+        var archive = zipArchiveCache[String(zipBrowser.fileId)];
+        var entry = zipEntryFromNodeId(nodeId);
+        if (!archive || !entry) return;
+        try {
+            var bytes = await readZipEntryBytes(archive, entry);
+            var dataUrl = await readFileAsDataUrl(new Blob([bytes], { type: mimeForFileName(entry.name) }));
+            var previewFile = {
+                id: 'zipentry:' + zipBrowser.fileId + ':' + entry.path,
+                name: entry.name,
+                type: zipFileType(entry.name),
+                mimeType: mimeForFileName(entry.name),
+                size: formatBytes(entry.uncompressedSize),
+                dataUrl: dataUrl,
+                previewText: ''
+            };
+            if (isTextLikeFile(previewFile)) previewFile.previewText = previewTextFromDataUrl(dataUrl);
+            if (isZipFile(previewFile)) {
+                zipBrowserStack.push({ fileId: zipBrowser.fileId, fileName: zipBrowser.fileName, path: zipBrowser.path });
+                await openZipBrowser(previewFile, true);
+                return;
+            }
+            previewDriveFile(previewFile);
+        } catch (error) {
+            console.warn('[Drive] could not open zip entry', error);
+            if (window.showToast) window.showToast((error && error.message) || 'Could not open this file.');
+        }
+    }
+
+    async function downloadZipEntry(nodeId) {
+        var archive = zipArchiveCache[String(zipBrowser.fileId)];
+        var entry = zipEntryFromNodeId(nodeId);
+        if (!archive || !entry) return;
+        try {
+            var bytes = await readZipEntryBytes(archive, entry);
+            var extension = fileExtensionOf(entry.name);
+            saveDownload(new Blob([bytes], { type: mimeForFileName(entry.name) }), entry.name, extension ? '.' + extension : '');
+        } catch (error) {
+            console.warn('[Drive] could not download zip entry', error);
+            if (window.showToast) window.showToast((error && error.message) || 'Could not download this file.');
+        }
+    }
+
     async function downloadFolder(folder) {
         if (!folder) return;
         try {
@@ -2016,6 +2559,28 @@
         var item = isFolder
             ? folders.find(function (f) { return String(f.id) === folderId; })
             : files.find(function (f) { return String(f.id) === fileId; });
+        if (state.view === 'zip' && (String(folderId).indexOf(ZIP_DIR_PREFIX) === 0 || String(fileId).indexOf(ZIP_FILE_PREFIX) === 0)) {
+            event.preventDefault();
+            selectedDriveItem = null;
+            var zipIsFolder = folderId !== null;
+            var zipNodeId = zipIsFolder ? folderId : fileId;
+            var zipEntry = zipIsFolder ? null : zipEntryFromNodeId(fileId);
+            var zipName = zipIsFolder
+                ? (zipDecodedId(folderId, ZIP_DIR_PREFIX).split('/').filter(Boolean).pop() || 'Folder')
+                : ((zipEntry && zipEntry.name) || 'File');
+            var zipIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16v13H4z"/><path d="M3 4h18v4H3zM10 11h4v3h-4z"/></svg>';
+            menu.innerHTML = '<div class="context-title">' + zipIcon + '<span>' + esc(zipName) + '</span></div>' +
+                '<div class="context-text">' + (zipIsFolder ? 'Folder in archive' : 'File in archive') + '</div>' +
+                '<div class="context-section">' + contextRow(zipIsFolder ? 'Open folder' : 'Open', 'open') +
+                (zipIsFolder ? '' : contextRow('Download', 'download')) + '</div>';
+            menu.dataset.zipItemId = zipNodeId;
+            menu.dataset.zipIsDir = zipIsFolder ? '1' : '0';
+            delete menu.dataset.contextItemId;
+            delete menu.dataset.contextSelection;
+            menu.dataset.contextIsFolder = zipIsFolder ? '1' : '0';
+            positionContextMenu(menu, event.clientX, event.clientY);
+            return;
+        }
         if (!item) return;
 
         event.preventDefault();
@@ -2057,6 +2622,7 @@
         menu.dataset.contextItemId = isFolder ? folderId : fileId;
         menu.dataset.contextIsFolder = isFolder ? '1' : '0';
         delete menu.dataset.contextSelection;
+        delete menu.dataset.zipItemId;
         positionContextMenu(menu, event.clientX, event.clientY);
     }
 
@@ -2089,6 +2655,7 @@
         html += contextRow('Clear selection', 'selection-clear') + '</div>';
         menu.innerHTML = html;
         delete menu.dataset.contextItemId;
+        delete menu.dataset.zipItemId;
         menu.dataset.contextIsFolder = '0';
         menu.dataset.contextSelection = '1';
         positionContextMenu(menu, event.clientX, event.clientY);
@@ -2144,6 +2711,7 @@
             var pasteButton = menu.querySelector('[data-context-action="drive-paste"]');
             if (pasteButton) pasteButton.style.display = driveClipboard ? '' : 'none';
             delete menu.dataset.contextItemId;
+            delete menu.dataset.zipItemId;
             delete menu.dataset.contextSelection;
             menu.dataset.contextIsFolder = '0';
             positionContextMenu(menu, event.clientX, event.clientY);
@@ -2166,6 +2734,19 @@
         if (action === 'selection-clear') { menu.style.display = 'none'; return clearDriveSelection(); }
         if (action === 'selection-restore') { menu.style.display = 'none'; return restoreSelection(); }
         if (action === 'selection-purge') { menu.style.display = 'none'; return purgeSelection(); }
+        if (menu.dataset.zipItemId) {
+            var zipNodeId = menu.dataset.zipItemId;
+            var zipIsDir = menu.dataset.zipIsDir === '1';
+            menu.style.display = 'none';
+            if (action === 'open') {
+                if (zipIsDir) {
+                    zipBrowser.path = zipDecodedId(zipNodeId, ZIP_DIR_PREFIX);
+                    clearDriveSelection();
+                    switchPage(render);
+                } else openZipEntry(zipNodeId);
+            } else if (action === 'download' && !zipIsDir) downloadZipEntry(zipNodeId);
+            return;
+        }
         var isFolder = menu.dataset.contextIsFolder === '1';
         var id = menu.dataset.contextItemId;
         if (action === 'drive-paste' || action === 'paste') {
@@ -2448,8 +3029,9 @@
     }
 
     function setActiveNav(view) {
+        var navView = view === 'zip' ? 'mydrive' : view;
         document.querySelectorAll('[data-drive-nav]').forEach(function (b) {
-            b.classList.toggle('active', b.getAttribute('data-drive-nav') === view);
+            b.classList.toggle('active', b.getAttribute('data-drive-nav') === navView);
         });
         document.querySelectorAll('.sidebar-item').forEach(function (b) {
             b.classList.remove('active');
@@ -2777,7 +3359,7 @@
                 }
                 var name = file.name || 'Untitled file';
                 var ext = name.split('.').pop().toLowerCase();
-                var type = /^(png|jpe?g|gif|webp|avif|bmp|svg|heic|tiff?)$/.test(ext) ? 'image' : (ext === 'pdf' ? 'pdf' : 'other');
+                var type = /^(png|jpe?g|gif|webp|avif|bmp|svg|heic|tiff?)$/.test(ext) ? 'image' : (ext === 'pdf' ? 'pdf' : (ext === 'zip' ? 'archive' : 'other'));
                 var previewText = '';
                 if (isTextLikeFile({ name: name, mimeType: file.type || 'application/octet-stream' })) {
                     try { previewText = (await file.text()).slice(0, 20000); } catch (_) {}

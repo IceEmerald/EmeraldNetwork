@@ -335,6 +335,7 @@ html[data-wiki-theme="dark"] .dhome-hero p { color: #e4e7ec; }
 .dcrumb-sep, .dcrumb-ellipsis { flex: none; white-space: nowrap; }
 .dcrumb-sep { color: #8a8886; }
 .dcrumb-ellipsis { color: #8a8886; font: 600 1.3rem/1 'DM Sans', sans-serif; padding: 0 2px; }
+.dcrumb-back { color: #217346; font-size: 1.4rem; max-width: clamp(80px, 16vw, 180px); }
 
 .drive-toolbar-actions { display: flex; align-items: center; gap: 10px; flex: none; }
 .drive-viewtoggle {
@@ -684,6 +685,7 @@ html[data-wiki-theme="dark"] .drive-preview-text { background: #171b19; color: #
 html[data-wiki-theme="dark"] .dcrumb { color: #d2d2d2; }
 html[data-wiki-theme="dark"] .dcrumb:hover { background: #2a2a2a; color: #f0f0f0; }
 html[data-wiki-theme="dark"] .dcrumb.current { color: #f0f0f0; }
+html[data-wiki-theme="dark"] .dcrumb-back { color: #56c98a; }
 html[data-wiki-theme="dark"] .dcrumb-sep { color: #888; }
 html[data-wiki-theme="dark"] .drive-viewtoggle { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.08); box-shadow: rgba(0,0,0,.3) 0px 1px 2px inset; }
 html[data-wiki-theme="dark"] .drive-viewtoggle button { color: rgba(255,255,255,.6); }
