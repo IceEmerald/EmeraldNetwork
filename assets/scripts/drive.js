@@ -420,6 +420,14 @@
         });
     }
 
+    function domSafeId(value) {
+        var text = String(value || '');
+        var hash = 5381;
+        for (var i = 0; i < text.length; i++) hash = ((hash << 5) + hash + text.charCodeAt(i)) >>> 0;
+        var slug = text.replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 48) || 'item';
+        return slug + '_' + hash.toString(36);
+    }
+
     function shadeHex(hex, amount) {
         var match = /^#?([0-9a-f]{6})$/i.exec(String(hex || ''));
         if (!match) return '#f3b900';
@@ -799,7 +807,7 @@
 
     function folderIconHtml(item) {
         var src = FOLDER_ICONS[item.id];
-        var gradientId = 'folderGradient-' + esc(item.id);
+        var gradientId = 'folderGradient-' + domSafeId(item.id);
         var folderColor = /^#[0-9a-f]{6}$/i.test(String(item.color || '')) ? item.color : '#f3b900';
         var svg = '<svg viewBox="0 0 160 110" aria-hidden="true">' +
             '<defs><linearGradient id="' + gradientId + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + shadeHex(folderColor, .34) + '"/><stop offset=".58" stop-color="' + folderColor + '"/><stop offset="1" stop-color="' + shadeHex(folderColor, -.12) + '"/></linearGradient></defs>' +
@@ -815,9 +823,8 @@
 
     function cardHTML(item, isFolder) {
         if (isFolder) {
-            var zipBadge = item.__zipDir ? '<span class="dfolder-zip-badge" aria-hidden="true">ZIP</span>' : '';
             return '<button class="dfolder-card" data-folder="' + item.id + '"' + (isSuiteFolder(item) ? '' : ' draggable="true"') + '>' +
-                '<span class="dfolder-icon">' + folderIconHtml(item) + zipBadge + '</span>' +
+                '<span class="dfolder-icon">' + folderIconHtml(item) + '</span>' +
                 '<span class="dfolder-name">' + esc(item.name) + '</span>' +
                 '</button>';
         }
@@ -839,9 +846,8 @@
                 ? '<img class="drow-app-icon" src="' + folderIconSrc + '" alt="" aria-hidden="true">'
                 : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
             var iconStyle = folderIconSrc ? '' : ' style="color:' + esc(item.color || '#8a8886') + '"';
-            var zipLabel = item.__zipDir ? ' <span class="drow-zip-badge" aria-hidden="true">ZIP</span>' : '';
             return '<div class="drow" data-folder="' + item.id + '"' + (isSuiteFolder(item) ? '' : ' draggable="true"') + ' role="button" tabindex="0">' +
-                '<span class="drow-name"><span class="drow-icon"' + iconStyle + '>' + iconHtml + '</span><span class="drow-label">' + esc(item.name) + zipLabel + '</span></span>' +
+                '<span class="drow-name"><span class="drow-icon"' + iconStyle + '>' + iconHtml + '</span><span class="drow-label">' + esc(item.name) + '</span></span>' +
                 '<span class="drow-meta">' + esc(stats.size) + '</span><span class="drow-meta">' + esc(stats.modified) + '</span></div>';
         }
         return '<div class="drow" data-file="' + item.id + '" draggable="true" role="button" tabindex="0">' +
@@ -2355,7 +2361,7 @@
             var name = slash === -1 ? rest : rest.slice(0, slash);
             if (!name) return;
             var full = prefix + name;
-            if (!folderMap[name]) folderMap[name] = { id: ZIP_DIR_PREFIX + encodeURIComponent(full), name: name, __zipDir: full, color: '#f3b900' };
+            if (!folderMap[name]) folderMap[name] = { id: ZIP_DIR_PREFIX + encodeURIComponent(full), name: name, __zipDir: full };
         });
         archive.entries.forEach(function (entry) {
             if (prefix && entry.path.indexOf(prefix) !== 0) return;
