@@ -736,10 +736,21 @@ html[data-wiki-theme="dark"] .dtrash-banner-icon { background: #3a3019; color: #
     .dfile-meta { font-size: 10.5px; }
 }
 
-.dpreview-generic { display: grid; place-items: center; background: linear-gradient(180deg, #f8faf9, #eef3f0); }
 .dfile-preview-video-wrap { position: absolute; inset: 0; box-sizing: border-box; display: flex; align-items: center; justify-content: center; padding: 7%; overflow: hidden; border: 0; border-radius: 5px; background: transparent; }
 .dfile-preview-video { display: block; width: 100%; height: 100%; object-fit: contain; border-radius: 4px; background: #000; }
-.dfile-preview-audio { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 58%; aspect-ratio: 1 / 1; display: grid; place-items: center; border-radius: 12px; background: linear-gradient(180deg, #f8faf9, #eef3f0); }
+/* Files without a usable preview (archives, binaries, fonts, unrendered docs, etc.)
+   share the same centered square tile as audio files. */
+.dpreview-generic,
+.dfile-preview-audio {
+    position: absolute; top: 50%; bottom: auto; left: 50%; right: auto;
+    transform: translate(-50%, -50%);
+    width: 58%; height: auto; aspect-ratio: 1 / 1;
+    display: grid; place-items: center;
+    overflow: hidden; padding: 0; border: 0; border-radius: 12px;
+    background: linear-gradient(180deg, #f8faf9, #eef3f0);
+    box-shadow: none;
+}
+.dpreview-generic .dfile-type-svg,
 .dfile-preview-audio .dfile-type-svg { width: 46%; height: 46%; }
 
 /* ---------- custom media players (Slides layout, green accent) ---------- */
@@ -920,30 +931,3 @@ html[data-wiki-theme="dark"] .dfile-card.is-selected,
 html[data-wiki-theme="dark"] .dfolder-card.is-selected { background: rgba(34, 197, 94, .14); }
 html[data-wiki-theme="dark"] .drow.is-selected { background: rgba(34, 197, 94, .16); }
 
-.drive-selection-bar {
-    position: fixed; z-index: 11000; left: 50%; bottom: 24px; transform: translateX(-50%);
-    display: flex; align-items: center; gap: 10px; box-sizing: border-box;
-    max-width: calc(100vw - 24px); padding: 8px 10px 8px 16px;
-    border: 1px solid rgba(255, 255, 255, .1); border-radius: 14px;
-    background: #14261b; color: #f2f7f3;
-    box-shadow: 0 18px 44px rgba(8, 20, 12, .32), 0 2px 8px rgba(8, 20, 12, .18);
-    animation: driveSelectBarIn .18s ease-out;
-}
-.drive-selection-bar[hidden] { display: none; }
-.drive-selection-count { font: 650 13px/1.2 'DM Sans', sans-serif; white-space: nowrap; }
-.drive-selection-actions { display: flex; align-items: center; gap: 6px; }
-.drive-selection-bar button {
-    border: 0; border-radius: 9px; padding: 8px 12px;
-    background: rgba(255, 255, 255, .1); color: #fff;
-    font: 600 12.5px 'DM Sans', sans-serif; cursor: pointer; white-space: nowrap;
-    transition: background .15s, color .15s;
-}
-.drive-selection-bar button:hover { background: rgba(255, 255, 255, .18); }
-.drive-selection-bar button.primary { background: #22c55e; color: #06240f; }
-.drive-selection-bar button.primary:hover { background: #16a34a; color: #fff; }
-.drive-selection-bar button.danger:hover { background: #c83f43; }
-@keyframes driveSelectBarIn { from { opacity: 0; } to { opacity: 1; } }
-@media (max-width: 560px) {
-    .drive-selection-bar { left: 12px; right: 12px; bottom: 12px; transform: none; flex-wrap: wrap; justify-content: center; padding: 10px 12px; }
-    .drive-selection-actions { flex-wrap: wrap; justify-content: center; }
-}

@@ -1062,47 +1062,6 @@
         return files.find(function (file) { return String(file.id) === String(id); }) || null;
     }
 
-    function selectionBar() {
-        var bar = document.getElementById('driveSelectionBar');
-        if (bar) return bar;
-        bar = document.createElement('div');
-        bar.id = 'driveSelectionBar';
-        bar.className = 'drive-selection-bar';
-        bar.hidden = true;
-        bar.innerHTML = '<span class="drive-selection-count" aria-live="polite"></span>' +
-            '<div class="drive-selection-actions">' +
-                '<button type="button" class="primary" data-selection-action="download">Download</button>' +
-                '<button type="button" class="danger" data-selection-action="trash">Move to trash</button>' +
-                '<button type="button" data-selection-action="clear">Clear</button>' +
-            '</div>';
-        bar.addEventListener('click', function (event) {
-            var button = event.target.closest('[data-selection-action]');
-            if (!button) return;
-            event.preventDefault();
-            event.stopPropagation();
-            var action = button.getAttribute('data-selection-action');
-            if (action === 'clear') clearDriveSelection();
-            else if (action === 'download') downloadDriveSelection();
-            else if (action === 'trash') trashDriveSelection();
-        });
-        document.body.appendChild(bar);
-        return bar;
-    }
-
-    function updateSelectionBar() {
-        var bar = selectionBar();
-        var count = selectionState.items.length;
-        bar.hidden = count === 0;
-        if (!count) return;
-        var countLabel = bar.querySelector('.drive-selection-count');
-        if (countLabel) countLabel.textContent = count + (count === 1 ? ' item selected' : ' items selected');
-        var isTrash = state.view === 'trash';
-        var downloadButton = bar.querySelector('[data-selection-action="download"]');
-        var trashButton = bar.querySelector('[data-selection-action="trash"]');
-        if (downloadButton) downloadButton.hidden = isTrash;
-        if (trashButton) trashButton.hidden = isTrash;
-    }
-
     function syncSelectionClasses() {
         var box = $('driveContent');
         if (!box) return;
@@ -1119,11 +1078,10 @@
     }
 
     function clearDriveSelection() {
-        if (!selectionState.items.length && !selectionState.anchor) { updateSelectionBar(); return; }
+        if (!selectionState.items.length && !selectionState.anchor) return;
         selectionState.items = [];
         selectionState.anchor = null;
         syncSelectionClasses();
-        updateSelectionBar();
     }
 
     function addSelectionEntry(map, kind, id) {
@@ -1134,7 +1092,6 @@
     function commitSelection(map) {
         selectionState.items = Object.keys(map).map(function (key) { return map[key]; });
         syncSelectionClasses();
-        updateSelectionBar();
     }
 
     function toggleDriveSelection(kind, id, additive) {
@@ -1193,7 +1150,6 @@
         var box = $('driveContent');
         var host = document.querySelector('.drive-main') || box;
         if (!box || !host) return;
-        selectionBar();
 
         function finishMarquee() {
             document.removeEventListener('pointermove', moveMarquee);
@@ -1242,7 +1198,6 @@
             });
             selectionState.items = Object.keys(map).map(function (key) { return map[key]; });
             syncSelectionClasses();
-            updateSelectionBar();
         }
 
         host.addEventListener('pointerdown', function (event) {
@@ -1993,6 +1948,38 @@
         menu.innerHTML = html;
         menu.dataset.contextItemId = isFolder ? folderId : fileId;
         menu.dataset.contextIsFolder = isFolder ? '1' : '0';
+        delete menu.dataset.contextSelection;
+        positionContextMenu(menu, event.clientX, event.clientY);
+    }
+
+    function selectionEntryForTarget(target) {
+        if (!target || !target.hasAttribute) return null;
+        var isFolder = target.hasAttribute('data-folder');
+        var id = isFolder ? target.getAttribute('data-folder') : target.getAttribute('data-file');
+        if (id === null) return null;
+        var key = driveItemKey(isFolder ? 'folder' : 'file', id);
+        return selectionState.items.filter(function (entry) { return entry.key === key; })[0] || null;
+    }
+
+    function openSelectionContextMenu(event) {
+        var menu = $('custom-context-menu');
+        if (!menu) return;
+        var count = selectionState.items.length;
+        if (!count) return;
+        event.preventDefault();
+        var isTrash = state.view === 'trash';
+        var icon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>';
+        var html = '<div class="context-title">' + icon + '<span>' + count + (count === 1 ? ' item selected' : ' items selected') + '</span></div>' +
+            '<div class="context-section">';
+        if (!isTrash) {
+            html += contextRow('Download ' + count + (count === 1 ? ' item' : ' items'), 'selection-download') +
+                contextRow('Move ' + count + (count === 1 ? ' item' : ' items') + ' to trash', 'selection-trash', true);
+        }
+        html += contextRow('Clear selection', 'selection-clear') + '</div>';
+        menu.innerHTML = html;
+        delete menu.dataset.contextItemId;
+        menu.dataset.contextIsFolder = '0';
+        menu.dataset.contextSelection = '1';
         positionContextMenu(menu, event.clientX, event.clientY);
     }
 
@@ -2001,17 +1988,27 @@
         if (!menu) return;
         var defaultMenuHTML = menu.innerHTML;
         window.addEventListener('contextmenu', function (event) {
-            var target = event.target.closest('.dfile-card, .dfolder-card, .drow[data-file], .drow[data-folder], .dchip');
-            if (target) openItemContextMenu(event, target);
-            else {
-                clearDriveSelection();
-                menu.innerHTML = defaultMenuHTML;
-                var pasteButton = menu.querySelector('[data-context-action="drive-paste"]');
-                if (pasteButton) pasteButton.style.display = driveClipboard ? '' : 'none';
-                delete menu.dataset.contextItemId;
-                menu.dataset.contextIsFolder = '0';
-                positionContextMenu(menu, event.clientX, event.clientY);
+            var target = event.target.closest('.dfile-card, .dfolder-card, .drow[data-file], .drow[data-folder]');
+            if (target) {
+                if (selectionState.items.length > 1) {
+                    if (selectionEntryForTarget(target)) { openSelectionContextMenu(event); return; }
+                    clearDriveSelection();
+                }
+                openItemContextMenu(event, target);
+                return;
             }
+            if (selectionState.items.length > 1 && event.target.closest('#driveContent')) {
+                openSelectionContextMenu(event);
+                return;
+            }
+            clearDriveSelection();
+            menu.innerHTML = defaultMenuHTML;
+            var pasteButton = menu.querySelector('[data-context-action="drive-paste"]');
+            if (pasteButton) pasteButton.style.display = driveClipboard ? '' : 'none';
+            delete menu.dataset.contextItemId;
+            delete menu.dataset.contextSelection;
+            menu.dataset.contextIsFolder = '0';
+            positionContextMenu(menu, event.clientX, event.clientY);
         });
         menu.addEventListener('click', function (event) {
             var action = event.target.closest('[data-context-action]');
@@ -2026,6 +2023,9 @@
 
     async function runContextAction(action, color) {
         var menu = $('custom-context-menu');
+        if (action === 'selection-download') { menu.style.display = 'none'; return downloadDriveSelection(); }
+        if (action === 'selection-trash') { menu.style.display = 'none'; return trashDriveSelection(); }
+        if (action === 'selection-clear') { menu.style.display = 'none'; return clearDriveSelection(); }
         var isFolder = menu.dataset.contextIsFolder === '1';
         var id = menu.dataset.contextItemId;
         if (action === 'drive-paste' || action === 'paste') {
