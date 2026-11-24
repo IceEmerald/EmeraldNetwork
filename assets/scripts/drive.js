@@ -731,6 +731,7 @@
         if (!el) return;
         var html = '';
         if (state.view === 'zip') {
+            html += '<button class="dcrumb" data-crumb="root" title="My Drive">My Drive</button><span class="dcrumb-sep" aria-hidden="true">›</span>';
             var zipCrumbs = [{ id: '', name: zipBrowser.fileName || 'Archive' }];
             var builtPath = '';
             zipPathSegments(zipBrowser.path).forEach(function (part) {
@@ -2414,18 +2415,18 @@
         var searchInput = document.querySelector('[data-wiki-search]');
         if (searchInput) searchInput.value = '';
         clearDriveSelection();
-        render();
+        switchPage(render);
         try {
             await loadZipArchive(file);
             if (String(zipBrowser.fileId) !== fileId) return;
             zipBrowser.loading = false;
-            render();
+            switchPage(render);
         } catch (error) {
             console.warn('[Drive] could not open zip', error);
             if (String(zipBrowser.fileId) !== fileId) return;
             zipBrowser.loading = false;
             zipBrowser.error = (error && error.message) || 'This zip file could not be opened.';
-            render();
+            switchPage(render);
         }
     }
 
