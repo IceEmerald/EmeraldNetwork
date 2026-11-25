@@ -2380,9 +2380,12 @@ function renderRecents() {
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
       <span class="history-item-text">${escapeHtml(c.title || "Untitled")}</span>
     </div>`;
-  container.innerHTML = groups.map((g) =>
+  const sidebarHtml = groups.map((g) =>
     `<div class="sidebar-time-group">${g.label}</div>` + g.items.map(itemHTML).join("")
   ).join("");
+  const parsedSidebar = new DOMParser().parseFromString(sidebarHtml, "text/html");
+  container.replaceChildren();
+  while (parsedSidebar.body.firstChild) container.appendChild(parsedSidebar.body.firstChild);
 }
 function loadConversation(id) {
   const conv = getConv(id);

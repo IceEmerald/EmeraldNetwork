@@ -44,7 +44,10 @@
         title.textContent = options.title || 'Drive';
         body.innerHTML = '';
         if (options.message) { var message = document.createElement('p'); message.textContent = options.message; body.appendChild(message); }
-        if (options.bodyHtml) body.insertAdjacentHTML('beforeend', options.bodyHtml);
+        if (options.bodyHtml) {
+            var parsedBodyHtml = new DOMParser().parseFromString(String(options.bodyHtml), 'text/html');
+            while (parsedBodyHtml.body.firstChild) body.appendChild(parsedBodyHtml.body.firstChild);
+        }
         var control = null;
         if (options.input) {
             control = document.createElement('input');
@@ -420,6 +423,37 @@
         });
     }
 
+    function randomToken(len) {
+        var chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+        var arr = new Uint8Array(len || 8);
+        if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(arr);
+        else for (var i = 0; i < arr.length; i++) arr[i] = Math.floor(Math.random() * 256);
+        return Array.from(arr, function (b) { return chars[b % chars.length]; }).join('');
+    }
+    function safeMediaSrc(value) {
+        if (!value || typeof value !== 'string') return '';
+        var trimmed = value.trim();
+        if (!trimmed) return '';
+        if (/^data:(?:audio|video)\//i.test(trimmed)) return trimmed;
+        if (/^blob:/i.test(trimmed)) return trimmed;
+        try {
+            var parsed = new URL(trimmed, window.location.origin);
+            if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.href;
+        } catch (_) {}
+        return '';
+    }
+    function safeDownloadUrl(value) {
+        if (!value || typeof value !== 'string') return '';
+        var trimmed = value.trim();
+        if (!trimmed) return '';
+        if (/^data:/i.test(trimmed)) return trimmed;
+        if (/^blob:/i.test(trimmed)) return trimmed;
+        try {
+            var parsed = new URL(trimmed, window.location.origin);
+            if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.href;
+        } catch (_) {}
+        return '';
+    }
     function domSafeId(value) {
         var text = String(value || '');
         var hash = 5381;
@@ -488,8 +522,8 @@
     }
 
     function plainTextFromHtml(value) {
-        var holder = document.createElement('div');
-        holder.innerHTML = String(value || '');
+        var parsedHolder = new DOMParser().parseFromString(String(value || ''), 'text/html');
+        var holder = parsedHolder.body || parsedHolder.documentElement;
         return (holder.innerText || holder.textContent || '').replace(/\s+/g, ' ').trim();
     }
 
@@ -1087,7 +1121,9 @@
             html += tr.length ? gridHTML(tr) : emptyHTML(q ? 'No results' : 'Trash is empty', q ? 'Nothing matches your search.' : 'Deleted files appear here for 30 days.', q ? '/assets/images/nofilefound.webp' : '/assets/images/nofileyet.webp');
         }
 
-        box.innerHTML = html;
+        var parsedBoxHtml = new DOMParser().parseFromString(String(html || ''), 'text/html');
+        box.replaceChildren();
+        while (parsedBoxHtml.body.firstChild) box.appendChild(parsedBoxHtml.body.firstChild);
         box.removeAttribute('aria-busy');
         renderPdfThumbnails(box);
         updateDriveStorage();
@@ -1533,7 +1569,7 @@
             var player = document.createElement('div');
             player.className = 'drive-video-player paused';
             var video = document.createElement('video');
-            video.src = src;
+            video.src = safeMediaSrc(src);
             video.preload = 'metadata';
             video.playsInline = true;
             video.muted = false;
@@ -1677,7 +1713,7 @@
             art.appendChild(artIcon);
             art.appendChild(wave);
             var audio = document.createElement('audio');
-            audio.src = src;
+            audio.src = safeMediaSrc(src);
             audio.preload = 'metadata';
             var audioControls = document.createElement('div');
             audioControls.className = 'aud-controls';
@@ -1815,7 +1851,8 @@
                     var records = s && s.getJSON ? await s.getJSON('emeraldcore.storage.suite.notes') : [];
                     var note = Array.isArray(records) && records.find(function (entry) { return String(entry && entry.id) === String(file.id); });
                     if (!note) throw new Error('Note data is not available on this device.');
-                    var holder = document.createElement('div'); holder.innerHTML = note.content || '';
+                    var parsedHolder = new DOMParser().parseFromString(String(note.content || ''), 'text/html');
+                    var holder = parsedHolder.body || parsedHolder.documentElement;
                     blob = new Blob([holder.innerText || holder.textContent || ''], { type: 'text/plain;charset=utf-8' });
                     extension = '.txt';
                 } else if (file.appType === 'docs') {
@@ -1848,7 +1885,9 @@
         }
         if (!file.dataUrl) return;
         var anchor = document.createElement('a');
-        anchor.href = file.dataUrl;
+        var safeDataUrl = safeDownloadUrl(file.dataUrl);
+        if (!safeDataUrl) return;
+        anchor.href = safeDataUrl;
         anchor.download = file.name;
         document.body.appendChild(anchor);
         anchor.click();
@@ -1880,8 +1919,8 @@
             var noteStorage = storage();
             var records = noteStorage && noteStorage.getJSON ? await noteStorage.getJSON('emeraldcore.storage.suite.notes') : [];
             var note = Array.isArray(records) && records.find(function (entry) { return String(entry && entry.id) === String(file.id); });
-            var holder = document.createElement('div');
-            holder.innerHTML = note && note.content || '';
+            var parsedHolder = new DOMParser().parseFromString(String(note && note.content || ''), 'text/html');
+            var holder = parsedHolder.body || parsedHolder.documentElement;
             return new TextEncoder().encode(holder.innerText || holder.textContent || '');
         }
         if (file.appType === 'docs') {
@@ -2884,7 +2923,7 @@
                 var copyId = await duplicateSuiteFile(source);
                 if (copyId) flagsMap[source.appType + ':' + copyId] = { folder: parentId || null };
             } else {
-                files.push(Object.assign({}, source, { id: 'file_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), name: uniqueName(source.name, parentId || null), folder: parentId || null, modifiedAt: Date.now(), modified: 'Just now', created: new Date().toISOString(), trashed: false, starred: false, lastOpenedAt: 0 }));
+                files.push(Object.assign({}, source, { id: 'file_' + Date.now() + '_' + randomToken(6), name: uniqueName(source.name, parentId || null), folder: parentId || null, modifiedAt: Date.now(), modified: 'Just now', created: new Date().toISOString(), trashed: false, starred: false, lastOpenedAt: 0 }));
             }
         } else {
             if (driveClipboard.isFolder) source.parent = parentId || null;
@@ -2977,7 +3016,7 @@
 
     async function duplicateSuiteFile(file) {
         var s = storage();
-        var newId = 'copy_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+        var newId = 'copy_' + Date.now() + '_' + randomToken(6);
         if (file.appType === 'sheets') {
             try {
                 var db = await new Promise(function (resolve, reject) { var req = indexedDB.open('emeraldcore.storage.suite.sheets', 1); req.onsuccess = function () { resolve(req.result); }; req.onerror = function () { reject(req.error); }; });
@@ -3014,7 +3053,7 @@
     }
 
     async function duplicateFolder(folder, parent) {
-        var copy = { id: 'folder_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), name: uniqueFolderName(folder.name + ' copy', parent === undefined ? folder.parent : parent), parent: parent === undefined ? folder.parent : parent, color: folder.color };
+        var copy = { id: 'folder_' + Date.now() + '_' + randomToken(6), name: uniqueFolderName(folder.name + ' copy', parent === undefined ? folder.parent : parent), parent: parent === undefined ? folder.parent : parent, color: folder.color };
         folders.push(copy);
         var entries = files.filter(function (file) { return file.folder === folder.id && !file.trashed; });
         for (var i = 0; i < entries.length; i++) {
@@ -3022,7 +3061,7 @@
             if (file.externalApp) {
                 var newId = await duplicateSuiteFile(file);
                 if (newId) flagsMap[file.appType + ':' + newId] = { folder: copy.id };
-            } else files.push(Object.assign({}, file, { id: 'file_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), folder: copy.id, name: uniqueName(file.name, copy.id), modifiedAt: Date.now(), starred: false, lastOpenedAt: 0 }));
+            } else files.push(Object.assign({}, file, { id: 'file_' + Date.now() + '_' + randomToken(6), folder: copy.id, name: uniqueName(file.name, copy.id), modifiedAt: Date.now(), starred: false, lastOpenedAt: 0 }));
         }
         var childFolders = childrenOf(folder.id).slice();
         for (var childIndex = 0; childIndex < childFolders.length; childIndex++) await duplicateFolder(childFolders[childIndex], copy.id);
@@ -3362,7 +3401,7 @@
                     parts.pop();
                     parts.forEach(function (part) {
                         var found = folders.find(function (f) { return f.parent === parent && f.name === part && !f.trashed; });
-                        if (!found) { found = { id: 'folder_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7), name: part, parent: parent }; folders.push(found); }
+                        if (!found) { found = { id: 'folder_' + Date.now() + '_' + randomToken(7), name: part, parent: parent }; folders.push(found); }
                         parent = found.id;
                     });
                 }
@@ -3373,7 +3412,7 @@
                 if (isTextLikeFile({ name: name, mimeType: file.type || 'application/octet-stream' })) {
                     try { previewText = (await file.text()).slice(0, 20000); } catch (_) {}
                 }
-                files.push({ id: 'file_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9), name: name, type: type, folder: parent, size: formatBytes(file.size), sizeBytes: file.size, mimeType: file.type || 'application/octet-stream', dataUrl: await readFileAsDataUrl(file), previewText: previewText, modifiedAt: Date.now(), modified: 'Just now', created: new Date().toISOString(), starred: false, shared: false, trashed: false });
+                files.push({ id: 'file_' + Date.now() + '_' + randomToken(9), name: name, type: type, folder: parent, size: formatBytes(file.size), sizeBytes: file.size, mimeType: file.type || 'application/octet-stream', dataUrl: await readFileAsDataUrl(file), previewText: previewText, modifiedAt: Date.now(), modified: 'Just now', created: new Date().toISOString(), starred: false, shared: false, trashed: false });
             }
             await saveDriveData();
             if (window.showToast) window.showToast(entries.length + (entries.length === 1 ? ' file uploaded' : ' files uploaded'));
@@ -3769,7 +3808,7 @@
         if (!name) { if (window.showToast) window.showToast('Folder name cannot be empty'); return; }
         var parent = state.view === 'mydrive' ? state.folderId : null;
         if (folders.some(function (f) { return f.parent === parent && f.name.toLowerCase() === name.toLowerCase() && !f.trashed; })) { if (window.showToast) window.showToast('A folder with that name already exists here'); return; }
-        folders.push({ id: 'folder_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), name: name, parent: parent });
+        folders.push({ id: 'folder_' + Date.now() + '_' + randomToken(6), name: name, parent: parent });
         await saveDriveData();
         state.view = 'mydrive';
         setActiveNav('mydrive');
