@@ -68,7 +68,7 @@ function moveIndicator(tabEl) {
     var tabsEl = tabEl.closest('.cmd-tabs');
     var tabRect  = tabEl.getBoundingClientRect();
     var tabsRect = tabsEl.getBoundingClientRect();
-    var indicatorWidth = 28;
+    var indicatorWidth = 32;
     var center = tabRect.left - tabsRect.left + tabRect.width / 2;
     indicator.style.left = (center - indicatorWidth / 2) + 'px';
 }
@@ -141,6 +141,22 @@ window.addEventListener('DOMContentLoaded', function () {
 
     indicator.style.transition = 'none';
     showCategory(initCat, true);
+
+    // Re-measure once fonts have loaded so the indicator is perfectly
+    // centered on the active tab on first load. font-display: swap causes
+    // the tab text to reflow after the initial paint, which shifts the
+    // pill if measured too early.
+    function centerIndicator() {
+        var activeTab = document.querySelector('.cmd-tab.active');
+        if (activeTab) moveIndicator(activeTab);
+    }
+
+    if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(centerIndicator);
+    } else {
+        requestAnimationFrame(centerIndicator);
+    }
+
     requestAnimationFrame(function () {
         requestAnimationFrame(function () {
             indicator.style.transition = '';
