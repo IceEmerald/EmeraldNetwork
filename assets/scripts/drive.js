@@ -45,7 +45,8 @@
         body.innerHTML = '';
         if (options.message) { var message = document.createElement('p'); message.textContent = options.message; body.appendChild(message); }
         if (options.bodyHtml) {
-            var parsedBodyHtml = new DOMParser().parseFromString(String(options.bodyHtml), 'text/html');
+            var sanitizedBodyHtml = DOMPurify.sanitize(String(options.bodyHtml));
+            var parsedBodyHtml = new DOMParser().parseFromString(sanitizedBodyHtml, 'text/html');
             while (parsedBodyHtml.body.firstChild) body.appendChild(parsedBodyHtml.body.firstChild);
         }
         var control = null;
@@ -426,8 +427,8 @@
     function randomToken(len) {
         var chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
         var arr = new Uint8Array(len || 8);
-        if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(arr);
-        else for (var i = 0; i < arr.length; i++) arr[i] = Math.floor(Math.random() * 256);
+        if (!window.crypto || !window.crypto.getRandomValues) throw new Error('Secure randomness unavailable');
+        window.crypto.getRandomValues(arr);
         return Array.from(arr, function (b) { return chars[b % chars.length]; }).join('');
     }
     function safeMediaSrc(value) {
@@ -522,7 +523,8 @@
     }
 
     function plainTextFromHtml(value) {
-        var parsedHolder = new DOMParser().parseFromString(String(value || ''), 'text/html');
+        var sanitizedHolderHtml = DOMPurify.sanitize(String(value || ''));
+        var parsedHolder = new DOMParser().parseFromString(sanitizedHolderHtml, 'text/html');
         var holder = parsedHolder.body || parsedHolder.documentElement;
         return (holder.innerText || holder.textContent || '').replace(/\s+/g, ' ').trim();
     }
@@ -1121,7 +1123,8 @@
             html += tr.length ? gridHTML(tr) : emptyHTML(q ? 'No results' : 'Trash is empty', q ? 'Nothing matches your search.' : 'Deleted files appear here for 30 days.', q ? '/assets/images/nofilefound.webp' : '/assets/images/nofileyet.webp');
         }
 
-        var parsedBoxHtml = new DOMParser().parseFromString(String(html || ''), 'text/html');
+        var sanitizedBoxHtml = DOMPurify.sanitize(String(html || ''));
+        var parsedBoxHtml = new DOMParser().parseFromString(sanitizedBoxHtml, 'text/html');
         box.replaceChildren();
         while (parsedBoxHtml.body.firstChild) box.appendChild(parsedBoxHtml.body.firstChild);
         box.removeAttribute('aria-busy');
@@ -1569,7 +1572,13 @@
             var player = document.createElement('div');
             player.className = 'drive-video-player paused';
             var video = document.createElement('video');
-            video.src = safeMediaSrc(src);
+            var _videoSrc = '';
+            if (typeof src === 'string') {
+                var _vs = src.trim();
+                if (/^data:(?:audio|video)\//i.test(_vs) || /^blob:/i.test(_vs)) _videoSrc = _vs;
+                else try { var _vu = new URL(_vs, window.location.origin); if (_vu.protocol === 'http:' || _vu.protocol === 'https:') _videoSrc = _vu.href; } catch (_) {}
+            }
+            video.src = _videoSrc;
             video.preload = 'metadata';
             video.playsInline = true;
             video.muted = false;
@@ -1713,7 +1722,13 @@
             art.appendChild(artIcon);
             art.appendChild(wave);
             var audio = document.createElement('audio');
-            audio.src = safeMediaSrc(src);
+            var _audioSrc = '';
+            if (typeof src === 'string') {
+                var _as = src.trim();
+                if (/^data:(?:audio|video)\//i.test(_as) || /^blob:/i.test(_as)) _audioSrc = _as;
+                else try { var _au = new URL(_as, window.location.origin); if (_au.protocol === 'http:' || _au.protocol === 'https:') _audioSrc = _au.href; } catch (_) {}
+            }
+            audio.src = _audioSrc;
             audio.preload = 'metadata';
             var audioControls = document.createElement('div');
             audioControls.className = 'aud-controls';
@@ -1851,7 +1866,8 @@
                     var records = s && s.getJSON ? await s.getJSON('emeraldcore.storage.suite.notes') : [];
                     var note = Array.isArray(records) && records.find(function (entry) { return String(entry && entry.id) === String(file.id); });
                     if (!note) throw new Error('Note data is not available on this device.');
-                    var parsedHolder = new DOMParser().parseFromString(String(note.content || ''), 'text/html');
+                    var sanitizedNoteHtml = DOMPurify.sanitize(String(note.content || ''));
+                    var parsedHolder = new DOMParser().parseFromString(sanitizedNoteHtml, 'text/html');
                     var holder = parsedHolder.body || parsedHolder.documentElement;
                     blob = new Blob([holder.innerText || holder.textContent || ''], { type: 'text/plain;charset=utf-8' });
                     extension = '.txt';
@@ -1885,7 +1901,12 @@
         }
         if (!file.dataUrl) return;
         var anchor = document.createElement('a');
-        var safeDataUrl = safeDownloadUrl(file.dataUrl);
+        var safeDataUrl = '';
+        if (typeof file.dataUrl === 'string') {
+            var _du = file.dataUrl.trim();
+            if (/^data:/i.test(_du) || /^blob:/i.test(_du)) safeDataUrl = _du;
+            else try { var _durl = new URL(_du, window.location.origin); if (_durl.protocol === 'http:' || _durl.protocol === 'https:') safeDataUrl = _durl.href; } catch (_) {}
+        }
         if (!safeDataUrl) return;
         anchor.href = safeDataUrl;
         anchor.download = file.name;
@@ -1919,7 +1940,8 @@
             var noteStorage = storage();
             var records = noteStorage && noteStorage.getJSON ? await noteStorage.getJSON('emeraldcore.storage.suite.notes') : [];
             var note = Array.isArray(records) && records.find(function (entry) { return String(entry && entry.id) === String(file.id); });
-            var parsedHolder = new DOMParser().parseFromString(String(note && note.content || ''), 'text/html');
+            var sanitizedNoteContent = DOMPurify.sanitize(String(note && note.content || ''));
+            var parsedHolder = new DOMParser().parseFromString(sanitizedNoteContent, 'text/html');
             var holder = parsedHolder.body || parsedHolder.documentElement;
             return new TextEncoder().encode(holder.innerText || holder.textContent || '');
         }

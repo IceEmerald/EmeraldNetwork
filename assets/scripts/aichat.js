@@ -2383,9 +2383,7 @@ function renderRecents() {
   const sidebarHtml = groups.map((g) =>
     `<div class="sidebar-time-group">${g.label}</div>` + g.items.map(itemHTML).join("")
   ).join("");
-  const parsedSidebar = new DOMParser().parseFromString(sidebarHtml, "text/html");
-  container.replaceChildren();
-  while (parsedSidebar.body.firstChild) container.appendChild(parsedSidebar.body.firstChild);
+  container.innerHTML = DOMPurify.sanitize(sidebarHtml);
 }
 function loadConversation(id) {
   const conv = getConv(id);
@@ -7689,13 +7687,13 @@ function _esNormaliseAiRichText(html) {
   }
   return body.innerHTML;
 }
-function _esUid(prefix) { return (prefix || "el_") + Date.now().toString(36) + generateSecureId(6); }
+function _esUid(prefix) { return (prefix || "el_") + generateSecureId(12); }
 function _esWordCount(md) {
   const t = _esPlainText(md);
   return t ? t.split(/\s+/).filter(Boolean).length : 0;
 }
 async function _esImportNotes(data) {
-  const id = "note_" + Date.now() + "_" + generateSecureId(9);
+  const id = "note_" + generateSecureId(12);
   const now = new Date().toISOString();
   let arr = await _esStoreGet("emeraldcore.storage.suite.notes");
   arr = Array.isArray(arr) ? arr : [];
@@ -7714,7 +7712,7 @@ function _esWatermark(v) {
 }
 
 async function _esImportDoc(data) {
-  const id = "doc_" + Date.now() + "_" + generateSecureId(9);
+  const id = "doc_" + generateSecureId(12);
   const now = Date.now();
   const title = _esPlainText(data.title) || "Imported Document";
   const content = _esNormaliseAiRichText(_esHtml(data.content)) || "<p><br></p>";
@@ -8284,7 +8282,7 @@ slide.elements = els;
 }
 async function _esImportSlides(data) {
   await _esLoadIconDb();
-  const id = "pres_" + Date.now() + "_" + generateSecureId(9);
+  const id = "pres_" + generateSecureId(12);
   const now = Date.now();
   const title = _esPlainText(data.title) || "Imported Presentation";
   const slides = _esSplitSlides(data).map((s, i) => _esBuildSlide(s, data, i));
@@ -8510,7 +8508,7 @@ function _esBuildWorkbook(data, wbId, now) {
   };
 }
 async function _esImportSheets(data) {
-  const wbId = "book_" + Date.now() + "_" + generateSecureId(9);
+  const wbId = "book_" + generateSecureId(12);
   const now = Date.now();
   const built = _esBuildWorkbook(data, wbId, now);
   await _esSheetsPut(wbId, { id: wbId, data: built.data, savedAt: now });

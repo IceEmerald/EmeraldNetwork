@@ -3714,7 +3714,7 @@ class NotesApp {
         editor.style.fontSize = (parseFloat(getComputedStyle(editor).fontSize) * 0.9) + 'px';
     }
     generateId() {
-        return 'note_' + Date.now() + '_' + this.generateSecureId(9);
+        return 'note_' + this.generateSecureId(12);
     }
     generateSecureId(length = 16) {
         const arr = new Uint8Array(Math.ceil(length / 2));

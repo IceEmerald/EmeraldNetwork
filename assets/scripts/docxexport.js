@@ -1111,9 +1111,7 @@
       (((meta.margins || {}).left || 0) + ((meta.margins || {}).right || 0))));
     host.style.cssText = "position:absolute;left:-10000px;top:0;visibility:hidden;" +
       "box-sizing:border-box;width:" + innerW + "px;";
-    var parsedHostHtml = new DOMParser().parseFromString(String(html || ''), 'text/html');
-    host.replaceChildren();
-    while (parsedHostHtml.body.firstChild) host.appendChild(parsedHostHtml.body.firstChild);
+    host.innerHTML = DOMPurify.sanitize(String(html || ''));
     document.body.appendChild(host);
     try {
       return await fromPages([host], meta);
