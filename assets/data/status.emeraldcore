@@ -78,7 +78,9 @@
   ],
 
   "uptimeDays": {
-    "core": [],
+    "core": [
+      { "date": "25-11-2026", "type": "degraded" }
+    ],
     "website": [],
     "bot": [
       { "date": "02-06-2026", "type": "outage" },
@@ -90,7 +92,7 @@
   "incidents": [
     {
       "title": "EmeraldCore Degraded",
-      "desc": "EmeraldCore experienced degraded performance due to incorrect settings (missettings). Normal performance was restored after configuration adjustments.",
+      "desc": "EmeraldCore experienced degraded performance due to incorrect settings. Normal performance was restored after configuration adjustments.",
       "date": "25-11-2026",
       "currentIncident": false,
       "duration": "~2 hours"
