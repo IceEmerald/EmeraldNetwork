@@ -1971,7 +1971,7 @@ function startAutosaveSnapshots() {
   }
 
   function makeDocId() {
-    return "doc_" + Date.now() + "_" + generateSecureId(9);
+    return "doc_" + generateSecureId(12);
   }
 
   function nextUntitledTitle() {
@@ -8256,7 +8256,7 @@ function startAutosaveSnapshots() {
   var commentComposerCtx = null;
 
   function makeCommentId() {
-    return "c_" + Date.now() + "_" + generateSecureId(6);
+    return "c_" + generateSecureId(12);
   }
 
   function getComment(cid) {
@@ -9533,7 +9533,7 @@ function startAutosaveSnapshots() {
     while (block && !block.classList.contains("page-content")) block = block.parentElement;
     if (!block) return null;
 
-    var markerId = "ct_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+    var markerId = "ct_" + Array.from(crypto.getRandomValues(new Uint8Array(6)), function (b) { return b.toString(16).padStart(2, "0"); }).join("");
     try {
       var target = sel.anchorNode.nodeType === Node.TEXT_NODE ? sel.anchorNode.parentElement : sel.anchorNode;
       if (target) target.setAttribute("data-ct-marker", markerId);

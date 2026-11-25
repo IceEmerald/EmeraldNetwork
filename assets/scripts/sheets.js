@@ -18,7 +18,7 @@ const HDR_TXT = '#5f6368';
 const SERIES_COLORS = ['#217346', '#b75d0b', '#8b5e83', '#0f7c85', '#a4262c', '#5c5cb8', '#7a7564', '#c239b3', '#4f6bed', '#986f0b'];
 
 const clamp = (v, a, b) => v < a ? a : (v > b ? b : v);
-const uid = () => 'id' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
+const uid = () => 'id' + Array.from(crypto.getRandomValues(new Uint8Array(8)), b => b.toString(36)).join('').slice(0, 9);
 const key = (r, c) => r + ',' + c;
 
 const escapeHtml = s => String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));

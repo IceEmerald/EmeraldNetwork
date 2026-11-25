@@ -2925,7 +2925,7 @@
                 await duplicateSuiteFile(item);
                 await loadDriveData();
             }
-            else files.push(Object.assign({}, item, { id: 'file_' + Date.now(), name: uniqueName(item.name, item.folder), modifiedAt: Date.now(), trashed: false, starred: false }));
+            else files.push(Object.assign({}, item, { id: 'file_' + randomToken(9), name: uniqueName(item.name, item.folder), modifiedAt: Date.now(), trashed: false, starred: false }));
             await saveDriveData(); render(); return;
         }
     }
@@ -2954,7 +2954,7 @@
                 var copyId = await duplicateSuiteFile(source);
                 if (copyId) flagsMap[source.appType + ':' + copyId] = { folder: parentId || null };
             } else {
-                files.push(Object.assign({}, source, { id: 'file_' + Date.now() + '_' + randomToken(6), name: uniqueName(source.name, parentId || null), folder: parentId || null, modifiedAt: Date.now(), modified: 'Just now', created: new Date().toISOString(), trashed: false, starred: false, lastOpenedAt: 0 }));
+                files.push(Object.assign({}, source, { id: 'file_' + randomToken(9), name: uniqueName(source.name, parentId || null), folder: parentId || null, modifiedAt: Date.now(), modified: 'Just now', created: new Date().toISOString(), trashed: false, starred: false, lastOpenedAt: 0 }));
             }
         } else {
             if (driveClipboard.isFolder) source.parent = parentId || null;
@@ -3047,7 +3047,7 @@
 
     async function duplicateSuiteFile(file) {
         var s = storage();
-        var newId = 'copy_' + Date.now() + '_' + randomToken(6);
+        var newId = 'copy_' + randomToken(9);
         if (file.appType === 'sheets') {
             try {
                 var db = await new Promise(function (resolve, reject) { var req = indexedDB.open('emeraldcore.storage.suite.sheets', 1); req.onsuccess = function () { resolve(req.result); }; req.onerror = function () { reject(req.error); }; });
@@ -3084,7 +3084,7 @@
     }
 
     async function duplicateFolder(folder, parent) {
-        var copy = { id: 'folder_' + Date.now() + '_' + randomToken(6), name: uniqueFolderName(folder.name + ' copy', parent === undefined ? folder.parent : parent), parent: parent === undefined ? folder.parent : parent, color: folder.color };
+        var copy = { id: 'folder_' + randomToken(9), name: uniqueFolderName(folder.name + ' copy', parent === undefined ? folder.parent : parent), parent: parent === undefined ? folder.parent : parent, color: folder.color };
         folders.push(copy);
         var entries = files.filter(function (file) { return file.folder === folder.id && !file.trashed; });
         for (var i = 0; i < entries.length; i++) {
@@ -3092,7 +3092,7 @@
             if (file.externalApp) {
                 var newId = await duplicateSuiteFile(file);
                 if (newId) flagsMap[file.appType + ':' + newId] = { folder: copy.id };
-            } else files.push(Object.assign({}, file, { id: 'file_' + Date.now() + '_' + randomToken(6), folder: copy.id, name: uniqueName(file.name, copy.id), modifiedAt: Date.now(), starred: false, lastOpenedAt: 0 }));
+            } else files.push(Object.assign({}, file, { id: 'file_' + randomToken(9), folder: copy.id, name: uniqueName(file.name, copy.id), modifiedAt: Date.now(), starred: false, lastOpenedAt: 0 }));
         }
         var childFolders = childrenOf(folder.id).slice();
         for (var childIndex = 0; childIndex < childFolders.length; childIndex++) await duplicateFolder(childFolders[childIndex], copy.id);
@@ -3432,7 +3432,7 @@
                     parts.pop();
                     parts.forEach(function (part) {
                         var found = folders.find(function (f) { return f.parent === parent && f.name === part && !f.trashed; });
-                        if (!found) { found = { id: 'folder_' + Date.now() + '_' + randomToken(7), name: part, parent: parent }; folders.push(found); }
+                        if (!found) { found = { id: 'folder_' + randomToken(10), name: part, parent: parent }; folders.push(found); }
                         parent = found.id;
                     });
                 }
@@ -3443,7 +3443,7 @@
                 if (isTextLikeFile({ name: name, mimeType: file.type || 'application/octet-stream' })) {
                     try { previewText = (await file.text()).slice(0, 20000); } catch (_) {}
                 }
-                files.push({ id: 'file_' + Date.now() + '_' + randomToken(9), name: name, type: type, folder: parent, size: formatBytes(file.size), sizeBytes: file.size, mimeType: file.type || 'application/octet-stream', dataUrl: await readFileAsDataUrl(file), previewText: previewText, modifiedAt: Date.now(), modified: 'Just now', created: new Date().toISOString(), starred: false, shared: false, trashed: false });
+                files.push({ id: 'file_' + randomToken(12), name: name, type: type, folder: parent, size: formatBytes(file.size), sizeBytes: file.size, mimeType: file.type || 'application/octet-stream', dataUrl: await readFileAsDataUrl(file), previewText: previewText, modifiedAt: Date.now(), modified: 'Just now', created: new Date().toISOString(), starred: false, shared: false, trashed: false });
             }
             await saveDriveData();
             if (window.showToast) window.showToast(entries.length + (entries.length === 1 ? ' file uploaded' : ' files uploaded'));
@@ -3839,7 +3839,7 @@
         if (!name) { if (window.showToast) window.showToast('Folder name cannot be empty'); return; }
         var parent = state.view === 'mydrive' ? state.folderId : null;
         if (folders.some(function (f) { return f.parent === parent && f.name.toLowerCase() === name.toLowerCase() && !f.trashed; })) { if (window.showToast) window.showToast('A folder with that name already exists here'); return; }
-        folders.push({ id: 'folder_' + Date.now() + '_' + randomToken(6), name: name, parent: parent });
+        folders.push({ id: 'folder_' + randomToken(9), name: name, parent: parent });
         await saveDriveData();
         state.view = 'mydrive';
         setActiveNav('mydrive');

@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    const TAB = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    const TAB = Array.from(crypto.getRandomValues(new Uint32Array(2)), function (n) { return n.toString(36); }).join('');
 
     const APPS = {
         notes: {

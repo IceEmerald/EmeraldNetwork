@@ -2763,7 +2763,7 @@ async function renderPptxSlides(fileData, body) {
       html += "</div>";
       slideHtmls.push(html);
     }
-    const vid = "pptx" + Date.now();
+    const vid = "pptx" + generateSecureId(12);
     body.innerHTML = `<div class="pptx-viewer" id="${vid}"><div class="pptx-wrap" style="overflow:hidden;"><div id="${vid}-sc" style="display:block;">${slideHtmls[0]}</div></div><div class="pptx-nav"><button class="pptx-btn" onclick="_pptxGo('${vid}',-1)">&#8592; Prev</button><span class="pptx-ctr" id="${vid}-ctr">1 / ${slideHtmls.length}</span><button class="pptx-btn" onclick="_pptxGo('${vid}',1)">Next &#8594;</button></div></div>`;
     const doScale = () => {
       const wrap = document.querySelector(`#${vid} .pptx-wrap`);
@@ -2860,7 +2860,7 @@ async function renderPdfCustom(fileData, body) {
     const u8 = new Uint8Array(raw.length);
     for (let i = 0; i < raw.length; i++) u8[i] = raw.charCodeAt(i);
     const pdf = await window.pdfjsLib.getDocument({ data: u8 }).promise;
-    const vid = "pdf" + Date.now();
+    const vid = "pdf" + generateSecureId(12);
     body.innerHTML = `<div class="doc-viewer" id="${vid}"><div class="doc-canvas-wrap"><canvas id="${vid}-cv"></canvas></div><div class="pptx-nav"><button class="pptx-btn" onclick="_pdfGo('${vid}',-1)">&#8592; Prev</button><span class="pptx-ctr" id="${vid}-ctr">1 / ${pdf.numPages}</span><button class="pptx-btn" onclick="_pdfGo('${vid}',1)">Next &#8594;</button></div></div>`;
     window[`__pf_${vid}`] = { pdf, cur: 1, total: pdf.numPages };
     await _pdfRenderPage(vid, 1);
