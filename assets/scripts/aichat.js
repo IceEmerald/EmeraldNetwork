@@ -155,10 +155,8 @@ function loadSettings() {
 async function initTheme() {
   await migrateChatStorageToIndexedDB();
   applyTheme(loadSettings().theme || "system");
-
+ 
   refreshThinkingToggleUI();
-
-  restoreConversationOnReload();
 }
 function saveSettingsObj(o) {
   S.set(SETTINGS_KEY, o);
@@ -2383,7 +2381,7 @@ function renderRecents() {
   const sidebarHtml = groups.map((g) =>
     `<div class="sidebar-time-group">${g.label}</div>` + g.items.map(itemHTML).join("")
   ).join("");
-  container.innerHTML = DOMPurify.sanitize(sidebarHtml);
+  container.innerHTML = sidebarHtml;
 }
 function loadConversation(id) {
   const conv = getConv(id);

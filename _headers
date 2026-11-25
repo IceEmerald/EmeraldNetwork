@@ -8,4 +8,4 @@ Strict-Transport-Security: max-age=31556952; includeSubDomains; preload
 
 Referrer-Policy: origin-when-cross-origin
 
-Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), vibrate=()
+Permissions-Policy: camera=(self), microphone=(self), geolocation=(), payment=(), usb=(), vibrate=()
