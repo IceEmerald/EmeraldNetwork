@@ -78,7 +78,9 @@
   ],
 
   "uptimeDays": {
-    "core": [],
+    "core": [
+      { "date": "25-11-2026", "type": "degraded" }
+    ],
     "website": [],
     "bot": [
       { "date": "02-06-2026", "type": "outage" },
@@ -88,6 +90,13 @@
   },
 
   "incidents": [
+    {
+      "title": "EmeraldCore Degraded",
+      "desc": "EmeraldCore is currently experiencing degraded performance. The issue is still existing and ongoing; investigation is in progress.",
+      "date": "25-11-2026",
+      "currentIncident": true,
+      "duration": ""
+    },
     {
       "title": "EmeraldBot Down",
       "desc": "EmeraldBot outage lasted approximately 1 hour and services have been restored.",

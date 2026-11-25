@@ -4745,13 +4745,14 @@ async function streamEmeraldBot(history, _unused, onChunk, options = {}) {
   let res;
   try {
     if (window.EmeraldAuth && typeof window.EmeraldAuth.ready === "function") {
-      await window.EmeraldAuth.ready().catch(() => null);
+      await Promise.race([window.EmeraldAuth.ready().catch(() => null), new Promise((r) => setTimeout(r, 1500))]);
     }
     if (window.EmeraldAuth && typeof window.EmeraldAuth.getSyncState === "function" &&
         typeof window.EmeraldAuth.syncCurrentData === "function") {
       const syncState = window.EmeraldAuth.getSyncState();
       if (syncState && syncState.pending && syncState.online) {
-        await window.EmeraldAuth.syncCurrentData().catch(() => null);
+        // Don't block the chat request on a pending sync; let it finish in the background.
+        window.EmeraldAuth.syncCurrentData().catch(() => null);
       }
     }
     const headers = { "Content-Type": "application/json" };
@@ -10743,7 +10744,7 @@ function updateRegenNavDOM(branchId) {
 }
 function detectWebSearchIntent(text) {
   if (!text) return false;
-  return /\b(search|look up|look it up|look for|look on|find|find out|google|browse|open|visit|go to|check out|navigate to|load|show me|latest|current|today'?s|today is|right now|live|breaking news|what'?s happening|real.?time|stock price|weather|recent|this week|this year|news|update|happened|who is|who are|what is|what are|when did|where is|how much|how many|check|tell me about|give me info|any info)\b/i.test(text);
+  return /\b(search(?: the)? (?:web|internet|online)|look up|look it up|google|browse(?: the web| online)?|find out|latest|current(?: events| news| info| price| stock)?|today'?s (?:news|weather)|breaking news|real.?time|stock price|weather|recent|this week|this year|news|updates?|what'?s happening|happened)\b/i.test(text);
 }
 function extractUrls(text) {
   if (!text) return [];
@@ -10781,7 +10782,7 @@ async function proxySearch(endpoint, params) {
     const url = new URL(endpoint, SEARCH_PROXY_URL + "/");
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 12e3);
+    const t = setTimeout(() => ctrl.abort(), 8e3);
     const r = await fetch(url.toString(), { signal: ctrl.signal });
     clearTimeout(t);
     if (r.ok) return await r.json();
