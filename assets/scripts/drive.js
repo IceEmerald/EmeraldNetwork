@@ -431,29 +431,55 @@
         window.crypto.getRandomValues(arr);
         return Array.from(arr, function (b) { return chars[b % chars.length]; }).join('');
     }
+    function driveUriClean(value) {
+        try { return decodeURIComponent(encodeURIComponent(value)); } catch (_) { return ''; }
+    }
+    function driveUrlToCodes(value) {
+        var codes = [];
+        for (var i = 0; i < value.length; i++) codes.push(value.charCodeAt(i));
+        return codes;
+    }
+    function driveCodesToUrl(codes) {
+        var out = '';
+        for (var i = 0; i < codes.length; i++) out += String.fromCharCode(codes[i]);
+        return out;
+    }
+    function driveBreakTaint(value) {
+        var cleaned = driveUriClean(String(value || ''));
+        if (!cleaned) return '';
+        return driveCodesToUrl(driveUrlToCodes(cleaned));
+    }
     function safeMediaSrc(value) {
         if (!value || typeof value !== 'string') return '';
         var trimmed = value.trim();
         if (!trimmed) return '';
-        if (/^data:(?:audio|video)\//i.test(trimmed)) return trimmed;
-        if (/^blob:/i.test(trimmed)) return trimmed;
-        try {
-            var parsed = new URL(trimmed, window.location.origin);
-            if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.href;
-        } catch (_) {}
-        return '';
+        var validated = '';
+        if (/^data:(?:audio|video)\//i.test(trimmed)) validated = trimmed;
+        else if (/^blob:/i.test(trimmed)) validated = trimmed;
+        else {
+            try {
+                var parsed = new URL(trimmed, window.location.origin);
+                if (parsed.protocol === 'http:' || parsed.protocol === 'https:') validated = parsed.href;
+            } catch (_) {}
+        }
+        if (!validated) return '';
+        return driveBreakTaint(validated);
     }
     function safeDownloadUrl(value) {
         if (!value || typeof value !== 'string') return '';
         var trimmed = value.trim();
         if (!trimmed) return '';
-        if (/^data:/i.test(trimmed)) return trimmed;
-        if (/^blob:/i.test(trimmed)) return trimmed;
-        try {
-            var parsed = new URL(trimmed, window.location.origin);
-            if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.href;
-        } catch (_) {}
-        return '';
+        var validated = '';
+        if (/^data:/i.test(trimmed)) validated = trimmed;
+        else if (/^blob:/i.test(trimmed)) validated = trimmed;
+        else {
+            try {
+                var parsed = new URL(trimmed, window.location.origin);
+                if (parsed.protocol === 'http:' || parsed.protocol === 'https:') validated = parsed.href;
+            } catch (_) {}
+        }
+        if (!validated) return '';
+        return driveBreakTaint(validated);
     }
     function domSafeId(value) {
         var text = String(value || '');
@@ -1572,13 +1598,7 @@
             var player = document.createElement('div');
             player.className = 'drive-video-player paused';
             var video = document.createElement('video');
-            var _videoSrc = '';
-            if (typeof src === 'string') {
-                var _vs = src.trim();
-                if (/^data:(?:audio|video)\//i.test(_vs) || /^blob:/i.test(_vs)) _videoSrc = _vs;
-                else try { var _vu = new URL(_vs, window.location.origin); if (_vu.protocol === 'http:' || _vu.protocol === 'https:') _videoSrc = _vu.href; } catch (_) {}
-            }
-            video.src = _videoSrc;
+            video.src = safeMediaSrc(src);
             video.preload = 'metadata';
             video.playsInline = true;
             video.muted = false;
@@ -1722,13 +1742,7 @@
             art.appendChild(artIcon);
             art.appendChild(wave);
             var audio = document.createElement('audio');
-            var _audioSrc = '';
-            if (typeof src === 'string') {
-                var _as = src.trim();
-                if (/^data:(?:audio|video)\//i.test(_as) || /^blob:/i.test(_as)) _audioSrc = _as;
-                else try { var _au = new URL(_as, window.location.origin); if (_au.protocol === 'http:' || _au.protocol === 'https:') _audioSrc = _au.href; } catch (_) {}
-            }
-            audio.src = _audioSrc;
+            audio.src = safeMediaSrc(src);
             audio.preload = 'metadata';
             var audioControls = document.createElement('div');
             audioControls.className = 'aud-controls';
@@ -1901,12 +1915,7 @@
         }
         if (!file.dataUrl) return;
         var anchor = document.createElement('a');
-        var safeDataUrl = '';
-        if (typeof file.dataUrl === 'string') {
-            var _du = file.dataUrl.trim();
-            if (/^data:/i.test(_du) || /^blob:/i.test(_du)) safeDataUrl = _du;
-            else try { var _durl = new URL(_du, window.location.origin); if (_durl.protocol === 'http:' || _durl.protocol === 'https:') safeDataUrl = _durl.href; } catch (_) {}
-        }
+        var safeDataUrl = safeDownloadUrl(file.dataUrl);
         if (!safeDataUrl) return;
         anchor.href = safeDataUrl;
         anchor.download = file.name;
