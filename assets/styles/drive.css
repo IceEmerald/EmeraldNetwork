@@ -262,7 +262,10 @@ html[data-wiki-theme="dark"] .drive-storage-title { color: rgb(210,210,210); }
     #driveContent.is-switching { filter: none; opacity: 0; }
 }
 
-/* ---- folder color choices inside the shared context menu ---- */
+/* ---- folder color choices and title cap inside the shared context menu ---- */
+#custom-context-menu.rightclick-menu { max-width: 300px; }
+#custom-context-menu .context-title svg { flex-shrink: 0; }
+#custom-context-menu .context-title span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .drive-folder-color-section { padding: 8px 16px 10px; }
 .drive-context-label { display: block; color: #555; font: 600 .78rem 'DM Sans', sans-serif; }
 .drive-folder-colors { display: flex; align-items: center; gap: 9px; padding-top: 8px; }

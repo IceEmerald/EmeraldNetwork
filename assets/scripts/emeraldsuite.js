@@ -630,10 +630,28 @@
     function bindUI() {
         const grid = $('filesGrid');
 
-        document.addEventListener('click', (e) => {
+        let suppressNextFileContextMenu = false;
+
+        document.addEventListener('pointerdown', (e) => {
             const menu = $('fileMenu');
-            if (menu && !menu.hidden && !menu.contains(e.target)) hideFileMenu();
-        });
+            if (!menu || menu.hidden) return;
+            const pressed = e.target && e.target.nodeType === 1 ? e.target : e.target?.parentElement;
+            if (pressed && menu.contains(pressed)) return;
+            hideFileMenu();
+            if (e.button === 2) {
+                suppressNextFileContextMenu = true;
+                setTimeout(() => { suppressNextFileContextMenu = false; }, 700);
+            }
+        }, true);
+
+        document.addEventListener('contextmenu', (e) => {
+            if (suppressNextFileContextMenu) {
+                suppressNextFileContextMenu = false;
+                e.preventDefault();
+                e.stopPropagation();
+                hideFileMenu();
+            }
+        }, true);
 
         document.addEventListener('contextmenu', (e) => {
             const card = e.target.closest('.file-card, .file-row, .recent-card');

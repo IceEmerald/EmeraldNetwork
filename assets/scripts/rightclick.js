@@ -1,6 +1,31 @@
 const contextMenu = document.getElementById("custom-context-menu");
 let clickedElement = null;
 let selectedText = "";
+let suppressNextContextMenu = false;
+
+function hideContextMenu() {
+  if (contextMenu) contextMenu.style.display = "none";
+}
+
+document.addEventListener("pointerdown", function (e) {
+  if (!contextMenu || contextMenu.style.display !== "block") return;
+  const pressed = e.target && e.target.nodeType === 1 ? e.target : e.target?.parentElement;
+  if (pressed && pressed.closest("#custom-context-menu")) return;
+  hideContextMenu();
+  if (e.button === 2) {
+    suppressNextContextMenu = true;
+    setTimeout(() => { suppressNextContextMenu = false; }, 700);
+  }
+}, true);
+
+window.addEventListener("contextmenu", function (e) {
+  if (suppressNextContextMenu) {
+    suppressNextContextMenu = false;
+    e.preventDefault();
+    e.stopPropagation();
+    hideContextMenu();
+  }
+}, true);
 
 window.addEventListener("contextmenu", function (e) {
   const sel = window.getSelection();
@@ -9,13 +34,13 @@ window.addEventListener("contextmenu", function (e) {
   // If text is selected, allow the native context menu instead of showing the custom one
   if (selectedText) {
     clickedElement = e.target;
+    hideContextMenu();
     return;
   }
 
+  if (!contextMenu) return;
   e.preventDefault();
   clickedElement = e.target;
-  const sel = window.getSelection();
-  selectedText = sel ? sel.toString().trim() : "";
   contextMenu.style.top = "-9999px";
   contextMenu.style.left = "-9999px";
   contextMenu.style.display = "block";
@@ -34,7 +59,11 @@ window.addEventListener("contextmenu", function (e) {
 });
 
 window.addEventListener("click", () => {
-  contextMenu.style.display = "none";
+  hideContextMenu();
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") hideContextMenu();
 });
 
 function escHtml(s) {
@@ -45,7 +74,7 @@ let toastTimer;
 function showToast(message) {
   const toast = document.getElementById("custom-toast");
   let html = String(message);
-  if (!/^\\s*<svg\\b/i.test(html)) {
+  if (!/^\s*<svg\b/i.test(html)) {
     html = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;opacity:0.85"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>' + html;
   }
   toast.innerHTML = html;
@@ -104,8 +133,11 @@ function showElementInfo() {
   }
   const tag = escHtml(clickedElement.tagName);
   const id = clickedElement.id ? `#${escHtml(truncate(clickedElement.id, 100))}` : null;
-  const classList = clickedElement.className
+  const rawClass = typeof clickedElement.className === "string"
     ? clickedElement.className
+    : (clickedElement.getAttribute && clickedElement.getAttribute("class")) || "";
+  const classList = rawClass
+    ? rawClass
         .split(" ")
         .filter(cls => cls)
         .map(cls => `.${escHtml(truncate(cls, 100))}`)
