@@ -4057,11 +4057,6 @@ body.light-mode .lib-item:hover {
 .lib-item:hover {
     background: rgba(255, 255, 255, 0.04);
 }
-.message.lib-scroll-target, .message.lib-scroll-target .message-body {
-    background: rgba(59, 130, 246, 0.12);
-    border-radius: 8px;
-    transition: background 0.3s ease;
-}
 
 .mobile-hamburger {
     display: none;

@@ -5208,10 +5208,6 @@ function scrollToChatMessage(msgId) {
   try { el = document.querySelector(`[data-msg-id="${CSS.escape(String(msgId))}"]`); } catch (e) { el = document.querySelector(`[data-msg-id="${String(msgId)}"]`); }
   if (!el) return false;
   try { el.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (e) { el.scrollIntoView(); }
-  try {
-    el.classList.add("lib-scroll-target");
-    setTimeout(() => { try { el.classList.remove("lib-scroll-target"); } catch (e) {} }, 1800);
-  } catch (e) {}
   return true;
 }
 function openLibraryFile(libId) {
