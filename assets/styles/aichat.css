@@ -1878,7 +1878,7 @@ body.light-mode .chat-input-box.input-busy .input-container {
 
 .ai-toast {
     position: fixed;
-    bottom: 100px;
+    bottom: 85px;
     left: 50%;
     transform: translateX(-50%);
     background: rgba(255, 255, 255, 0.95);
@@ -1906,7 +1906,7 @@ body.light-mode .chat-input-box.input-busy .input-container {
 
 @media (min-width: 1024px) {
     .ai-toast {
-        bottom: 135px;
+        bottom: 110px;
     }
 }
 
