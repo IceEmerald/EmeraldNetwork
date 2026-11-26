@@ -1904,6 +1904,12 @@ body.light-mode .chat-input-box.input-busy .input-container {
     transform: translateX(-50%) translateY(-10px);
 }
 
+@media (min-width: 1024px) {
+    .ai-toast {
+        bottom: 170px;
+    }
+}
+
 .ai-toast.ai-toast--error {
     background: rgb(255, 240, 240);
     color: rgb(192, 57, 43);
