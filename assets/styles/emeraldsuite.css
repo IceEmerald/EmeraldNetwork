@@ -391,12 +391,25 @@ body {
     display: flex;
     align-items: center;
     gap: 6px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
     background: rgba(255, 255, 255, 0.8);
     border: 1px solid rgba(0, 0, 0, 0.07);
     border-radius: 12px;
     padding: 5px;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+}
+.filter-bar::-webkit-scrollbar {
+    height: 6px;
+}
+.filter-bar::-webkit-scrollbar-track {
+    background: transparent;
+}
+.filter-bar::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 3px;
 }
 
 .filter-btn {
@@ -412,6 +425,8 @@ body {
     font-size: 13px;
     font-weight: 600;
     color: #6b7280;
+    white-space: nowrap;
+    flex-shrink: 0;
     transition: all 0.2s ease;
 }
 
@@ -1404,11 +1419,12 @@ body {
 .app-tile-desc { font-size: 11.5px; color: #8a8886; }
 
 .files-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 0 12px; }
-.filter-bar { display: flex; flex-wrap: wrap; gap: 6px; }
+.filter-bar { display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
 .filter-btn {
   display: inline-flex; align-items: center; gap: 6px;
   background: #fff; border: 1px solid #edebe9; border-radius: 999px;
   padding: 6px 13px; font-size: 12.5px; font-weight: 500; color: #605e5c; cursor: pointer;
+  white-space: nowrap; flex-shrink: 0;
   transition: border-color .15s, background .15s, color .15s;
 }
 .filter-btn:hover { border-color: var(--ui-accent-border); color: #201f1e; }
@@ -1813,13 +1829,14 @@ body {
 .sort-select, .icon-btn { height: 34px; }
 
 .filter-bar {
-  display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 2px;
+  display: flex; flex-wrap: nowrap; gap: 2px; padding: 2px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin;
   background: rgba(0, 0, 0, 0.04); border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 7px; box-shadow: rgba(0, 0, 0, 0.04) 0 1px 2px inset;
 }
 .filter-btn {
   padding: 6px 12px; background: transparent; border: none; box-shadow: none;
   border-radius: 6px; font-size: 12.5px; font-weight: 600; color: rgba(44, 62, 80, 0.7);
+  white-space: nowrap; flex-shrink: 0;
   transition: background .18s, color .18s, box-shadow .18s;
 }
 .filter-btn:hover { color: rgba(44, 62, 80, 0.95); background: rgba(255, 255, 255, 0.6); }

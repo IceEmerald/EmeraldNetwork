@@ -511,12 +511,18 @@
             if (state.search) {
                 title.textContent = 'No matching files';
                 text.textContent = 'Nothing matched “' + esc(state.search) + '”. Try a different search.';
+                const img = $('emptyStateImg');
+                if (img) { img.src = '/assets/images/nofilefound.webp'; img.hidden = false; }
             } else if (app) {
                 title.textContent = 'No ' + app.urlLabel.toLowerCase() + ' yet';
                 text.textContent = 'Create a new ' + app.label.toLowerCase() + ' and it will appear here automatically.';
+                const img = $('emptyStateImg');
+                if (img) img.hidden = true;
             } else {
                 title.textContent = 'No files yet';
                 text.textContent = 'Create a note, document, presentation or spreadsheet and it will appear here.';
+                const img = $('emptyStateImg');
+                if (img) img.hidden = true;
             }
             return;
         }
