@@ -981,117 +981,26 @@ body {
 }
 
 .file-menu {
-    position: fixed;
     z-index: 10010;
-    min-width: 240px;
-    background: rgba(255, 255, 255, 0.97);
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    border-radius: 12px;
-    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.18);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    padding: 6px;
-    animation: menuIn 0.16s ease-out;
-    overflow: hidden;
+    max-width: 300px;
+    -webkit-backdrop-filter: blur(3px);
 }
 
-@keyframes menuIn {
-    from { opacity: 0; transform: translateY(-4px) scale(0.98); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-.file-menu-head {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 12px 12px 10px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.07);
-    margin-bottom: 4px;
-}
-
-.file-menu-head .fm-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: #1c2833;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.file-menu-head .fm-icon {
+.file-menu .fm-icon {
     display: inline-flex;
-    width: 22px;
-    height: 22px;
-    border-radius: 7px;
-    background: var(--soft, var(--ui-accent-soft));
-    color: var(--c, var(--ui-accent));
     align-items: center;
-    justify-content: center;
     flex-shrink: 0;
 }
 
-.file-menu-head .fm-icon svg {
-    width: 14px;
-    height: 14px;
+.file-menu .fm-icon svg {
+    width: 12px;
+    height: 12px;
 }
 
-.file-menu-head .fm-meta {
-    font-size: 11px;
-    font-weight: 500;
-    color: #9aa1ab;
-}
-
-.file-menu-body {
-    display: flex;
-    flex-direction: column;
-}
-
-.fm-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: none;
-    border: none;
-    padding: 9px 12px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 13px;
-    font-weight: 500;
-    color: #333;
-    text-align: left;
-    transition: background 0.15s ease;
-}
-
-.fm-item svg {
-    width: 14px;
-    height: 14px;
-    color: #6b7280;
-}
-
-.fm-item:hover {
-    background: rgba(0, 0, 0, 0.05);
-}
-
-.fm-item.fm-danger {
-    color: #d93025;
-}
-
-.fm-item.fm-danger svg {
-    color: #d93025;
-}
-
-.fm-item.fm-danger:hover {
-    background: rgba(217, 48, 37, 0.07);
-}
-
-.fm-sep {
-    height: 1px;
-    background: rgba(0, 0, 0, 0.07);
-    margin: 4px 6px;
+.file-menu .fm-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .modal-overlay {
@@ -1525,7 +1434,7 @@ body {
 .card-thumb img, .card-thumb svg { width: 44px; height: 44px; opacity: .9; }
 
 .empty-state[hidden] { display: none; }
-.new-menu[hidden], .file-menu[hidden] { display: none; }
+.new-menu[hidden], .file-menu[hidden] { display: none !important; }
 
 .su-top .logo .icon-primary { width: 28px; height: 28px; object-fit: contain; margin-bottom: 0; }
 

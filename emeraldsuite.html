@@ -168,19 +168,21 @@
         </div>
     </div>
 
-    <div class="file-menu" id="fileMenu" hidden>
-        <div class="file-menu-head" id="fileMenuHead">
+    <div class="rightclick-menu file-menu" id="fileMenu" hidden role="menu">
+        <div class="context-title" id="fileMenuHead">
             <span class="fm-icon" id="fmIcon"></span>
             <span class="fm-title" id="fmTitle"></span>
-            <span class="fm-meta" id="fmMeta"></span>
         </div>
-        <div class="file-menu-body">
-            <button class="fm-item" data-fm="open"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>Open</button>
-            <button class="fm-item" data-fm="newtab"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>Open in new tab</button>
-            <button class="fm-item" data-fm="copy"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Copy link</button>
-            <div class="fm-sep"></div>
-            <button class="fm-item" data-fm="rename"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Rename</button>
-            <button class="fm-item fm-danger" data-fm="delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>Delete</button>
+        <div class="context-text" id="fmMeta"></div>
+        <div class="context-section">
+            <a href="#" role="menuitem" data-fm="open">Open</a>
+            <a href="#" role="menuitem" data-fm="newtab">Open in new tab</a>
+            <a href="#" role="menuitem" data-fm="copy">Copy link</a>
+            <a href="#" role="menuitem" data-fm="rename">Rename</a>
+        </div>
+        <div class="ctx-divider"></div>
+        <div class="context-section">
+            <a href="#" role="menuitem" class="ctx-danger" data-fm="delete">Delete</a>
         </div>
     </div>
 

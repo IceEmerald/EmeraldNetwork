@@ -1433,6 +1433,126 @@ function _mdTintBody(body) {
   return /<\/?p[\s>]/i.test(m[1]) ? body : m[1];
 }
 
+function _countPrecedingBackslashes(str, idx) {
+  let count = 0;
+  for (let i = idx - 1; i >= 0 && str[i] === "\\"; i--) count++;
+  return count;
+}
+
+function _extractBlockDollarMath(text, mathBlocks) {
+  let out = "";
+  let lastEnd = 0;
+  let pos = 0;
+  const len = text.length;
+  while (pos < len) {
+    const open = text.indexOf("$$", pos);
+    if (open === -1) break;
+    if (_countPrecedingBackslashes(text, open) % 2 === 1) {
+      pos = open + 2;
+      continue;
+    }
+    let close = -1;
+    let j = open + 2;
+    while (j < len - 1) {
+      if (text[j] === "\\") {
+        j += 2;
+        continue;
+      }
+      if (text[j] === "$" && text[j + 1] === "$") {
+        close = j;
+        break;
+      }
+      j++;
+    }
+    if (close === -1) {
+      pos = open + 2;
+      continue;
+    }
+    const inner = text.slice(open + 2, close);
+    if (!inner.trim()) {
+      pos = close + 2;
+      continue;
+    }
+    out += text.slice(lastEnd, open);
+    const idx = mathBlocks.push({ type: "block", src: inner }) - 1;
+    out += `MATHBLOCK${idx}MATHBLOCK`;
+    lastEnd = close + 2;
+    pos = lastEnd;
+  }
+  return out + text.slice(lastEnd);
+}
+
+function _extractInlineDollarMath(text, mathBlocks) {
+  let out = "";
+  let lastEnd = 0;
+  let pos = 0;
+  const len = text.length;
+  while (pos < len) {
+    const open = text.indexOf("$", pos);
+    if (open === -1) break;
+    if (_countPrecedingBackslashes(text, open) % 2 === 1) {
+      pos = open + 1;
+      continue;
+    }
+    if (text[open + 1] === "$") {
+      pos = open + 2;
+      continue;
+    }
+    if (open + 1 >= len || /\s/.test(text[open + 1])) {
+      pos = open + 1;
+      continue;
+    }
+    let close = -1;
+    let j = open + 1;
+    while (j < len) {
+      const ch = text[j];
+      if (ch === "\n" || ch === "\r") break;
+      if (ch === "\\") {
+        if (j + 1 < len && text[j + 1] !== "\n" && text[j + 1] !== "\r") {
+          j += 2;
+          continue;
+        }
+        break;
+      }
+      if (ch === "$") {
+        if (text[j + 1] === "$") break;
+        close = j;
+        break;
+      }
+      j++;
+    }
+    if (close === -1) {
+      pos = open + 1;
+      continue;
+    }
+    const inner = text.slice(open + 1, close);
+    const afterClose = text[close + 1] || "";
+    const lineStart = text.lastIndexOf("\n", open - 1) + 1;
+    const isTableLine = /\|/.test(text.slice(lineStart, open));
+    const hasLaTeX = /\\[a-zA-Z]/.test(inner);
+    const isProse =
+      /["“”]/.test(inner) ||
+      /\.\s/.test(inner) ||
+      (!hasLaTeX && (inner.match(/[a-zA-Z]{2,}/g) || []).length >= 3);
+    const crossesTablePipe =
+      isTableLine &&
+      ((inner.endsWith("|") && !/^\|.*\|$/.test(inner)) ||
+        (!hasLaTeX && /\s\|\s/.test(inner)));
+
+    if (!inner || /\s/.test(inner[inner.length - 1]) || /\d/.test(afterClose) || isProse || crossesTablePipe) {
+      pos = open + 1;
+      continue;
+    }
+
+    out += text.slice(lastEnd, open);
+    const idx = mathBlocks.push({ type: "inline", src: inner }) - 1;
+    out += `MATHINLINE${idx}MATHINLINE`;
+    lastEnd = close + 1;
+    pos = lastEnd;
+  }
+  return out + text.slice(lastEnd);
+}
+
 function renderMarkdown(raw) {
   if (typeof marked === "undefined") return escapeHtml(raw);
   let text = raw;
@@ -1516,51 +1636,14 @@ function renderMarkdown(raw) {
     return `CODEBLOCK${i}`;
   });
   const mathBlocks = [];
-  text = text.replace(/\$\$([^$]+?)\$\$/gs, (_, m) => {
-    const i = mathBlocks.push({ type: "block", src: m }) - 1;
-    return `MATHBLOCK${i}MATHBLOCK`;
-  });
+  text = _extractBlockDollarMath(text, mathBlocks);
 
   text = text.replace(/\\\[([\s\S]+?)\\\]/g, (_, m) => {
     const i = mathBlocks.push({ type: "block", src: m }) - 1;
     return `MATHBLOCK${i}MATHBLOCK`;
   });
 
-  {
-    const _mathRe = /\$([^$]+?)\$/gs;
-    let _mm, _lastEnd = 0, _result = '';
-    while ((_mm = _mathRe.exec(text)) !== null) {
-      const _fullStart = _mm.index;
-      const _inner = _mm[1];
-
-      const _hasLaTeX = /\\[a-zA-Z]/.test(_inner);
-
-      const _compactNum = _inner.replace(/[,\s]/g, "");
-      const _isCurrency = !_hasLaTeX && (
-        /(?:^|\D)\d{1,3}(?:,\d{3})+(?:\.\d+)?/.test(_inner) ||
-        /\d\.\d/.test(_inner) ||
-        (/^[^\d]*\d[\d,]*$/.test(_inner) && /^-?[\d.]+$/.test(_compactNum) && _compactNum.length >= 5)
-      );
-
-      const _soloChars = _inner.split("\n").filter((l) => l.trim().length === 1 && /\S/.test(l)).length;
-      const _isProse = /["“”]/.test(_inner) || _soloChars >= 3 || (!_hasLaTeX && (_inner.match(/[a-zA-Z]{2,}/g) || []).length >= 3);
-      if (/\.\s/.test(_inner) || /\n\s*\n/.test(_inner) || _isCurrency || _isProse) {
-
-        _result += text.slice(_lastEnd, _fullStart + 1 + _inner.length);
-        _lastEnd = _fullStart + 1 + _inner.length;
-        _mathRe.lastIndex = _lastEnd;
-      } else {
-
-        _result += text.slice(_lastEnd, _fullStart);
-        const i = mathBlocks.push({ type: "inline", src: _inner }) - 1;
-        _result += `MATHINLINE${i}MATHINLINE`;
-        _lastEnd = _fullStart + _mm[0].length;
-        _mathRe.lastIndex = _lastEnd;
-      }
-    }
-    _result += text.slice(_lastEnd);
-    text = _result;
-  }
+  text = _extractInlineDollarMath(text, mathBlocks);
 
   text = text.replace(/\\\(((?:(?!\\\))[\s\S])+?)\\\)/g, (_, m) => {
     const i = mathBlocks.push({ type: "inline", src: m }) - 1;
@@ -1639,17 +1722,17 @@ function renderMarkdown(raw) {
   html = html.replace(/MATHBLOCK(\d+)MATHBLOCK/g, (_, i) => {
     try {
       const src = _preprocessLatexColor(mathBlocks[i].src);
-      return typeof katex !== "undefined" ? `<div class="md-math-block">${katex.renderToString(src, { throwOnError: false, displayMode: true })}</div>` : `<pre>$$${_collapseCharByCharRuns(mathBlocks[i].src)}$$</pre>`;
+      return typeof katex !== "undefined" ? `<div class="md-math-block">${katex.renderToString(src, { throwOnError: false, displayMode: true })}</div>` : `<pre>$$${escapeHtml(_collapseCharByCharRuns(mathBlocks[i].src))}$$</pre>`;
     } catch {
-      return `<pre>$$${_collapseCharByCharRuns(mathBlocks[i].src)}$$</pre>`;
+      return `<pre>$$${escapeHtml(_collapseCharByCharRuns(mathBlocks[i].src))}$$</pre>`;
     }
   });
   html = html.replace(/MATHINLINE(\d+)MATHINLINE/g, (_, i) => {
     try {
       const src = _preprocessLatexColor(mathBlocks[i].src);
-      return typeof katex !== "undefined" ? katex.renderToString(src, { throwOnError: false }) : `$${_collapseCharByCharRuns(mathBlocks[i].src)}$`;
+      return typeof katex !== "undefined" ? katex.renderToString(src, { throwOnError: false }) : `$${escapeHtml(_collapseCharByCharRuns(mathBlocks[i].src))}$`;
     } catch {
-      return `$${_collapseCharByCharRuns(mathBlocks[i].src)}$`;
+      return `$${escapeHtml(_collapseCharByCharRuns(mathBlocks[i].src))}$`;
     }
   });
   return html;

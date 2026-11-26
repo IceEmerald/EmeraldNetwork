@@ -139,7 +139,7 @@
         toastEl._t = setTimeout(() => toastEl.classList.remove('show'), 4000);
     }
 
-    function appIcon(type) { return SVG[type] || SVG.doc; }
+    function appIcon(type) { return SVG[type] || SVG[String(type || '').replace(/s$/, '')] || SVG.doc; }
 
     async function loadNotes() {
         const s = storage();
@@ -537,22 +537,33 @@
     const fileMenu = $('fileMenu');
 
     function hideFileMenu() {
-        if (fileMenu) fileMenu.hidden = true;
+        if (!fileMenu) return;
+        fileMenu.hidden = true;
+        fileMenu.style.display = 'none';
     }
 
     function showFileMenu(f, x, y) {
         if (!fileMenu) return;
+        const cm = $('custom-context-menu');
+        if (cm) cm.style.display = 'none';
         const app = APPS[f.type];
-        fileMenu.style.setProperty('--c', app.color);
-        fileMenu.style.setProperty('--soft', app.soft);
         $('fmIcon').innerHTML = appIcon(f.type);
         $('fmTitle').textContent = f.title;
         $('fmMeta').textContent = app.name + ' · ' + timeAgo(f.updatedAt);
+        fileMenu.style.left = '-9999px';
+        fileMenu.style.top = '-9999px';
         fileMenu.hidden = false;
-        const w = fileMenu.offsetWidth || 250;
+        fileMenu.style.display = 'block';
+        const w = fileMenu.offsetWidth || 240;
         const h = fileMenu.offsetHeight || 240;
-        fileMenu.style.left = Math.min(x, window.innerWidth - w - 8) + 'px';
-        fileMenu.style.top = Math.min(y, window.innerHeight - h - 8) + 'px';
+        const vw = document.documentElement.clientWidth;
+        const vh = document.documentElement.clientHeight;
+        let left = Math.min(x, vw - w - 8);
+        let top = Math.min(y, vh - h - 8);
+        if (left < 8) left = 8;
+        if (top < 8) top = 8;
+        fileMenu.style.left = left + 'px';
+        fileMenu.style.top = top + 'px';
         state.currentFile = f;
     }
 
@@ -652,6 +663,7 @@
             fileMenu.addEventListener('click', (e) => {
                 const item = e.target.closest('[data-fm]');
                 if (!item) return;
+                e.preventDefault();
                 const f = state.currentFile;
                 hideFileMenu();
                 if (!f) return;
