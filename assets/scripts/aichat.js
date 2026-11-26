@@ -400,7 +400,7 @@ function getUserInitials() {
 }
 let _toastTimer;
 function showToast(msg, type = "default") {
-  const el = document.getElementById("custom-toast") || document.getElementById("aiToast");
+  const el = document.getElementById("aiToast") || document.getElementById("custom-toast");
   if (!el) return;
 
   if (typeof DOMPurify !== "undefined") {
@@ -2383,7 +2383,8 @@ function renderRecents() {
   ).join("");
   container.innerHTML = sidebarHtml;
 }
-function loadConversation(id) {
+function loadConversation(id, opts) {
+  const _opts = opts || {};
   const conv = getConv(id);
   if (!conv) return;
 
@@ -2412,6 +2413,11 @@ function loadConversation(id) {
   updateOwnedUrl();
   renderSidebar();
   scrollToBottom();
+  if (_opts.scrollToMsgId) {
+    const _sm = _opts.scrollToMsgId;
+    setTimeout(() => { scrollToChatMessage(_sm); }, 60);
+    setTimeout(() => { scrollToChatMessage(_sm); }, 260);
+  }
   _applyPanelStateForConv(id);
 
   if (state.isStreaming && state.streamConvId === id) {
@@ -3739,7 +3745,7 @@ async function handleSend(opts) {
     if (isNewConv) updateTopbarTitle(conv.title);
     updateOwnedUrl();
     renderSidebar();
-    addFilesToLibrary(files, conv.id);
+    addFilesToLibrary(files, conv.id, userMsgId);
   } else {
     state.tempHistory.push({ role: "user", parts: [{ text }] });
   }
@@ -5153,12 +5159,12 @@ function clearAttachments() {
   state.attachments = [];
   renderAttachmentPreviews();
 }
-function addFilesToLibrary(files, convId) {
+function addFilesToLibrary(files, convId, msgId) {
   if (!files || !files.length || !convId) return;
   if (!getConv(convId)) return;
   const lib = loadLib();
   files.forEach((f) => {
-    lib.unshift({ id: genId(), name: f.name, type: f.type, size: f.size, convId, createdAt: Date.now() });
+    lib.unshift({ id: genId(), name: f.name, type: f.type, size: f.size, convId, msgId: msgId || null, createdAt: Date.now() });
   });
   saveLib(lib.slice(0, 200));
 }
@@ -5170,7 +5176,71 @@ function openLibrary() {
     if (active) moveLibTabIndicator(active);
   });
 }
+function _libEntryMsgId(entry) {
+  if (!entry || !entry.convId) return null;
+  if (entry.msgId) return entry.msgId;
+  const conv = getConv(entry.convId);
+  if (!conv || !Array.isArray(conv.messages)) return null;
+  for (const m of conv.messages) {
+    if (m.role === "user" && Array.isArray(m.files)) {
+      if (m.files.some((f) => f && f.name === entry.name && (!entry.type || f.type === entry.type))) {
+        return m.id || null;
+      }
+    }
+  }
+  return null;
+}
+function ensureLibMsgIds() {
+  const lib = loadLib();
+  if (!Array.isArray(lib)) return;
+  let changed = false;
+  lib.forEach((entry) => {
+    if (entry && !entry.msgId) {
+      const id = _libEntryMsgId(entry);
+      if (id) { entry.msgId = id; changed = true; }
+    }
+  });
+  if (changed) saveLib(lib);
+}
+function scrollToChatMessage(msgId) {
+  if (!msgId) return false;
+  let el = null;
+  try { el = document.querySelector(`[data-msg-id="${CSS.escape(String(msgId))}"]`); } catch (e) { el = document.querySelector(`[data-msg-id="${String(msgId)}"]`); }
+  if (!el) return false;
+  try { el.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (e) { el.scrollIntoView(); }
+  try {
+    el.classList.add("lib-scroll-target");
+    setTimeout(() => { try { el.classList.remove("lib-scroll-target"); } catch (e) {} }, 1800);
+  } catch (e) {}
+  return true;
+}
+function openLibraryFile(libId) {
+  const lib = loadLib();
+  const entry = Array.isArray(lib) ? lib.find((f) => f && f.id === libId) : null;
+  if (!entry) return;
+  if (!entry.msgId) {
+    const resolved = _libEntryMsgId(entry);
+    if (resolved) {
+      entry.msgId = resolved;
+      saveLib(lib);
+    }
+  }
+  try { closeModal("libraryModal"); } catch (e) {}
+  const convId = entry.convId;
+  const msgId = entry.msgId;
+  if (!convId) return;
+  const doScroll = () => {
+    if (msgId && scrollToChatMessage(msgId)) return;
+    try { scrollToBottom(); } catch (e) {}
+  };
+  if (state.convId === convId && !state.isTemp) {
+    requestAnimationFrame(() => { requestAnimationFrame(doScroll); });
+  } else {
+    loadConversation(convId, { scrollToMsgId: msgId });
+  }
+}
 function renderLibraryModal() {
+  ensureLibMsgIds();
   const lib = loadLib();
   const filter = _libFilter || "all";
   const convs = loadConvs();
@@ -5195,7 +5265,7 @@ function renderLibraryModal() {
   list.innerHTML = validLib.map((f) => {
     const conv = convs.find((c) => c.id === f.convId);
     const date = new Date(f.createdAt).toLocaleDateString();
-    return `<div class="lib-item">
+    return `<div class="lib-item" data-lib-id="${escapeHtmlAttr(f.id)}" onclick="openLibraryFile('${escapeHtmlAttr(f.id)}')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLibraryFile('${escapeHtmlAttr(f.id)}');}">
       ${fileIconHTML(f.name, f.type)}
       <div class="lib-item-info">
         <div class="lib-item-name">${escapeHtml(f.name)}</div>
@@ -11865,6 +11935,7 @@ try {
   if (typeof openCodePreviewPanel !== "undefined" && typeof window.openCodePreviewPanel === "undefined") window.openCodePreviewPanel = openCodePreviewPanel;
   if (typeof openFilePreview !== "undefined" && typeof window.openFilePreview === "undefined") window.openFilePreview = openFilePreview;
   if (typeof openLibrary !== "undefined" && typeof window.openLibrary === "undefined") window.openLibrary = openLibrary;
+  if (typeof openLibraryFile !== "undefined" && typeof window.openLibraryFile === "undefined") window.openLibraryFile = openLibraryFile;
   if (typeof openMemoriesModal !== "undefined" && typeof window.openMemoriesModal === "undefined") window.openMemoriesModal = openMemoriesModal;
   if (typeof openMobileSidebar !== "undefined" && typeof window.openMobileSidebar === "undefined") window.openMobileSidebar = openMobileSidebar;
   if (typeof openModal !== "undefined" && typeof window.openModal === "undefined") window.openModal = openModal;
