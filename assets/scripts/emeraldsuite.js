@@ -761,8 +761,12 @@
             sortMenu.querySelectorAll('.sort-dd-item').forEach(item => {
                 item.addEventListener('click', () => {
                     state.sort = item.dataset.sort;
-                    sortLabel.textContent = item.textContent;
-                    sortMenu.querySelectorAll('.sort-dd-item').forEach(x => x.classList.toggle('active', x === item));
+                    sortLabel.textContent = (item.querySelector('.sort-dd-text')?.textContent || item.textContent).trim();
+                    sortMenu.querySelectorAll('.sort-dd-item').forEach(x => {
+                        const isActive = x === item;
+                        x.classList.toggle('active', isActive);
+                        x.setAttribute('aria-selected', isActive ? 'true' : 'false');
+                    });
                     setSortOpen(false);
                     renderGrid();
                 });

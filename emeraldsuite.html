@@ -135,10 +135,19 @@
                                     <span id="sortSelectLabel">Recently edited</span>
                                     <svg class="caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
                                 </button>
-                                <div class="sort-dd-menu" id="sortMenu" hidden role="listbox">
-                                    <button class="sort-dd-item active" data-sort="recent" role="option">Recently edited</button>
-                                    <button class="sort-dd-item" data-sort="name" role="option">Name (A–Z)</button>
-                                    <button class="sort-dd-item" data-sort="nameDesc" role="option">Name (Z–A)</button>
+                                <div class="sort-dd-menu" id="sortMenu" hidden role="listbox" aria-label="Sort by">
+                                    <button type="button" class="sort-dd-item active" data-sort="recent" role="option" aria-selected="true">
+                                        <span class="sort-dd-text">Recently edited</span>
+                                        <svg class="sort-dd-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                    </button>
+                                    <button type="button" class="sort-dd-item" data-sort="name" role="option" aria-selected="false">
+                                        <span class="sort-dd-text">Name (A–Z)</span>
+                                        <svg class="sort-dd-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                    </button>
+                                    <button type="button" class="sort-dd-item" data-sort="nameDesc" role="option" aria-selected="false">
+                                        <span class="sort-dd-text">Name (Z–A)</span>
+                                        <svg class="sort-dd-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                    </button>
                                 </div>
                             </div>
                         </div>
