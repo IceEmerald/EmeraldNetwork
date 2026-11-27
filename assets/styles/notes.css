@@ -1350,32 +1350,6 @@
             display: block;
             animation: dropdownFadeIn 0.2s ease;
         }
-        .mobile-more-action {
-            display: flex;
-            align-items: center;
-            gap: 9px;
-            width: 100%;
-            padding: 9px 10px;
-            border: 0;
-            border-radius: 8px;
-            background: transparent;
-            color: rgba(44, 62, 80, 0.85);
-            font-family: inherit;
-            font-size: 13px;
-            font-weight: 500;
-            text-align: left;
-            cursor: pointer;
-            transition: background 0.15s ease, color 0.15s ease;
-        }
-        .mobile-more-action:hover,
-        .mobile-more-action:active {
-            background: var(--ui-accent-selected);
-            color: var(--ui-accent);
-        }
-        .mobile-more-action svg {
-            flex-shrink: 0;
-            opacity: 0.8;
-        }
         .mobile-more-panel .ms-dropdown {
             margin-bottom: 4px;
         }

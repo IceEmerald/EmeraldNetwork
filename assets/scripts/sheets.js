@@ -9180,8 +9180,6 @@ function showWelcomeScreen(show) {
   ws.style.display = show ? 'flex' : 'none';
   document.body.classList.toggle('no-active-wb', show);
   if (show) renderWelcomeCards();
-  else if (window.SuiteMobile) window.SuiteMobile.closeSidebar('sheets');
-  if (window.SuiteMobile) window.SuiteMobile.refresh();
   const targets = show
     ? (alreadyVisible ? [] : [ws])
     : [$('#ribbon'), $('#formula-row'), $('#grid-area')];
@@ -9253,50 +9251,6 @@ async function renderWelcomeCards() {
   container.innerHTML = '';
   container.appendChild(frag);
   container.removeAttribute('aria-busy');
-  renderMobileWorkbookSidebar();
-}
-
-async function renderMobileWorkbookSidebar() {
-  const list = $('#wbSidebarList');
-  if (!list) return;
-  let docs = [];
-  try { docs = await IO.allDocs(); } catch (e) { docs = []; }
-  docs.sort((a, b) => (b.doc.savedAt || 0) - (a.doc.savedAt || 0));
-  if (!docs.length) {
-    list.innerHTML = '<p class="suite-sidebar-empty">No spreadsheets yet. Create one to get started.</p>';
-    return;
-  }
-  const frag = document.createDocumentFragment();
-  for (const d of docs.slice(0, 50)) {
-    const data = d.doc.data || {};
-    const sheetCount = (data.sheets || []).length;
-    const item = document.createElement('button');
-    item.type = 'button';
-    item.className = 'suite-sidebar-item' + (WB && d.id === WB.id ? ' active' : '');
-    item.setAttribute('role', 'listitem');
-    const icon = document.createElement('span');
-    icon.className = 'suite-sidebar-item-icon';
-    icon.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>';
-    const main = document.createElement('span');
-    main.className = 'suite-sidebar-item-main';
-    const title = document.createElement('span');
-    title.className = 'suite-sidebar-item-title';
-    title.textContent = data.title || 'Untitled workbook';
-    const meta = document.createElement('span');
-    meta.className = 'suite-sidebar-item-meta';
-    meta.textContent = sheetCount + (sheetCount === 1 ? ' sheet' : ' sheets') + ' \u00B7 ' + fmtCardDate(d.doc.savedAt || data.createdAt);
-    main.appendChild(title);
-    main.appendChild(meta);
-    item.appendChild(icon);
-    item.appendChild(main);
-    item.addEventListener('click', () => {
-      openWorkbook(d.id);
-      if (window.SuiteMobile) window.SuiteMobile.closeSidebar('sheets');
-    });
-    frag.appendChild(item);
-  }
-  list.innerHTML = '';
-  list.appendChild(frag);
 }
 async function openWorkbook(id, logOpen) {
   try {
@@ -9310,7 +9264,6 @@ async function openWorkbook(id, logOpen) {
     activateEditor();
     updateOwnedUrl();
     toast('Opened "' + (WB.title || 'Untitled workbook') + '"', 'success');
-    renderMobileWorkbookSidebar();
     if (logOpen !== false) {
       try { window.EmeraldHistory.action('Opened spreadsheet \u201C' + (WB.title || 'Untitled workbook') + '\u201D'); } catch (_) {}
     }
@@ -9327,7 +9280,6 @@ function welcomeNew() {
   updateOwnedUrl();
   Persistence.markDirty();
   Persistence.flush();
-  renderMobileWorkbookSidebar();
   try { window.EmeraldHistory.action('Created spreadsheet'); } catch (_) {}
 }
 function welcomeImport() {
@@ -11681,33 +11633,6 @@ async function boot() {
   setupConnectionMonitor();
   await loadLastOrNew();
   showWelcomeScreen(true);
-
-  if (window.SuiteMobile) {
-    window.SuiteMobile.init({
-      app: 'sheets',
-      root: '#app',
-      sidebar: '#wbSidebar',
-      toggle: '#wbSidebarToggle',
-      newButton: '#wbSidebarNew',
-      accent: '#059669',
-      sidebarVisible: () => !document.body.classList.contains('no-active-wb'),
-      onSidebarOpen: renderMobileWorkbookSidebar,
-      onNew: welcomeNew,
-      viewSwitch: {
-        visible: () => !document.body.classList.contains('no-active-wb'),
-        active: () => document.body.classList.contains('sheets-focus') ? 'focus' : 'normal',
-        modes: [
-          { id: 'normal', label: 'Normal', icon: '<rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/>' },
-          { id: 'focus', label: 'Focus', icon: '<path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>' }
-        ],
-        onSelect: (mode) => {
-          document.body.classList.toggle('sheets-focus', mode === 'focus');
-          try { resizeCanvas(); } catch (e) {}
-        }
-      }
-    });
-    renderMobileWorkbookSidebar();
-  }
 
   if (window.emeraldsuiteAgent && window.emeraldsuiteAgent.onSync) {
     window.emeraldsuiteAgent.onSync((msg) => {

@@ -2022,9 +2022,6 @@ function startAutosaveSnapshots() {
       saveIndex();
       writeDocData(data);
       setAutosaveState("saved");
-      if (document.getElementById("docSidebar") && document.getElementById("docSidebar").classList.contains("open")) {
-        renderMobileDocSidebar();
-      }
       if (showToast) {
 
         toast("Document saved", "success");
@@ -2241,7 +2238,6 @@ function startAutosaveSnapshots() {
     refreshRibbonIndicator();
     updateOwnedUrl();
     updateStatus();
-    renderMobileDocSidebar();
     updateRibbonAvailability();
     if (logOpen !== false) {
       try { window.EmeraldHistory.action("Opened document \u201C" + (data.title || "Untitled Document") + "\u201D"); } catch (_) {}
@@ -2388,11 +2384,7 @@ function startAutosaveSnapshots() {
 
     var area = document.querySelector(".document-area");
     if (area) area.style.display = show ? "none" : "flex";
-    if (show) {
-      renderWelcomeCards();
-      if (window.SuiteMobile) window.SuiteMobile.closeSidebar("docs");
-    }
-    if (window.SuiteMobile) window.SuiteMobile.refresh();
+    if (show) renderWelcomeCards();
   }
 
   function formatCardDate(ts) {
@@ -2401,7 +2393,6 @@ function startAutosaveSnapshots() {
   }
 
   function renderWelcomeCards() {
-    renderMobileDocSidebar();
     var container = $("documentsDisplay");
     var noContainer = $("noDocsContainer");
     if (!container) return;
@@ -2464,82 +2455,6 @@ function startAutosaveSnapshots() {
       container.appendChild(frag);
       container.removeAttribute("aria-busy");
     }).catch(function () {});
-  }
-
-  function renderMobileDocSidebar() {
-    var list = $("docSidebarList");
-    if (!list) return;
-    var frag = document.createDocumentFragment();
-    if (!documents.length) {
-      var empty = document.createElement("p");
-      empty.className = "suite-sidebar-empty";
-      empty.textContent = "No documents yet. Create one to get started.";
-      list.innerHTML = "";
-      list.appendChild(empty);
-      return;
-    }
-    for (var i = 0; i < documents.length && i < 50; i++) {
-      (function (meta) {
-        var item = document.createElement("button");
-        item.type = "button";
-        item.className = "suite-sidebar-item" + (meta.id === currentDocId ? " active" : "");
-        item.setAttribute("role", "listitem");
-        var icon = document.createElement("span");
-        icon.className = "suite-sidebar-item-icon";
-        icon.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>';
-        var main = document.createElement("span");
-        main.className = "suite-sidebar-item-main";
-        var title = document.createElement("span");
-        title.className = "suite-sidebar-item-title";
-        title.textContent = meta.title || "Untitled Document";
-        var metaEl = document.createElement("span");
-        metaEl.className = "suite-sidebar-item-meta";
-        var words = meta.wordCount || 0;
-        metaEl.textContent = (words ? words + (words === 1 ? " word" : " words") + " \u00B7 " : "") + formatCardDate(meta.updatedAt);
-        main.appendChild(title);
-        main.appendChild(metaEl);
-        item.appendChild(icon);
-        item.appendChild(main);
-        item.addEventListener("click", function () {
-          openDocument(meta.id);
-          if (window.SuiteMobile) window.SuiteMobile.closeSidebar("docs");
-        });
-        frag.appendChild(item);
-      })(documents[i]);
-    }
-    list.innerHTML = "";
-    list.appendChild(frag);
-  }
-
-  function ensureFocusBar() {
-    var app = document.querySelector(".app");
-    if (!app) return null;
-    var bar = app.querySelector(".focus-bar");
-    if (bar) return bar;
-    bar = document.createElement("div");
-    bar.className = "focus-bar";
-    bar.innerHTML =
-      '<div class="pp-info">' +
-      '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>' +
-      "<span>Focus mode</span>" +
-      "</div>" +
-      '<button class="btn ghost sm" id="exitFocusBtn" type="button">Exit focus</button>';
-    var navbar = app.querySelector(".navbar");
-    app.insertBefore(bar, navbar || app.firstChild);
-    var exit = bar.querySelector("#exitFocusBtn");
-    if (exit) exit.addEventListener("click", function () { setFocusMode(false); });
-    return bar;
-  }
-
-  function setFocusMode(on) {
-    ensureFocusBar();
-    var app = document.querySelector(".app");
-    if (!app) return;
-    app.classList.toggle("focus-mode", !!on);
-    if (window.SuiteMobile) {
-      var shell = window.SuiteMobile.get("docs");
-      if (shell) shell.updateView();
-    }
   }
 
   function importTextToHtml(text, isMarkdown) {
@@ -8865,33 +8780,6 @@ function startAutosaveSnapshots() {
 
     await loadIndex();
     showWelcomeScreen(true);
-
-    renderMobileDocSidebar();
-    if (window.SuiteMobile) {
-      window.SuiteMobile.init({
-        app: "docs",
-        root: "#app",
-        sidebar: "#docSidebar",
-        toggle: "#docSidebarToggle",
-        newButton: "#docSidebarNew",
-        accent: "#0891b2",
-        sidebarVisible: function () { return !document.body.classList.contains("no-active-doc"); },
-        onSidebarOpen: renderMobileDocSidebar,
-        onNew: createNewDocument,
-        viewSwitch: {
-          visible: function () { return !document.body.classList.contains("no-active-doc"); },
-          active: function () {
-            var app = document.getElementById("app");
-            return app && app.classList.contains("focus-mode") ? "focus" : "page";
-          },
-          modes: [
-            { id: "page", label: "Page", icon: '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/>' },
-            { id: "focus", label: "Focus", icon: '<path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>' }
-          ],
-          onSelect: function (mode) { setFocusMode(mode === "focus"); }
-        }
-      });
-    }
 
     var ownedParam = null;
     try { ownedParam = new URLSearchParams(location.search).get("owned"); } catch (e) {}
