@@ -761,7 +761,7 @@
             sortMenu.querySelectorAll('.sort-dd-item').forEach(item => {
                 item.addEventListener('click', () => {
                     state.sort = item.dataset.sort;
-                    sortLabel.textContent = (item.querySelector('.sort-dd-text')?.textContent || item.textContent).trim();
+                    sortLabel.textContent = item.textContent.trim();
                     sortMenu.querySelectorAll('.sort-dd-item').forEach(x => {
                         const isActive = x === item;
                         x.classList.toggle('active', isActive);

@@ -1401,7 +1401,11 @@ body {
 }
 @media (max-width: 640px) {
   .suite-main { padding: 16px 14px 48px; }
-  .apps-grid { grid-template-columns: 1fr; }
+  .apps-grid { grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 10px 0 22px; }
+  .app-tile { justify-content: center; padding: 12px 8px; gap: 0; }
+  .app-tile-icon { width: 44px; height: 44px; border-radius: 12px; }
+  .app-tile-icon img { width: 26px; height: 26px; }
+  .app-tile-info { display: none; }
   .su-rail { display: none; }
   .toolbar-actions { margin-left: 0; width: 100%; }
 }
@@ -1703,6 +1707,9 @@ body {
 }
 
 .files-grid { display: block; }
+.files-grid .loading-row { padding: 10px 14px; margin-bottom: 8px; border-color: #ececec; }
+.files-grid .loading-row:last-child { margin-bottom: 0; }
+.files-grid .loading-row .loading-thumb { width: 84px; height: 56px; border-radius: 8px; flex: none; }
 .file-row {
   display: flex; align-items: center; gap: 14px;
   background: #fff; border: 1px solid #ececec; border-radius: 10px;
@@ -1736,7 +1743,40 @@ body {
 .recent-card .card-meta { font-size: 12px; }
 .recent-empty { font-size: 13px; color: #8a8886; padding: 26px 0; text-align: center; }
 .recent-empty[hidden] { display: none; }
-@media (max-width: 900px) { .recent-grid { grid-template-columns: 1fr; } }
+@media (max-width: 900px) {
+  .recent-wrap { margin-bottom: 20px; }
+  .recent-grid {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 12px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    padding-bottom: 4px;
+  }
+  .recent-grid::-webkit-scrollbar { height: 5px; }
+  .recent-grid::-webkit-scrollbar-track { background: transparent; }
+  .recent-grid::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.15); border-radius: 3px; }
+  .recent-card,
+  .recent-grid .loading-card {
+    flex: 0 0 205px;
+    width: 205px;
+    min-width: 0;
+  }
+  .recent-card .card-thumb,
+  .recent-grid .loading-card .loading-thumb {
+    height: 100px;
+  }
+  .recent-grid .loading-card .loading-thumb { margin-bottom: 10px; }
+  .recent-card .card-thumb .mini-wrap {
+    transform: scale(0.68);
+    transform-origin: center;
+    padding: 0;
+  }
+  .recent-card .card-body { padding: 10px 12px 12px; }
+  .recent-card .card-title { font-size: 13.5px; }
+  .recent-card .card-meta { font-size: 11.5px; margin-top: 3px; }
+}
 .card-thumb { height: 118px; }
 .card-body { padding: 12px 14px 14px; }
 .card-title { font-size: 14px; }
@@ -1781,7 +1821,7 @@ body {
 @keyframes sortDdIn { from { opacity: 0; } to { opacity: 1; } }
 .sort-dd-menu[hidden] { display: none; }
 .sort-dd-item {
-  display: flex; align-items: center; gap: 8px;
+  display: block;
   width: 100%; text-align: left; background: none; border: none;
   border-bottom: 1px solid rgba(0, 0, 0, .06);
   padding: 9px 12px; font: 500 12.5px 'DM Sans', -apple-system, sans-serif; color: #555; cursor: pointer;
@@ -1789,10 +1829,7 @@ body {
 }
 .sort-dd-item:last-child { border-bottom: none; }
 .sort-dd-item:hover { background: #f0f0f0; color: #111; }
-.sort-dd-text { flex: 1; min-width: 0; }
-.sort-dd-check { flex-shrink: 0; opacity: 0; color: rgb(80, 200, 120); transition: opacity .12s; }
 .sort-dd-item.active { background: rgba(80, 200, 120, .1); color: #202923; font-weight: 600; }
-.sort-dd-item.active .sort-dd-check { opacity: 1; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

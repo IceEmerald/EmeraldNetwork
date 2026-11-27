@@ -35,6 +35,7 @@
 .loading-line.short { width: 55%; }
 
 .loading-thumb {
+  flex: none;
   width: 38px;
   height: 38px;
   border-radius: 9px;
@@ -68,6 +69,15 @@
 
 .loading-row .loading-line { margin: 0; }
 .loading-row .loading-line.short { margin-left: auto; }
+.loading-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.loading-row-main .loading-line.wide { width: min(260px, 100%); }
+.loading-row-main .loading-line.short { width: min(140px, 60%); margin-left: 0; }
 
 .loading-list-item {
   display: flex;
@@ -124,7 +134,7 @@ body:not(.light-mode) .loading-chat-row {
 
 @media (max-width: 700px) {
   .loading-row { gap: 10px; }
-  .loading-row .loading-line.short { display: none; }
+  .loading-row > .loading-line.short { display: none; }
   .loading-card { padding: 10px; }
 }
 

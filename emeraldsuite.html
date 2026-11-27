@@ -87,28 +87,28 @@
                 <div class="collapsible-inner">
                 <h2 class="su-section-title">Quick access</h2>
                 <section class="apps-grid" aria-label="Create in EmeraldSuite">
-                    <a class="app-tile" href="/notes" style="--c:#a21caf;--soft:rgba(162,28,175,0.12)">
+                    <a class="app-tile" href="/notes" title="EmeraldNotes" aria-label="EmeraldNotes" style="--c:#a21caf;--soft:rgba(162,28,175,0.12)">
                         <span class="app-tile-icon"><img src="/assets/images/notesicon.webp" width="28" height="28" alt="EmeraldNotes"></span>
                         <span class="app-tile-info">
                             <span class="app-tile-name">EmeraldNotes</span>
                             <span class="app-tile-desc">Notes</span>
                         </span>
                     </a>
-                    <a class="app-tile" href="/docs" style="--c:#0891b2;--soft:rgba(8,145,178,0.12)">
+                    <a class="app-tile" href="/docs" title="EmeraldDocs" aria-label="EmeraldDocs" style="--c:#0891b2;--soft:rgba(8,145,178,0.12)">
                         <span class="app-tile-icon"><img src="/assets/images/docsicon.webp" width="28" height="28" alt="EmeraldDocs"></span>
                         <span class="app-tile-info">
                             <span class="app-tile-name">EmeraldDocs</span>
                             <span class="app-tile-desc">Documents</span>
                         </span>
                     </a>
-                    <a class="app-tile" href="/slides" style="--c:#f97316;--soft:rgba(249,115,22,0.12)">
+                    <a class="app-tile" href="/slides" title="EmeraldSlides" aria-label="EmeraldSlides" style="--c:#f97316;--soft:rgba(249,115,22,0.12)">
                         <span class="app-tile-icon"><img src="/assets/images/slidesicon.webp" width="28" height="28" alt="EmeraldSlides"></span>
                         <span class="app-tile-info">
                             <span class="app-tile-name">EmeraldSlides</span>
                             <span class="app-tile-desc">Presentations</span>
                         </span>
                     </a>
-                    <a class="app-tile" href="/sheets" style="--c:#217346;--soft:rgba(33,115,70,0.12)">
+                    <a class="app-tile" href="/sheets" title="EmeraldSheets" aria-label="EmeraldSheets" style="--c:#217346;--soft:rgba(33,115,70,0.12)">
                         <span class="app-tile-icon"><img src="/assets/images/sheetsicon.webp" width="28" height="28" alt="EmeraldSheets"></span>
                         <span class="app-tile-info">
                             <span class="app-tile-name">EmeraldSheets</span>
@@ -136,27 +136,18 @@
                                     <svg class="caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
                                 </button>
                                 <div class="sort-dd-menu" id="sortMenu" hidden role="listbox" aria-label="Sort by">
-                                    <button type="button" class="sort-dd-item active" data-sort="recent" role="option" aria-selected="true">
-                                        <span class="sort-dd-text">Recently edited</span>
-                                        <svg class="sort-dd-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                    </button>
-                                    <button type="button" class="sort-dd-item" data-sort="name" role="option" aria-selected="false">
-                                        <span class="sort-dd-text">Name (A–Z)</span>
-                                        <svg class="sort-dd-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                    </button>
-                                    <button type="button" class="sort-dd-item" data-sort="nameDesc" role="option" aria-selected="false">
-                                        <span class="sort-dd-text">Name (Z–A)</span>
-                                        <svg class="sort-dd-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                    </button>
+                                    <button type="button" class="sort-dd-item active" data-sort="recent" role="option" aria-selected="true">Recently edited</button>
+                                    <button type="button" class="sort-dd-item" data-sort="name" role="option" aria-selected="false">Name (A–Z)</button>
+                                    <button type="button" class="sort-dd-item" data-sort="nameDesc" role="option" aria-selected="false">Name (Z–A)</button>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <div class="files-grid" id="filesGrid" role="list" aria-label="Your files" aria-busy="true">
-                        <div class="loading-placeholder loading-row" aria-hidden="true"><span class="loading-thumb"></span><span class="loading-line wide"></span><span class="loading-line short"></span></div>
-                        <div class="loading-placeholder loading-row" aria-hidden="true"><span class="loading-thumb"></span><span class="loading-line wide"></span><span class="loading-line short"></span></div>
-                        <div class="loading-placeholder loading-row" aria-hidden="true"><span class="loading-thumb"></span><span class="loading-line wide"></span><span class="loading-line short"></span></div>
+                        <div class="loading-placeholder loading-row" aria-hidden="true"><span class="loading-thumb"></span><span class="loading-row-main"><span class="loading-line wide"></span><span class="loading-line short"></span></span></div>
+                        <div class="loading-placeholder loading-row" aria-hidden="true"><span class="loading-thumb"></span><span class="loading-row-main"><span class="loading-line wide"></span><span class="loading-line short"></span></span></div>
+                        <div class="loading-placeholder loading-row" aria-hidden="true"><span class="loading-thumb"></span><span class="loading-row-main"><span class="loading-line wide"></span><span class="loading-line short"></span></span></div>
                     </div>
 
                     <div class="empty-state" id="emptyState" hidden>
