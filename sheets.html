@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="/assets/styles/sheets.css">
 <link rel="stylesheet" href="/assets/styles/suite-rail.css">
 <link rel="stylesheet" href="/assets/styles/app-skeleton.css">
+<link rel="stylesheet" href="/assets/styles/suite-mobile.css">
 </head>
 <body class="no-active-wb">
 <div id="app" role="application" aria-label="EmeraldSuite spreadsheet application">
@@ -30,6 +31,19 @@
       </nav>
     </div>
   </header>
+
+  <aside class="suite-sidebar" id="wbSidebar" aria-hidden="true" aria-label="Spreadsheets">
+    <div class="suite-sidebar-head">
+      <button class="suite-sidebar-toggle" id="wbSidebarToggle" type="button" title="Toggle sidebar" aria-label="Toggle sidebar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <h3>Spreadsheets</h3>
+      <button class="suite-sidebar-new" id="wbSidebarNew" type="button" title="New spreadsheet" aria-label="New spreadsheet">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+    </div>
+    <div class="suite-sidebar-list" id="wbSidebarList" role="list"></div>
+  </aside>
 
   <div class="welcome-screen" id="welcomeScreen">
     <aside class="su-rail" aria-label="Suite navigation">
@@ -255,6 +269,7 @@
 <script src="/assets/scripts/auth-guard.js"></script>
 <script src="/assets/scripts/zipreader.js"></script>
 <script src="/assets/scripts/es-ai.js"></script>
+<script src="/assets/scripts/suite-mobile.js"></script>
 <script src="/assets/scripts/sheets.js?v=2"></script>
 <script src="/assets/scripts/rightclick.js"></script>
     <script src="/assets/scripts/activity-history.js?v=5"></script>

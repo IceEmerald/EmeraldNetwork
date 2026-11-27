@@ -1919,6 +1919,66 @@ class NotesApp {
         if (mobileDrawBtn) {
             mobileDrawBtn.addEventListener('click', () => { if (!mobileDrawBtn.disabled) this.toggleDrawMode(); });
         }
+
+        const moreBtn = document.createElement('button');
+        moreBtn.type = 'button';
+        moreBtn.id = 'mobileMoreBtn';
+        moreBtn.className = 'mobile-more-btn';
+        moreBtn.title = 'More options';
+        moreBtn.setAttribute('aria-haspopup', 'true');
+        moreBtn.setAttribute('aria-expanded', 'false');
+        moreBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>';
+        row.appendChild(moreBtn);
+
+        const morePanel = document.createElement('div');
+        morePanel.id = 'mobileMorePanel';
+        morePanel.className = 'mobile-more-panel';
+        morePanel.innerHTML = [
+            { action: 'find', label: 'Find & Replace', icon: '<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/>' },
+            { action: 'link', label: 'Insert Link', icon: '<path d="M10 13a5 5 0 0 0 7.1 0l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.1 0l-2 2a5 5 0 0 0 7.1 7.1l1.1-1.1"/>' },
+            { action: 'clear', label: 'Clear Formatting', icon: '<path d="M4 20h16"/><path d="M7 16l7-11 5 3-7 11z"/><line x1="3" y1="3" x2="21" y2="21"/>' },
+            { action: 'selectAll', label: 'Select All', icon: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 8h8v8H8z"/>' }
+        ].map(function (item) {
+            return '<button type="button" class="mobile-more-action" data-more-action="' + item.action + '">' +
+                '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + item.icon + '</svg>' +
+                '<span>' + item.label + '</span></button>';
+        }).join('');
+        const ribbonEl = ribbonContent.parentElement || ribbonContent;
+        ribbonEl.appendChild(morePanel);
+
+        const setMoreOpen = (open) => {
+            morePanel.classList.toggle('open', open);
+            moreBtn.classList.toggle('active', open);
+            moreBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        };
+        moreBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            setMoreOpen(!morePanel.classList.contains('open'));
+        });
+        morePanel.addEventListener('click', (e) => {
+            const actionBtn = e.target.closest('.mobile-more-action');
+            if (!actionBtn) return;
+            const action = actionBtn.dataset.moreAction;
+            setMoreOpen(false);
+            if (action === 'find') { this.openFindReplace(); return; }
+            if (action === 'link') {
+                this.saveSelection();
+                const url = window.prompt('Link URL', 'https://');
+                if (url) { this.restoreSelection(); this.executeCommand('createLink', url); }
+                return;
+            }
+            if (action === 'clear') { this.executeCommand('removeFormat'); this.updateButtonStates(); return; }
+            if (action === 'selectAll') { this.executeCommand('selectAll'); return; }
+        });
+        document.addEventListener('click', (e) => {
+            if (!morePanel.classList.contains('open')) return;
+            if (morePanel.contains(e.target) || moreBtn.contains(e.target)) return;
+            setMoreOpen(false);
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && morePanel.classList.contains('open')) setMoreOpen(false);
+        });
+
         ribbonContent.appendChild(row);
     }
     wireMobileDropdown(dropdownEl, onSelect) {

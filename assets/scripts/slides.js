@@ -456,6 +456,7 @@ class SlidesApp {
         this.setupViewTab();
         this.setupExtraTabs();
         this.setupSidebarToggle();
+        this.setupSuiteMobile();
         this.setupCanvasInteraction();
         this.setupKeyboard();
         this.setupResizeObserver();
@@ -2840,6 +2841,7 @@ class SlidesApp {
             this._viewTimer = null;
             if (!sorter) this.fitZoom();
         }, 260);
+        window.SuiteMobile?.get('slides')?.updateView();
     }
 
     
@@ -2860,6 +2862,7 @@ class SlidesApp {
         
         this._scheduleRulerRender();
         setTimeout(() => this._scheduleRulerRender(), 260);
+        window.SuiteMobile?.get('slides')?.updateView();
         return willShow;
     }
 
@@ -6814,8 +6817,11 @@ class SlidesApp {
             const sidebar = document.getElementById('slidesSidebar');
             if (!sidebar) return;
             
-            
             if (window.innerWidth <= 1023) {
+                if (window.SuiteMobile) {
+                    window.SuiteMobile.toggleSidebar('slides');
+                    return;
+                }
                 sidebar.classList.toggle('mobile-open');
                 
                 let backdrop = document.querySelector('.sidebar-backdrop');
@@ -6840,6 +6846,46 @@ class SlidesApp {
                 this._scheduleRulerRender();
                 setTimeout(() => this._scheduleRulerRender(), 260);
                 setTimeout(() => this._scheduleRulerRender(), 460);
+            }
+        });
+    }
+
+    setupSuiteMobile() {
+        if (!window.SuiteMobile) return;
+        window.SuiteMobile.init({
+            app: 'slides',
+            root: '#slidesApp',
+            sidebar: '#slidesSidebar',
+            toggle: null,
+            menuButton: true,
+            newButton: '#slidesSidebarNew',
+            accent: '#d97706',
+            sidebarVisible: () => !document.body.classList.contains('no-active-note'),
+            onNew: () => this.newPresentation(),
+            onSidebarOpen: () => this.renderSlideList(),
+            viewSwitch: {
+                visible: () => !document.body.classList.contains('no-active-note'),
+                active: () => {
+                    if (document.body.classList.contains('view-sorter')) return 'sorter';
+                    const panel = document.getElementById('presenterNotesPanel');
+                    if (panel && panel.classList.contains('visible')) return 'notes';
+                    return 'normal';
+                },
+                modes: [
+                    { id: 'normal', label: 'Normal', icon: '<rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/>' },
+                    { id: 'sorter', label: 'Sorter', icon: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>' },
+                    { id: 'notes', label: 'Notes', icon: '<path d="M4 4h16v12H5.2L4 17.2z"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="13" y2="12"/>' }
+                ],
+                onSelect: (mode) => {
+                    if (mode === 'notes') {
+                        if (document.body.classList.contains('view-sorter')) this.switchView('normal');
+                        this.toggleNotes(true);
+                    } else {
+                        this.switchView(mode);
+                    }
+                    const shell = window.SuiteMobile.get('slides');
+                    if (shell) shell.updateView();
+                }
             }
         });
     }
@@ -7228,6 +7274,10 @@ class SlidesApp {
             
             
             if (es) es.style.display = 'flex';
+        }
+        if (window.SuiteMobile) {
+            if (show) window.SuiteMobile.closeSidebar('slides');
+            window.SuiteMobile.refresh();
         }
     }
 
