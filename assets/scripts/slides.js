@@ -425,11 +425,7 @@ class SlidesApp {
         this._previousTab = null; 
         this._cropMode = false; 
         this._activeTemplateIdx = 0; 
-        this.touchStartX = 0;
-        this.touchStartY = 0;
-        this.touchStartTime = 0;
-        this.isSwiping = false;
-        this.sidebarOpen = false;        
+        
         
         
         
@@ -460,8 +456,6 @@ class SlidesApp {
         this.setupViewTab();
         this.setupExtraTabs();
         this.setupSidebarToggle();
-        this.setupSwipeGesture();
-        this.setupMobileRibbon();
         this.setupCanvasInteraction();
         this.setupKeyboard();
         this.setupResizeObserver();
@@ -4440,28 +4434,6 @@ class SlidesApp {
     toggleAnimationPane(force) {
         const pane = document.getElementById('animationPane');
         if (!pane) return;
-        if (window.innerWidth <= 1023) {
-            const show = force === undefined ? !pane.classList.contains('mobile-open') : force;
-            if (show) {
-                pane.classList.add('mobile-open');
-                let backdrop = document.querySelector('.animation-backdrop');
-                if (!backdrop) {
-                    backdrop = document.createElement('div');
-                    backdrop.className = 'animation-backdrop sidebar-backdrop';
-                    backdrop.addEventListener('click', () => this.toggleAnimationPane(false));
-                    pane.parentElement.insertBefore(backdrop, pane.nextSibling);
-                }
-                backdrop.classList.add('visible');
-            } else {
-                pane.classList.remove('mobile-open');
-                const backdrop = document.querySelector('.animation-backdrop');
-                if (backdrop) backdrop.classList.remove('visible');
-            }
-            const btn = document.getElementById('animationPaneBtn');
-            btn?.classList.toggle('active', show);
-            if (show) this.renderAnimationPane();
-            return;
-        }
         const show = force === undefined ? !pane.classList.contains('visible') : force;
         pane.classList.toggle('visible', show);
         
@@ -6844,10 +6816,22 @@ class SlidesApp {
             
             
             if (window.innerWidth <= 1023) {
-                if (this.sidebarOpen) {
-                    this.closeMobileSidebar();
+                sidebar.classList.toggle('mobile-open');
+                
+                let backdrop = document.querySelector('.sidebar-backdrop');
+                if (!backdrop) {
+                    backdrop = document.createElement('div');
+                    backdrop.className = 'sidebar-backdrop';
+                    backdrop.addEventListener('click', () => {
+                        sidebar.classList.remove('mobile-open');
+                        backdrop.classList.remove('visible');
+                    });
+                    sidebar.parentElement.insertBefore(backdrop, sidebar.nextSibling);
+                }
+                if (sidebar.classList.contains('mobile-open')) {
+                    backdrop.classList.add('visible');
                 } else {
-                    this.openMobileSidebar();
+                    backdrop.classList.remove('visible');
                 }
             } else {
                 sidebar.classList.toggle('collapsed');
@@ -6858,171 +6842,6 @@ class SlidesApp {
                 setTimeout(() => this._scheduleRulerRender(), 460);
             }
         });
-    }
-
-    setupMobileRibbon() {
-        this.buildMobileRibbon();
-        window.addEventListener('resize', () => {
-            this.buildMobileRibbon();
-        });
-    }
-
-    buildMobileRibbon() {
-        const ribbonContent = document.querySelector('#mainRibbon .ribbon-content');
-        if (!ribbonContent) return;
-        if (!window.matchMedia('(max-width: 1023px)').matches) {
-            const mobileRow = document.getElementById('mobileRibbonRow');
-            if (mobileRow) mobileRow.remove();
-            return;
-        }
-        if (document.getElementById('mobileRibbonRow')) return;
-        const row = document.createElement('div');
-        row.id = 'mobileRibbonRow';
-        row.className = 'mobile-ribbon-row';
-        const makeBtn = (command, icon, title, cls = 'ribbon-btn format-btn') => {
-            const btn = document.createElement('button');
-            btn.className = cls;
-            btn.dataset.command = command;
-            btn.title = title;
-            btn.innerHTML = icon;
-            btn.addEventListener('mousedown', (e) => e.preventDefault());
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                if (btn.disabled) return;
-                // Map command to slides methods if available
-                const map = {
-                    undo: 'undo', redo: 'redo', cut: 'cut', copy: 'copy', paste: 'paste',
-                    bold: 'toggleBold', italic: 'toggleItalic', underline: 'toggleUnderline'
-                };
-                if (map[command] && typeof this[map[command]] === 'function') {
-                    this[map[command]]();
-                } else if (typeof this.executeCommand === 'function') {
-                    this.executeCommand(command);
-                }
-                this.updateRibbonState();
-            });
-            return btn;
-        };
-        // Undo/Redo
-        row.appendChild(makeBtn('undo', '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>', 'Undo'));
-        row.appendChild(makeBtn('redo', '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>', 'Redo'));
-        // Clipboard
-        const div0 = document.createElement('div'); div0.className = 'mobile-ribbon-divider';
-        row.appendChild(div0);
-        row.appendChild(makeBtn('cut', '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>', 'Cut'));
-        row.appendChild(makeBtn('copy', '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>', 'Copy'));
-        row.appendChild(makeBtn('paste', '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>', 'Paste'));
-        // Format
-        const div1 = document.createElement('div'); div1.className = 'mobile-ribbon-divider';
-        row.appendChild(div1);
-        row.appendChild(makeBtn('bold', '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/></svg>', 'Bold'));
-        row.appendChild(makeBtn('italic', '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg>', 'Italic'));
-        row.appendChild(makeBtn('underline', '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"/><line x1="4" y1="21" x2="20" y2="21"/></svg>', 'Underline'));
-        // Insert
-        const div2 = document.createElement('div'); div2.className = 'mobile-ribbon-divider';
-        row.appendChild(div2);
-        const insertBtn = document.createElement('button');
-        insertBtn.className = 'ribbon-btn';
-        insertBtn.title = 'Insert Image';
-        insertBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
-        insertBtn.addEventListener('click', () => { if (typeof this.insertImage === 'function') this.insertImage(); });
-        row.appendChild(insertBtn);
-        // Font dropdown (simplified)
-        const div3 = document.createElement('div'); div3.className = 'mobile-ribbon-divider';
-        row.appendChild(div3);
-        const fontDropdown = document.createElement('div');
-        fontDropdown.className = 'ms-dropdown';
-        fontDropdown.innerHTML = '<button class="ms-dropdown-btn" type="button" style="min-width:80px;"><span class="dropdown-value">Font</span></button>';
-        row.appendChild(fontDropdown);
-        ribbonContent.appendChild(row);
-    }
-
-    setupSwipeGesture() {
-        const app = document.querySelector('.notes-app');
-        if (!app) return;
-        const LEFT_EDGE_ZONE = 40;
-        app.addEventListener('touchstart', (e) => {
-            if (!this.isMobile()) return;
-            const touch = e.touches[0];
-            this.touchStartX = touch.clientX;
-            this.touchStartY = touch.clientY;
-            this.touchStartTime = Date.now();
-            this.isSwiping = false;
-        }, { passive: true });
-        app.addEventListener('touchmove', (e) => {
-            if (!this.isMobile()) return;
-            const touch = e.touches[0];
-            const dx = touch.clientX - this.touchStartX;
-            const dy = touch.clientY - this.touchStartY;
-            if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10) {
-                this.isSwiping = true;
-            }
-            if (!this.isSwiping) return;
-            const canOpen = this.touchStartX <= LEFT_EDGE_ZONE;
-            const sidebar = document.getElementById('slidesSidebar');
-            if (!sidebar) return;
-            const sidebarWidth = sidebar.offsetWidth;
-            if (this.sidebarOpen && dx < 0) {
-                const clampedDx = Math.max(dx, -sidebarWidth);
-                sidebar.style.transform = `translateX(${clampedDx}px)`;
-                sidebar.style.transition = 'none';
-            } else if (!this.sidebarOpen && dx > 0 && canOpen) {
-                const clampedDx = Math.min(dx - sidebarWidth, 0);
-                sidebar.style.transform = `translateX(${clampedDx}px)`;
-                sidebar.style.transition = 'none';
-            }
-        }, { passive: true });
-        app.addEventListener('touchend', (e) => {
-            if (!this.isMobile()) return;
-            const touch = e.changedTouches[0];
-            const dx = touch.clientX - this.touchStartX;
-            const dy = touch.clientY - this.touchStartY;
-            const dt = Date.now() - this.touchStartTime;
-            const sidebar = document.getElementById('slidesSidebar');
-            if (!sidebar) return;
-            sidebar.style.transition = '';
-            sidebar.style.transform = '';
-            const THRESHOLD = 50;
-            const MAX_VERTICAL = 80;
-            const MAX_TIME = 600;
-            const isHorizontalSwipe =
-                Math.abs(dx) > THRESHOLD &&
-                Math.abs(dy) < MAX_VERTICAL &&
-                dt < MAX_TIME;
-            if (!isHorizontalSwipe) return;
-            const startedAtEdge = this.touchStartX <= LEFT_EDGE_ZONE;
-            if (dx > 0 && !this.sidebarOpen && startedAtEdge) {
-                this.openMobileSidebar();
-            } else if (dx < 0 && this.sidebarOpen) {
-                this.closeMobileSidebar();
-            }
-        }, { passive: true });
-    }
-
-    openMobileSidebar() {
-        const sidebar = document.getElementById('slidesSidebar');
-        let backdrop = document.querySelector('.sidebar-backdrop');
-        if (!backdrop) {
-            backdrop = document.createElement('div');
-            backdrop.className = 'sidebar-backdrop';
-            backdrop.addEventListener('click', () => this.closeMobileSidebar());
-            sidebar.parentElement.insertBefore(backdrop, sidebar.nextSibling);
-        }
-        sidebar.classList.add('mobile-open');
-        backdrop.classList.add('visible');
-        this.sidebarOpen = true;
-    }
-
-    closeMobileSidebar() {
-        const sidebar = document.getElementById('slidesSidebar');
-        const backdrop = document.querySelector('.sidebar-backdrop');
-        sidebar.classList.remove('mobile-open');
-        if (backdrop) backdrop.classList.remove('visible');
-        this.sidebarOpen = false;
-    }
-
-    isMobile() {
-        return window.innerWidth <= 1023;
     }
 
     

@@ -2041,12 +2041,6 @@ body.collab-non-owner #exportNoteBtn, body.collab-non-owner #deleteNoteBtn, body
     }
 
     .ribbon-tabs-left {
-        display: flex;
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-    .ribbon-tabs-left::-webkit-scrollbar {
         display: none;
     }
 
@@ -2424,46 +2418,6 @@ body.collab-non-owner #exportNoteBtn, body.collab-non-owner #deleteNoteBtn, body
             opacity: 1;
             transform: translateY(0px) scale(1);
         }
-    }
-
-    .animation-pane {
-        position: fixed;
-        top: 0;
-        right: 0;
-        width: 85vw;
-        max-width: 340px;
-        height: 100%;
-        z-index: 2000;
-        transform: translateX(100%);
-        transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
-        border-radius: 16px 0 0 16px;
-        box-shadow: none;
-    }
-
-    .animation-pane.mobile-open {
-        transform: translateX(0);
-        box-shadow: -4px 0 40px rgba(0, 0, 0, 0.25);
-    }
-
-    .animation-backdrop {
-        display: block;
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        z-index: 9998;
-        backdrop-filter: blur(3px);
-        -webkit-backdrop-filter: blur(3px);
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 0.3s ease;
-    }
-
-    .animation-backdrop.visible {
-        opacity: 1;
-        pointer-events: auto;
     }
 }
 
