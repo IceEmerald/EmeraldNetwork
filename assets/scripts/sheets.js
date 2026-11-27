@@ -8046,7 +8046,10 @@ function closeChartPane() {
   ChartPane.picking = false;
   ChartPane.draft = null;
   pane.hidden = true;
+  pane.classList.remove('mobile-open');
   pane.innerHTML = '';
+  const backdrop = document.querySelector('.chart-backdrop');
+  if (backdrop) backdrop.classList.remove('visible');
   const btn = document.querySelector('[data-cmd="chart"]');
   if (btn) btn.classList.remove('active');
   resizeCanvas();
@@ -8431,6 +8434,17 @@ function openChartPane(existing, presetType) {
   pane.innerHTML = '';
   pane.appendChild(content);
   pane.hidden = false;
+  if (window.innerWidth <= 1023) {
+    pane.classList.add('mobile-open');
+    let backdrop = document.querySelector('.chart-backdrop');
+    if (!backdrop) {
+      backdrop = document.createElement('div');
+      backdrop.className = 'chart-backdrop sidebar-backdrop';
+      backdrop.addEventListener('click', () => closeChartPane());
+      pane.parentElement.insertBefore(backdrop, pane.nextSibling);
+    }
+    backdrop.classList.add('visible');
+  }
   const btn = document.querySelector('[data-cmd="chart"]');
   if (btn) btn.classList.add('active');
   resizeCanvas();
@@ -10371,6 +10385,67 @@ function buildRibbonPanels() {
   updateRibbonState();
   updateUndoRedoUI();
 }
+
+function setupMobileRibbon() {
+  var ribbon = $('#ribbon');
+  if (!ribbon) return;
+  if (window.innerWidth > 1023) {
+    var mobileRow = document.getElementById('mobileRibbonRow');
+    if (mobileRow) mobileRow.remove();
+    return;
+  }
+  if (document.getElementById('mobileRibbonRow')) return;
+  var row = document.createElement('div');
+  row.id = 'mobileRibbonRow';
+  row.className = 'mobile-ribbon-row';
+  function makeBtn(cmd, icon, title) {
+    var btn = document.createElement('button');
+    btn.className = 'ribbon-btn format-btn';
+    btn.title = title;
+    btn.innerHTML = icon;
+    btn.addEventListener('mousedown', function (e) { e.preventDefault(); });
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      // call existing command handlers if available
+      if (typeof cmd === 'function') { cmd(); return; }
+      // fallback: try to find button with data-cmd
+      var target = document.querySelector('[data-cmd="' + cmd + '"]');
+      if (target) target.click();
+    });
+    return btn;
+  }
+  // Undo/Redo
+  row.appendChild(makeBtn('undo', '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>', 'Undo'));
+  row.appendChild(makeBtn('redo', '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>', 'Redo'));
+  var div0 = document.createElement('div'); div0.className = 'mobile-ribbon-divider';
+  row.appendChild(div0);
+  // Clipboard
+  row.appendChild(makeBtn('cut', '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>', 'Cut'));
+  row.appendChild(makeBtn('copy', '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>', 'Copy'));
+  row.appendChild(makeBtn('paste', '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>', 'Paste'));
+  var div1 = document.createElement('div'); div1.className = 'mobile-ribbon-divider';
+  row.appendChild(div1);
+  // Format
+  row.appendChild(makeBtn('bold', '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/></svg>', 'Bold'));
+  row.appendChild(makeBtn('italic', '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg>', 'Italic'));
+  // Font dropdown (simplified)
+  var div2 = document.createElement('div'); div2.className = 'mobile-ribbon-divider';
+  row.appendChild(div2);
+  var fontDropdown = document.createElement('div');
+  fontDropdown.className = 'ms-dropdown';
+  fontDropdown.innerHTML = '<button class="ms-dropdown-btn" type="button" style="min-width:80px;"><span class="dropdown-value">Font</span></button>';
+  row.appendChild(fontDropdown);
+  // Insert chart button
+  var chartBtn = document.createElement('button');
+  chartBtn.className = 'ribbon-btn';
+  chartBtn.title = 'Insert Chart';
+  chartBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><path d="M7 17v-4"/><path d="M12 17v-8"/><path d="M17 17v-6"/></svg>';
+  chartBtn.addEventListener('click', function () { toggleChartPane(); });
+  row.appendChild(chartBtn);
+  ribbon.appendChild(row);
+  window.addEventListener('resize', function () { setupMobileRibbon(); });
+}
+
 function swapRibbonBody() {
   const body = $('#ribbon-body');
   if (!body) return;
@@ -11517,8 +11592,74 @@ function closeCommandPalette() {
   setTimeout(() => ov.remove(), 150);
 }
 
+function setupChartPaneSwipe() {
+  var app = $('#app');
+  if (!app) return;
+  var LEFT_EDGE_ZONE = 40;
+  var touchStartX = 0, touchStartY = 0, touchStartTime = 0, isSwiping = false;
+  app.addEventListener('touchstart', function (e) {
+    if (window.innerWidth > 1023) return;
+    var touch = e.touches[0];
+    touchStartX = touch.clientX;
+    touchStartY = touch.clientY;
+    touchStartTime = Date.now();
+    isSwiping = false;
+  }, { passive: true });
+  app.addEventListener('touchmove', function (e) {
+    if (window.innerWidth > 1023) return;
+    var touch = e.touches[0];
+    var dx = touch.clientX - touchStartX;
+    var dy = touch.clientY - touchStartY;
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10) {
+      isSwiping = true;
+    }
+    if (!isSwiping) return;
+    var canOpen = touchStartX <= LEFT_EDGE_ZONE;
+    var pane = $('#chart-pane');
+    if (!pane) return;
+    var paneWidth = pane.offsetWidth;
+    if (ChartPane.open && dx < 0) {
+      var clampedDx = Math.max(dx, -paneWidth);
+      pane.style.transform = 'translateX(' + clampedDx + 'px)';
+      pane.style.transition = 'none';
+    } else if (!ChartPane.open && dx > 0 && canOpen) {
+      var clampedDx = Math.min(dx - paneWidth, 0);
+      pane.style.transform = 'translateX(' + clampedDx + 'px)';
+      pane.style.transition = 'none';
+    }
+  }, { passive: true });
+  app.addEventListener('touchend', function (e) {
+    if (window.innerWidth > 1023) return;
+    var touch = e.changedTouches[0];
+    var dx = touch.clientX - touchStartX;
+    var dy = touch.clientY - touchStartY;
+    var dt = Date.now() - touchStartTime;
+    var pane = $('#chart-pane');
+    if (pane) {
+      pane.style.transition = '';
+      pane.style.transform = '';
+    }
+    var THRESHOLD = 50;
+    var MAX_VERTICAL = 80;
+    var MAX_TIME = 600;
+    var isHorizontalSwipe =
+      Math.abs(dx) > THRESHOLD &&
+      Math.abs(dy) < MAX_VERTICAL &&
+      dt < MAX_TIME;
+    if (!isHorizontalSwipe) return;
+    var startedAtEdge = touchStartX <= LEFT_EDGE_ZONE;
+    if (dx > 0 && !ChartPane.open && startedAtEdge) {
+      toggleChartPane();
+    } else if (dx < 0 && ChartPane.open) {
+      closeChartPane();
+    }
+  }, { passive: true });
+}
+
 function bootChrome() {
   buildRibbon();
+  setupMobileRibbon();
+  setupChartPaneSwipe();
   updateSheetTabBar();
   updateSaveStatus();
   $('#sb-zoom-pct').textContent = Math.round(VIEW.zoom * 100) + '%';

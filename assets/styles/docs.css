@@ -3351,6 +3351,106 @@ body {
 mark.emdocs-mark { background: transparent !important; color: inherit !important; }
 }
 
+@media (max-width: 1023px) {
+    .mobile-ribbon-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: nowrap;
+        width: 100%;
+        padding-right: 16px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .mobile-ribbon-row .ribbon-btn {
+        min-width: 40px;
+        padding: 8px;
+        flex-direction: row;
+        gap: 0;
+        flex-shrink: 0;
+        border-radius: 8px;
+    }
+    .mobile-ribbon-row .ribbon-btn span {
+        display: none;
+    }
+    .mobile-ribbon-divider {
+        width: 1px;
+        height: 28px;
+        background: rgba(0, 0, 0, 0.1);
+        flex-shrink: 0;
+        margin: 0 2px;
+    }
+    .ribbon-tabs {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .ribbon-panel {
+        display: none !important;
+    }
+    .ribbon-tabs-left {
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .ribbon-tabs-left::-webkit-scrollbar {
+        display: none;
+    }
+    #btnTogglePages {
+        display: flex !important;
+    }
+    .ribbon {
+        margin: 8px;
+        border-radius: 10px;
+    }
+    .ribbon-content {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+    .ribbon-content::-webkit-scrollbar {
+        display: none;
+    }
+    .thumbnails-panel,
+    .outline-panel {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 85vw;
+        max-width: 340px;
+        height: 100%;
+        z-index: 2000;
+        transform: translateX(-100%);
+        transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+        border-radius: 0 16px 16px 0;
+        box-shadow: none;
+    }
+    .thumbnails-panel.mobile-open,
+    .outline-panel.mobile-open {
+        transform: translateX(0);
+        box-shadow: 4px 0 40px rgba(0, 0, 0, 0.25);
+    }
+    .sidebar-backdrop {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 9998;
+        backdrop-filter: blur(3px);
+        -webkit-backdrop-filter: blur(3px);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+    }
+    .sidebar-backdrop.visible {
+        opacity: 1;
+        pointer-events: auto;
+    }
+}
+
 @media (max-width: 880px) {
   .topbar-right .btn span { display: none; }
   .topbar-right .btn { padding: 0 8px; }

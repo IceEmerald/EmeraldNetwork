@@ -6015,6 +6015,165 @@ function startAutosaveSnapshots() {
 
   var activeRibbonTab = "home";
   var docsImagePreviousTab = "home";
+  var docsPanelsOpen = false;
+  var touchStartX = 0, touchStartY = 0, touchStartTime = 0, isSwiping = false;
+
+  function openDocsPanels() {
+    var thumbs = $("thumbnailsPanel");
+    var outline = $("outlinePanel");
+    var backdrop = document.querySelector(".sidebar-backdrop");
+    if (!backdrop) {
+      backdrop = document.createElement("div");
+      backdrop.className = "sidebar-backdrop";
+      backdrop.addEventListener("click", closeDocsPanels);
+      document.body.appendChild(backdrop);
+    }
+    if (thumbs) thumbs.classList.add("mobile-open");
+    if (outline) outline.classList.add("mobile-open");
+    backdrop.classList.add("visible");
+    docsPanelsOpen = true;
+  }
+
+  function closeDocsPanels() {
+    var thumbs = $("thumbnailsPanel");
+    var outline = $("outlinePanel");
+    var backdrop = document.querySelector(".sidebar-backdrop");
+    if (thumbs) thumbs.classList.remove("mobile-open");
+    if (outline) outline.classList.remove("mobile-open");
+    if (backdrop) backdrop.classList.remove("visible");
+    docsPanelsOpen = false;
+  }
+
+  function setupDocsSwipeGesture() {
+    var app = document.querySelector(".app");
+    if (!app) return;
+    var LEFT_EDGE_ZONE = 40;
+    app.addEventListener("touchstart", function (e) {
+      if (window.innerWidth > 1023) return;
+      var touch = e.touches[0];
+      touchStartX = touch.clientX;
+      touchStartY = touch.clientY;
+      touchStartTime = Date.now();
+      isSwiping = false;
+    }, { passive: true });
+    app.addEventListener("touchmove", function (e) {
+      if (window.innerWidth > 1023) return;
+      var touch = e.touches[0];
+      var dx = touch.clientX - touchStartX;
+      var dy = touch.clientY - touchStartY;
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10) {
+        isSwiping = true;
+      }
+      if (!isSwiping) return;
+      var canOpen = touchStartX <= LEFT_EDGE_ZONE;
+      var thumbs = $("thumbnailsPanel");
+      if (!thumbs) return;
+      var panelWidth = thumbs.offsetWidth;
+      if (docsPanelsOpen && dx < 0) {
+        var clampedDx = Math.max(dx, -panelWidth);
+        thumbs.style.transform = "translateX(" + clampedDx + "px)";
+        thumbs.style.transition = "none";
+        if (outline) outline.style.transform = "translateX(" + clampedDx + "px)";
+        if (outline) outline.style.transition = "none";
+      } else if (!docsPanelsOpen && dx > 0 && canOpen) {
+        var clampedDx = Math.min(dx - panelWidth, 0);
+        thumbs.style.transform = "translateX(" + clampedDx + "px)";
+        thumbs.style.transition = "none";
+        if (outline) outline.style.transform = "translateX(" + clampedDx + "px)";
+        if (outline) outline.style.transition = "none";
+      }
+    }, { passive: true });
+    app.addEventListener("touchend", function (e) {
+      if (window.innerWidth > 1023) return;
+      var touch = e.changedTouches[0];
+      var dx = touch.clientX - touchStartX;
+      var dy = touch.clientY - touchStartY;
+      var dt = Date.now() - touchStartTime;
+      var thumbs = $("thumbnailsPanel");
+      if (thumbs) {
+        thumbs.style.transition = "";
+        thumbs.style.transform = "";
+      }
+      var outline = $("outlinePanel");
+      if (outline) {
+        outline.style.transition = "";
+        outline.style.transform = "";
+      }
+      var THRESHOLD = 50;
+      var MAX_VERTICAL = 80;
+      var MAX_TIME = 600;
+      var isHorizontalSwipe =
+        Math.abs(dx) > THRESHOLD &&
+        Math.abs(dy) < MAX_VERTICAL &&
+        dt < MAX_TIME;
+      if (!isHorizontalSwipe) return;
+      var startedAtEdge = touchStartX <= LEFT_EDGE_ZONE;
+      if (dx > 0 && !docsPanelsOpen && startedAtEdge) {
+        openDocsPanels();
+      } else if (dx < 0 && docsPanelsOpen) {
+        closeDocsPanels();
+      }
+    }, { passive: true });
+  }
+
+  function setupMobileRibbon() {
+    var ribbonContent = document.querySelector(".ribbon-content");
+    if (!ribbonContent) return;
+    if (!window.matchMedia("(max-width: 1023px)").matches) {
+      var mobileRow = document.getElementById("mobileRibbonRow");
+      if (mobileRow) mobileRow.remove();
+      return;
+    }
+    if (document.getElementById("mobileRibbonRow")) return;
+    var row = document.createElement("div");
+    row.id = "mobileRibbonRow";
+    row.className = "mobile-ribbon-row";
+    function makeBtn(cmd, icon, title) {
+      var btn = document.createElement("button");
+      btn.className = "ribbon-btn format-btn";
+      btn.title = title;
+      btn.innerHTML = icon;
+      btn.addEventListener("mousedown", function (e) { e.preventDefault(); });
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        exec(cmd);
+      });
+      return btn;
+    }
+    // History
+    row.appendChild(makeBtn("undo", '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>', "Undo"));
+    row.appendChild(makeBtn("redo", '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>', "Redo"));
+    var div0 = document.createElement("div"); div0.className = "mobile-ribbon-divider";
+    row.appendChild(div0);
+    // Clipboard
+    row.appendChild(makeBtn("cut", '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>', "Cut"));
+    row.appendChild(makeBtn("copy", '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>', "Copy"));
+    row.appendChild(makeBtn("paste", '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>', "Paste"));
+    var div1 = document.createElement("div"); div1.className = "mobile-ribbon-divider";
+    row.appendChild(div1);
+    // Format
+    row.appendChild(makeBtn("bold", '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/></svg>', "Bold"));
+    row.appendChild(makeBtn("italic", '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg>', "Italic"));
+    row.appendChild(makeBtn("underline", '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"/><line x1="4" y1="21" x2="20" y2="21"/></svg>', "Underline"));
+    row.appendChild(makeBtn("justifyLeft", '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="17" y1="18" x2="3" y2="18"/></svg>', "Align Left"));
+    row.appendChild(makeBtn("justifyCenter", '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="10" x2="6" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="18" y1="18" x2="6" y2="18"/></svg>', "Center"));
+    row.appendChild(makeBtn("justifyRight", '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="21" y1="10" x2="7" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="21" y1="18" x2="7" y2="18"/></svg>', "Align Right"));
+    var div2 = document.createElement("div"); div2.className = "mobile-ribbon-divider";
+    row.appendChild(div2);
+    // Insert
+    row.appendChild(makeBtn("insertUnorderedList", '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>', "Bullet List"));
+    row.appendChild(makeBtn("insertOrderedList", '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><path d="M4 6h1v4"/><path d="M4 10h2"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg>', "Numbered List"));
+    // Find
+    var findBtn = document.createElement("button");
+    findBtn.className = "ribbon-btn format-btn";
+    findBtn.title = "Find & Replace";
+    findBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+    findBtn.addEventListener("mousedown", function (e) { e.preventDefault(); });
+    findBtn.addEventListener("click", function (e) { e.preventDefault(); openFind(); });
+    row.appendChild(findBtn);
+    ribbonContent.appendChild(row);
+    window.addEventListener("resize", function () { setupMobileRibbon(); });
+  }
 
   function moveRibbonIndicatorTo(tab) {
     var indicator = $("ribbonTabIndicator");
@@ -9041,6 +9200,23 @@ function startAutosaveSnapshots() {
     initRibbonTabs();
     setupImageFormatTab();
     setupTableDesignTab();
+    setupMobileRibbon();
+
+    // Mobile pages panel toggle
+    (function () {
+        var btn = $("btnTogglePages");
+        if (btn) {
+            btn.addEventListener("click", function () {
+                if (docsPanelsOpen) {
+                    closeDocsPanels();
+                } else {
+                    openDocsPanels();
+                }
+            });
+        }
+    })();
+
+    setupDocsSwipeGesture();
 
     var exportToggle = $("btnExportToggle");
     var exportMenu = $("exportMenu");
