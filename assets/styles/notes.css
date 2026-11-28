@@ -3331,3 +3331,38 @@
         -webkit-backdrop-filter: none !important;
     }
 
+
+.link-preview {
+    position: fixed;
+    z-index: 250;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 14px;
+    color: #374151;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    max-width: 420px;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.15s, transform 0.15s;
+}
+
+.link-preview.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.link-preview .lp-url {
+    color: #0078d4;
+    font-weight: 600;
+    font-size: 14px;
+    word-break: break-all;
+}
+
+.link-preview .lp-hint {
+    color: #8a8886;
+    font-size: 13px;
+    margin-top: 4px;
+}

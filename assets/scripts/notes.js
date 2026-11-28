@@ -2119,6 +2119,59 @@ class NotesApp {
         if (zoomInBtn) zoomInBtn.addEventListener('click', () => this.zoomIn());
         if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => this.zoomOut());
     }
+    initLinkPreview() {
+        if (this._linkPreviewEl) return;
+        const editor = document.getElementById('textEditor');
+        if (!editor) return;
+        const el = document.createElement('div');
+        el.className = 'link-preview';
+        document.body.appendChild(el);
+        this._linkPreviewEl = el;
+        this._linkPreviewTimer = null;
+        document.addEventListener('mouseover', (e) => {
+            const a = e.target && e.target.closest ? e.target.closest('a') : null;
+            if (a && editor.contains(a)) {
+                clearTimeout(this._linkPreviewTimer);
+                this._linkPreviewTimer = setTimeout(() => this.showLinkPreview(a, e), 350);
+            }
+        });
+        document.addEventListener('mouseout', (e) => {
+            const a = e.target && e.target.closest ? e.target.closest('a') : null;
+            if (a && editor.contains(a)) {
+                clearTimeout(this._linkPreviewTimer);
+                if (this._linkPreviewEl) this._linkPreviewEl.classList.remove('show');
+            }
+        });
+        document.addEventListener('mousemove', (e) => {
+            if (this._linkPreviewEl && this._linkPreviewEl.classList.contains('show')) {
+                this.positionLinkPreview(e);
+            }
+        });
+    }
+    showLinkPreview(a, e) {
+        if (!this._linkPreviewEl || !a) return;
+        const href = String(a.getAttribute('href') || '').trim();
+        let url = href;
+        if (!/^(https?:\/\/|mailto:|tel:|#|\/)/i.test(url)) url = 'https://' + url;
+        const text = a.textContent || '';
+        this._linkPreviewEl.innerHTML =
+            '<div class="lp-url">' + this.escapeHtml(url) + '</div>' +
+            '<div class="lp-hint">' + (text ? '\u201C' + this.escapeHtml(text) + '\u201D \u00B7 ' : '') + 'Click to open</div>';
+        this.positionLinkPreview(e);
+        this._linkPreviewEl.classList.add('show');
+    }
+    positionLinkPreview(e) {
+        if (!this._linkPreviewEl) return;
+        const el = this._linkPreviewEl;
+        let x = e.clientX + 14;
+        let y = e.clientY + 18;
+        const w = el.offsetWidth;
+        const h = el.offsetHeight;
+        if (x + w > window.innerWidth - 12) x = window.innerWidth - w - 12;
+        if (y + h > window.innerHeight - 12) y = e.clientY - h - 14;
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+    }
     setupTextEditor() {
         const editor = document.getElementById('textEditor');
         if (!editor) return;
@@ -2254,6 +2307,7 @@ class NotesApp {
                 }, 0);
             }
         });
+        this.initLinkPreview();
     }
     saveSelection() {
         const selection = window.getSelection();
