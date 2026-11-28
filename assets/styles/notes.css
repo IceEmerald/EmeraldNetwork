@@ -360,6 +360,9 @@
         width: 0;
         min-width: 0;
     }
+    body.no-active-note .swipe-hint {
+        display: none !important;
+    }
     .sidebar.appearing {
         animation: sidebarSlideIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
     }
@@ -1403,6 +1406,26 @@
         .sidebar.collapsed.mobile-open {
             transform: translateX(0);
         }
+        body.notes-zen .sidebar,
+        body.notes-zen .sidebar.collapsed {
+            opacity: 0 !important;
+            pointer-events: none !important;
+            width: 0 !important;
+            min-width: 0 !important;
+            transform: translateX(-100%) !important;
+        }
+        body.notes-zen .sidebar.mobile-open,
+        body.notes-zen .sidebar.collapsed.mobile-open {
+            opacity: 1 !important;
+            pointer-events: auto !important;
+            width: 85vw !important;
+            max-width: 340px !important;
+            min-width: unset !important;
+            transform: translateX(0) !important;
+        }
+        body.notes-zen .notes-mode-switch-float {
+            display: none !important;
+        }
         .sidebar.collapsed .sidebar-header h3,
         .sidebar.collapsed .notes-list,
         .sidebar.collapsed .new-note-btn {
@@ -1457,12 +1480,17 @@
             gap: 6px;
             flex-wrap: nowrap;
             min-height: 0;
+            align-items: center;
         }
         .note-title {
             font-size: 16px;
             max-width: none;
             flex: 1;
             min-width: 0;
+            height: 36px;
+            padding: 0 4px;
+            box-sizing: border-box;
+            line-height: 36px;
         }
         .editor-actions {
             gap: 4px;
@@ -1550,9 +1578,6 @@
             top: 16px;
             left: 16px;
         }
-        .welcome-screen {
-            padding: 20px;
-        }
         .welcome-content h2 {
             font-size: 22px;
         }
@@ -1610,6 +1635,10 @@
         .note-title {
             font-size: 16px;
             max-width: 45%;
+            height: 36px;
+            padding: 0 4px;
+            box-sizing: border-box;
+            line-height: 36px;
         }
         .sidebar {
             width: 92vw;
@@ -2298,6 +2327,20 @@
     }
     #shareModal .link-modal-btn-create#shareModalCopy:hover {
         background: #b5d000;
+    }
+    #shareModal .link-modal-btn-create#shareModalClose {
+        background: #d63031 !important;
+        border: 1px solid #d57777 !important;
+        outline: none !important;
+        box-shadow: none;
+    }
+    #shareModal .link-modal-btn-create#shareModalClose:hover {
+        background: #b02525 !important;
+    }
+    #shareModal .link-modal-btn-create#shareModalClose:focus,
+    #shareModal .link-modal-btn-create#shareModalClose:focus-visible {
+        outline: none !important;
+        box-shadow: 0 0 0 2px #8b1a1a;
     }
     .link-modal-btn-create:disabled {
         background: rgba(108, 117, 125, 0.3);
@@ -3073,10 +3116,10 @@
     body.notes-zen #shareNoteBtn,
     body.notes-zen #exportNoteBtn,
     body.notes-zen #deleteNoteBtn {
-        display: none;
+        display: none !important;
     }
     body:not(.notes-zen) .zen-ribbon-toggle {
-        display: none;
+        display: none !important;
     }
     body.notes-zen .editor-actions .zen-ribbon-toggle {
 
@@ -3365,4 +3408,47 @@
     color: #8a8886;
     font-size: 13px;
     margin-top: 4px;
+}
+
+.perm-toggle {
+    display: inline-flex;
+    gap: 2px;
+    padding: 2px;
+    width: 100%;
+    background: rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 7px;
+    box-shadow: rgba(0, 0, 0, 0.04) 0 1px 2px inset;
+    box-sizing: border-box;
+}
+
+.perm-btn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: rgba(44, 62, 80, 0.7);
+    white-space: nowrap;
+    transition: background .18s, color .18s, box-shadow .18s;
+}
+
+.perm-btn:hover {
+    color: rgba(44, 62, 80, 0.95);
+    background: rgba(255, 255, 255, 0.6);
+}
+
+.perm-btn.active {
+    background: #fff;
+    color: var(--ui-accent, #a21caf);
+    box-shadow: rgba(0,0,0,.08) 0 1px 2px, rgba(162,28,175,.15) 0 0 0 1px;
 }

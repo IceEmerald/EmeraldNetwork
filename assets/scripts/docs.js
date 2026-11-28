@@ -1971,7 +1971,7 @@ function startAutosaveSnapshots() {
   }
 
   function makeDocId() {
-    return "doc_" + generateSecureId(12);
+    return "doc_" + Date.now() + "_" + generateSecureId(9);
   }
 
   function nextUntitledTitle() {

@@ -685,7 +685,12 @@ class NotesApp {
         const closeBtn = document.getElementById('shareModalClose');
         if (!shareModal || !shareLink || !permissionSelect) return;
         shareLink.value = `${window.location.origin}${window.location.pathname}?collab=${this.collabSessionId}`;
-        permissionSelect.value = this.collabPermission;
+        const updatePermButtons = () => {
+            permissionSelect.querySelectorAll('.perm-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.perm === this.collabPermission);
+            });
+        };
+        updatePermButtons();
         if (permissionGroup) permissionGroup.style.display = this.collabIsOwner ? '' : 'none';
         if (collaboratorsGroup) collaboratorsGroup.style.display = this.collabIsOwner ? '' : 'none';
         if (closeBtn) closeBtn.style.display = this.collabIsOwner ? 'inline-flex' : 'none';
@@ -696,7 +701,7 @@ class NotesApp {
             cancelBtn.removeEventListener('click', cleanup);
             if (copyBtn) copyBtn.removeEventListener('click', handleCopy);
             if (closeBtn) closeBtn.removeEventListener('click', handleCloseSession);
-            permissionSelect.removeEventListener('change', handlePermissionChange);
+            permissionSelect.removeEventListener('click', handlePermissionClick);
         };
         const handleCopy = () => {
             shareLink.select();
@@ -712,8 +717,11 @@ class NotesApp {
                 console.warn('Copy failed', error);
             }
         };
-        const handlePermissionChange = () => {
-            this.collabPermission = permissionSelect.value;
+        const handlePermissionClick = (e) => {
+            const btn = e.target && e.target.closest ? e.target.closest('.perm-btn') : null;
+            if (!btn) return;
+            this.collabPermission = btn.dataset.perm;
+            updatePermButtons();
             if (this.collabSessionId) {
                 this._dbPatch(`/sharednotes/${this.collabSessionId}`, { permission: this.collabPermission });
             }
@@ -728,7 +736,7 @@ class NotesApp {
         cancelBtn.addEventListener('click', cleanup);
         if (closeBtn) closeBtn.addEventListener('click', handleCloseSession);
         if (copyBtn) copyBtn.addEventListener('click', handleCopy);
-        permissionSelect.addEventListener('change', handlePermissionChange);
+        permissionSelect.addEventListener('click', handlePermissionClick);
     }
     showShareModal({ title = 'Live Collaboration', message = '', collaborators = [] } = {}) {
         const modal = document.getElementById('shareModal');
@@ -2364,6 +2372,7 @@ class NotesApp {
             console.error('Error executing command:', command, error);
         }
         this.updateNoteContent();
+        if (this.collabMode) this.updateCollabNoteContent();
         this.updateRibbonAvailability();
     }
     getRibbonSelectionState() {
@@ -2744,6 +2753,10 @@ class NotesApp {
         }
     }
     updateNoteContent() {
+        if (this.collabMode && this.collabNoteVisible) {
+            this.updateCollabNoteContent();
+            return;
+        }
         const note = this.notes.find(n => n.id === this.currentNoteId);
         if (note) {
             const textEditor = document.getElementById('textEditor');
@@ -3786,7 +3799,7 @@ class NotesApp {
         editor.style.fontSize = (parseFloat(getComputedStyle(editor).fontSize) * 0.9) + 'px';
     }
     generateId() {
-        return 'note_' + this.generateSecureId(12);
+        return 'note_' + Date.now() + '_' + this.generateSecureId(9);
     }
     generateSecureId(length = 16) {
         const arr = new Uint8Array(Math.ceil(length / 2));
@@ -4502,6 +4515,7 @@ class NotesApp {
             } catch { document.execCommand('fontName', false, font); }
         }
         this.updateNoteContent();
+        if (this.collabMode) this.updateCollabNoteContent();
     }
     modernFontSize(size) {
         this.restoreSelection();
@@ -4531,6 +4545,7 @@ class NotesApp {
             } catch { document.execCommand('fontSize', false, size); }
         }
         this.updateNoteContent();
+        if (this.collabMode) this.updateCollabNoteContent();
     }
     modernTextColor(color) {
         this.restoreSelection();
@@ -4563,6 +4578,7 @@ class NotesApp {
             } catch { document.execCommand('foreColor', false, color); }
         }
         this.updateNoteContent();
+        if (this.collabMode) this.updateCollabNoteContent();
     }
     modernHighlightColor(color) {
         this.restoreSelection();
@@ -4618,6 +4634,7 @@ class NotesApp {
             }
         }
         this.updateNoteContent();
+        if (this.collabMode) this.updateCollabNoteContent();
     }
 
     _stripInlineFormat(root, kind) {

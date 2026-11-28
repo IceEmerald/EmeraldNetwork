@@ -7840,7 +7840,7 @@ function _esWordCount(md) {
   return t ? t.split(/\s+/).filter(Boolean).length : 0;
 }
 async function _esImportNotes(data) {
-  const id = "note_" + generateSecureId(12);
+  const id = "note_" + Date.now() + "_" + generateSecureId(9);
   const now = new Date().toISOString();
   let arr = await _esStoreGet("emeraldcore.storage.suite.notes");
   arr = Array.isArray(arr) ? arr : [];
@@ -7859,7 +7859,7 @@ function _esWatermark(v) {
 }
 
 async function _esImportDoc(data) {
-  const id = "doc_" + generateSecureId(12);
+  const id = "doc_" + Date.now() + "_" + generateSecureId(9);
   const now = Date.now();
   const title = _esPlainText(data.title) || "Imported Document";
   const content = _esNormaliseAiRichText(_esHtml(data.content)) || "<p><br></p>";
@@ -8429,7 +8429,7 @@ slide.elements = els;
 }
 async function _esImportSlides(data) {
   await _esLoadIconDb();
-  const id = "pres_" + generateSecureId(12);
+  const id = "pres_" + Date.now() + "_" + generateSecureId(9);
   const now = Date.now();
   const title = _esPlainText(data.title) || "Imported Presentation";
   const slides = _esSplitSlides(data).map((s, i) => _esBuildSlide(s, data, i));
@@ -8655,7 +8655,7 @@ function _esBuildWorkbook(data, wbId, now) {
   };
 }
 async function _esImportSheets(data) {
-  const wbId = "book_" + generateSecureId(12);
+  const wbId = "book_" + Date.now() + "_" + generateSecureId(9);
   const now = Date.now();
   const built = _esBuildWorkbook(data, wbId, now);
   await _esSheetsPut(wbId, { id: wbId, data: built.data, savedAt: now });

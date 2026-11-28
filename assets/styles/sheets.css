@@ -2682,6 +2682,7 @@ body.no-active-wb #app {
   padding: 60px 20px;
   text-align: center;
   overflow: hidden auto;
+  grid-column: 1 / -1;
 }
 
 .no-sheets-img {
@@ -2698,6 +2699,13 @@ body.no-active-wb #app {
   font-size: 16px;
   color: rgba(44, 62, 80, 0.5);
   margin: 0;
+}
+
+.no-sheets-icon {
+  font-size: 128px;
+  color: rgba(150, 111, 80, 0.15);
+  line-height: 1;
+  font-weight: 1000;
 }
 
 @media (max-width: 960px) {

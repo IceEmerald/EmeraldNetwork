@@ -2363,10 +2363,6 @@ body.collab-non-owner #exportNoteBtn, body.collab-non-owner #deleteNoteBtn, body
         left: 16px;
     }
 
-    .welcome-screen {
-        padding: 20px;
-    }
-
     .welcome-content h2 {
         font-size: 22px;
     }

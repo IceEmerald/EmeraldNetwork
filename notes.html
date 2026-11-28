@@ -11,6 +11,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Architects+Daughter&family=Caveat:wght@400;700&family=Comfortaa:wght@400;700&family=Cookie&family=Courgette&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Dancing+Script:wght@400;700&family=DM+Mono:ital,wght@0,400;0,500&family=DM+Serif+Display&family=Dosis:wght@400;700&family=Fira+Code:wght@400;500&family=Fira+Sans:wght@400;700&family=Fredoka+One&family=Great+Vibes&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;700&family=Inconsolata:wght@400;700&family=Indie+Flower&family=Josefin+Sans:wght@400;700&family=Josefin+Slab:wght@400;700&family=Kalam:wght@400;700&family=Karla:wght@400;700&family=Kaushan+Script&family=Lato:ital,wght@0,400;0,700;1,400&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Lobster&family=Lora:ital,wght@0,400;0,700;1,400&family=Merriweather:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@400;700&family=Mulish:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Serif:wght@400;700&family=Nunito:wght@400;700&family=Nunito+Sans:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Oxygen:wght@400;700&family=Pacifico&family=Permanent+Marker&family=Poppins:wght@400;700&family=PT+Serif:ital,wght@0,400;0,700;1,400&family=Quicksand:wght@400;700&family=Raleway:wght@400;700&family=Righteous&family=Roboto:wght@400;700&family=Sacramento&family=Shadows+Into+Light&family=Source+Code+Pro:wght@400;700&family=Source+Sans+3:wght@400;700&family=Spectral:wght@400;700&family=Teko:wght@400;700&family=Titillium+Web:wght@400;700&family=Ubuntu:wght@400;700&family=Varela+Round&family=Vollkorn:wght@400;700&family=Work+Sans:wght@400;700&family=Yanone+Kaffeesatz:wght@400;700&display=swap"
         rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/assets/styles/style.css" />
     <link rel="stylesheet" href="/assets/styles/notes.css" />
     <link rel="stylesheet" href="/assets/styles/tablekit.css" />
@@ -885,10 +886,10 @@
                 </div>
                 <div class="link-input-group" id="sharePermissionGroup">
                     <label>Permissions</label>
-                    <select id="sharePermission" class="link-input">
-                        <option value="edit">Can edit</option>
-                        <option value="view">Can view</option>
-                    </select>
+                    <div id="sharePermission" class="perm-toggle" role="group" aria-label="Permissions">
+                        <button type="button" class="perm-btn" data-perm="edit">Can edit</button>
+                        <button type="button" class="perm-btn" data-perm="view">Can view</button>
+                    </div>
                 </div>
                 <div class="link-input-group" id="shareCollaboratorsList" style="margin-bottom:0;">
                     <label>Active collaborators</label>
@@ -898,8 +899,7 @@
             </div>
             <div class="link-modal-actions">
                 <button class="link-modal-btn link-modal-btn-cancel" id="shareModalCancel">Close</button>
-                <button class="link-modal-btn link-modal-btn-create" id="shareModalClose"
-                    style="background:#d63031;">Close Session</button>
+                <button class="link-modal-btn link-modal-btn-create" id="shareModalClose">Close Session</button>
                 <button class="link-modal-btn link-modal-btn-create" id="shareModalCopy">Copy Link</button>
             </div>
         </div>
