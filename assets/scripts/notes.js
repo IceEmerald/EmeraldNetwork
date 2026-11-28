@@ -2207,6 +2207,24 @@ class NotesApp {
             }, 10);
         });
         editor.addEventListener('click', (e) => {
+            const linkEl = e.target.closest ? e.target.closest('a') : null;
+            if (linkEl && linkEl.getAttribute('href')) {
+                const href = String(linkEl.getAttribute('href') || '').trim();
+                const isSafe = /^(https?:\/\/|mailto:|tel:)/i.test(href) || href.charAt(0) === '/' || href.charAt(0) === '#';
+                const shouldOpen = this.isViewOnly || e.ctrlKey || e.metaKey;
+                if (shouldOpen) {
+                    e.preventDefault();
+                    if (isSafe) {
+                        let url = href;
+                        if (!/^(https?:\/\/|mailto:|tel:|#|\/)/i.test(url)) url = 'https://' + url;
+                        window.open(url, '_blank', 'noopener');
+                    }
+                    return;
+                }
+                // Keep editing possible: don't navigate on plain click
+                e.preventDefault();
+                return;
+            }
             if (e.target.type === 'checkbox' && e.target.closest('.todo-item')) {
                 const clickedItem = e.target.closest('.todo-item');
                 const isSubTodo = clickedItem.dataset.indent === '1';

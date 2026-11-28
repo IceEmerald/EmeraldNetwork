@@ -522,7 +522,7 @@
                 title.textContent = 'No files yet';
                 text.textContent = 'Create a note, document, presentation or spreadsheet and it will appear here.';
                 const img = $('emptyStateImg');
-                if (img) img.hidden = true;
+                if (img) { img.src = '/assets/images/nofileyet.webp'; img.hidden = false; }
             }
             return;
         }
